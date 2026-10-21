@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useTelemedicine } from '../../context/TelemedicineContext';
 import { StethoscopeDspService } from '../../services/stethoscopeDspService';
+import { webrtcService } from '../../services/webrtcService';
 
 export const MultiDoctorVideoGrid: React.FC = () => {
   const {
@@ -23,11 +24,52 @@ export const MultiDoctorVideoGrid: React.FC = () => {
     setStethoscopeFilter
   } = useTelemedicine();
 
-  const webcamVideoRef = useRef<HTMLVideoElement | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDspAudioActive, setIsDspAudioActive] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(true);
+  const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
+  const [hasLocalVideo, setHasLocalVideo] = useState(false);
+
+  // WEBRTC VIDEO & AUDIO STREAM HANDLER
+  useEffect(() => {
+    webrtcService.setRole('doctor', currentPatient.id);
+    webrtcService.initLocalMedia().catch(console.warn);
+
+    const unsubLocal = webrtcService.onLocalStream((stream) => {
+      if (localVideoRef.current && stream) {
+        localVideoRef.current.srcObject = stream;
+        setHasLocalVideo(true);
+      } else {
+        setHasLocalVideo(false);
+      }
+    });
+
+    const unsubRemote = webrtcService.onRemoteStream((stream) => {
+      if (stream && stream.getVideoTracks().length > 0) {
+        setHasRemoteVideo(true);
+      } else {
+        setHasRemoteVideo(false);
+      }
+
+      if (remoteVideoRef.current && stream) {
+        remoteVideoRef.current.srcObject = stream;
+      }
+      if (remoteAudioRef.current && stream) {
+        remoteAudioRef.current.srcObject = stream;
+        remoteAudioRef.current.play().catch(() => {});
+      }
+    });
+
+    return () => {
+      unsubLocal();
+      unsubRemote();
+    };
+  }, [currentPatient.id]);
 
   // Giả lập hiệu ứng nhấp nháy giọng nói khi đang đàm thoại
   useEffect(() => {
@@ -36,30 +78,6 @@ export const MultiDoctorVideoGrid: React.FC = () => {
     }, 2800);
     return () => clearInterval(timer);
   }, []);
-
-  // WEBCAM STREAM HANDLER
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    if (callState.useRealWebcam && !callState.isCamOff) {
-      navigator.mediaDevices?.getUserMedia({ video: true, audio: false })
-        .then(s => {
-          stream = s;
-          if (webcamVideoRef.current) {
-            webcamVideoRef.current.srcObject = s;
-          }
-        })
-        .catch(err => {
-          console.warn('Webcam not accessible:', err);
-          showToast('Không thể kích hoạt Camera thật (hoặc chưa cấp quyền). Đang chuyển về luồng video mô phỏng.', 'warning');
-          setCallState(prev => ({ ...prev, useRealWebcam: false }));
-        });
-    }
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-      }
-    };
-  }, [callState.useRealWebcam, callState.isCamOff]);
 
   const handleTakeSnapshotToEmr = () => {
     const timeStr = new Date().toTimeString().split(' ')[0];
@@ -210,43 +228,30 @@ export const MultiDoctorVideoGrid: React.FC = () => {
           /* CHẾ ĐỘ VIDEO SẮC NÉT (CHÍNH + HỘI CHẨN CHUYÊN GIA) */
           <div className="w-full h-full relative flex select-none">
             
-            {/* VÙNG VIDEO BỆNH NHÂN */}
-            <div className={`h-full relative flex flex-col items-center justify-center p-4 transition-all duration-300 ${
+            {/* VÙNG VIDEO BỆNH NHÂN (TRUNG TÂM) */}
+            <div className={`h-full relative flex flex-col items-center justify-center p-0 transition-all duration-300 overflow-hidden ${
               activeConsultationSpecialist ? 'w-1/2 border-r border-slate-800/80' : 'w-full'
             }`}>
               
-              {/* Avatar Bệnh nhân với Vòng sóng Âm thanh khi phát biểu (Voice Ripple) */}
-              <div className="relative">
-                {isSpeaking && (
-                  <div className="absolute -inset-3 rounded-full bg-emerald-500/20 animate-ping opacity-60" />
-                )}
-                {isSpeaking && (
-                  <div className="absolute -inset-1.5 rounded-full border-2 border-emerald-400/50 animate-pulse" />
-                )}
+              {/* LUỒNG VIDEO BỆNH NHÂN THỰC TẾ (WEBRTC STREAM) */}
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover bg-slate-950"
+              />
+              <audio ref={remoteAudioRef} autoPlay />
 
-                <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-gradient-to-tr from-blue-600 via-teal-500 to-emerald-400 p-1 shadow-2xl relative z-10">
-                  <div className="w-full h-full rounded-full bg-slate-900 flex flex-col items-center justify-center text-white relative overflow-hidden">
-                    <svg className="w-20 h-20 text-blue-200 mt-3" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0 2c-3.33 0-10 1.67-10 5v3h20v-3c0-3.33-6.67-5-10-5z" />
-                    </svg>
-                  </div>
-                </div>
-
-                <span className="absolute bottom-0 right-0 z-20 px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-bold shadow-md flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-pulse" />
-                  Bệnh nhân
+              {/* OVERLAY THÔNG TIN NGƯỜI BỆNH TRÊN VIDEO */}
+              <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-full bg-slate-950/80 backdrop-blur-md text-white text-xs font-bold border border-slate-700 flex items-center gap-1.5 shadow-lg">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>BN. {currentPatient.name}</span>
+                  <span className="text-slate-400 font-normal">({currentPatient.age}t)</span>
                 </span>
-              </div>
-
-              {/* Tên & Thông tin người bệnh */}
-              <div className="mt-3 text-center z-10">
-                <h3 className="text-white font-bold text-sm sm:text-base flex items-center justify-center gap-1.5">
-                  <span>{currentPatient.name}</span>
-                  <span className="text-slate-400 font-normal text-xs">({currentPatient.age} tuổi)</span>
-                </h3>
-                <p className="text-blue-300 text-xs mt-0.5">
-                  Mã hồ sơ: {currentPatient.id} • BHYT: {currentPatient.bhyt}
-                </p>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold border border-emerald-500/30">
+                  {hasRemoteVideo ? 'Video Trực Tiếp HD' : 'Luồng Telehealth HD'}
+                </span>
               </div>
 
               {/* OVERLAY SINH HIỆU THỜI GIAN THỰC GÓC TRÁI DƯỚI */}
@@ -300,30 +305,22 @@ export const MultiDoctorVideoGrid: React.FC = () => {
             )}
 
             {/* PICTURE-IN-PICTURE (PIP) CAMERA CỦA BÁC SĨ (GÓC DƯỚI PHẢI) */}
-            <div className="absolute bottom-20 right-4 z-20 w-32 sm:w-40 aspect-video rounded-xl bg-slate-900 border-2 border-blue-500 overflow-hidden shadow-2xl transition hover:scale-105">
-              {callState.isCamOff ? (
-                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 text-[10px]">
-                  <VideoOff className="w-4 h-4 text-rose-400 mb-1" />
+            <div className="absolute bottom-20 right-4 z-20 w-36 sm:w-48 aspect-video rounded-2xl bg-slate-900 border-2 border-blue-500 overflow-hidden shadow-2xl transition hover:scale-105">
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`w-full h-full object-cover transform scale-x-[-1] ${callState.isCamOff ? 'hidden' : 'block'}`}
+              />
+              {callState.isCamOff && (
+                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs bg-slate-900">
+                  <VideoOff className="w-5 h-5 text-rose-400 mb-1" />
                   <span>Camera Bác sĩ tắt</span>
                 </div>
-              ) : callState.useRealWebcam ? (
-                <video
-                  ref={webcamVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover transform scale-x-[-1]"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex flex-col items-center justify-center text-white p-1">
-                  <div className="w-8 h-8 rounded-full bg-blue-600/30 border border-blue-400/40 flex items-center justify-center text-blue-300 font-bold text-xs">
-                    BS.Đức
-                  </div>
-                  <span className="text-[10px] text-slate-300 mt-1 font-semibold">Bạn (Bác sĩ)</span>
-                </div>
               )}
-              <span className="absolute bottom-1 left-1.5 px-1.5 py-0.2 bg-slate-950/80 rounded text-[9px] text-blue-300 font-bold">
-                Bác sĩ chính
+              <span className="absolute bottom-1 left-1.5 px-2 py-0.5 bg-slate-950/80 rounded text-[10px] text-blue-300 font-bold border border-slate-700/50">
+                Bạn (Bác sĩ)
               </span>
             </div>
 
@@ -336,7 +333,10 @@ export const MultiDoctorVideoGrid: React.FC = () => {
         
         {/* Nút Bật/Tắt Micro */}
         <button
-          onClick={() => setCallState(prev => ({ ...prev, isMicMuted: !prev.isMicMuted }))}
+          onClick={() => {
+            const isMuted = webrtcService.toggleAudio();
+            setCallState(prev => ({ ...prev, isMicMuted: isMuted }));
+          }}
           className={`w-10 h-10 rounded-full flex items-center justify-center transition cursor-pointer shadow-md ${
             callState.isMicMuted
               ? 'bg-rose-600 text-white'
@@ -349,7 +349,10 @@ export const MultiDoctorVideoGrid: React.FC = () => {
 
         {/* Nút Bật/Tắt Camera */}
         <button
-          onClick={() => setCallState(prev => ({ ...prev, isCamOff: !prev.isCamOff }))}
+          onClick={() => {
+            const isOff = webrtcService.toggleVideo();
+            setCallState(prev => ({ ...prev, isCamOff: isOff }));
+          }}
           className={`w-10 h-10 rounded-full flex items-center justify-center transition cursor-pointer shadow-md ${
             callState.isCamOff
               ? 'bg-rose-600 text-white'

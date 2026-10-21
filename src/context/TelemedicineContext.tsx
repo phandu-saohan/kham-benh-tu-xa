@@ -12,6 +12,7 @@ import {
 } from '../data/mockData';
 import { webSocketSync } from '../services/websocketService';
 import { RingtoneService } from '../services/ringtoneService';
+import { webrtcService } from '../services/webrtcService';
 
 interface TelemedicineContextType {
   // Global & Navigation
@@ -898,6 +899,11 @@ export const TelemedicineProvider: React.FC<{ children: ReactNode }> = ({ childr
       startedAt: new Date().toLocaleTimeString('vi-VN')
     });
 
+    // Khởi tạo âm thanh chuông chờ và chuẩn bị WebRTC phía Bác sĩ
+    RingtoneService.startOutgoingDialtone();
+    webrtcService.setRole('doctor', apt.patientId);
+    webrtcService.initLocalMedia().catch(console.warn);
+
     // Bắn sự kiện WebSocket INCOMING_CALL sang Cổng Bệnh nhân
     webSocketSync.send('INCOMING_CALL', {
       appointmentId: apt.id,
@@ -918,12 +924,16 @@ export const TelemedicineProvider: React.FC<{ children: ReactNode }> = ({ childr
   };
 
   const acceptIncomingCall = () => {
-    RingtoneService.stopRingtone();
+    RingtoneService.stopAllTones();
     RingtoneService.playCallConnectedChime();
 
     setCallSignaling(prev => ({ ...prev, status: 'connected' }));
     setActiveView('consultation');
-    setCallState(prev => ({ ...prev, isConnected: true, callSeconds: 0 }));
+    setCallState(prev => ({ ...prev, isConnected: true, callSeconds: 0, useRealWebcam: true }));
+
+    // Chuẩn bị camera & micro phía Bệnh nhân
+    webrtcService.setRole('patient', callSignaling.patientId);
+    webrtcService.initLocalMedia().catch(console.warn);
 
     // Bắn sự kiện CALL_ACCEPTED
     webSocketSync.send('CALL_ACCEPTED', {
@@ -936,8 +946,9 @@ export const TelemedicineProvider: React.FC<{ children: ReactNode }> = ({ childr
   };
 
   const declineIncomingCall = () => {
-    RingtoneService.stopRingtone();
+    RingtoneService.stopAllTones();
     RingtoneService.playCallEndChime();
+    webrtcService.endCall();
 
     setCallSignaling(prev => ({ ...prev, status: 'declined' }));
     webSocketSync.send('CALL_DECLINED', {
@@ -952,8 +963,9 @@ export const TelemedicineProvider: React.FC<{ children: ReactNode }> = ({ childr
   };
 
   const endCallAndReturnToDashboard = () => {
-    RingtoneService.stopRingtone();
+    RingtoneService.stopAllTones();
     RingtoneService.playCallEndChime();
+    webrtcService.endCall();
 
     setCallState(prev => ({ ...prev, isConnected: false }));
     setCallSignaling(prev => ({ ...prev, status: 'idle' }));
@@ -1046,17 +1058,20 @@ export const TelemedicineProvider: React.FC<{ children: ReactNode }> = ({ childr
       } 
       // 2. Tín hiệu Chấp nhận cuộc gọi (Call Accepted)
       else if (msg.event === 'CALL_ACCEPTED') {
-        RingtoneService.stopRingtone();
+        RingtoneService.stopAllTones();
         RingtoneService.playCallConnectedChime();
         setCallSignaling(prev => ({ ...prev, status: 'connected' }));
         setActiveView('consultation');
-        setCallState(prev => ({ ...prev, isConnected: true, callSeconds: 0 }));
-        showToast('Bệnh nhân đã nhấc máy! Phiên khám đang bắt đầu.', 'success');
+        setCallState(prev => ({ ...prev, isConnected: true, callSeconds: 0, useRealWebcam: true }));
+        // Khởi động WebRTC P2P Video & Audio
+        webrtcService.startCall().catch(console.warn);
+        showToast('Bệnh nhân đã nhấc máy! Đang kết nối luồng Video HD & Âm thanh...', 'success');
       } 
       // 3. Tín hiệu Từ chối cuộc gọi (Call Declined)
       else if (msg.event === 'CALL_DECLINED') {
-        RingtoneService.stopRingtone();
+        RingtoneService.stopAllTones();
         RingtoneService.playCallEndChime();
+        webrtcService.endCall();
         setCallSignaling(prev => ({ ...prev, status: 'declined' }));
         showToast('Cuộc gọi đã bị từ chối hoặc bận.', 'error');
         setTimeout(() => {
@@ -1065,8 +1080,9 @@ export const TelemedicineProvider: React.FC<{ children: ReactNode }> = ({ childr
       } 
       // 4. Tín hiệu Kết thúc cuộc gọi (Call Ended)
       else if (msg.event === 'CALL_ENDED') {
-        RingtoneService.stopRingtone();
+        RingtoneService.stopAllTones();
         RingtoneService.playCallEndChime();
+        webrtcService.endCall();
         setCallState(prev => ({ ...prev, isConnected: false }));
         setCallSignaling(prev => ({ ...prev, status: 'idle' }));
         setActiveView('dashboard');

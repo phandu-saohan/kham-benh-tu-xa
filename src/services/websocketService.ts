@@ -18,7 +18,10 @@ export type WebSocketSyncEvent =
   | 'CALL_DECLINED'
   | 'CALL_ENDED'
   | 'NEW_APPOINTMENT'
-  | 'CANCEL_APPOINTMENT';
+  | 'CANCEL_APPOINTMENT'
+  | 'WEBRTC_OFFER'
+  | 'WEBRTC_ANSWER'
+  | 'WEBRTC_ICE_CANDIDATE';
 
 export interface WebSocketMessage {
   event: WebSocketSyncEvent;
@@ -125,3 +128,4 @@ class WebSocketSyncService {
 }
 
 export const webSocketSync = new WebSocketSyncService();
+export const websocketService = webSocketSync;

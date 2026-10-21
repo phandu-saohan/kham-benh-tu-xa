@@ -14,6 +14,17 @@ export const IncomingCallModal: React.FC = () => {
     role
   } = useTelemedicine();
 
+  // Đảm bảo kích hoạt âm thanh chuông khi Modal xuất hiện
+  useEffect(() => {
+    if (callSignaling.status === 'incoming') {
+      RingtoneService.unlockContext();
+      RingtoneService.startRingtone();
+    }
+    return () => {
+      RingtoneService.stopRingtone();
+    };
+  }, [callSignaling.status]);
+
   // Chỉ hiển thị khi có cuộc gọi đến và đang ở vai trò Bệnh nhân (hoặc đối tác nhận cuộc gọi)
   if (callSignaling.status !== 'incoming') {
     return null;
@@ -72,10 +83,17 @@ export const IncomingCallModal: React.FC = () => {
         </div>
 
         {/* Call Sound Synthesizer Notice */}
-        <p className="text-[11px] text-slate-400 mt-3 flex items-center justify-center gap-1.5">
-          <Volume2 className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-          <span>Chuông âm thanh Web Audio đang phát...</span>
-        </p>
+        <button
+          onClick={() => {
+            RingtoneService.unlockContext();
+            RingtoneService.startRingtone();
+          }}
+          className="text-xs text-emerald-300 hover:text-emerald-200 mt-3 px-3 py-1.5 rounded-full bg-slate-800/80 border border-emerald-500/30 flex items-center justify-center gap-1.5 mx-auto transition cursor-pointer"
+          title="Bấm để kích hoạt phát chuông nếu trình duyệt đang tắt âm"
+        >
+          <Volume2 className="w-4 h-4 text-emerald-400 animate-pulse" />
+          <span>Chuông âm thanh đang phát (Bấm nếu chưa nghe tiếng)</span>
+        </button>
 
         {/* Action Buttons: Green Accept & Red Decline */}
         <div className="grid grid-cols-2 gap-4 mt-7 pt-4 border-t border-slate-800">

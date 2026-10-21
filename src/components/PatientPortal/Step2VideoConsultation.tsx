@@ -6,6 +6,7 @@ import {
   Droplets, X, Maximize2, Minimize2, Sparkles, SwitchCamera
 } from 'lucide-react';
 import { useTelemedicine } from '../../context/TelemedicineContext';
+import { webrtcService } from '../../services/webrtcService';
 
 export const Step2VideoConsultation: React.FC = () => {
   const {
@@ -24,7 +25,11 @@ export const Step2VideoConsultation: React.FC = () => {
   const [activeSideDrawer, setActiveSideDrawer] = useState<'none' | 'dicom' | 'chat'>('none');
   const [isDoctorSpeaking, setIsDoctorSpeaking] = useState(true);
   const patientDicomCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const webcamVideoRef = useRef<HTMLVideoElement | null>(null);
+  
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
 
   // Giả lập hiệu ứng Bác sĩ đang nói chuyện
   useEffect(() => {
@@ -41,27 +46,35 @@ export const Step2VideoConsultation: React.FC = () => {
     }
   }, [dicomState.annotations.length]);
 
-  // WEBCAM STREAM CHO BỆNH NHÂN
+  // WEBRTC VIDEO & AUDIO STREAM HANDLER CHO BỆNH NHÂN
   useEffect(() => {
-    let stream: MediaStream | null = null;
-    if (callState.useRealWebcam && !callState.isCamOff) {
-      navigator.mediaDevices?.getUserMedia({ video: true, audio: false })
-        .then(s => {
-          stream = s;
-          if (webcamVideoRef.current) {
-            webcamVideoRef.current.srcObject = s;
-          }
-        })
-        .catch(err => {
-          console.warn('Patient webcam access error:', err);
-        });
-    }
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
+    webrtcService.setRole('patient', currentPatient.id);
+    webrtcService.initLocalMedia().catch(console.warn);
+
+    const unsubLocal = webrtcService.onLocalStream((stream) => {
+      if (localVideoRef.current && stream) {
+        localVideoRef.current.srcObject = stream;
       }
+    });
+
+    const unsubRemote = webrtcService.onRemoteStream((stream) => {
+      if (stream && stream.getVideoTracks().length > 0) {
+        setHasRemoteVideo(true);
+      }
+      if (remoteVideoRef.current && stream) {
+        remoteVideoRef.current.srcObject = stream;
+      }
+      if (remoteAudioRef.current && stream) {
+        remoteAudioRef.current.srcObject = stream;
+        remoteAudioRef.current.play().catch(() => {});
+      }
+    });
+
+    return () => {
+      unsubLocal();
+      unsubRemote();
     };
-  }, [callState.useRealWebcam, callState.isCamOff]);
+  }, [currentPatient.id]);
 
   // RENDER SYNCHRONIZED DICOM CANVAS FOR PATIENT (LIVE SHARING FROM DOCTOR!)
   useEffect(() => {
@@ -234,7 +247,7 @@ export const Step2VideoConsultation: React.FC = () => {
               </div>
             </div>
 
-            {/* VIDEO STAGE: HÌNH ẢNH BÁC SĨ CHÍNH */}
+            {/* VIDEO STAGE: HÌNH ẢNH BÁC SĨ CHÍNH (WEBRTC STREAM) */}
             <div className="absolute inset-0 flex items-center justify-center bg-slate-950 overflow-hidden">
               {isLowBandwidth ? (
                 /* CHẾ ĐỘ MẠNG YẾU */
@@ -253,18 +266,27 @@ export const Step2VideoConsultation: React.FC = () => {
                   </span>
                 </div>
               ) : (
-                /* CHẾ ĐỘ VIDEO SẮC NÉT */
-                <div className="w-full h-full relative flex items-center justify-center p-4">
-                  {/* Vòng hào quang âm thanh khi bác sĩ đang nói */}
-                  {isDoctorSpeaking && (
-                    <div className="absolute w-44 h-44 rounded-full bg-blue-500/15 animate-ping" />
-                  )}
+                /* CHẾ ĐỘ VIDEO TRỰC TIẾP TỪ BÁC SĨ */
+                <div className="w-full h-full relative flex items-center justify-center p-0 overflow-hidden">
+                  
+                  {/* LUỒNG VIDEO BÁC SĨ THỰC TẾ QUA WEBRTC */}
+                  <video
+                    ref={remoteVideoRef}
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-cover bg-slate-950"
+                  />
+                  <audio ref={remoteAudioRef} autoPlay />
 
-                  <div className="w-32 h-32 sm:w-44 sm:h-44 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-teal-400 p-1 shadow-2xl relative z-10">
-                    <div className="w-full h-full rounded-full bg-slate-900 flex flex-col items-center justify-center text-white relative overflow-hidden">
-                      <Stethoscope className="w-14 h-14 sm:w-16 sm:h-16 text-blue-400 mb-1" />
-                      <span className="text-xs sm:text-sm font-bold text-blue-200">BS. Vũ Minh Đức</span>
-                    </div>
+                  {/* OVERLAY THÔNG TIN BÁC SĨ ĐIỀU TRỊ */}
+                  <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
+                    <span className="px-3 py-1 rounded-full bg-slate-950/80 backdrop-blur-md text-white text-xs font-bold border border-slate-700 flex items-center gap-1.5 shadow-lg">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      <span>BS.CKII Vũ Minh Đức</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-semibold border border-blue-500/30">
+                      {hasRemoteVideo ? 'Video Trực Tiếp HD' : 'Phòng Khám Lâm Sàng HD'}
+                    </span>
                   </div>
 
                   {/* Phụ đề lời thoại tự động (AI Live Captions) */}
@@ -275,30 +297,25 @@ export const Step2VideoConsultation: React.FC = () => {
                   </div>
 
                   {/* CAMERA PIP CỦA BỆNH NHÂN (GÓC PHẢI DƯỚI) */}
-                  <div className="absolute bottom-20 right-4 z-20 w-32 sm:w-44 aspect-video rounded-2xl bg-slate-900 border-2 border-emerald-400 overflow-hidden shadow-2xl flex flex-col items-center justify-center text-white text-xs">
-                    {callState.isCamOff ? (
-                      <div className="text-center p-2 text-slate-400 text-[10px]">
-                        <VideoOff className="w-4 h-4 mx-auto text-rose-400 mb-0.5" />
+                  <div className="absolute bottom-20 right-4 z-20 w-36 sm:w-48 aspect-video rounded-2xl bg-slate-900 border-2 border-emerald-400 overflow-hidden shadow-2xl">
+                    <video
+                      ref={localVideoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className={`w-full h-full object-cover transform scale-x-[-1] ${callState.isCamOff ? 'hidden' : 'block'}`}
+                    />
+                    {callState.isCamOff && (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs bg-slate-900">
+                        <VideoOff className="w-5 h-5 text-rose-400 mb-1" />
                         <span>Camera bạn tắt</span>
                       </div>
-                    ) : callState.useRealWebcam ? (
-                      <video
-                        ref={webcamVideoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className="w-full h-full object-cover transform scale-x-[-1]"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800 text-white p-2">
-                        <span className="font-bold text-xs">{currentPatient.name}</span>
-                        <span className="text-[10px] text-emerald-300">Camera của bạn</span>
-                      </div>
                     )}
-                    <span className="absolute bottom-1 left-2 px-1.5 py-0.2 bg-slate-950/80 rounded text-[9px] text-emerald-300 font-bold">
+                    <span className="absolute bottom-1 left-2 px-1.5 py-0.2 bg-slate-950/80 rounded text-[9px] text-emerald-300 font-bold border border-slate-700/50">
                       Bạn (Bệnh nhân)
                     </span>
                   </div>
+
                 </div>
               )}
             </div>
@@ -308,7 +325,10 @@ export const Step2VideoConsultation: React.FC = () => {
               
               {/* Nút Bật/Tắt Micro */}
               <button
-                onClick={() => setCallState(prev => ({ ...prev, isMicMuted: !prev.isMicMuted }))}
+                onClick={() => {
+                  const isMuted = webrtcService.toggleAudio();
+                  setCallState(prev => ({ ...prev, isMicMuted: isMuted }));
+                }}
                 className={`w-11 h-11 rounded-full flex items-center justify-center transition cursor-pointer shadow-lg ${
                   callState.isMicMuted ? 'bg-rose-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-white'
                 }`}
@@ -319,12 +339,17 @@ export const Step2VideoConsultation: React.FC = () => {
 
               {/* Nút Bật/Tắt Camera */}
               <button
-                onClick={() => setCallState(prev => ({ ...prev, isCamOff: !prev.isCamOff }))}
+                onClick={() => {
+                  const isOff = webrtcService.toggleVideo();
+                  setCallState(prev => ({ ...prev, isCamOff: isOff }));
+                }}
                 className={`w-11 h-11 rounded-full flex items-center justify-center transition cursor-pointer shadow-lg ${
                   callState.isCamOff ? 'bg-rose-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-white'
                 }`}
                 title={callState.isCamOff ? 'Bật Camera' : 'Tắt Camera'}
               >
+                {callState.isCamOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+              </button>
                 {callState.isCamOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
               </button>
 
