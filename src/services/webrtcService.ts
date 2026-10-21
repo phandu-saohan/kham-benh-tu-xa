@@ -33,6 +33,7 @@ class WebRTCManager {
   private hasCameraPermission = false;
   private isUsingFallbackStream = false;
   private fallbackAnimationTimer: any = null;
+  private queuedIceCandidates: RTCIceCandidateInit[] = [];
 
   // Cấu hình STUN máy chủ công cộng Google & Cloudflare
   private readonly RTC_CONFIG: RTCConfiguration = {
@@ -256,7 +257,7 @@ class WebRTCManager {
         sdp: offer.sdp,
         type: offer.type,
         callerRole: this.role
-      });
+      }, this.role);
     } catch (err) {
       console.error('[WebRTC Error khi tạo Offer]', err);
     }
@@ -280,6 +281,15 @@ class WebRTCManager {
 
     try {
       await this.peerConnection!.setRemoteDescription(new RTCSessionDescription(offerData));
+      
+      // Xử lý các ICE candidate đến trước khi setRemoteDescription
+      while (this.queuedIceCandidates.length > 0) {
+        const cand = this.queuedIceCandidates.shift();
+        if (cand && this.peerConnection) {
+          await this.peerConnection.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
+        }
+      }
+
       const answer = await this.peerConnection!.createAnswer();
       await this.peerConnection!.setLocalDescription(answer);
 
@@ -288,7 +298,7 @@ class WebRTCManager {
         sdp: answer.sdp,
         type: answer.type,
         responderRole: this.role
-      });
+      }, this.role);
     } catch (err) {
       console.error('[WebRTC Error khi xử lý Offer]', err);
     }
@@ -303,6 +313,15 @@ class WebRTCManager {
 
     try {
       await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answerData));
+      
+      // Xử lý các ICE candidate đến trước khi setRemoteDescription
+      while (this.queuedIceCandidates.length > 0) {
+        const cand = this.queuedIceCandidates.shift();
+        if (cand && this.peerConnection) {
+          await this.peerConnection.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
+        }
+      }
+
       console.log('[WebRTC] Bắt tay SDP hoàn tất thành công!');
     } catch (err) {
       console.error('[WebRTC Error khi setRemoteDescription(Answer)]', err);
@@ -313,7 +332,10 @@ class WebRTCManager {
    * Nhận ICE Candidate
    */
   public async handleRemoteIceCandidate(candidateData: RTCIceCandidateInit): Promise<void> {
-    if (!this.peerConnection) return;
+    if (!this.peerConnection || !this.peerConnection.remoteDescription) {
+      this.queuedIceCandidates.push(candidateData);
+      return;
+    }
     try {
       await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidateData));
     } catch (err) {
@@ -335,7 +357,7 @@ class WebRTCManager {
     // Khi tìm thấy ứng viên ICE nội bộ, gửi sang bên kia
     this.peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
-        websocketService.send('WEBRTC_ICE_CANDIDATE', event.candidate.toJSON());
+        websocketService.send('WEBRTC_ICE_CANDIDATE', event.candidate.toJSON(), this.role);
       }
     };
 

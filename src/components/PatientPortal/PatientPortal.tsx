@@ -7,6 +7,7 @@ import {
   SignalHigh, SignalLow, QrCode, Droplets, CheckCircle2, ArrowLeft, History
 } from 'lucide-react';
 import { useTelemedicine } from '../../context/TelemedicineContext';
+import { webrtcService } from '../../services/webrtcService';
 
 export const PatientPortal: React.FC = () => {
   const {
@@ -43,8 +44,11 @@ export const PatientPortal: React.FC = () => {
   const [linkUrl, setLinkUrl] = useState('');
   const chatBottomRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const webcamVideoRef = useRef<HTMLVideoElement | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const patientDicomCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
 
   // Cuộn chat xuống cuối khi có tin nhắn mới
   useEffect(() => {
@@ -59,27 +63,35 @@ export const PatientPortal: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // WebCam của bệnh nhân
+  // WEBRTC VIDEO & AUDIO STREAM CHO BỆNH NHÂN
   useEffect(() => {
-    let stream: MediaStream | null = null;
-    if (callState.useRealWebcam && !callState.isCamOff) {
-      navigator.mediaDevices?.getUserMedia({ video: true, audio: false })
-        .then(s => {
-          stream = s;
-          if (webcamVideoRef.current) {
-            webcamVideoRef.current.srcObject = s;
-          }
-        })
-        .catch(err => {
-          console.warn('Patient webcam access error:', err);
-        });
-    }
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
+    webrtcService.setRole('patient', currentPatient.id);
+    webrtcService.initLocalMedia().catch(console.warn);
+
+    const unsubLocal = webrtcService.onLocalStream((stream) => {
+      if (localVideoRef.current && stream) {
+        localVideoRef.current.srcObject = stream;
       }
+    });
+
+    const unsubRemote = webrtcService.onRemoteStream((stream) => {
+      if (stream && stream.getVideoTracks().length > 0) {
+        setHasRemoteVideo(true);
+      }
+      if (remoteVideoRef.current && stream) {
+        remoteVideoRef.current.srcObject = stream;
+      }
+      if (remoteAudioRef.current && stream) {
+        remoteAudioRef.current.srcObject = stream;
+        remoteAudioRef.current.play().catch(() => {});
+      }
+    });
+
+    return () => {
+      unsubLocal();
+      unsubRemote();
     };
-  }, [callState.useRealWebcam, callState.isCamOff]);
+  }, [currentPatient.id]);
 
   // Tự động chuyển tab sang PACS khi Bác sĩ vẽ chú thích
   useEffect(() => {
@@ -385,13 +397,15 @@ export const PatientPortal: React.FC = () => {
               </div>
             </div>
 
-            {/* Doctor Main Video Stream */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <img
-                src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=900"
-                alt="Doctor Live Feed"
-                className="w-full h-full object-cover filter brightness-95"
+            {/* Doctor Main Video Stream (WebRTC Live Stream) */}
+            <div className="absolute inset-0 flex items-center justify-center bg-slate-950 overflow-hidden">
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover bg-slate-950"
               />
+              <audio ref={remoteAudioRef} autoPlay />
 
               {/* Speaking Indicator Border Wave */}
               {isDoctorSpeaking && (
@@ -400,28 +414,21 @@ export const PatientPortal: React.FC = () => {
             </div>
 
             {/* Patient Picture-in-Picture (PiP) Thumbnail */}
-            <div className="absolute bottom-16 right-4 w-32 sm:w-40 aspect-video rounded-2xl overflow-hidden border-2 border-white/60 shadow-2xl bg-slate-900 z-20">
-              {callState.isCamOff ? (
-                <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800 text-slate-400 text-[10px]">
+            <div className="absolute bottom-16 right-4 w-36 sm:w-48 aspect-video rounded-2xl overflow-hidden border-2 border-emerald-400 shadow-2xl bg-slate-900 z-20">
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`w-full h-full object-cover transform -scale-x-100 ${callState.isCamOff ? 'hidden' : 'block'}`}
+              />
+              {callState.isCamOff && (
+                <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800 text-slate-400 text-xs">
                   <VideoOff className="w-5 h-5 mb-1 text-slate-500" />
                   <span>Camera đang tắt</span>
                 </div>
-              ) : callState.useRealWebcam ? (
-                <video
-                  ref={webcamVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover transform -scale-x-100"
-                />
-              ) : (
-                <img
-                  src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=260"
-                  alt="Patient Feed"
-                  className="w-full h-full object-cover"
-                />
               )}
-              <div className="absolute bottom-1 left-1.5 bg-black/60 px-1.5 py-0.5 rounded text-[9px] text-white font-semibold">
+              <div className="absolute bottom-1 left-1.5 bg-black/60 px-2 py-0.5 rounded text-[10px] text-emerald-300 font-bold border border-slate-700/50">
                 Bạn ({currentPatient.name})
               </div>
             </div>
@@ -430,7 +437,10 @@ export const PatientPortal: React.FC = () => {
             <div className="relative z-10 flex items-center justify-center gap-3 bg-slate-900/90 backdrop-blur-md py-2.5 px-4 rounded-2xl border border-slate-700/80 mx-auto shadow-2xl">
               {/* Mic Toggle */}
               <button
-                onClick={() => setCallState(prev => ({ ...prev, isMicMuted: !prev.isMicMuted }))}
+                onClick={() => {
+                  const isMuted = webrtcService.toggleAudio();
+                  setCallState(prev => ({ ...prev, isMicMuted: isMuted }));
+                }}
                 className={`p-2.5 rounded-xl transition cursor-pointer ${
                   callState.isMicMuted
                     ? 'bg-rose-600 text-white shadow-md'
@@ -443,7 +453,10 @@ export const PatientPortal: React.FC = () => {
 
               {/* Camera Toggle */}
               <button
-                onClick={() => setCallState(prev => ({ ...prev, isCamOff: !prev.isCamOff }))}
+                onClick={() => {
+                  const isOff = webrtcService.toggleVideo();
+                  setCallState(prev => ({ ...prev, isCamOff: isOff }));
+                }}
                 className={`p-2.5 rounded-xl transition cursor-pointer ${
                   callState.isCamOff
                     ? 'bg-rose-600 text-white shadow-md'
