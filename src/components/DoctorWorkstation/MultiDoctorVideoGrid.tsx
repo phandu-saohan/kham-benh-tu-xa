@@ -34,6 +34,12 @@ export const MultiDoctorVideoGrid: React.FC = () => {
   const [isSpeaking, setIsSpeaking] = useState(true);
   const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
   const [hasLocalVideo, setHasLocalVideo] = useState(false);
+  const [rtcState, setRtcState] = useState(webrtcService.getState());
+
+  useEffect(() => {
+    const unsubState = webrtcService.onStateChange(setRtcState);
+    return () => unsubState();
+  }, []);
 
   // WEBRTC VIDEO & AUDIO STREAM HANDLER
   useEffect(() => {
@@ -151,6 +157,30 @@ export const MultiDoctorVideoGrid: React.FC = () => {
             <span className="px-2.5 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 font-bold flex items-center gap-1.5 animate-pulse">
               <UserCheck className="w-3.5 h-3.5 text-indigo-400" />
               <span>Hội Chẩn 3 Chiều</span>
+            </span>
+          )}
+
+          {/* Badge Micro thật & Webcam */}
+          {rtcState.hasRealMicrophone ? (
+            <span
+              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium"
+              title={rtcState.audioDeviceLabel}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Micro thật: {rtcState.audioDeviceLabel ? (rtcState.audioDeviceLabel.length > 20 ? rtcState.audioDeviceLabel.slice(0, 20) + '...' : rtcState.audioDeviceLabel) : 'Online'}</span>
+            </span>
+          ) : (
+            <span className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">
+              <span>Micro mô phỏng</span>
+            </span>
+          )}
+
+          {!rtcState.hasRealCamera && (
+            <span
+              className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-medium"
+              title="Máy tính không có camera vật lý, tự động kích hoạt Avatar hội chẩn HD"
+            >
+              <span>Avatar HD</span>
             </span>
           )}
         </div>

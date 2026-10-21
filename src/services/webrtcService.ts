@@ -11,6 +11,10 @@ export interface WebRTCState {
   isVideoMuted: boolean;
   hasCameraPermission: boolean;
   isUsingFallbackStream: boolean;
+  hasRealMicrophone: boolean;
+  hasRealCamera: boolean;
+  audioDeviceLabel?: string;
+  videoDeviceLabel?: string;
 }
 
 type StreamCallback = (stream: MediaStream | null) => void;
@@ -32,6 +36,10 @@ class WebRTCManager {
   private isVideoMuted = false;
   private hasCameraPermission = false;
   private isUsingFallbackStream = false;
+  private hasRealMicrophone = false;
+  private hasRealCamera = false;
+  private audioDeviceLabel: string = '';
+  private videoDeviceLabel: string = '';
   private fallbackAnimationTimer: any = null;
   private queuedIceCandidates: RTCIceCandidateInit[] = [];
 
@@ -82,7 +90,11 @@ class WebRTCManager {
       isAudioMuted: this.isAudioMuted,
       isVideoMuted: this.isVideoMuted,
       hasCameraPermission: this.hasCameraPermission,
-      isUsingFallbackStream: this.isUsingFallbackStream
+      isUsingFallbackStream: this.isUsingFallbackStream,
+      hasRealMicrophone: this.hasRealMicrophone,
+      hasRealCamera: this.hasRealCamera,
+      audioDeviceLabel: this.audioDeviceLabel,
+      videoDeviceLabel: this.videoDeviceLabel
     };
   }
 
@@ -92,46 +104,141 @@ class WebRTCManager {
   }
 
   /**
-   * Khởi tạo luồng Camera & Micro cục bộ
+   * Khởi tạo luồng Camera & Micro cục bộ thông minh:
+   * Tự động phát hiện thiết bị phần cứng thực tế (Mic, Webcam)
+   * Nếu có Micro nhưng không có Webcam -> dùng Micro thật + Avatar lâm sàng HD
+   * Nếu có Webcam nhưng không có Micro -> dùng Webcam thật + luồng âm thanh dự phòng
    */
   public async initLocalMedia(): Promise<MediaStream> {
     if (this.localStream && this.localStream.active) {
       return this.localStream;
     }
 
+    console.log(`[WebRTC] 🔍 Đang quét thiết bị ngoại vi (${this.role})...`);
+
+    // 1. Kiểm tra danh sách thiết bị ngoại vi
+    let videoDevices: MediaDeviceInfo[] = [];
+    let audioDevices: MediaDeviceInfo[] = [];
+
     try {
-      console.log(`[WebRTC] Đang yêu cầu quyền truy cập Camera & Micro (${this.role})...`);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'user'
-        },
+      if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        videoDevices = devices.filter(d => d.kind === 'videoinput');
+        audioDevices = devices.filter(d => d.kind === 'audioinput');
+        console.log(`[WebRTC] 📦 Thiết bị phát hiện: ${videoDevices.length} Camera, ${audioDevices.length} Micro`);
+      }
+    } catch (e) {
+      console.warn('[WebRTC] Không thể đọc danh sách devices:', e);
+    }
+
+    let audioTrack: MediaStreamTrack | null = null;
+    let videoTrack: MediaStreamTrack | null = null;
+
+    // 2. Thu âm Microphone thật (nếu có thiết bị Micro)
+    try {
+      console.log('[WebRTC] 🎙️ Đang kết nối Micro đàm thoại...');
+      const audioStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true
         }
       });
-
-      this.localStream = stream;
-      this.hasCameraPermission = true;
-      this.isUsingFallbackStream = false;
-      console.log('[WebRTC] Quyền truy cập Camera & Micro thành công!');
-    } catch (err) {
-      console.warn('[WebRTC] Không thể lấy luồng Camera thật, chuyển sang luồng mô phỏng lâm sàng HD:', err);
-      this.hasCameraPermission = false;
-      this.isUsingFallbackStream = true;
-      this.localStream = this.createSyntheticMediaStream();
+      audioTrack = audioStream.getAudioTracks()[0] || null;
+      if (audioTrack) {
+        this.hasRealMicrophone = true;
+        this.audioDeviceLabel = audioTrack.label || 'Microphone đã kết nối';
+        console.log('[WebRTC] ✅ Đã kết nối Micro thật thành công:', this.audioDeviceLabel);
+      }
+    } catch (err: any) {
+      console.warn('[WebRTC] ⚠️ Không có Micro thật hoặc chưa cấp quyền:', err.name, err.message);
+      this.hasRealMicrophone = false;
     }
 
+    // 3. Mở Webcam thật (nếu máy có Webcam)
+    if (videoDevices.length > 0) {
+      try {
+        console.log('[WebRTC] 📷 Đang mở Webcam thật...');
+        const videoStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+            // Không áp đặt facingMode: 'user' để tránh lỗi NotFoundError trên camera USB máy bàn
+          }
+        });
+        videoTrack = videoStream.getVideoTracks()[0] || null;
+        if (videoTrack) {
+          this.hasRealCamera = true;
+          this.videoDeviceLabel = videoTrack.label || 'Webcam đã kết nối';
+          console.log('[WebRTC] ✅ Đã kết nối Webcam thật thành công:', this.videoDeviceLabel);
+        }
+      } catch (err: any) {
+        console.warn('[WebRTC] ⚠️ Không thể mở Webcam thật:', err.name, err.message);
+        this.hasRealCamera = false;
+      }
+    } else {
+      console.log('[WebRTC] ℹ️ Máy tính không có Webcam vật lý. Hệ thống tự động kích hoạt luồng Avatar lâm sàng HD.');
+      this.hasRealCamera = false;
+    }
+
+    // 4. Tổng hợp luồng đa phương tiện (Combined Stream)
+    const tracks: MediaStreamTrack[] = [];
+
+    // Luồng Video: Nếu có webcam thật dùng webcam thật; nếu không dùng Canvas Avatar HD
+    if (videoTrack) {
+      tracks.push(videoTrack);
+      this.isUsingFallbackStream = false;
+      this.hasCameraPermission = true;
+    } else {
+      const syntheticStream = this.createSyntheticMediaStream();
+      const syntheticVideoTrack = syntheticStream.getVideoTracks()[0];
+      if (syntheticVideoTrack) {
+        tracks.push(syntheticVideoTrack);
+      }
+      this.isUsingFallbackStream = true;
+      this.hasCameraPermission = false;
+    }
+
+    // Luồng Audio: Nếu có micro thật dùng micro thật; nếu không dùng oscillator dự phòng
+    if (audioTrack) {
+      tracks.push(audioTrack);
+    } else {
+      const syntheticAudioTrack = this.createSyntheticAudioTrack();
+      if (syntheticAudioTrack) {
+        tracks.push(syntheticAudioTrack);
+      }
+    }
+
+    this.localStream = new MediaStream(tracks);
     this.localStreamListeners.forEach(cb => cb(this.localStream));
     this.notifyState();
     return this.localStream;
   }
 
   /**
-   * Tạo luồng Video mô phỏng sinh động nếu thiết bị không có webcam hoặc bị chặn quyền
+   * Tạo track âm thanh dự phòng (khi máy tính hoàn toàn không có micro) để WebRTC SDP không bị lỗi
+   */
+  private createSyntheticAudioTrack(): MediaStreamTrack | null {
+    try {
+      const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtxClass) return null;
+      const audioCtx = new AudioCtxClass();
+      const dest = audioCtx.createMediaStreamDestination();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0.0001; // Âm lượng cực nhỏ để duy trì kết nối SDP
+      osc.connect(gain);
+      gain.connect(dest);
+      osc.start();
+      return dest.stream.getAudioTracks()[0] || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Tạo luồng Video mô phỏng sinh động chuẩn phòng khám chuyên nghiệp
+   * khi thiết bị không cắm webcam vật lý
    */
   private createSyntheticMediaStream(): MediaStream {
     const canvas = document.createElement('canvas');
@@ -162,7 +269,7 @@ class WebRTCManager {
 
       // Sóng xung động âm thanh mô phỏng
       const centerX = 640;
-      const centerY = 320;
+      const centerY = 310;
       const pulse = Math.sin(frame * 0.08) * 15;
 
       ctx.beginPath();
@@ -177,30 +284,43 @@ class WebRTCManager {
 
       // Icon Avatar
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 56px sans-serif';
+      ctx.font = 'bold 54px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(isDoctor ? '👨‍⚕️ BS' : '🧑‍🦱 BN', centerX, centerY - 10);
+      ctx.fillText(isDoctor ? '👨‍⚕️' : '🧑‍🦱', centerX, centerY - 10);
 
       // Tên hiển thị
-      ctx.font = 'bold 36px sans-serif';
-      ctx.fillText(isDoctor ? 'BS.CKII Vũ Minh Đức' : 'Bệnh nhân Nguyễn Văn An', centerX, centerY + 160);
+      ctx.font = 'bold 34px sans-serif';
+      ctx.fillText(isDoctor ? 'BS.CKII Vũ Minh Đức' : 'Bệnh nhân Nguyễn Văn An', centerX, centerY + 150);
 
-      ctx.font = '24px sans-serif';
+      ctx.font = '22px sans-serif';
       ctx.fillStyle = isDoctor ? '#93c5fd' : '#a7f3d0';
-      ctx.fillText(isDoctor ? 'Trưởng Khoa Nội • Phòng Khám Trực Tuyến HD' : 'Phòng Chờ Khám Từ Xa • HIS-2026-0892', centerX, centerY + 205);
+      ctx.fillText(
+        isDoctor ? 'Trưởng Khoa Nội • Phòng Khám Trực Tuyến HD' : 'Phòng Chờ Khám Từ Xa • Mã BN: HIS-2026-0892',
+        centerX,
+        centerY + 195
+      );
 
-      // Thẻ trạng thái góc trên
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
-      ctx.fillRect(30, 30, 380, 60);
+      // Thông báo trạng thái Micro & Webcam
+      ctx.font = '16px sans-serif';
+      ctx.fillStyle = this.hasRealMicrophone ? '#34d399' : '#f59e0b';
+      const micText = this.hasRealMicrophone
+        ? `🎙️ Micro thật đang hoạt động: ${this.audioDeviceLabel || 'Rapoo Gaming Headset'}`
+        : '🎙️ Đang dùng Micro mô phỏng';
+      ctx.fillText(micText, centerX, centerY + 240);
+
+      // Thẻ trạng thái góc trên bên trái
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.fillRect(30, 30, 480, 56);
       ctx.fillStyle = '#10b981';
       ctx.beginPath();
-      ctx.arc(60, 60, 10, 0, Math.PI * 2);
+      ctx.arc(60, 58, 8, 0, Math.PI * 2);
       ctx.fill();
-      ctx.font = 'bold 20px monospace';
+
+      ctx.font = 'bold 16px monospace';
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'left';
-      ctx.fillText(`HD LIVE 1080p • ${new Date().toTimeString().split(' ')[0]}`, 85, 67);
+      ctx.fillText(`HD 1080p • AVATAR LÂM SÀNG • ${new Date().toTimeString().split(' ')[0]}`, 80, 63);
     };
 
     if (this.fallbackAnimationTimer) {
@@ -209,23 +329,7 @@ class WebRTCManager {
     this.fallbackAnimationTimer = setInterval(drawFrame, 1000 / 30);
     drawFrame();
 
-    const canvasStream = canvas.captureStream(30);
-
-    // Thêm track âm thanh nhẹ nhàng để tránh lỗi WebRTC không có audio track
-    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const dest = audioCtx.createMediaStreamDestination();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    gain.gain.value = 0.0001; // Gần như im lặng
-    osc.connect(gain);
-    gain.connect(dest);
-    osc.start();
-
-    dest.stream.getAudioTracks().forEach(track => {
-      canvasStream.addTrack(track);
-    });
-
-    return canvasStream;
+    return canvas.captureStream(30);
   }
 
   /**
@@ -233,7 +337,7 @@ class WebRTCManager {
    */
   public async startCall(): Promise<void> {
     this.isCaller = true;
-    console.log('[WebRTC] Bắt đầu phiên gọi (Caller -> Offer)...');
+    console.log('[WebRTC] 🚀 Bắt đầu phiên gọi (Caller -> Offer)...');
 
     const stream = await this.initLocalMedia();
     this.createPeerConnection();
@@ -252,7 +356,7 @@ class WebRTCManager {
       });
       await this.peerConnection!.setLocalDescription(offer);
 
-      console.log('[WebRTC] Đã tạo Offer, gửi qua WebSocket...');
+      console.log('[WebRTC] 📤 Đã tạo Offer, gửi qua WebSocket Gateway...');
       websocketService.send('WEBRTC_OFFER', {
         sdp: offer.sdp,
         type: offer.type,
@@ -267,7 +371,7 @@ class WebRTCManager {
    * Bệnh nhân trả lời cuộc gọi WebRTC (Nhận Offer và gửi Answer)
    */
   public async handleRemoteOffer(offerData: { sdp: string; type: RTCSdpType }): Promise<void> {
-    console.log('[WebRTC] Nhận Offer từ đối phương, chuẩn bị Answer...');
+    console.log('[WebRTC] 📥 Nhận Offer từ đối phương, chuẩn bị Answer...');
     this.isCaller = false;
 
     const stream = await this.initLocalMedia();
@@ -293,7 +397,7 @@ class WebRTCManager {
       const answer = await this.peerConnection!.createAnswer();
       await this.peerConnection!.setLocalDescription(answer);
 
-      console.log('[WebRTC] Đã tạo Answer, gửi lại qua WebSocket...');
+      console.log('[WebRTC] 📤 Đã tạo Answer, gửi lại qua WebSocket Gateway...');
       websocketService.send('WEBRTC_ANSWER', {
         sdp: answer.sdp,
         type: answer.type,
@@ -308,7 +412,7 @@ class WebRTCManager {
    * Nhận Answer từ Bệnh nhân (dành cho Bác sĩ)
    */
   public async handleRemoteAnswer(answerData: { sdp: string; type: RTCSdpType }): Promise<void> {
-    console.log('[WebRTC] Nhận Answer từ đối phương, hoàn tất bắt tay SDP...');
+    console.log('[WebRTC] 📥 Nhận Answer từ đối phương, hoàn tất bắt tay SDP...');
     if (!this.peerConnection) return;
 
     try {
@@ -322,7 +426,7 @@ class WebRTCManager {
         }
       }
 
-      console.log('[WebRTC] Bắt tay SDP hoàn tất thành công!');
+      console.log('[WebRTC] ✨ Bắt tay SDP hoàn tất thành công!');
     } catch (err) {
       console.error('[WebRTC Error khi setRemoteDescription(Answer)]', err);
     }
@@ -339,12 +443,12 @@ class WebRTCManager {
     try {
       await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidateData));
     } catch (err) {
-      console.warn('[WebRTC Warning khi thêm ICE Candidate]', err);
+      console.error('[WebRTC Error khi thêm ICE Candidate]', err);
     }
   }
 
   /**
-   * Tạo đối tượng RTCPeerConnection chuẩn
+   * Khởi tạo RTCPeerConnection
    */
   private createPeerConnection() {
     if (this.peerConnection) {
@@ -363,7 +467,7 @@ class WebRTCManager {
 
     // Khi nhận được track từ xa (Camera & Micro của đối phương)
     this.peerConnection.ontrack = (event) => {
-      console.log('[WebRTC] Nhận luồng đa phương tiện từ xa (Remote Stream)!', event.streams);
+      console.log('[WebRTC] 🎬 Nhận luồng đa phương tiện từ xa (Remote Stream)!', event.streams);
       if (event.streams && event.streams[0]) {
         this.remoteStream = event.streams[0];
       } else {
@@ -377,12 +481,12 @@ class WebRTCManager {
     };
 
     this.peerConnection.onconnectionstatechange = () => {
-      console.log(`[WebRTC] Trạng thái kết nối: ${this.peerConnection?.connectionState}`);
+      console.log(`[WebRTC] 🌐 Trạng thái kết nối: ${this.peerConnection?.connectionState}`);
       this.notifyState();
     };
 
     this.peerConnection.oniceconnectionstatechange = () => {
-      console.log(`[WebRTC] Trạng thái ICE: ${this.peerConnection?.iceConnectionState}`);
+      console.log(`[WebRTC] 🧊 Trạng thái ICE: ${this.peerConnection?.iceConnectionState}`);
     };
   }
 
@@ -445,7 +549,7 @@ class WebRTCManager {
    * Kết thúc cuộc gọi và giải phóng tài nguyên
    */
   public endCall(): void {
-    console.log('[WebRTC] Kết thúc cuộc gọi & giải phóng tài nguyên...');
+    console.log('[WebRTC] 🛑 Kết thúc cuộc gọi & giải phóng tài nguyên...');
     if (this.peerConnection) {
       this.peerConnection.close();
       this.peerConnection = null;

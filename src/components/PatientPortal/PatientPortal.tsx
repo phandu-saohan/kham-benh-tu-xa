@@ -49,6 +49,12 @@ export const PatientPortal: React.FC = () => {
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const patientDicomCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
+  const [rtcState, setRtcState] = useState(webrtcService.getState());
+
+  useEffect(() => {
+    const unsubState = webrtcService.onStateChange(setRtcState);
+    return () => unsubState();
+  }, []);
 
   // Cuộn chat xuống cuối khi có tin nhắn mới
   useEffect(() => {
@@ -383,6 +389,13 @@ export const PatientPortal: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-700/80 text-xs text-white">
+                {rtcState.hasRealMicrophone ? (
+                  <span className="hidden sm:flex items-center gap-1 text-emerald-400 font-semibold" title={rtcState.audioDeviceLabel}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Micro thật</span>
+                  </span>
+                ) : null}
+
                 {isLowBandwidth ? (
                   <span className="flex items-center gap-1 text-amber-400 font-semibold">
                     <SignalLow className="w-3.5 h-3.5" />
