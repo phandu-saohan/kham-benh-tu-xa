@@ -1,0 +1,22 @@
+port: 7880
+bind_addresses:
+  - "0.0.0.0"
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 60000
+  use_external_ip: true
+keys:
+  API_KEY_HOSPITAL_TELEMED: "SECRET_KEY_PRODUCTION_LIVEKIT_2026"
+audio:
+  codec: opus
+  bitrate: 48000
+video:
+  dynacast: true
+  simulcast: true
+  codecs:
+    - mime: video/h264
+    - mime: video/vp8
+logging:
+  level: info
+  pion_level: warn

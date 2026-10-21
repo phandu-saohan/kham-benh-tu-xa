@@ -1,0 +1,44 @@
+# Caddyfile - Reverse Proxy cho Bệnh viện Đa Khoa Quốc Tế
+# Tự động cấp chứng chỉ TLS Let's Encrypt / ZeroSSL
+
+{
+    email admin@bvquocte.vn
+    admin off
+}
+
+# Thay thế bằng tên miền thật của bệnh viện (ví dụ: khambenh.bvquocte.vn hoặc :80 cho mạng nội bộ)
+:80 {
+    # 1. WebSocket Gateway (Hỗ trợ nâng cấp giao thức ws:// sang wss://)
+    @websockets {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    reverse_proxy @websockets web-app:3001
+
+    # 2. Định tuyến API Backend và Webhook
+    handle /api/* {
+        reverse_proxy web-app:3001
+    }
+
+    # 3. Định tuyến Orthanc DICOMweb PACS
+    handle /pacs/* {
+        uri strip_prefix /pacs
+        reverse_proxy orthanc-pacs:8042
+    }
+
+    # 4. Định tuyến toàn bộ Giao diện React SPA
+    handle {
+        reverse_proxy web-app:3001
+    }
+
+    # Cấu hình bảo mật HTTP Headers chuẩn y tế
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # Nén Gzip & Zstandard
+    encode zstd gzip
+}

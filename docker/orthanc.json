@@ -1,0 +1,14 @@
+{
+  "Name": "HOSPITAL_ORTHANC_PACS",
+  "StorageDirectory": "/var/lib/orthanc/db",
+  "IndexDirectory": "/var/lib/orthanc/db",
+  "DicomPort": 4242,
+  "HttpPort": 8042,
+  "DicomWeb": {
+    "Enable": true,
+    "Root": "/dicom-web/"
+  },
+  "AuthenticationEnabled": false,
+  "RemoteAccessAllowed": true,
+  "ConcurrentJobs": 4
+}
