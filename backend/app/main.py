@@ -13,7 +13,7 @@ from app.config import settings
 from app.db import get_db, Base, engine
 from app.models import (
     User, Appointment, TelehealthSession, ClinicalRecord, PrescriptionRef,
-    Payment, AuditLog, OtpCode, PatientConsent
+    Payment, AuditLog, OtpCode, PatientConsent, Department, DoctorShift
 )
 from app.schemas import (
     LoginIn, TokenOut, OtpSendIn, OtpSendOut, OtpVerifyIn, RefreshTokenIn,
@@ -21,7 +21,9 @@ from app.schemas import (
     ClinicalRecordIn, ClinicalRecordOut, PrescriptionIn,
     PaymentCreate, PaymentOut, PaymentWebhookIn, ICD10Item,
     ConsentAgreeIn, ConsentStatusOut, DigitalSignRequest, DigitalSignResponse,
-    NationalPrescriptionSyncOut, PACSViewerOut
+    NationalPrescriptionSyncOut, PACSViewerOut,
+    AmbientScribeIn, AmbientScribeOut, BhytCheckIn, BhytCheckOut,
+    DepartmentOut, DoctorShiftOut, AppointmentCancelIn, AppointmentCancelOut
 )
 from app.security import (
     verify_password, create_access_token, create_refresh_token, decode_token,
@@ -38,6 +40,8 @@ from app.national_prescription import sync_to_national_prescription_system
 from app.pdf_generator import generate_medical_record_pdf
 from app.consent import get_consent_terms, CONSENT_VERSION
 from app.encryption import encrypt_sensitive_data, decrypt_sensitive_data
+from app.ai_scribe import generate_soap_notes
+from app.bhyt import verify_and_lookup_bhyt, calculate_bhyt_consultation_fee
 
 app = FastAPI(
     title="Telemedicine Platform API",
@@ -248,7 +252,15 @@ def search_icd_codes(q: str = Query("", description="Tìm kiếm mã ICD-10 ho�
 
 @app.get("/api/v1/doctors")
 def doctors(db: Session = Depends(get_db)):
-    return [{"id": u.id, "full_name": u.full_name, "cchn": u.doctor_cchn or "008912/BYT-CCHN"} for u in db.query(User).filter(User.role == "doctor", User.is_active == True).all()]
+    return [
+        {
+            "id": u.id,
+            "full_name": u.full_name,
+            "cchn": u.doctor_cchn or "008912/BYT-CCHN",
+            "department_id": u.department_id
+        }
+        for u in db.query(User).filter(User.role == "doctor", User.is_active == True).all()
+    ]
 
 # ----------------- APPOINTMENTS & SESSIONS -----------------
 
@@ -268,8 +280,30 @@ def create_appointment(data: AppointmentCreate, db: Session = Depends(get_db), u
     if data.starts_at <= datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Thời gian hẹn phải ở trong tương lai")
     
+    # Kiểm tra ca trực và chống quá tải (anti-overload limit)
+    shift = None
+    if data.shift_id:
+        shift = db.get(DoctorShift, data.shift_id)
+        if shift:
+            if shift.doctor_id != doctor.id:
+                raise HTTPException(status_code=400, detail="Ca trực không khớp với bác sĩ đã chọn")
+            if shift.booked_count >= shift.max_patients:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Ca trực đã đủ định mức tối đa ({shift.booked_count}/{shift.max_patients} bệnh nhân). Vui lòng chọn ca trực khác để chống quá tải phòng khám."
+                )
+            shift.booked_count += 1
+
     fee = 500000
-    appt = Appointment(patient_id=user.id, doctor_id=doctor.id, starts_at=data.starts_at, reason=data.reason, fee_amount=fee)
+    appt = Appointment(
+        patient_id=user.id,
+        doctor_id=doctor.id,
+        starts_at=data.starts_at,
+        reason=data.reason,
+        fee_amount=fee,
+        shift_id=data.shift_id,
+        department_id=data.department_id or doctor.department_id
+    )
     db.add(appt)
     db.commit()
     db.refresh(appt)
@@ -814,19 +848,199 @@ def create_prescription_draft(appointment_id: int, data: PrescriptionIn, db: Ses
     db.commit()
     return {"id": row.id, "status": "draft", "summary": row.summary, "message": "Đã lưu toa thuốc nháp thành công."}
 
+# ----------------- GIAI ĐOẠN 3: AI SCRIBE, BHYT & LỊCH TRỰC CHỐNG QUÁ TẢI -----------------
+
+@app.post("/api/v1/ai/ambient-scribe", response_model=AmbientScribeOut)
+def ai_ambient_scribe(
+    data: AmbientScribeIn,
+    user: User = Depends(get_current_user)
+):
+    """
+    Trợ lý y tế AI (Ambient Scribe):
+    Tự động chuyển đổi hội thoại bác sĩ - bệnh nhân thành biên bản khám tóm tắt chuẩn SOAP
+    kèm đề xuất mã ICD-10 và toa thuốc khuyến nghị.
+    """
+    result = generate_soap_notes(
+        transcript=data.transcript,
+        patient_name=data.patient_name or "Bệnh nhân",
+        patient_age=data.patient_age
+    )
+    return result
+
+@app.post("/api/v1/insurance/bhyt/check", response_model=BhytCheckOut)
+def check_bhyt_insurance(
+    data: BhytCheckIn,
+    user: User = Depends(get_current_user)
+):
+    """
+    Tra cứu quyền lợi thẻ BHYT trực tuyến qua Cổng giám định BHYT của BHXH Việt Nam.
+    """
+    result = verify_and_lookup_bhyt(
+        bhyt_code=data.bhyt_code,
+        patient_name=data.patient_name or user.full_name
+    )
+    return result
+
+@app.post("/api/v1/appointments/{appointment_id}/apply-bhyt")
+def apply_bhyt_to_appointment(
+    appointment_id: int,
+    data: BhytCheckIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Áp dụng thẻ BHYT vào lịch khám và tự động chiết khấu theo tỷ lệ mức hưởng.
+    """
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
+    check_appointment_access(appt, user)
+    
+    bhyt_info = verify_and_lookup_bhyt(data.bhyt_code, user.full_name)
+    rate = bhyt_info["benefit_rate_percent"]
+    
+    fee_calc = calculate_bhyt_consultation_fee(base_fee=appt.fee_amount, benefit_rate=rate)
+    
+    appt.bhyt_code = bhyt_info["bhyt_code"]
+    appt.bhyt_rate = rate
+    appt.bhyt_discount = fee_calc["bhyt_discount"]
+    appt.patient_pay_amount = fee_calc["patient_pay_amount"]
+    
+    db.add(AuditLog(actor_user_id=user.id, action="appointment.apply_bhyt", resource_type="appointment", resource_id=str(appt.id)))
+    db.commit()
+    
+    return {
+        "success": True,
+        "appointment_id": appt.id,
+        "bhyt_code": appt.bhyt_code,
+        "benefit_rate_percent": rate,
+        "original_fee": appt.fee_amount,
+        "bhyt_discount": appt.bhyt_discount,
+        "patient_pay_amount": appt.patient_pay_amount,
+        "message": f"Đã áp dụng thẻ BHYT {appt.bhyt_code} thành công! Mức hưởng: {rate}%. Bệnh nhân chỉ cần đồng chi trả: {appt.patient_pay_amount:,} VND."
+    }
+
+@app.get("/api/v1/departments", response_model=list[DepartmentOut])
+def list_departments(db: Session = Depends(get_db)):
+    """
+    Danh sách Khoa/Phòng chuyên môn khám chữa bệnh từ xa.
+    """
+    depts = db.query(Department).filter_by(is_active=True).all()
+    return depts
+
+@app.get("/api/v1/doctors/{doctor_id}/shifts", response_model=list[DoctorShiftOut])
+def get_doctor_shifts(doctor_id: int, db: Session = Depends(get_db)):
+    """
+    Lấy danh sách ca trực của bác sĩ kèm kiểm tra giới hạn chống quá tải (anti-overload quota).
+    """
+    shifts = db.query(DoctorShift).filter_by(doctor_id=doctor_id, is_active=True).all()
+    results = []
+    doctor = db.get(User, doctor_id)
+    for s in shifts:
+        dept = db.get(Department, s.department_id) if s.department_id else None
+        avail = max(0, s.max_patients - s.booked_count)
+        results.append(DoctorShiftOut(
+            id=s.id,
+            doctor_id=s.doctor_id,
+            doctor_name=doctor.full_name if doctor else "Bác sĩ",
+            department_id=s.department_id,
+            department_name=dept.name if dept else "Đa khoa",
+            shift_date=s.shift_date,
+            shift_type=s.shift_type,
+            start_time=s.start_time,
+            end_time=s.end_time,
+            max_patients=s.max_patients,
+            booked_count=s.booked_count,
+            available_slots=avail,
+            is_overloaded=(avail <= 0)
+        ))
+    return results
+
+@app.post("/api/v1/appointments/{appointment_id}/cancel", response_model=AppointmentCancelOut)
+def cancel_appointment(
+    appointment_id: int,
+    data: AppointmentCancelIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Hủy lịch hẹn khám từ xa và tự động tính hoàn tiền theo chính sách bệnh viện.
+    - Hủy trước giờ khám: Hoàn tiền 100% viện phí đã đóng.
+    - Cập nhật trạng thái lịch hẹn thành 'cancelled' và ghi nhận audit log.
+    """
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
+    check_appointment_access(appt, user)
+    
+    if appt.status in ["completed", "in_progress"]:
+        raise HTTPException(status_code=400, detail="Không thể hủy buổi khám đang diễn ra hoặc đã hoàn tất")
+        
+    payment = db.query(Payment).filter_by(appointment_id=appt.id).first()
+    has_paid = payment and payment.status == "paid"
+    
+    # Chính sách hoàn tiền bệnh viện: 100% nếu hủy khi lịch chưa bắt đầu
+    refund_percent = 100 if has_paid else 0
+    refund_amount = appt.fee_amount if has_paid else 0
+    
+    appt.status = "cancelled"
+    appt.refund_amount = refund_amount
+    appt.refund_reason = data.reason
+    appt.cancelled_at = datetime.now(timezone.utc)
+    
+    if payment and has_paid:
+        payment.status = "refunded"
+        payment.refund_status = "completed"
+        
+    # Nếu có gắn ca trực thì giảm số lượng booked_count
+    if appt.shift_id:
+        shift = db.get(DoctorShift, appt.shift_id)
+        if shift and shift.booked_count > 0:
+            shift.booked_count -= 1
+            
+    db.add(AuditLog(actor_user_id=user.id, action="appointment.cancel_and_refund", resource_type="appointment", resource_id=str(appt.id)))
+    db.commit()
+    
+    return AppointmentCancelOut(
+        success=True,
+        appointment_id=appt.id,
+        status="cancelled",
+        refund_amount=refund_amount,
+        refund_percent=refund_percent,
+        refund_reason=data.reason,
+        message=f"Đã hủy lịch hẹn thành công. Số tiền hoàn trả theo chính sách viện: {refund_amount:,} VND ({refund_percent}%)."
+    )
+
 # ----------------- SEEDING & STARTUP -----------------
 
 def seed_demo():
     from app.db import SessionLocal
     db = SessionLocal()
     try:
+        # 1. Khởi tạo danh mục Khoa/Phòng nếu chưa có
+        if db.query(Department).count() == 0:
+            db.add_all([
+                Department(code="K01", name="Khoa Nội Tổng Quát", description="Khám, chẩn đoán các bệnh lý nội khoa, hô hấp, tiêu hóa, gan mật"),
+                Department(code="K02", name="Khoa Nhi", description="Chăm sóc và điều trị chuyên sâu các bệnh lý trẻ em, tư vấn dinh dưỡng"),
+                Department(code="K03", name="Khoa Da Liễu", description="Khám và điều trị viêm da cơ địa, dị ứng, mụn trứng cá, bệnh ngoài da"),
+                Department(code="K04", name="Khoa Tai Mũi Họng", description="Khám nội soi viêm họng, viêm amidan, viêm xoang, thanh quản"),
+                Department(code="K05", name="Khoa Tâm Thần & Tâm Lý Lâm Sàng", description="Tư vấn stress, rối loạn lo âu, mất ngủ, trầm cảm từ xa"),
+                Department(code="K06", name="Khoa Tim Mạch", description="Quản lý tăng huyết áp, rối loạn mỡ máu, theo dõi bệnh tim mạn tính")
+            ])
+            db.commit()
+
+        # 2. Khởi tạo tài khoản người dùng mẫu nếu chưa có
         if db.query(User).count() == 0:
+            dept_internal = db.query(Department).filter_by(code="K01").first()
+            dept_id = dept_internal.id if dept_internal else None
+            
             db.add_all([
                 User(
                     email="patient@example.test",
                     phone_number="0912345678",
                     full_name="Nguyễn Minh An (Demo)",
                     role="patient",
+                    bhyt_code="GD4797931812345",
                     password_hash=hash_password("ChangeMe123!"),
                     external_patient_id="DEMO-P001"
                 ),
@@ -836,6 +1050,7 @@ def seed_demo():
                     full_name="BS.CKII Trần Minh (Demo)",
                     role="doctor",
                     doctor_cchn="008912/BYT-CCHN",
+                    department_id=dept_id,
                     password_hash=hash_password("ChangeMe123!")
                 ),
                 User(
@@ -847,6 +1062,36 @@ def seed_demo():
                 )
             ])
             db.commit()
+
+        # 3. Khởi tạo lịch trực & giới hạn ca khám (Anti-overload Quota)
+        if db.query(DoctorShift).count() == 0:
+            doc = db.query(User).filter_by(role="doctor").first()
+            dept = db.query(Department).first()
+            if doc:
+                today = datetime.now().strftime("%Y-%m-%d")
+                db.add_all([
+                    DoctorShift(
+                        doctor_id=doc.id,
+                        department_id=dept.id if dept else None,
+                        shift_date=today,
+                        shift_type="morning",
+                        start_time="07:30",
+                        end_time="11:30",
+                        max_patients=12,
+                        booked_count=1
+                    ),
+                    DoctorShift(
+                        doctor_id=doc.id,
+                        department_id=dept.id if dept else None,
+                        shift_date=today,
+                        shift_type="afternoon",
+                        start_time="13:30",
+                        end_time="17:00",
+                        max_patients=10,
+                        booked_count=0
+                    )
+                ])
+                db.commit()
     finally:
         db.close()
 

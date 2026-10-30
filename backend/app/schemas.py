@@ -35,6 +35,8 @@ class AppointmentCreate(BaseModel):
     doctor_id: int
     starts_at: datetime
     reason: str = Field(min_length=3, max_length=500)
+    shift_id: int | None = None
+    department_id: int | None = None
 
 class AppointmentOut(BaseModel):
     id: int
@@ -144,3 +146,78 @@ class PACSViewerOut(BaseModel):
     description: str
     viewer_url: str
     source: str
+
+# --- GIAI ĐOẠN 3 SCHEMAS: AI SCRIBE, BHYT & LỊCH TRỰC CHỐNG QUÁ TẢI ---
+
+class AmbientScribeIn(BaseModel):
+    transcript: str
+    patient_name: str | None = None
+    patient_age: int = 35
+
+class SoapNote(BaseModel):
+    subjective: str
+    objective: str
+    assessment: str
+    plan: str
+
+class AmbientScribeOut(BaseModel):
+    success: bool
+    soap: SoapNote
+    extracted_symptoms: str
+    suggested_icd10_code: str
+    suggested_icd10_name: str
+    prescription_draft: str
+    allergies_warning: str
+
+class BhytCheckIn(BaseModel):
+    bhyt_code: str
+    patient_name: str | None = None
+
+class BhytCheckOut(BaseModel):
+    success: bool
+    is_valid: bool
+    bhyt_code: str
+    patient_name: str
+    benefit_rate_percent: int
+    object_group: str
+    primary_healthcare_facility: str
+    valid_from: str
+    valid_to: str
+    five_years_consecutive: str
+    telehealth_covered: bool
+    message: str
+
+class DepartmentOut(BaseModel):
+    id: int
+    code: str
+    name: str
+    description: str | None = None
+    is_active: bool
+
+class DoctorShiftOut(BaseModel):
+    id: int
+    doctor_id: int
+    doctor_name: str | None = None
+    department_id: int | None = None
+    department_name: str | None = None
+    shift_date: str
+    shift_type: str
+    start_time: str
+    end_time: str
+    max_patients: int
+    booked_count: int
+    available_slots: int
+    is_overloaded: bool
+
+class AppointmentCancelIn(BaseModel):
+    reason: str
+
+class AppointmentCancelOut(BaseModel):
+    success: bool
+    appointment_id: int
+    status: str
+    refund_amount: int
+    refund_percent: int
+    refund_reason: str
+    message: str
+

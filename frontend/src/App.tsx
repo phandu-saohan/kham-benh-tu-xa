@@ -3,12 +3,15 @@ import {
   CalendarDays, Video, FileText, FlaskConical, Pill, CreditCard,
   LogOut, HeartPulse, Clock, UserRound, ShieldCheck, ArrowRight,
   Plus, X, Phone, Lock, Stethoscope, AlertCircle, RefreshCw, QrCode,
-  FileDown, ExternalLink, PenTool
+  FileDown, ExternalLink, PenTool, Building2, Sparkles, CheckCircle2,
+  HelpCircle, ShieldAlert, Undo2
 } from 'lucide-react'
 import {
   login, sendOtp, verifyOtp, request, cancelAppointment,
   getConsentStatus, downloadMedicalRecordPdf, getPacsDicomStudies,
-  type Appointment, type User
+  checkBhyt, applyBhyt, getDepartments, getDoctorShifts,
+  type Appointment, type User, type Department, type DoctorShift,
+  type BhytCheckOut
 } from './api'
 import { VideoRoom } from './VideoRoom'
 import { DoctorWorkspace } from './DoctorWorkspace'
@@ -36,7 +39,7 @@ export default function App() {
   const [password, setPassword] = useState('ChangeMe123!')
 
   const [appointments, setAppointments] = useState<Appointment[]>([])
-  const [doctors, setDoctors] = useState<{ id: number; full_name: string }[]>([])
+  const [doctors, setDoctors] = useState<{ id: number; full_name: string; cchn?: string; department_id?: number }[]>([])
   const [error, setError] = useState('')
   const [view, setView] = useState('overview')
   
@@ -44,6 +47,21 @@ export default function App() {
   const [activeAppointment, setActiveAppointment] = useState<Appointment | null>(null)
   const [qrAppointment, setQrAppointment] = useState<Appointment | null>(null)
   const [pendingConsentAppointment, setPendingConsentAppointment] = useState<Appointment | null>(null)
+
+  // Giai đoạn 3 States: BHYT, Khoa/Phòng & Lịch trực chống quá tải, Hủy lịch & Hoàn tiền
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [selectedDeptId, setSelectedDeptId] = useState<string>('')
+  const [doctorShifts, setDoctorShifts] = useState<DoctorShift[]>([])
+  const [selectedShiftId, setSelectedShiftId] = useState<number | null>(null)
+
+  const [bhytCode, setBhytCode] = useState('GD4797931812345')
+  const [bhytInfo, setBhytInfo] = useState<BhytCheckOut | null>(null)
+  const [checkingBhyt, setCheckingBhyt] = useState(false)
+  const [applyingBhytId, setApplyingBhytId] = useState<number | null>(null)
+
+  const [cancelModalAppt, setCancelModalAppt] = useState<Appointment | null>(null)
+  const [cancelReasonText, setCancelReasonText] = useState('Bận lịch đột xuất, xin hủy hẹn khám')
+  const [cancelling, setCancelling] = useState(false)
 
   const [showBooking, setShowBooking] = useState(false)
   const [doctorId, setDoctorId] = useState('')
@@ -55,8 +73,12 @@ export default function App() {
 
   async function loadDashboard(current: User) {
     try {
-      const list = await request<Appointment[]>('/api/v1/appointments')
+      const [list, depts] = await Promise.all([
+        request<Appointment[]>('/api/v1/appointments'),
+        getDepartments().catch(() => [])
+      ])
       setAppointments(list)
+      setDepartments(depts)
       if (current.role === 'patient') {
         const [his, pacsData] = await Promise.all([
           request<any>('/api/v1/patients/me/his-summary').catch(() => null),
@@ -73,6 +95,17 @@ export default function App() {
       setError(e instanceof Error ? e.message : 'Không tải được dữ liệu')
     }
   }
+
+  // Tải ca trực khi chọn Bác sĩ
+  useEffect(() => {
+    if (doctorId) {
+      getDoctorShifts(Number(doctorId))
+        .then(setDoctorShifts)
+        .catch(() => setDoctorShifts([]))
+    } else {
+      setDoctorShifts([])
+    }
+  }, [doctorId])
 
   useEffect(() => {
     const saved = localStorage.getItem('tm_token')
@@ -156,10 +189,13 @@ export default function App() {
         body: JSON.stringify({
           doctor_id: Number(doctorId),
           starts_at: new Date(startsAt).toISOString(),
-          reason
+          reason,
+          shift_id: selectedShiftId || undefined,
+          department_id: selectedDeptId ? Number(selectedDeptId) : undefined
         })
       })
       setShowBooking(false)
+      setSelectedShiftId(null)
       setToast('Lịch hẹn đã được khởi tạo! Mời bạn quét mã VietQR để thanh toán xác nhận.')
       if (user) await loadDashboard(user)
       setQrAppointment(res)
@@ -188,15 +224,64 @@ export default function App() {
     }
   }
 
-  // Hủy lịch hẹn
-  async function handleCancelAppointment(a: Appointment) {
-    if (!confirm(`Bạn có chắc chắn muốn hủy lịch hẹn #${a.id}?`)) return
+  // Tra cứu BHYT trực tuyến
+  async function handleCheckBhyt() {
+    if (!bhytCode.trim()) {
+      setError('Vui lòng nhập mã thẻ BHYT')
+      return
+    }
+    setCheckingBhyt(true)
+    setError('')
     try {
-      await cancelAppointment(a.id)
-      setToast(`Đã hủy lịch hẹn #${a.id}. ${a.status === 'confirmed' ? 'Hệ thống đã kích hoạt hoàn tiền tự động.' : ''}`)
+      const res = await checkBhyt(bhytCode, user?.full_name)
+      setBhytInfo(res)
+      setToast(res.message)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Tra cứu BHYT thất bại')
+    } finally {
+      setCheckingBhyt(false)
+    }
+  }
+
+  // Áp dụng BHYT vào lịch hẹn
+  async function handleApplyBhyt(appointmentId: number) {
+    if (!bhytCode.trim()) {
+      setError('Vui lòng nhập mã thẻ BHYT hợp lệ')
+      return
+    }
+    setApplyingBhytId(appointmentId)
+    setError('')
+    try {
+      const res = await applyBhyt(appointmentId, bhytCode)
+      setToast(res.message)
+      if (user) await loadDashboard(user)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Không thể áp dụng BHYT')
+    } finally {
+      setApplyingBhytId(null)
+    }
+  }
+
+  // Mở modal Hủy lịch hẹn
+  function handleCancelAppointment(a: Appointment) {
+    setCancelModalAppt(a)
+    setCancelReasonText('Bận lịch đột xuất, xin hủy hẹn khám')
+  }
+
+  // Thực hiện Hủy lịch & Hoàn tiền theo chính sách
+  async function handleConfirmCancel() {
+    if (!cancelModalAppt) return
+    setCancelling(true)
+    setError('')
+    try {
+      const res = await cancelAppointment(cancelModalAppt.id, cancelReasonText)
+      setToast(res.message)
+      setCancelModalAppt(null)
       if (user) await loadDashboard(user)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không thể hủy lịch')
+    } finally {
+      setCancelling(false)
     }
   }
 
@@ -384,6 +469,7 @@ export default function App() {
             ['records', 'Hồ sơ bệnh án', FileText],
             ['results', 'Cận lâm sàng & PACS', FlaskConical],
             ['prescriptions', 'Đơn thuốc Quốc gia', Pill],
+            ['insurance', 'Bảo hiểm Y tế (BHYT)', ShieldCheck],
             ['payments', 'Thanh toán VietQR', CreditCard]
           ].map(([id, label, Icon]: any) => (
             <button
@@ -661,6 +747,107 @@ export default function App() {
           </section>
         )}
 
+        {/* Tab: Cổng Giám định BHYT & Bảo lãnh viện phí */}
+        {view === 'insurance' && (
+          <section className="panel page-panel">
+            <div className="panel-heading">
+              <div>
+                <h3>Cổng Giám định BHYT & Quyền lợi Bảo hiểm Y tế</h3>
+                <p>Tra cứu trực tuyến quyền lợi thẻ BHYT theo chuẩn BHXH Việt Nam (QĐ 1666/QĐ-BHXH)</p>
+              </div>
+            </div>
+
+            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #e2e8f0' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>
+                Nhập mã thẻ BHYT (15 ký tự hoặc mã số BHXH 10 số):
+              </label>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: GD4797931812345 hoặc DN4010123456789..."
+                  value={bhytCode}
+                  onChange={e => setBhytCode(e.target.value)}
+                  style={{ flex: 1, padding: '10px 14px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase' }}
+                />
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={handleCheckBhyt}
+                  disabled={checkingBhyt || !bhytCode.trim()}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  <ShieldCheck size={16} />
+                  {checkingBhyt ? 'Đang tra cứu...' : 'Tra cứu thẻ BHYT'}
+                </button>
+              </div>
+            </div>
+
+            {bhytInfo && (
+              <div style={{ background: 'linear-gradient(135deg, #0f766e, #115e59)', color: '#fff', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 12px rgba(15,118,110,0.25)', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '14px', marginBottom: '16px' }}>
+                  <div>
+                    <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.9 }}>BẢO HIỂM XÃ HỘI VIỆT NAM · THẺ BHYT ĐIỆN TỬ VSSID</span>
+                    <h2 style={{ margin: '4px 0 0', fontSize: '22px', fontWeight: 700 }}>{bhytInfo.patient_name}</h2>
+                  </div>
+                  <div style={{ background: '#fef08a', color: '#854d0e', padding: '6px 12px', borderRadius: '20px', fontWeight: 700, fontSize: '14px' }}>
+                    Mức hưởng: {bhytInfo.benefit_rate_percent}%
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', fontSize: '13px' }}>
+                  <div>
+                    <span style={{ opacity: 0.8 }}>Mã thẻ BHYT:</span>
+                    <div style={{ fontSize: '16px', fontWeight: 700, letterSpacing: '1px', marginTop: '2px' }}>{bhytInfo.bhyt_code}</div>
+                  </div>
+                  <div>
+                    <span style={{ opacity: 0.8 }}>Nhóm đối tượng:</span>
+                    <div style={{ fontWeight: 600, marginTop: '2px' }}>{bhytInfo.object_group}</div>
+                  </div>
+                  <div>
+                    <span style={{ opacity: 0.8 }}>Nơi ĐKKCB ban đầu:</span>
+                    <div style={{ fontWeight: 600, marginTop: '2px' }}>{bhytInfo.primary_healthcare_facility}</div>
+                  </div>
+                  <div>
+                    <span style={{ opacity: 0.8 }}>Thời hạn sử dụng:</span>
+                    <div style={{ fontWeight: 600, marginTop: '2px' }}>{bhytInfo.valid_from} đến {bhytInfo.valid_to}</div>
+                    <small style={{ color: '#99f6e4' }}>{bhytInfo.five_years_consecutive}</small>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '16px', background: 'rgba(255,255,255,0.1)', padding: '10px 14px', borderRadius: '6px', fontSize: '12px' }}>
+                  ✅ <strong>Chi trả KCB từ xa:</strong> Đủ điều kiện hưởng BHYT cho các dịch vụ hội chẩn, tư vấn khám bệnh từ xa theo quy định hiện hành của Bộ Y tế.
+                </div>
+              </div>
+            )}
+
+            {/* Danh sách lịch hẹn có thể áp dụng BHYT */}
+            <h4 style={{ margin: '20px 0 10px', fontSize: '15px' }}>Lịch hẹn có thể áp dụng giảm trừ viện phí BHYT</h4>
+            {appointments.filter(a => a.status === 'scheduled').length === 0 ? (
+              <p className="muted">Hiện không có lịch hẹn nào đang chờ xử lý chiết khấu BHYT.</p>
+            ) : (
+              appointments.filter(a => a.status === 'scheduled').map(a => (
+                <div className="result-row" key={a.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <b>Lịch hẹn #{a.id}</b>
+                    <small>{dateText(a.starts_at)} · {a.reason}</small>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span>Viện phí gốc: <b>{money(a.fee_amount)}</b></span>
+                    <button
+                      className="primary"
+                      onClick={() => handleApplyBhyt(a.id)}
+                      disabled={applyingBhytId === a.id}
+                      style={{ padding: '6px 14px', fontSize: '13px' }}
+                    >
+                      {applyingBhytId === a.id ? 'Đang áp dụng...' : '⚡ Áp dụng thẻ BHYT'}
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </section>
+        )}
+
         {/* Tab: Thanh toán VietQR */}
         {view === 'payments' && (
           <section className="panel page-panel">
@@ -700,11 +887,11 @@ export default function App() {
         {/* Modal đặt lịch khám */}
         {showBooking && (
           <div className="modal-backdrop">
-            <form className="modal" onSubmit={book}>
+            <form className="modal" onSubmit={book} style={{ maxWidth: '580px', width: '100%' }}>
               <div className="panel-heading">
                 <div>
                   <h3>Đặt lịch khám trực tuyến</h3>
-                  <p>Chọn bác sĩ chuyên khoa và khung giờ thuận tiện</p>
+                  <p>Chọn chuyên khoa, bác sĩ và ca trực chống quá tải</p>
                 </div>
                 <button type="button" className="icon-button" onClick={() => setShowBooking(false)}>
                   <X />
@@ -712,16 +899,87 @@ export default function App() {
               </div>
 
               <label>
-                Bác sĩ tiếp nhận
-                <select value={doctorId} onChange={e => setDoctorId(e.target.value)} required>
-                  <option value="">-- Chọn Bác sĩ chuyên khoa --</option>
-                  {doctors.map(d => (
+                Khoa / Chuyên khoa
+                <select
+                  value={selectedDeptId}
+                  onChange={e => {
+                    setSelectedDeptId(e.target.value)
+                    setDoctorId('')
+                    setSelectedShiftId(null)
+                  }}
+                >
+                  <option value="">-- Tất cả chuyên khoa --</option>
+                  {departments.map(d => (
                     <option key={d.id} value={d.id}>
-                      {d.full_name}
+                      {d.code} - {d.name}
                     </option>
                   ))}
                 </select>
               </label>
+
+              <label>
+                Bác sĩ tiếp nhận
+                <select
+                  value={doctorId}
+                  onChange={e => {
+                    setDoctorId(e.target.value)
+                    setSelectedShiftId(null)
+                  }}
+                  required
+                >
+                  <option value="">-- Chọn Bác sĩ chuyên khoa --</option>
+                  {doctors
+                    .filter((d: any) => !selectedDeptId || String(d.department_id) === String(selectedDeptId))
+                    .map(d => (
+                      <option key={d.id} value={d.id}>
+                        {d.full_name} {d.cchn ? `(${d.cchn})` : ''}
+                      </option>
+                    ))}
+                </select>
+              </label>
+
+              {/* Lịch trực chuyên khoa & Hạn ngạch ca khám (Anti-overload) */}
+              {doctorId && doctorShifts.length > 0 && (
+                <div style={{ margin: '10px 0 14px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, fontSize: '13px' }}>
+                    Chọn Ca trực bác sĩ (Định mức chống quá tải):
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
+                    {doctorShifts.map(s => {
+                      const isSelected = selectedShiftId === s.id
+                      const isFull = s.is_overloaded
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          disabled={isFull}
+                          onClick={() => {
+                            setSelectedShiftId(s.id)
+                            setStartsAt(`${s.shift_date}T${s.start_time}:00`)
+                          }}
+                          style={{
+                            border: isSelected ? '2px solid #0d9488' : '1px solid #cbd5e1',
+                            background: isFull ? '#f1f5f9' : isSelected ? '#f0fdfa' : '#fff',
+                            padding: '8px 10px',
+                            borderRadius: '6px',
+                            textAlign: 'left',
+                            cursor: isFull ? 'not-allowed' : 'pointer',
+                            opacity: isFull ? 0.6 : 1
+                          }}
+                        >
+                          <div style={{ fontWeight: 600, fontSize: '12px', color: '#0f172a' }}>
+                            {s.shift_type === 'morning' ? '☀️ Ca sáng' : s.shift_type === 'afternoon' ? '🌤️ Ca chiều' : '🌙 Ca tối'} ({s.start_time.slice(0, 5)} - {s.end_time.slice(0, 5)})
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>Ngày: {s.shift_date}</div>
+                          <div style={{ fontSize: '11px', marginTop: '4px', color: isFull ? '#ef4444' : '#0d9488', fontWeight: 600 }}>
+                            {isFull ? '⚠️ ĐÃ ĐỦ ĐỊNH MỨC' : `Còn ${s.available_slots}/${s.max_patients} lượt khám`}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               <label>
                 Ngày và giờ khám
@@ -745,13 +1003,70 @@ export default function App() {
               </label>
 
               <div className="notice">
-                Phí khám chuyên khoa: <strong>500.000 ₫</strong>. Thanh toán chuyển khoản tự động qua VietQR sau khi tạo lịch.
+                Phí khám chuyên khoa: <strong>500.000 ₫</strong>. Có thể áp dụng giảm trừ thẻ BHYT trực tuyến sau khi tạo lịch.
               </div>
 
               <button className="primary full" type="submit">
                 Xác nhận tạo lịch khám
               </button>
             </form>
+          </div>
+        )}
+
+        {/* Modal Hủy lịch hẹn & Hoàn tiền tự động */}
+        {cancelModalAppt && (
+          <div className="modal-backdrop">
+            <div className="modal" style={{ maxWidth: '500px', width: '100%' }}>
+              <div className="panel-heading">
+                <div>
+                  <h3>Hủy lịch khám & Hoàn tiền</h3>
+                  <p>Lịch hẹn #{cancelModalAppt.id} · {dateText(cancelModalAppt.starts_at)}</p>
+                </div>
+                <button type="button" className="icon-button" onClick={() => setCancelModalAppt(null)}>
+                  <X />
+                </button>
+              </div>
+
+              <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px', padding: '12px', marginBottom: '14px', fontSize: '13px', color: '#166534' }}>
+                <strong>💰 Chính sách hoàn tiền 100%:</strong>
+                <ul style={{ margin: '6px 0 0', paddingLeft: '18px' }}>
+                  <li>Hủy trước giờ khám được hoàn <strong>100% viện phí</strong> ({money(cancelModalAppt.fee_amount)}).</li>
+                  <li>Kích hoạt hoàn tiền tự động qua Napas 247/VietQR và cập nhật hệ thống.</li>
+                </ul>
+              </div>
+
+              <label>
+                Lý do hủy lịch khám
+                <textarea
+                  value={cancelReasonText}
+                  onChange={e => setCancelReasonText(e.target.value)}
+                  required
+                  minLength={3}
+                  placeholder="Vui lòng cho biết lý do hủy lịch..."
+                  rows={3}
+                />
+              </label>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => setCancelModalAppt(null)}
+                  style={{ flex: 1 }}
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  className="danger"
+                  disabled={cancelling}
+                  onClick={handleConfirmCancel}
+                  style={{ flex: 2, background: '#dc2626', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, padding: '10px', cursor: 'pointer' }}
+                >
+                  {cancelling ? 'Đang hủy...' : 'Xác nhận hủy & Hoàn tiền'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

@@ -203,12 +203,6 @@ export async function simulatePayment(appointmentId: number) {
   )
 }
 
-export async function cancelAppointment(appointmentId: number) {
-  return request<Appointment>(`/api/v1/appointments/${appointmentId}/cancel`, {
-    method: 'PATCH'
-  })
-}
-
 // --- GIAI ĐOẠN 2 API FUNCTIONS ---
 
 export type ConsentStatus = {
@@ -284,4 +278,115 @@ export async function getFhirBundle(appointmentId: number) {
 
 export async function getPacsDicomStudies() {
   return request<any>('/api/v1/patients/me/pacs-studies')
+}
+
+// --- GIAI ĐOẠN 3: AI SCRIBE, BHYT & QUẢN LÝ LỊCH TRỰC CHỐNG QUÁ TẢI ---
+
+export type AmbientScribeOut = {
+  success: boolean
+  soap: {
+    subjective: string
+    objective: string
+    assessment: string
+    plan: string
+  }
+  extracted_symptoms: string
+  suggested_icd10_code: string
+  suggested_icd10_name: string
+  prescription_draft: string
+  allergies_warning: string
+}
+
+export type BhytCheckOut = {
+  success: boolean
+  is_valid: boolean
+  bhyt_code: string
+  patient_name: string
+  benefit_rate_percent: number
+  object_group: string
+  primary_healthcare_facility: string
+  valid_from: string
+  valid_to: string
+  five_years_consecutive: string
+  telehealth_covered: boolean
+  message: string
+}
+
+export type Department = {
+  id: number
+  code: string
+  name: string
+  description?: string
+  is_active: boolean
+}
+
+export type DoctorShift = {
+  id: number
+  doctor_id: number
+  doctor_name?: string
+  department_id?: number
+  department_name?: string
+  shift_date: string
+  shift_type: string
+  start_time: string
+  end_time: string
+  max_patients: number
+  booked_count: number
+  available_slots: number
+  is_overloaded: boolean
+}
+
+export type AppointmentCancelOut = {
+  success: boolean
+  appointment_id: number
+  status: string
+  refund_amount: number
+  refund_percent: number
+  refund_reason: string
+  message: string
+}
+
+export async function generateAiScribeSoap(transcript: string, patientName?: string, patientAge: number = 35) {
+  return request<AmbientScribeOut>('/api/v1/ai/ambient-scribe', {
+    method: 'POST',
+    body: JSON.stringify({ transcript, patient_name: patientName, patient_age: patientAge })
+  })
+}
+
+export async function checkBhyt(bhytCode: string, patientName?: string) {
+  return request<BhytCheckOut>('/api/v1/insurance/bhyt/check', {
+    method: 'POST',
+    body: JSON.stringify({ bhyt_code: bhytCode, patient_name: patientName })
+  })
+}
+
+export async function applyBhyt(appointmentId: number, bhytCode: string) {
+  return request<{
+    success: boolean
+    appointment_id: number
+    bhyt_code: string
+    benefit_rate_percent: number
+    original_fee: number
+    bhyt_discount: number
+    patient_pay_amount: number
+    message: string
+  }>(`/api/v1/appointments/${appointmentId}/apply-bhyt`, {
+    method: 'POST',
+    body: JSON.stringify({ bhyt_code: bhytCode })
+  })
+}
+
+export async function getDepartments() {
+  return request<Department[]>('/api/v1/departments')
+}
+
+export async function getDoctorShifts(doctorId: number) {
+  return request<DoctorShift[]>(`/api/v1/doctors/${doctorId}/shifts`)
+}
+
+export async function cancelAppointment(appointmentId: number, reason: string) {
+  return request<AppointmentCancelOut>(`/api/v1/appointments/${appointmentId}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason })
+  })
 }

@@ -2,6 +2,14 @@ from sqlalchemy import String, Integer, Boolean, DateTime, Text, ForeignKey, fun
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db import Base
 
+class Department(Base):
+    __tablename__ = "departments"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
 class User(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -12,6 +20,8 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     refresh_token: Mapped[str | None] = mapped_column(String(500), nullable=True)
     doctor_cchn: Mapped[str | None] = mapped_column(String(50), nullable=True)  # Số Chứng chỉ hành nghề y tế
+    department_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id"), nullable=True)
+    bhyt_code: Mapped[str | None] = mapped_column(String(30), nullable=True)  # Mã thẻ BHYT 15 ký tự
     external_patient_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -34,18 +44,42 @@ class PatientConsent(Base):
     ip_address: Mapped[str | None] = mapped_column(String(50), nullable=True)
     consented_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+class DoctorShift(Base):
+    __tablename__ = "doctor_shifts"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    doctor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    department_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id"), nullable=True)
+    shift_date: Mapped[str] = mapped_column(String(20), index=True) # YYYY-MM-DD
+    shift_type: Mapped[str] = mapped_column(String(30)) # morning (07:30-11:30), afternoon (13:30-17:00), evening (18:00-21:00)
+    start_time: Mapped[str] = mapped_column(String(10), default="07:30")
+    end_time: Mapped[str] = mapped_column(String(10), default="11:30")
+    max_patients: Mapped[int] = mapped_column(Integer, default=12) # Giới hạn chống quá tải
+    booked_count: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
 class Appointment(Base):
     __tablename__ = "appointments"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     patient_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     doctor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    shift_id: Mapped[int | None] = mapped_column(ForeignKey("doctor_shifts.id"), nullable=True)
+    department_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id"), nullable=True)
     starts_at: Mapped[object] = mapped_column(DateTime(timezone=True), index=True)
     reason: Mapped[str] = mapped_column(String(500))
     status: Mapped[str] = mapped_column(String(30), default="scheduled")
     fee_amount: Mapped[int] = mapped_column(Integer, default=0)
     currency: Mapped[str] = mapped_column(String(3), default="VND")
+    
+    # BHYT & Bảo hiểm bảo lãnh
+    bhyt_code: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    bhyt_rate: Mapped[int] = mapped_column(Integer, default=0) # Mức hưởng % (ví dụ 80)
+    bhyt_discount: Mapped[int] = mapped_column(Integer, default=0) # Số tiền BHYT chi trả
+    patient_pay_amount: Mapped[int] = mapped_column(Integer, default=0) # Tiền bệnh nhân đồng chi trả
+    
     paid_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
     refund_amount: Mapped[int] = mapped_column(Integer, default=0)
+    refund_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    cancelled_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 class TelehealthSession(Base):

@@ -56,13 +56,26 @@ def test_consent_flow_nd13():
 
 def test_smartca_digital_signing_and_pdf():
     with TestClient(app) as c:
-        # Đăng nhập bác sĩ
+        # Đăng nhập bác sĩ và bệnh nhân
         r_doc = c.post("/api/v1/auth/login", json={"email": "doctor@example.test", "password": "ChangeMe123!"})
         doc_token = r_doc.json()["access_token"]
+        doc_id = r_doc.json()["user"]["id"]
         headers = {"Authorization": f"Bearer {doc_token}"}
 
-        # Bác sĩ tạo/lưu bệnh án cho lịch hẹn 1
-        c.post("/api/v1/appointments/1/clinical-records", headers=headers, json={
+        r_pat = c.post("/api/v1/auth/login", json={"email": "patient@example.test", "password": "ChangeMe123!"})
+        pat_token = r_pat.json()["access_token"]
+
+        # Tạo lịch hẹn
+        future_time = (datetime.now(timezone.utc) + timedelta(days=3)).isoformat()
+        r_appt = c.post("/api/v1/appointments", headers={"Authorization": f"Bearer {pat_token}"}, json={
+            "doctor_id": doc_id,
+            "starts_at": future_time,
+            "reason": "Đau đầu Migraine cần khám"
+        })
+        appt_id = r_appt.json()["id"]
+
+        # Bác sĩ tạo/lưu bệnh án cho lịch hẹn
+        c.post(f"/api/v1/appointments/{appt_id}/clinical-records", headers=headers, json={
             "symptoms": "Đau đầu dữ dội vùng thái dương, buồn nôn",
             "allergies": "Không",
             "diagnosis": "Đau nửa đầu Migraine",
@@ -71,12 +84,12 @@ def test_smartca_digital_signing_and_pdf():
             "plan": "Uống thuốc giảm đau, tránh ánh sáng mạnh, ngủ đủ giấc"
         })
         
-        c.post("/api/v1/appointments/1/prescriptions", headers=headers, json={
+        c.post(f"/api/v1/appointments/{appt_id}/prescriptions", headers=headers, json={
             "summary": "1. Paracetamol 500mg: 1 viên x 2 lần/ngày khi đau\n2. Magie B6: 1 viên x 2 lần/ngày sau ăn"
         })
 
         # 1. Bác sĩ thực hiện Ký số SmartCA
-        r_sign = c.post("/api/v1/appointments/1/sign", headers=headers, json={
+        r_sign = c.post(f"/api/v1/appointments/{appt_id}/sign", headers=headers, json={
             "provider": "VNPT_SmartCA"
         })
         assert r_sign.status_code == 200
@@ -86,7 +99,7 @@ def test_smartca_digital_signing_and_pdf():
         assert sig_data["signer_cchn"] == "008912/BYT-CCHN"
 
         # 2. Bác sĩ đồng bộ lên Cổng Đơn thuốc điện tử Quốc gia
-        r_sync = c.post("/api/v1/appointments/1/sync-national-prescription", headers=headers)
+        r_sync = c.post(f"/api/v1/appointments/{appt_id}/sync-national-prescription", headers=headers)
         assert r_sync.status_code == 200
         sync_data = r_sync.json()
         assert sync_data["success"] is True
@@ -94,14 +107,14 @@ def test_smartca_digital_signing_and_pdf():
         assert "donthuocquocgia.vn" in sync_data["lookup_url"]
 
         # 3. Xuất file PDF Bệnh án & Đơn thuốc
-        r_pdf = c.get("/api/v1/appointments/1/pdf", headers=headers)
+        r_pdf = c.get(f"/api/v1/appointments/{appt_id}/pdf", headers=headers)
         assert r_pdf.status_code == 200
         assert r_pdf.headers["content-type"] == "application/pdf"
         assert len(r_pdf.content) > 1000  # File PDF hợp lệ
         assert r_pdf.content.startswith(b"%PDF")
 
         # 4. Xuất FHIR R4 Bundle
-        r_fhir = c.get("/api/v1/appointments/1/fhir", headers=headers)
+        r_fhir = c.get(f"/api/v1/appointments/{appt_id}/fhir", headers=headers)
         assert r_fhir.status_code == 200
         fhir_bundle = r_fhir.json()
         assert fhir_bundle["resourceType"] == "Bundle"
