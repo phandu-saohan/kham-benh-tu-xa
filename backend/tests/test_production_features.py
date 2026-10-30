@@ -128,3 +128,64 @@ def test_triage_desk_workflow():
     assert appt_updated.spo2 == 94
     assert appt_updated.triage_status == "dispatched"
     db.close()
+
+def test_admin_dashboard_and_settings_api():
+    # 1. Login as admin
+    login_res = client.post("/api/v1/auth/login", json={"email": "admin@example.test", "password": "ChangeMe123!"})
+    assert login_res.status_code == 200
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Get overview stats
+    ov_res = client.get("/api/v1/admin/overview", headers=headers)
+    assert ov_res.status_code == 200
+    ov_data = ov_res.json()
+    assert "total_appointments" in ov_data
+    assert "total_patients" in ov_data
+    assert "total_doctors" in ov_data
+    assert "total_nurses" in ov_data
+
+    # 3. Get users list
+    u_res = client.get("/api/v1/admin/users", headers=headers)
+    assert u_res.status_code == 200
+    users = u_res.json()
+    assert len(users) >= 3
+    assert any(u["role"] == "admin" for u in users)
+
+    # 4. Get system settings
+    st_res = client.get("/api/v1/admin/settings", headers=headers)
+    assert st_res.status_code == 200
+    st_data = st_res.json()
+    assert "hospital_code" in st_data
+    assert "allow_test_otp" in st_data
+    assert "coturn_host" in st_data
+
+    # 5. Update system settings
+    update_payload = {
+        "hospital_code": "01002",
+        "hospital_name": "Bệnh viện Đa khoa Trung ương BV-TW",
+        "allow_test_otp": True,
+        "default_max_patients_per_shift": 15
+    }
+    up_res = client.post("/api/v1/admin/settings", json=update_payload, headers=headers)
+    assert up_res.status_code == 200
+    assert up_res.json()["hospital_code"] == "01002"
+    assert up_res.json()["hospital_name"] == "Bệnh viện Đa khoa Trung ương BV-TW"
+
+    # 6. Verify updated settings persist
+    st_res2 = client.get("/api/v1/admin/settings", headers=headers)
+    assert st_res2.status_code == 200
+    st_data2 = st_res2.json()
+    assert st_data2["hospital_code"] == "01002"
+    assert st_data2["hospital_name"] == "Bệnh viện Đa khoa Trung ương BV-TW"
+    assert st_data2["allow_test_otp"] is True
+    assert st_data2["default_max_patients_per_shift"] == 15
+
+    # 7. Verify non-admin gets 403 Forbidden
+    patient_res = client.post("/api/v1/auth/login", json={"email": "patient@example.test", "password": "ChangeMe123!"})
+    if patient_res.status_code == 200:
+        p_token = patient_res.json()["access_token"]
+        p_headers = {"Authorization": f"Bearer {p_token}"}
+        forbidden_res = client.get("/api/v1/admin/settings", headers=p_headers)
+        assert forbidden_res.status_code == 403
+

@@ -20,7 +20,7 @@ from app.db import get_db, Base, engine
 from app.models import (
     User, Appointment, TelehealthSession, ClinicalRecord, PrescriptionRef,
     Payment, AuditLog, OtpCode, PatientConsent, Department, DoctorShift,
-    ConsultationMessage
+    ConsultationMessage, SystemSetting
 )
 from app.schemas import (
     LoginIn, TokenOut, OtpSendIn, OtpSendOut, OtpVerifyIn, RefreshTokenIn,
@@ -33,7 +33,8 @@ from app.schemas import (
     DepartmentOut, DoctorShiftOut, AppointmentCancelIn, AppointmentCancelOut,
     ConsultationMessageIn, ConsultationMessageOut,
     IceServersOut, IceServerConfig, PaymentWebhookOut,
-    TriageAssessmentIn, TriageAssessmentOut, TriageQueueItem
+    TriageAssessmentIn, TriageAssessmentOut, TriageQueueItem,
+    AdminOverviewOut, AuditLogOut, SystemSettingsOut, SystemSettingsUpdateIn
 )
 from app.adapters.sms_gateway import send_otp_message
 from app.security import (
@@ -1456,6 +1457,132 @@ def assess_and_dispatch_triage(
         triage_level=appt.triage_level,
         message=f"Đã hoàn thành sàng lọc và chuyển bệnh nhân #{appt.id} vào hàng đợi Bác sĩ thành công."
     )
+
+# ----------------- ADMIN DASHBOARD & SYSTEM SETTINGS -----------------
+
+def get_db_setting(db: Session, key: str, default: str) -> str:
+    row = db.query(SystemSetting).filter_by(key=key).first()
+    return row.value if row else default
+
+def set_db_setting(db: Session, key: str, value: str, description: str = ""):
+    row = db.query(SystemSetting).filter_by(key=key).first()
+    if row:
+        row.value = value
+    else:
+        row = SystemSetting(key=key, value=value, description=description)
+        db.add(row)
+    db.commit()
+
+@app.get("/api/v1/admin/overview", response_model=AdminOverviewOut)
+def get_admin_overview(db: Session = Depends(get_db), user: User = Depends(require_roles("admin"))):
+    all_appts = db.query(Appointment).all()
+    completed = [a for a in all_appts if a.status == "completed"]
+    scheduled = [a for a in all_appts if a.status in ("scheduled", "confirmed", "in_progress")]
+    cancelled = [a for a in all_appts if a.status == "cancelled"]
+    
+    paid_payments = db.query(Payment).filter_by(status="paid").all()
+    total_rev = sum(p.amount for p in paid_payments)
+    
+    bhyt_appts = [a for a in all_appts if a.bhyt_discount and a.bhyt_discount > 0]
+    bhyt_discount = sum(a.bhyt_discount for a in bhyt_appts)
+    
+    return AdminOverviewOut(
+        total_appointments=len(all_appts),
+        completed_appointments=len(completed),
+        scheduled_appointments=len(scheduled),
+        cancelled_appointments=len(cancelled),
+        total_revenue=total_rev,
+        total_patients=db.query(User).filter_by(role="patient").count(),
+        total_doctors=db.query(User).filter_by(role="doctor").count(),
+        total_nurses=db.query(User).filter_by(role="nurse").count(),
+        total_bhyt_claims=len(bhyt_appts),
+        bhyt_total_discount=bhyt_discount
+    )
+
+@app.get("/api/v1/admin/audit-logs", response_model=list[AuditLogOut])
+def get_admin_audit_logs(
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin"))
+):
+    logs = db.query(AuditLog).order_by(AuditLog.id.desc()).limit(limit).all()
+    out = []
+    for log in logs:
+        actor = db.get(User, log.actor_user_id) if log.actor_user_id else None
+        out.append(AuditLogOut(
+            id=log.id,
+            actor_user_id=log.actor_user_id,
+            actor_name=actor.full_name if actor else "Hệ thống tự động",
+            actor_role=actor.role if actor else "system",
+            action=log.action,
+            resource_type=log.resource_type,
+            resource_id=log.resource_id,
+            created_at=log.created_at
+        ))
+    return out
+
+@app.get("/api/v1/admin/users")
+def get_admin_users(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin"))
+):
+    users = db.query(User).all()
+    return [
+        {
+            "id": u.id,
+            "email": u.email,
+            "phone_number": u.phone_number,
+            "full_name": u.full_name,
+            "role": u.role,
+            "doctor_cchn": u.doctor_cchn,
+            "bhyt_code": u.bhyt_code,
+            "is_active": u.is_active,
+            "created_at": u.created_at
+        }
+        for u in users
+    ]
+
+@app.get("/api/v1/admin/settings", response_model=SystemSettingsOut)
+def get_admin_settings(db: Session = Depends(get_db), user: User = Depends(require_roles("admin"))):
+    return SystemSettingsOut(
+        hospital_name=get_db_setting(db, "hospital_name", "Bệnh viện Đa khoa Quốc tế CareConnect"),
+        hospital_code=get_db_setting(db, "hospital_code", "79001"),
+        hospital_address=get_db_setting(db, "hospital_address", "Số 123 Đường Y Dược, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh"),
+        hospital_hotline=get_db_setting(db, "hospital_hotline", "1900 6868"),
+        national_prescription_url=get_db_setting(db, "national_prescription_url", "https://donthuocquocgia.vn"),
+        smartca_provider=get_db_setting(db, "smartca_provider", "VNPT_SmartCA"),
+        coturn_host=get_db_setting(db, "coturn_host", settings.COTURN_HOST),
+        coturn_port=int(get_db_setting(db, "coturn_port", str(settings.COTURN_PORT))),
+        coturn_realm=get_db_setting(db, "coturn_realm", settings.COTURN_REALM),
+        sms_provider=get_db_setting(db, "sms_provider", settings.SMS_PROVIDER),
+        sms_brandname=get_db_setting(db, "sms_brandname", settings.SMS_BRANDNAME),
+        allow_test_otp=get_db_setting(db, "allow_test_otp", "true").lower() == "true",
+        bank_id=get_db_setting(db, "bank_id", settings.BANK_ID),
+        bank_account_no=get_db_setting(db, "bank_account_no", settings.BANK_ACCOUNT_NO),
+        bank_account_name=get_db_setting(db, "bank_account_name", settings.BANK_ACCOUNT_NAME),
+        default_max_patients_per_shift=int(get_db_setting(db, "default_max_patients_per_shift", "12")),
+        consultation_duration_minutes=int(get_db_setting(db, "consultation_duration_minutes", "20"))
+    )
+
+@app.post("/api/v1/admin/settings", response_model=SystemSettingsOut)
+def update_admin_settings(
+    data: SystemSettingsUpdateIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin"))
+):
+    update_fields = data.model_dump(exclude_unset=True)
+    for k, v in update_fields.items():
+        if v is not None:
+            set_db_setting(db, k, str(v))
+            
+    db.add(AuditLog(
+        actor_user_id=user.id,
+        action="admin.update_settings",
+        resource_type="system_settings",
+        resource_id="global"
+    ))
+    db.commit()
+    return get_admin_settings(db, user)
 
 # ----------------- SEEDING & STARTUP -----------------
 

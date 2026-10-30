@@ -319,5 +319,69 @@ class TriageQueueItem(BaseModel):
     triage_notes: str | None = None
     model_config = ConfigDict(from_attributes=True)
 
+# --- ADMIN DASHBOARD & SYSTEM SETTINGS SCHEMAS ---
+
+class AdminOverviewOut(BaseModel):
+    total_appointments: int
+    completed_appointments: int
+    scheduled_appointments: int
+    cancelled_appointments: int
+    total_revenue: int
+    total_patients: int
+    total_doctors: int
+    total_nurses: int
+    total_bhyt_claims: int
+    bhyt_total_discount: int
+
+class AuditLogOut(BaseModel):
+    id: int
+    actor_user_id: int | None = None
+    actor_name: str | None = None
+    actor_role: str | None = None
+    action: str
+    resource_type: str
+    resource_id: str | None = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class SystemSettingsOut(BaseModel):
+    hospital_name: str
+    hospital_code: str
+    hospital_address: str
+    hospital_hotline: str
+    national_prescription_url: str
+    smartca_provider: str
+    coturn_host: str
+    coturn_port: int
+    coturn_realm: str
+    sms_provider: str
+    sms_brandname: str
+    allow_test_otp: bool
+    bank_id: str
+    bank_account_no: str
+    bank_account_name: str
+    default_max_patients_per_shift: int
+    consultation_duration_minutes: int
+
+class SystemSettingsUpdateIn(BaseModel):
+    hospital_name: str | None = None
+    hospital_code: str | None = None
+    hospital_address: str | None = None
+    hospital_hotline: str | None = None
+    national_prescription_url: str | None = None
+    smartca_provider: str | None = None
+    coturn_host: str | None = None
+    coturn_port: int | None = None
+    coturn_realm: str | None = None
+    sms_provider: str | None = None
+    sms_brandname: str | None = None
+    allow_test_otp: bool | None = None
+    bank_id: str | None = None
+    bank_account_no: str | None = None
+    bank_account_name: str | None = None
+    default_max_patients_per_shift: int | None = None
+    consultation_duration_minutes: int | None = None
+
+
 
 

@@ -523,4 +523,74 @@ export async function assessTriage(appointmentId: number, data: TriageAssessment
   })
 }
 
+// --- ADMIN DASHBOARD & SYSTEM SETTINGS API ---
+
+export interface AdminOverviewData {
+  total_appointments: number
+  completed_appointments: number
+  scheduled_appointments: number
+  cancelled_appointments: number
+  total_revenue: number
+  total_patients: number
+  total_doctors: number
+  total_nurses: number
+  total_bhyt_claims: number
+  bhyt_total_discount: number
+}
+
+export interface AuditLogItem {
+  id: number
+  actor_user_id?: number
+  actor_name?: string
+  actor_role?: string
+  action: string
+  resource_type: string
+  resource_id?: string
+  created_at: string
+}
+
+export interface SystemSettingsData {
+  hospital_name: string
+  hospital_code: string
+  hospital_address: string
+  hospital_hotline: string
+  national_prescription_url: string
+  smartca_provider: string
+  coturn_host: string
+  coturn_port: number
+  coturn_realm: string
+  sms_provider: string
+  sms_brandname: string
+  allow_test_otp: boolean
+  bank_id: string
+  bank_account_no: string
+  bank_account_name: string
+  default_max_patients_per_shift: number
+  consultation_duration_minutes: number
+}
+
+export async function getAdminOverview() {
+  return request<AdminOverviewData>('/api/v1/admin/overview')
+}
+
+export async function getAdminAuditLogs(limit: number = 50) {
+  return request<AuditLogItem[]>(`/api/v1/admin/audit-logs?limit=${limit}`)
+}
+
+export async function getAdminUsers() {
+  return request<any[]>('/api/v1/admin/users')
+}
+
+export async function getAdminSettings() {
+  return request<SystemSettingsData>('/api/v1/admin/settings')
+}
+
+export async function updateAdminSettings(data: Partial<SystemSettingsData>) {
+  return request<SystemSettingsData>('/api/v1/admin/settings', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+
 

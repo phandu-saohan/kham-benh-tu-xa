@@ -4,7 +4,7 @@ import {
   LogOut, HeartPulse, Clock, UserRound, ShieldCheck, ArrowRight,
   Plus, X, Phone, Lock, Stethoscope, AlertCircle, RefreshCw, QrCode,
   FileDown, ExternalLink, PenTool, Building2, Sparkles, CheckCircle2,
-  HelpCircle, ShieldAlert, Undo2, Activity
+  HelpCircle, ShieldAlert, Undo2, Activity, Settings
 } from 'lucide-react'
 import {
   login, sendOtp, verifyOtp, request, cancelAppointment,
@@ -20,6 +20,7 @@ import { VietQRModal } from './VietQRModal'
 import { ConsentModal } from './ConsentModal'
 import { IncomingCallModal } from './IncomingCallModal'
 import { TriageDesk } from './TriageDesk'
+import { AdminDashboard } from './AdminDashboard'
 
 const money = (n: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n)
@@ -96,6 +97,8 @@ export default function App() {
       } else if (current.role === 'doctor') {
         const pacsData = await getPacsDicomStudies().catch(() => null)
         setImaging(pacsData)
+      } else if (current.role === 'admin') {
+        setView('admin')
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không tải được dữ liệu')
@@ -520,6 +523,7 @@ export default function App() {
 
         <nav>
           {[
+            ...(user.role === 'admin' ? [['admin', '⚙️ Quản trị & Cài đặt', Settings]] : []),
             ['overview', 'Tổng quan', HeartPulse],
             ['appointments', 'Lịch hẹn', CalendarDays],
             ...(!isPatient ? [['triage', 'Bàn Sàng lọc (Triage)', Activity]] : []),
@@ -966,6 +970,13 @@ export default function App() {
                 )}
               </div>
             ))}
+          </section>
+        )}
+
+        {/* Tab: Trung tâm Quản trị & Cài đặt Hệ thống (Admin Dashboard) */}
+        {view === 'admin' && (
+          <section className="panel page-panel">
+            <AdminDashboard />
           </section>
         )}
 
