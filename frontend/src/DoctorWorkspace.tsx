@@ -4,14 +4,14 @@ import '@livekit/components-styles'
 import {
   ArrowLeft, ShieldCheck, Save, CheckCircle2, Lock, FileText,
   Pill, User, Search, AlertCircle, Stethoscope, Video, X,
-  FileDown, PenTool, Share2, Code2, QrCode, Sparkles, Mic, MicOff, Bot
+  FileDown, PenTool, Share2, Code2, QrCode, Sparkles, Mic, MicOff, Bot, PhoneCall
 } from 'lucide-react'
 import {
   type Appointment, type User as CurrentUser, type ICD10Item,
   request, getClinicalRecord, saveClinicalRecord, savePrescription,
   completeConsultation, searchICD10, signDocumentSmartCA,
   syncNationalPrescription, downloadMedicalRecordPdf, getFhirBundle,
-  generateAiScribeSoap
+  generateAiScribeSoap, callPatient
 } from './api'
 
 export function DoctorWorkspace({
@@ -64,6 +64,27 @@ export function DoctorWorkspace({
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
   const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [callingPatient, setCallingPatient] = useState(false)
+
+  // Gọi chuông đến điện thoại bệnh nhân
+  async function handleCallPatient() {
+    setCallingPatient(true)
+    try {
+      const res = await callPatient(appointment.id)
+      setToast(`📞 ${res.message}`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Không gửi được tín hiệu gọi đến bệnh nhân')
+    } finally {
+      setTimeout(() => setCallingPatient(false), 4000)
+    }
+  }
+
+  // Tự động gọi chuông một lần khi bác sĩ vào buồng khám nếu ca khám chưa hoàn tất
+  useEffect(() => {
+    if (appointment.status !== 'completed' && appointment.status !== 'cancelled') {
+      callPatient(appointment.id).catch(() => {})
+    }
+  }, [appointment.id])
 
   // 1. Lấy token kết nối LiveKit
   useEffect(() => {
@@ -327,6 +348,33 @@ export function DoctorWorkspace({
         </div>
 
         <div className="workspace-header-actions">
+          {/* Nút Gọi chuông bệnh nhân */}
+          {!isLocked && (
+            <button
+              type="button"
+              className="btn-call-patient"
+              onClick={handleCallPatient}
+              disabled={callingPatient}
+              style={{
+                background: callingPatient ? '#fef08a' : '#16a34a',
+                color: callingPatient ? '#854d0e' : '#fff',
+                border: 'none',
+                padding: '7px 13px',
+                borderRadius: '8px',
+                fontWeight: 700,
+                fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                boxShadow: '0 2px 5px rgba(22,163,74,0.3)'
+              }}
+            >
+              <PhoneCall size={15} />
+              {callingPatient ? 'Đang đổ chuông...' : '📞 Gọi bệnh nhân'}
+            </button>
+          )}
+
           {/* Nút Tải PDF */}
           <button
             className="btn-action-icon"

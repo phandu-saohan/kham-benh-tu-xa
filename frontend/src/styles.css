@@ -864,3 +864,622 @@
   color: #38bdf8;
   margin: 0;
 }
+
+/* ==================== MÀN HÌNH CUỘC GỌI ĐẾN (INCOMING CALL OVERLAY) ==================== */
+.incoming-call-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: radial-gradient(circle at 50% 25%, #0f766e 0%, #042f2e 65%, #021f1e 100%);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: calc(env(safe-area-inset-top, 24px) + 24px) 24px calc(env(safe-area-inset-bottom, 24px) + 28px);
+  text-align: center;
+  overflow: hidden;
+  animation: fadeInCall 0.3s ease-out;
+}
+
+@keyframes fadeInCall {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.incoming-call-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.incoming-call-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 6px 14px;
+  border-radius: 30px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #a7f3d0;
+}
+
+.incoming-call-subtitle {
+  font-size: 13px;
+  color: #ccfbf1;
+  margin: 0;
+  animation: pulseOpacity 1.5s infinite ease-in-out;
+}
+
+@keyframes pulseOpacity {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+.incoming-call-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  max-width: 380px;
+  width: 100%;
+}
+
+.avatar-pulse-container {
+  position: relative;
+  width: 130px;
+  height: 130px;
+  display: grid;
+  place-items: center;
+  margin: 10px 0;
+}
+
+.pulse-wave {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(52, 211, 153, 0.6);
+  animation: pulseWave 2.4s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+
+.wave-1 { animation-delay: 0s; }
+.wave-2 { animation-delay: 0.8s; }
+.wave-3 { animation-delay: 1.6s; }
+
+@keyframes pulseWave {
+  0% { transform: scale(0.9); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+.incoming-avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #047857);
+  display: grid;
+  place-items: center;
+  color: white;
+  box-shadow: 0 10px 30px rgba(4, 120, 87, 0.5);
+  z-index: 2;
+  border: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.incoming-doctor-info h2 {
+  font-family: 'Manrope', sans-serif;
+  font-size: 24px;
+  margin: 0 0 6px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.dept-tag {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #d1fae5;
+  margin-bottom: 4px;
+}
+
+.cchn-text {
+  display: block;
+  font-size: 11px;
+  color: #99f6e4;
+  margin-bottom: 12px;
+}
+
+.call-reason-box {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #e6fffa;
+  line-height: 1.4;
+}
+
+.incoming-call-actions {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  width: 100%;
+  max-width: 320px;
+  margin-bottom: 10px;
+}
+
+.action-button-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.action-button-group span {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.call-btn {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.call-btn:active {
+  transform: scale(0.92);
+}
+
+.btn-decline {
+  background: #ef4444;
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.45);
+}
+
+.btn-accept {
+  width: 76px;
+  height: 76px;
+  background: #22c55e;
+  box-shadow: 0 8px 25px rgba(34, 197, 94, 0.55);
+}
+
+.pulse-accept {
+  animation: glowGreen 1.6s infinite alternate ease-in-out;
+}
+
+@keyframes glowGreen {
+  from {
+    box-shadow: 0 0 15px rgba(34, 197, 94, 0.4), 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  to {
+    box-shadow: 0 0 30px rgba(34, 197, 94, 0.8), 0 0 0 16px rgba(34, 197, 94, 0);
+  }
+}
+
+.incoming-call-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #99f6e4;
+  opacity: 0.8;
+}
+
+/* ==================== TỐI ƯU VIDEO CALL TRÊN MOBILE (PATIENT VIEW) ==================== */
+.mobile-video-page {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  background: #090d16;
+  color: white;
+  z-index: 5000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mobile-call-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  padding: calc(env(safe-area-inset-top, 10px) + 10px) 14px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.4) 60%, transparent 100%);
+  gap: 10px;
+}
+
+.mobile-back-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.mobile-doctor-header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-doctor-header-info b {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.call-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.live-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+}
+
+.timer-badge, .secure-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 2px 7px;
+  border-radius: 12px;
+  font-size: 10px;
+  color: #e2e8f0;
+}
+
+.mobile-sheet-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 20px;
+  background: rgba(15, 118, 110, 0.85);
+  color: white;
+  border: 1px solid rgba(45, 212, 191, 0.5);
+  font-size: 12px;
+  font-weight: 700;
+  backdrop-filter: blur(8px);
+}
+
+.mobile-sheet-btn.active {
+  background: #0d9488;
+  border-color: #5eead4;
+}
+
+.mobile-video-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 20px;
+}
+
+.loading-spinner-circle {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(15, 118, 110, 0.25);
+  display: grid;
+  place-items: center;
+  color: #2dd4bf;
+  margin-bottom: 16px;
+}
+
+.mobile-livekit-container {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.mobile-livekit-room {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Tối ưu tỉ lệ video LiveKit toàn màn hình trên điện thoại */
+.mobile-livekit-container .lk-video-conference {
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.mobile-livekit-container video {
+  object-fit: cover !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Control Bar của LiveKit trên Mobile */
+.mobile-livekit-container .lk-control-bar {
+  position: absolute !important;
+  bottom: calc(env(safe-area-inset-bottom, 12px) + 12px) !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 60 !important;
+  background: rgba(15, 23, 42, 0.85) !important;
+  backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 40px !important;
+  padding: 6px 12px !important;
+  gap: 12px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+}
+
+.mobile-livekit-container .lk-button {
+  width: 46px !important;
+  height: 46px !important;
+  border-radius: 50% !important;
+}
+
+/* ==================== COLLAPSIBLE CLINICAL BOTTOM SHEET ==================== */
+.mobile-clinical-sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 70dvh;
+  background: #ffffff;
+  color: #0f172a;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  z-index: 70;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  animation: slideUpSheet 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+@keyframes slideUpSheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.sheet-header {
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.sheet-handle {
+  width: 40px;
+  height: 4px;
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.sheet-title-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sheet-content {
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: calc(70dvh - 56px);
+}
+
+.sheet-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.diagnosis-highlight {
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  padding: 10px 12px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.diagnosis-highlight strong {
+  color: #0f766e;
+  font-size: 14px;
+}
+
+.icd-tag {
+  font-size: 11px;
+  color: #0d9488;
+  font-weight: 600;
+}
+
+.prescription-box {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #1e293b;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.plan-text {
+  background: #f8fafc;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #334155;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.sheet-footer-notice {
+  font-size: 11px;
+  color: #0f766e;
+  background: #ccfbf1;
+  padding: 8px 10px;
+  border-radius: 6px;
+  line-height: 1.4;
+  margin-top: 6px;
+}
+
+/* ==================== TỐI ƯU GIAO DIỆN CHÍNH TRÊN ĐIỆN THOẠI (< 768px) ==================== */
+@media (max-width: 768px) {
+  /* Chuyển đổi thanh điều hướng máy tính thành Bottom Navigation Bar chuẩn điện thoại */
+  .sidebar {
+    width: 100% !important;
+    height: 62px !important;
+    position: fixed !important;
+    inset: auto 0 0 0 !important;
+    border-right: none !important;
+    border-top: 1px solid #e2e8f0 !important;
+    padding: 4px 8px !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-around !important;
+    background: rgba(255, 255, 255, 0.96) !important;
+    backdrop-filter: blur(12px) !important;
+    z-index: 100 !important;
+    box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.04) !important;
+  }
+
+  .sidebar .brand,
+  .sidebar .profile,
+  .sidebar .sidebar-bottom {
+    display: none !important;
+  }
+
+  .sidebar nav {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-around !important;
+    align-items: center !important;
+    width: 100% !important;
+    gap: 2px !important;
+  }
+
+  .sidebar .nav-item {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 6px 4px !important;
+    gap: 3px !important;
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    color: #64748b !important;
+    border-radius: 8px !important;
+    flex: 1 !important;
+    text-align: center !important;
+  }
+
+  .sidebar .nav-item svg {
+    width: 19px !important;
+    height: 19px !important;
+  }
+
+  .sidebar .nav-item.selected {
+    color: #0f766e !important;
+    background: #f0fdfa !important;
+  }
+
+  /* Nội dung chính tràn đều màn hình trên điện thoại */
+  .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+    padding: 14px 14px 84px !important;
+  }
+
+  /* Thẻ chào mừng & thống kê nhỏ gọn */
+  .welcome-card {
+    padding: 20px 16px !important;
+    border-radius: 16px !important;
+  }
+
+  .welcome-card h1 {
+    font-size: 20px !important;
+    margin: 12px 0 8px !important;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .stat-card {
+    padding: 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .stat-card strong {
+    font-size: 18px !important;
+  }
+
+  .appointment-row {
+    padding: 12px !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+
+  .row-actions {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+  }
+
+  .small-primary, .small-qr, .small-pdf {
+    flex: 1 !important;
+    padding: 9px !important;
+    font-size: 12px !important;
+    justify-content: center !important;
+  }
+}
+

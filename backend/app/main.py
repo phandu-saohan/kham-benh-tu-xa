@@ -414,6 +414,96 @@ def join_token(appointment_id: int, db: Session = Depends(get_db), user: User = 
         "appointment_id": appt.id
     }
 
+@app.post("/api/v1/telehealth/sessions/{appointment_id}/call-patient")
+def call_patient(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("doctor"))
+):
+    """
+    Bác sĩ bấm 'Gọi bệnh nhân vào buồng khám'.
+    Hệ thống phát tín hiệu gọi đến điện thoại của bệnh nhân.
+    """
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
+    check_appointment_access(appt, user)
+    if appt.status in ("completed", "cancelled"):
+        raise HTTPException(status_code=400, detail="Không thể gọi ca khám đã hoàn tất hoặc đã hủy")
+    
+    session = db.query(TelehealthSession).filter_by(appointment_id=appt.id).first()
+    if not session:
+        session = TelehealthSession(appointment_id=appt.id, room_name=f"careconnect-appt-{appt.id}", status="calling")
+        db.add(session)
+    else:
+        session.status = "calling"
+    
+    now = datetime.now(timezone.utc)
+    session.called_at = now
+    if appt.status != "completed":
+        appt.status = "in_progress"
+    
+    db.add(AuditLog(actor_user_id=user.id, action="telehealth.call_patient", resource_type="appointment", resource_id=str(appt.id)))
+    db.commit()
+    
+    patient = db.get(User, appt.patient_id)
+    return {
+        "success": True,
+        "appointment_id": appt.id,
+        "status": session.status,
+        "patient_name": patient.full_name if patient else "Bệnh nhân",
+        "message": f"Đang gửi tín hiệu gọi chuông đến điện thoại bệnh nhân {patient.full_name if patient else ''}."
+    }
+
+@app.get("/api/v1/patients/me/incoming-call")
+def get_incoming_call(db: Session = Depends(get_db), user: User = Depends(require_roles("patient"))):
+    """
+    Bệnh nhân lắng nghe cuộc gọi đến từ Bác sĩ.
+    Màn hình điện thoại sẽ sáng lên và đổ chuông khi có cuộc gọi.
+    """
+    now = datetime.now(timezone.utc)
+    appts = db.query(Appointment).filter(
+        Appointment.patient_id == user.id,
+        Appointment.status.in_(["scheduled", "confirmed", "in_progress"])
+    ).all()
+    
+    for appt in appts:
+        session = db.query(TelehealthSession).filter_by(appointment_id=appt.id).first()
+        if session and session.status == "calling":
+            called_time = session.called_at.replace(tzinfo=timezone.utc) if session.called_at and session.called_at.tzinfo is None else session.called_at
+            if called_time and (now - called_time).total_seconds() < 90:
+                doctor = db.get(User, appt.doctor_id)
+                dept = db.get(Department, appt.department_id) if appt.department_id else None
+                return {
+                    "has_incoming_call": True,
+                    "appointment_id": appt.id,
+                    "doctor": {
+                        "id": doctor.id,
+                        "full_name": doctor.full_name,
+                        "cchn": doctor.doctor_cchn or "008912/BYT-CCHN",
+                        "department_name": dept.name if dept else "Khoa Khám bệnh"
+                    },
+                    "reason": appt.reason,
+                    "starts_at": appt.starts_at,
+                    "fee_amount": appt.fee_amount
+                }
+    return {"has_incoming_call": False}
+
+@app.post("/api/v1/telehealth/sessions/{appointment_id}/decline-call")
+def decline_call(appointment_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """
+    Bệnh nhân từ chối hoặc tắt chuông cuộc gọi đến.
+    """
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
+    check_appointment_access(appt, user)
+    session = db.query(TelehealthSession).filter_by(appointment_id=appt.id).first()
+    if session and session.status == "calling":
+        session.status = "declined"
+        db.commit()
+    return {"success": True, "message": "Đã từ chối cuộc gọi"}
+
 # ----------------- CLINICAL RECORDS & DOCTOR WORKSPACE -----------------
 
 @app.get("/api/v1/appointments/{appointment_id}/clinical-records")

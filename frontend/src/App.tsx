@@ -10,13 +10,15 @@ import {
   login, sendOtp, verifyOtp, request, cancelAppointment,
   getConsentStatus, downloadMedicalRecordPdf, getPacsDicomStudies,
   checkBhyt, applyBhyt, getDepartments, getDoctorShifts,
+  checkIncomingCall, declineIncomingCall,
   type Appointment, type User, type Department, type DoctorShift,
-  type BhytCheckOut
+  type BhytCheckOut, type IncomingCallData
 } from './api'
 import { VideoRoom } from './VideoRoom'
 import { DoctorWorkspace } from './DoctorWorkspace'
 import { VietQRModal } from './VietQRModal'
 import { ConsentModal } from './ConsentModal'
+import { IncomingCallModal } from './IncomingCallModal'
 
 const money = (n: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n)
@@ -62,6 +64,9 @@ export default function App() {
   const [cancelModalAppt, setCancelModalAppt] = useState<Appointment | null>(null)
   const [cancelReasonText, setCancelReasonText] = useState('Bận lịch đột xuất, xin hủy hẹn khám')
   const [cancelling, setCancelling] = useState(false)
+
+  // Cuộc gọi đến từ Bác sĩ (Incoming Call Ringing)
+  const [incomingCall, setIncomingCall] = useState<IncomingCallData | null>(null)
 
   const [showBooking, setShowBooking] = useState(false)
   const [doctorId, setDoctorId] = useState('')
@@ -293,6 +298,56 @@ export default function App() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Lỗi tải PDF')
     }
+  }
+
+  // Lắng nghe cuộc gọi đến từ Bác sĩ (Incoming Call Polling cho Bệnh nhân)
+  useEffect(() => {
+    if (!user || user.role !== 'patient' || activeAppointment) {
+      return
+    }
+
+    const interval = setInterval(async () => {
+      try {
+        const callData = await checkIncomingCall()
+        if (callData.has_incoming_call) {
+          setIncomingCall(prev => (prev?.appointment_id === callData.appointment_id ? prev : callData))
+        } else {
+          setIncomingCall(null)
+        }
+      } catch {}
+    }, 2500)
+
+    return () => clearInterval(interval)
+  }, [user, activeAppointment])
+
+  // Bệnh nhân bấm nhận cuộc gọi
+  async function handleAcceptIncomingCall() {
+    if (!incomingCall || !incomingCall.appointment_id) return
+    const apptId = incomingCall.appointment_id
+    setIncomingCall(null)
+
+    let targetAppt = appointments.find(a => a.id === apptId)
+    if (!targetAppt) {
+      targetAppt = {
+        id: apptId,
+        patient_id: user!.id,
+        doctor_id: incomingCall.doctor?.id || 0,
+        starts_at: incomingCall.starts_at || new Date().toISOString(),
+        reason: incomingCall.reason || 'Tư vấn sức khỏe trực tuyến',
+        status: 'in_progress',
+        fee_amount: incomingCall.fee_amount || 500000,
+        currency: 'VND'
+      }
+    }
+    await handleJoinConsultation(targetAppt)
+  }
+
+  // Bệnh nhân bấm từ chối cuộc gọi
+  async function handleDeclineIncomingCall() {
+    if (incomingCall?.appointment_id) {
+      declineIncomingCall(incomingCall.appointment_id).catch(() => {})
+    }
+    setIncomingCall(null)
   }
 
   // 1. Màn hình Đăng nhập
@@ -1106,6 +1161,15 @@ export default function App() {
               setPendingConsentAppointment(null)
               setActiveAppointment(appt)
             }}
+          />
+        )}
+
+        {/* Màn hình cuộc gọi đến (Bác sĩ gọi - Màn hình điện thoại sáng lên & Đổ chuông) */}
+        {incomingCall && (
+          <IncomingCallModal
+            call={incomingCall}
+            onAccept={handleAcceptIncomingCall}
+            onDecline={handleDeclineIncomingCall}
           />
         )}
       </main>

@@ -398,3 +398,37 @@ export async function cancelAppointment(appointmentId: number, reason: string) {
     body: JSON.stringify({ reason })
   })
 }
+
+// --- CALLING & NOTIFICATION API ---
+
+export type IncomingCallData = {
+  has_incoming_call: boolean
+  appointment_id?: number
+  doctor?: {
+    id: number
+    full_name: string
+    cchn?: string
+    department_name?: string
+  }
+  reason?: string
+  starts_at?: string
+  fee_amount?: number
+}
+
+export async function callPatient(appointmentId: number) {
+  return request<{ success: boolean; appointment_id: number; status: string; patient_name: string; message: string }>(
+    `/api/v1/telehealth/sessions/${appointmentId}/call-patient`,
+    { method: 'POST' }
+  )
+}
+
+export async function checkIncomingCall() {
+  return request<IncomingCallData>('/api/v1/patients/me/incoming-call')
+}
+
+export async function declineIncomingCall(appointmentId: number) {
+  return request<{ success: boolean; message: string }>(
+    `/api/v1/telehealth/sessions/${appointmentId}/decline-call`,
+    { method: 'POST' }
+  )
+}
