@@ -2,7 +2,8 @@ import { useEffect, useState, useRef } from 'react'
 import {
   ArrowLeft, ShieldCheck, Save, CheckCircle2, Lock, FileText,
   Pill, User, Search, AlertCircle, Stethoscope, Video, VideoOff, X,
-  FileDown, PenTool, Share2, Code2, QrCode, Sparkles, Mic, MicOff, Bot, PhoneCall, Volume2
+  FileDown, PenTool, Share2, Code2, QrCode, Sparkles, Mic, MicOff, Bot, PhoneCall, Volume2,
+  ScreenShare, ScreenShareOff, MessageSquare
 } from 'lucide-react'
 import {
   type Appointment, type User as CurrentUser, type ICD10Item,
@@ -12,6 +13,7 @@ import {
   generateAiScribeSoap, callPatient
 } from './api'
 import { webrtcService, type WebRTCState } from './webrtcService'
+import { ConsultationChat } from './ConsultationChat'
 
 export function DoctorWorkspace({
   appointment,
@@ -25,7 +27,8 @@ export function DoctorWorkspace({
   onCompleted: () => void
 }) {
   const [connection, setConnection] = useState<{ server_url: string; token: string; room_name: string } | null>(null)
-  const [activeTab, setActiveTab] = useState<'record' | 'ai_scribe' | 'prescription' | 'patient_info' | 'fhir'>('record')
+  const [activeTab, setActiveTab] = useState<'record' | 'ai_scribe' | 'prescription' | 'chat' | 'patient_info' | 'fhir'>('record')
+  const [unreadChatCount, setUnreadChatCount] = useState(0)
   
   // WebRTC P2P Video & Audio Engine
   const [rtcState, setRtcState] = useState<WebRTCState>(webrtcService.getState())
@@ -99,6 +102,9 @@ export function DoctorWorkspace({
     const unbindRemote = webrtcService.onRemoteStream(stream => {
       if (remoteVideoRef.current) remoteVideoRef.current.srcObject = stream
     })
+    const unbindChat = webrtcService.onChatMessage(() => {
+      setUnreadChatCount(prev => prev + 1)
+    })
 
     webrtcService.joinRoom(appointment.id, 'doctor', user.full_name)
 
@@ -114,6 +120,7 @@ export function DoctorWorkspace({
       unbindState()
       unbindLocal()
       unbindRemote()
+      unbindChat()
       webrtcService.endCall()
     }
   }, [appointment.id, user.full_name])
@@ -472,6 +479,14 @@ export function DoctorWorkspace({
               className={`doctor-remote-video ${rtcState.remoteStream ? 'visible' : 'hidden'}`}
             />
 
+            {/* Thông báo Bác sĩ đang chia sẻ màn hình */}
+            {rtcState.isScreenSharing && (
+              <div className="doctor-screenshare-indicator">
+                <span className="live-pulse-dot" style={{ background: '#ef4444', boxShadow: '0 0 8px #ef4444' }} />
+                <span>🔴 Bạn đang chia sẻ màn hình với bệnh nhân</span>
+              </div>
+            )}
+
             {/* Placeholder khi bệnh nhân chưa nối máy */}
             {!rtcState.remoteStream && (
               <div className="video-placeholder doctor-waiting-screen">
@@ -530,6 +545,38 @@ export function DoctorWorkspace({
                 {rtcState.isVideoMuted ? <VideoOff size={18} /> : <Video size={18} />}
                 <span>{rtcState.isVideoMuted ? 'Bật Cam' : 'Tắt Cam'}</span>
               </button>
+
+              {/* Nút chia sẻ màn hình giống Google Meet */}
+              <button
+                type="button"
+                className={`doctor-media-btn ${rtcState.isScreenSharing ? 'screenshare-active' : ''}`}
+                onClick={async () => {
+                  if (rtcState.isScreenSharing) {
+                    await webrtcService.stopScreenShare()
+                  } else {
+                    await webrtcService.startScreenShare()
+                  }
+                }}
+                title={rtcState.isScreenSharing ? 'Dừng chia sẻ màn hình' : 'Chia sẻ màn hình giống Google Meet'}
+              >
+                {rtcState.isScreenSharing ? <ScreenShareOff size={18} /> : <ScreenShare size={18} />}
+                <span>{rtcState.isScreenSharing ? 'Dừng chia sẻ' : 'Chia sẻ màn hình'}</span>
+              </button>
+
+              {/* Nút mở nhanh Chat & Tệp */}
+              <button
+                type="button"
+                className={`doctor-media-btn ${activeTab === 'chat' ? 'active-sheet' : ''}`}
+                onClick={() => {
+                  setActiveTab('chat')
+                  setUnreadChatCount(0)
+                }}
+                title="Nhắn tin & Tệp bệnh nhân gửi"
+              >
+                <MessageSquare size={18} />
+                <span>Chat {unreadChatCount > 0 && `(${unreadChatCount})`}</span>
+              </button>
+
               <div className="doctor-media-status-badge">
                 <ShieldCheck size={14} color="#10b981" />
                 <span>WebRTC E2EE</span>
@@ -553,6 +600,17 @@ export function DoctorWorkspace({
               style={{ background: activeTab === 'ai_scribe' ? '#0f766e' : '#f0fdfa', color: activeTab === 'ai_scribe' ? '#fff' : '#0f766e', fontWeight: 600 }}
             >
               <Sparkles size={16} /> Trợ lý AI Scribe
+            </button>
+            <button
+              className={`tab-btn ${activeTab === 'chat' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('chat')
+                setUnreadChatCount(0)
+              }}
+              style={{ position: 'relative' }}
+            >
+              <MessageSquare size={16} /> Chat & Tệp gửi
+              {unreadChatCount > 0 && <span className="tab-unread-badge">{unreadChatCount}</span>}
             </button>
             <button
               className={`tab-btn ${activeTab === 'prescription' ? 'active' : ''}`}
@@ -919,6 +977,16 @@ export function DoctorWorkspace({
 
                 <h3 style={{ marginTop: '20px' }}>Lý do ban đầu bệnh nhân đăng ký:</h3>
                 <div className="quote-box">{appointment.reason}</div>
+              </div>
+            )}
+
+            {activeTab === 'chat' && (
+              <div className="doctor-chat-tab-container">
+                <ConsultationChat
+                  appointmentId={appointment.id}
+                  currentUser={user}
+                  title="Hộp thoại trao đổi & Tệp bệnh nhân gửi (Ảnh vết thương, Hồ sơ xét nghiệm)"
+                />
               </div>
             )}
 

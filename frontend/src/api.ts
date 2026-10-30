@@ -432,3 +432,40 @@ export async function declineIncomingCall(appointmentId: number) {
     { method: 'POST' }
   )
 }
+
+// --- IN-CONSULTATION CHAT & ATTACHMENTS API ---
+
+export type ConsultationMessage = {
+  id: number
+  appointment_id: number
+  sender_id: number
+  sender_role: 'doctor' | 'patient'
+  sender_name: string
+  message_type: 'text' | 'image' | 'file'
+  content?: string
+  file_url?: string
+  file_name?: string
+  file_size?: number
+  created_at: string
+}
+
+export async function getConsultationMessages(appointmentId: number) {
+  return request<ConsultationMessage[]>(`/api/v1/telehealth/sessions/${appointmentId}/messages`)
+}
+
+export async function sendConsultationMessage(
+  appointmentId: number,
+  data: {
+    content?: string
+    message_type?: 'text' | 'image' | 'file'
+    file_name?: string
+    file_data?: string
+    file_size?: number
+  }
+) {
+  return request<ConsultationMessage>(`/api/v1/telehealth/sessions/${appointmentId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+

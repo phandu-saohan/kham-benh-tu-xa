@@ -1,6 +1,8 @@
 /**
  * WebRTC P2P Service for Telemedicine Video & Audio Consultation
  * Supports HD Audio/Video, Front/Back Camera Switching on Mobile,
+ * Google Meet Style Screen Sharing for Doctor,
+ * Real-time In-Call Chat & Medical File/Image Sharing,
  * Canvas/Oscillator Fallback if hardware is missing, and WebSocket Signaling.
  */
 
@@ -14,15 +16,19 @@ export interface WebRTCState {
   hasMicrophone: boolean
   facingMode: 'user' | 'environment'
   isConnected: boolean
+  isScreenSharing: boolean
+  isRemoteScreenSharing: boolean
 }
 
 type StreamCallback = (stream: MediaStream | null) => void
 type StateCallback = (state: WebRTCState) => void
+type ChatCallback = (message: any) => void
 
 export class TelemedicineWebRTCService {
   private peerConnection: RTCPeerConnection | null = null
   private localStream: MediaStream | null = null
   private remoteStream: MediaStream | null = null
+  private screenStream: MediaStream | null = null
   private ws: WebSocket | null = null
   private appointmentId: number = 0
   private role: 'doctor' | 'patient' = 'patient'
@@ -34,10 +40,13 @@ export class TelemedicineWebRTCService {
   private hasMicrophone: boolean = false
   private facingMode: 'user' | 'environment' = 'user'
   private isConnected: boolean = false
+  private isScreenSharing: boolean = false
+  private isRemoteScreenSharing: boolean = false
 
   private localStreamListeners: Set<StreamCallback> = new Set()
   private remoteStreamListeners: Set<StreamCallback> = new Set()
   private stateListeners: Set<StateCallback> = new Set()
+  private chatMessageListeners: Set<ChatCallback> = new Set()
 
   private queuedIceCandidates: RTCIceCandidateInit[] = []
   private canvasAnimationId: number | null = null
@@ -61,7 +70,9 @@ export class TelemedicineWebRTCService {
       hasCamera: this.hasCamera,
       hasMicrophone: this.hasMicrophone,
       facingMode: this.facingMode,
-      isConnected: this.isConnected
+      isConnected: this.isConnected,
+      isScreenSharing: this.isScreenSharing,
+      isRemoteScreenSharing: this.isRemoteScreenSharing
     }
   }
 
@@ -83,6 +94,11 @@ export class TelemedicineWebRTCService {
     return () => this.stateListeners.delete(cb)
   }
 
+  public onChatMessage(cb: ChatCallback): () => void {
+    this.chatMessageListeners.add(cb)
+    return () => this.chatMessageListeners.delete(cb)
+  }
+
   private notifyState() {
     const s = this.getState()
     this.stateListeners.forEach(cb => {
@@ -92,12 +108,10 @@ export class TelemedicineWebRTCService {
 
   /**
    * Khởi tạo thiết bị đa phương tiện (Microphone & Camera)
-   * Tự động dự phòng nếu thiếu Webcam hoặc thiếu Micro để không bao giờ bị nghẽn WebRTC
    */
   public async initMedia(facingMode: 'user' | 'environment' = 'user'): Promise<MediaStream> {
     this.facingMode = facingMode
 
-    // Nếu đã có stream đang active, dừng các track cũ
     if (this.localStream) {
       this.localStream.getTracks().forEach(t => t.stop())
       this.localStream = null
@@ -106,7 +120,6 @@ export class TelemedicineWebRTCService {
     let audioTrack: MediaStreamTrack | null = null
     let videoTrack: MediaStreamTrack | null = null
 
-    // 1. Kiểm tra quyền & thiết bị thực tế
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -132,7 +145,6 @@ export class TelemedicineWebRTCService {
       }
     } catch (err) {
       console.warn('[WebRTC] Không lấy được đồng thời Audio + Video, đang thử Audio riêng...', err)
-      // Thử lấy riêng Audio
       try {
         const aStream = await navigator.mediaDevices.getUserMedia({ audio: true })
         audioTrack = aStream.getAudioTracks()[0] || null
@@ -142,13 +154,11 @@ export class TelemedicineWebRTCService {
       }
     }
 
-    // 2. Dự phòng Video Track nếu không có Camera vật lý
     if (!videoTrack) {
       this.hasCamera = false
       videoTrack = this.createFallbackCanvasTrack()
     }
 
-    // 3. Dự phòng Audio Track nếu không có Micro vật lý
     if (!audioTrack) {
       this.hasMicrophone = false
       audioTrack = this.createSilentAudioTrack()
@@ -157,11 +167,10 @@ export class TelemedicineWebRTCService {
     const combinedStream = new MediaStream([videoTrack, audioTrack])
     this.localStream = combinedStream
 
-    // Gửi track vào peer connection nếu đã được tạo
     if (this.peerConnection) {
       const senders = this.peerConnection.getSenders()
       senders.forEach(sender => {
-        if (sender.track?.kind === 'video' && videoTrack) {
+        if (sender.track?.kind === 'video' && videoTrack && !this.isScreenSharing) {
           sender.replaceTrack(videoTrack)
         } else if (sender.track?.kind === 'audio' && audioTrack) {
           sender.replaceTrack(audioTrack)
@@ -174,9 +183,6 @@ export class TelemedicineWebRTCService {
     return combinedStream
   }
 
-  /**
-   * Tạo video track giả lập chuẩn y tế khi không có webcam
-   */
   private createFallbackCanvasTrack(): MediaStreamTrack {
     const canvas = document.createElement('canvas')
     canvas.width = 640
@@ -188,7 +194,6 @@ export class TelemedicineWebRTCService {
       ctx.fillStyle = '#0f172a'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      // Vẽ lưới radar y tế
       ctx.strokeStyle = '#1e293b'
       ctx.lineWidth = 1
       for (let x = 0; x < canvas.width; x += 40) {
@@ -204,7 +209,6 @@ export class TelemedicineWebRTCService {
         ctx.stroke()
       }
 
-      // Vẽ sóng nhịp tim ECG
       ctx.strokeStyle = '#10b981'
       ctx.lineWidth = 3
       ctx.beginPath()
@@ -220,7 +224,6 @@ export class TelemedicineWebRTCService {
       ctx.stroke()
       offset = (offset + 4) % 1000
 
-      // Vẽ avatar nhãn phòng khám
       ctx.fillStyle = '#047857'
       ctx.beginPath()
       ctx.arc(canvas.width / 2, canvas.height / 2 - 40, 48, 0, Math.PI * 2)
@@ -250,9 +253,6 @@ export class TelemedicineWebRTCService {
     return stream.getVideoTracks()[0]
   }
 
-  /**
-   * Tạo audio track im lặng nếu thiết bị không có micro
-   */
   private createSilentAudioTrack(): MediaStreamTrack {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
@@ -268,7 +268,6 @@ export class TelemedicineWebRTCService {
     } catch (e) {
       console.warn('AudioContext failed:', e)
     }
-    // Fallback nếu không có AudioContext
     const canvas = document.createElement('canvas')
     const stream = (canvas as any).captureStream?.() || new MediaStream()
     return stream.getAudioTracks()[0] || new MediaStreamTrack()
@@ -282,15 +281,11 @@ export class TelemedicineWebRTCService {
     this.role = role
     this.userName = userName
 
-    // 1. Lấy luồng local media nếu chưa có
     if (!this.localStream) {
       await this.initMedia('user')
     }
 
-    // 2. Thiết lập Peer Connection
     this.createPeerConnection()
-
-    // 3. Kết nối WebSocket Signaling Gateway
     this.connectWebSocket()
   }
 
@@ -323,7 +318,6 @@ export class TelemedicineWebRTCService {
         userName: this.userName
       })
 
-      // Nếu là Bác sĩ, chủ động tạo Offer ban đầu
       if (this.role === 'doctor') {
         setTimeout(() => this.initiateOffer(), 500)
       }
@@ -363,14 +357,12 @@ export class TelemedicineWebRTCService {
 
     this.peerConnection = new RTCPeerConnection(this.RTC_CONFIG)
 
-    // Thêm các track cục bộ vào kết nối
     if (this.localStream) {
       this.localStream.getTracks().forEach(track => {
         this.peerConnection!.addTrack(track, this.localStream!)
       })
     }
 
-    // Xử lý ICE Candidate phát hiện được
     this.peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
         this.sendSignalingMessage({
@@ -382,7 +374,6 @@ export class TelemedicineWebRTCService {
       }
     }
 
-    // Nhận track từ xa (Đối phương)
     this.peerConnection.ontrack = (event) => {
       console.log('[WebRTC] 🎬 Nhận được luồng từ xa!', event.streams)
       if (event.streams && event.streams[0]) {
@@ -414,7 +405,7 @@ export class TelemedicineWebRTCService {
   public async initiateOffer() {
     if (!this.peerConnection) return
     try {
-      console.log('[WebRTC] 📞 Bác sĩ khởi tạo Offer SDP...')
+      console.log('[WebRTC] 📞 Khởi tạo Offer SDP...')
       const offer = await this.peerConnection.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true
@@ -432,7 +423,7 @@ export class TelemedicineWebRTCService {
   }
 
   private async handleSignalingMessage(msg: any) {
-    if (msg.role === this.role) return // Bỏ qua tin nhắn do chính mình gửi
+    if (msg.role === this.role) return
 
     switch (msg.type) {
       case 'JOIN_ROOM':
@@ -444,10 +435,9 @@ export class TelemedicineWebRTCService {
 
       case 'WEBRTC_OFFER':
         if (msg.sdp && this.peerConnection) {
-          console.log('[WebRTC] 📥 Nhận Offer SDP từ đối phương, đang phản hồi Answer...')
+          console.log('[WebRTC] 📥 Nhận Offer SDP từ đối phương...')
           await this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg.sdp))
           
-          // Thêm các ứng viên ICE đã xếp hàng
           while (this.queuedIceCandidates.length > 0) {
             const cand = this.queuedIceCandidates.shift()
             if (cand) {
@@ -490,14 +480,112 @@ export class TelemedicineWebRTCService {
         }
         break
 
+      case 'SCREEN_SHARE_STATUS':
+        console.log(`[WebRTC] Trạng thái chia sẻ màn hình từ ${msg.role}: ${msg.isSharing}`)
+        this.isRemoteScreenSharing = !!msg.isSharing
+        this.notifyState()
+        break
+
+      case 'CHAT_MESSAGE':
+        if (msg.message) {
+          this.chatMessageListeners.forEach(cb => {
+            try { cb(msg.message) } catch (e) { console.error(e) }
+          })
+        }
+        break
+
       case 'PEER_LEFT':
       case 'CALL_ENDED':
         console.log('[WebRTC] Đối phương đã rời phòng.')
         this.remoteStream = null
+        this.isRemoteScreenSharing = false
         this.remoteStreamListeners.forEach(cb => cb(null))
         this.notifyState()
         break
     }
+  }
+
+  /**
+   * Bắt đầu chia sẻ màn hình giống Google Meet
+   */
+  public async startScreenShare(): Promise<boolean> {
+    if (!navigator.mediaDevices || !(navigator.mediaDevices as any).getDisplayMedia) {
+      throw new Error('Trình duyệt không hỗ trợ tính năng chia sẻ màn hình.')
+    }
+
+    try {
+      console.log('[WebRTC ScreenShare] 🖥️ Yêu cầu chọn màn hình/cửa sổ chia sẻ...')
+      const screenStream = await (navigator.mediaDevices as any).getDisplayMedia({
+        video: { cursor: 'always' },
+        audio: false
+      })
+
+      const screenTrack = screenStream.getVideoTracks()[0]
+      if (!screenTrack) return false
+
+      this.screenStream = screenStream
+      this.isScreenSharing = true
+
+      // Thay thế video track trên Peer Connection
+      if (this.peerConnection) {
+        const senders = this.peerConnection.getSenders()
+        const videoSender = senders.find(s => s.track?.kind === 'video')
+        if (videoSender) {
+          await videoSender.replaceTrack(screenTrack)
+        }
+      }
+
+      // Khi người dùng bấm "Dừng chia sẻ" trên thanh trình duyệt (Chrome/Edge blue bar)
+      screenTrack.onended = () => {
+        this.stopScreenShare()
+      }
+
+      // Thông báo cho bên kia biết để hiển thị huy hiệu màn hình chia sẻ
+      this.sendSignalingMessage({
+        type: 'SCREEN_SHARE_STATUS',
+        appointment_id: this.appointmentId,
+        role: this.role,
+        isSharing: true
+      })
+
+      this.notifyState()
+      return true
+    } catch (err) {
+      console.warn('[WebRTC ScreenShare] Đã huỷ hoặc lỗi chia sẻ màn hình:', err)
+      return false
+    }
+  }
+
+  /**
+   * Dừng chia sẻ màn hình và quay về Webcam/Canvas
+   */
+  public async stopScreenShare(): Promise<void> {
+    console.log('[WebRTC ScreenShare] 🛑 Dừng chia sẻ màn hình, phục hồi Camera...')
+    if (this.screenStream) {
+      this.screenStream.getTracks().forEach(t => t.stop())
+      this.screenStream = null
+    }
+
+    this.isScreenSharing = false
+
+    // Phục hồi lại camera hoặc canvas fallback
+    const camTrack = this.localStream?.getVideoTracks()[0] || null
+    if (this.peerConnection && camTrack) {
+      const senders = this.peerConnection.getSenders()
+      const videoSender = senders.find(s => s.track?.kind === 'video')
+      if (videoSender) {
+        await videoSender.replaceTrack(camTrack)
+      }
+    }
+
+    this.sendSignalingMessage({
+      type: 'SCREEN_SHARE_STATUS',
+      appointment_id: this.appointmentId,
+      role: this.role,
+      isSharing: false
+    })
+
+    this.notifyState()
   }
 
   /**
@@ -545,6 +633,11 @@ export class TelemedicineWebRTCService {
       role: this.role
     })
 
+    if (this.screenStream) {
+      this.screenStream.getTracks().forEach(t => t.stop())
+      this.screenStream = null
+    }
+
     if (this.canvasAnimationId) {
       cancelAnimationFrame(this.canvasAnimationId)
       this.canvasAnimationId = null
@@ -568,6 +661,8 @@ export class TelemedicineWebRTCService {
     this.remoteStream = null
     this.queuedIceCandidates = []
     this.isConnected = false
+    this.isScreenSharing = false
+    this.isRemoteScreenSharing = false
 
     this.localStreamListeners.forEach(cb => cb(null))
     this.remoteStreamListeners.forEach(cb => cb(null))

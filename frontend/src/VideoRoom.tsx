@@ -13,10 +13,13 @@ import {
   X,
   Pill,
   Stethoscope,
-  Volume2
+  Volume2,
+  MessageSquare,
+  ScreenShare
 } from 'lucide-react'
 import { type Appointment, type User, getClinicalRecord } from './api'
 import { webrtcService, type WebRTCState } from './webrtcService'
+import { ConsultationChat } from './ConsultationChat'
 
 export function VideoRoom({
   appointment,
@@ -30,6 +33,8 @@ export function VideoRoom({
   const [rtcState, setRtcState] = useState<WebRTCState>(webrtcService.getState())
   const [callDuration, setCallDuration] = useState(0)
   const [showClinicalSheet, setShowClinicalSheet] = useState(false)
+  const [showChat, setShowChat] = useState(false)
+  const [unreadChatCount, setUnreadChatCount] = useState(0)
   const [clinicalData, setClinicalData] = useState<any>(null)
   
   const localVideoRef = useRef<HTMLVideoElement>(null)
@@ -80,12 +85,17 @@ export function VideoRoom({
       }
     })
 
+    const unbindChat = webrtcService.onChatMessage(() => {
+      setUnreadChatCount(prev => prev + 1)
+    })
+
     webrtcService.joinRoom(appointment.id, 'patient', user.full_name)
 
     return () => {
       unbindState()
       unbindLocal()
       unbindRemote()
+      unbindChat()
       webrtcService.endCall()
     }
   }, [appointment.id, user.full_name])
@@ -149,24 +159,53 @@ export function VideoRoom({
           </div>
         </div>
 
-        {/* Nút bật/tắt Bottom Sheet Đơn thuốc & Dặn dò */}
-        <button
-          type="button"
-          className={`mobile-sheet-btn ${showClinicalSheet ? 'active' : ''}`}
-          onClick={() => {
-            setShowClinicalSheet(!showClinicalSheet)
-            if (!showClinicalSheet) loadClinicalDetails()
-          }}
-          title="Xem đơn thuốc & dặn dò của bác sĩ"
-        >
-          <FileText size={17} />
-          <span className="sheet-btn-text">Đơn thuốc</span>
-        </button>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          {/* Nút bật/tắt Chat & Gửi ảnh bệnh án */}
+          <button
+            type="button"
+            className={`mobile-sheet-btn ${showChat ? 'active' : ''}`}
+            onClick={() => {
+              setShowChat(!showChat)
+              setShowClinicalSheet(false)
+              setUnreadChatCount(0)
+            }}
+            title="Nhắn tin & Gửi ảnh bệnh án cho bác sĩ"
+          >
+            <MessageSquare size={16} />
+            <span className="sheet-btn-text">Chat</span>
+            {unreadChatCount > 0 && !showChat && (
+              <span className="chat-badge-count">{unreadChatCount}</span>
+            )}
+          </button>
+
+          {/* Nút bật/tắt Bottom Sheet Đơn thuốc & Dặn dò */}
+          <button
+            type="button"
+            className={`mobile-sheet-btn ${showClinicalSheet ? 'active' : ''}`}
+            onClick={() => {
+              setShowClinicalSheet(!showClinicalSheet)
+              setShowChat(false)
+              if (!showClinicalSheet) loadClinicalDetails()
+            }}
+            title="Xem đơn thuốc & dặn dò của bác sĩ"
+          >
+            <FileText size={16} />
+            <span className="sheet-btn-text">Đơn thuốc</span>
+          </button>
+        </div>
       </header>
 
       {/* Main Video View Area */}
       <div className="webrtc-stage-container">
-        {/* Remote Video Stream (Bác sĩ) */}
+        {/* Banner khi Bác sĩ đang chia sẻ màn hình */}
+        {rtcState.isRemoteScreenSharing && (
+          <div className="remote-screenshare-banner">
+            <ScreenShare size={15} color="#38bdf8" />
+            <span>🖥️ Bác sĩ đang chia sẻ màn hình máy tính</span>
+          </div>
+        )}
+
+        {/* Remote Video Stream (Bác sĩ hoặc Màn hình chia sẻ) */}
         <video
           ref={remoteVideoRef}
           autoPlay
@@ -236,12 +275,30 @@ export function VideoRoom({
             <SwitchCamera size={22} />
           </button>
 
-          {/* 4. Mở đơn thuốc nhanh */}
+          {/* 4. Mở Chat & Tệp ảnh bệnh án */}
+          <button
+            type="button"
+            className={`control-circle-btn ${showChat ? 'active-sheet' : ''}`}
+            onClick={() => {
+              setShowChat(!showChat)
+              setShowClinicalSheet(false)
+              setUnreadChatCount(0)
+            }}
+            title="Gửi ảnh vết thương hoặc nhắn tin"
+          >
+            <MessageSquare size={20} />
+            {unreadChatCount > 0 && !showChat && (
+              <span className="control-btn-badge">{unreadChatCount}</span>
+            )}
+          </button>
+
+          {/* 5. Mở đơn thuốc nhanh */}
           <button
             type="button"
             className={`control-circle-btn ${showClinicalSheet ? 'active-sheet' : ''}`}
             onClick={() => {
               setShowClinicalSheet(!showClinicalSheet)
+              setShowChat(false)
               if (!showClinicalSheet) loadClinicalDetails()
             }}
             title="Xem hồ sơ / đơn thuốc"
@@ -249,7 +306,7 @@ export function VideoRoom({
             <FileText size={20} />
           </button>
 
-          {/* 5. Kết thúc cuộc gọi */}
+          {/* 6. Kết thúc cuộc gọi */}
           <button
             type="button"
             className="control-circle-btn hangup-btn"
@@ -263,6 +320,18 @@ export function VideoRoom({
           </button>
         </div>
       </div>
+
+      {/* Slide-in Consultation Chat Panel (Cho phép gửi ảnh, file xét nghiệm, tin nhắn) */}
+      {showChat && (
+        <div className="mobile-chat-bottom-sheet">
+          <ConsultationChat
+            appointmentId={appointment.id}
+            currentUser={user}
+            onClose={() => setShowChat(false)}
+            title="Trao đổi & Gửi ảnh bệnh án"
+          />
+        </div>
+      )}
 
       {/* Collapsible Clinical Bottom Sheet (Dành riêng cho bệnh nhân xem đơn thuốc) */}
       {showClinicalSheet && (

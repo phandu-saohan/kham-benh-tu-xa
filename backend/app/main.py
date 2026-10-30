@@ -1,6 +1,8 @@
 from datetime import datetime, timezone, timedelta
 import random
 import os
+import base64
+import uuid
 from fastapi import FastAPI, Depends, HTTPException, Query, status, Response, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -13,7 +15,8 @@ from app.config import settings
 from app.db import get_db, Base, engine
 from app.models import (
     User, Appointment, TelehealthSession, ClinicalRecord, PrescriptionRef,
-    Payment, AuditLog, OtpCode, PatientConsent, Department, DoctorShift
+    Payment, AuditLog, OtpCode, PatientConsent, Department, DoctorShift,
+    ConsultationMessage
 )
 from app.schemas import (
     LoginIn, TokenOut, OtpSendIn, OtpSendOut, OtpVerifyIn, RefreshTokenIn,
@@ -23,7 +26,8 @@ from app.schemas import (
     ConsentAgreeIn, ConsentStatusOut, DigitalSignRequest, DigitalSignResponse,
     NationalPrescriptionSyncOut, PACSViewerOut,
     AmbientScribeIn, AmbientScribeOut, BhytCheckIn, BhytCheckOut,
-    DepartmentOut, DoctorShiftOut, AppointmentCancelIn, AppointmentCancelOut
+    DepartmentOut, DoctorShiftOut, AppointmentCancelIn, AppointmentCancelOut,
+    ConsultationMessageIn, ConsultationMessageOut
 )
 from app.security import (
     verify_password, create_access_token, create_refresh_token, decode_token,
@@ -525,16 +529,20 @@ class SignalingManager:
             if not self.active_rooms[room_id]:
                 del self.active_rooms[room_id]
 
-    async def broadcast_to_room(self, room_id: str, message: dict, sender: WebSocket):
+    async def broadcast_to_room(self, room_id: str, message: dict, sender: WebSocket | None = None):
         if room_id in self.active_rooms:
             for connection in list(self.active_rooms[room_id]):
-                if connection != sender:
+                if sender is None or connection != sender:
                     try:
                         await connection.send_json(message)
                     except Exception:
                         pass
 
 signaling_manager = SignalingManager()
+
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 @app.websocket("/ws")
 @app.websocket("/ws/{appointment_id}")
@@ -560,6 +568,99 @@ async def websocket_signaling_endpoint(websocket: WebSocket, appointment_id: str
         )
     except Exception:
         signaling_manager.disconnect(current_room, websocket)
+
+# ----------------- IN-CONSULTATION CHAT & MEDICAL FILE ATTACHMENTS -----------------
+
+@app.get("/api/v1/telehealth/sessions/{appointment_id}/messages", response_model=list[ConsultationMessageOut])
+def get_consultation_messages(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
+    check_appointment_access(appt, user)
+    return db.query(ConsultationMessage).filter_by(appointment_id=appt.id).order_by(ConsultationMessage.id.asc()).all()
+
+@app.post("/api/v1/telehealth/sessions/{appointment_id}/messages", response_model=ConsultationMessageOut)
+async def send_consultation_message(
+    appointment_id: int,
+    data: ConsultationMessageIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
+    check_appointment_access(appt, user)
+
+    file_url = None
+    file_name = data.file_name
+    file_size = data.file_size
+    msg_type = data.message_type
+
+    if data.file_data:
+        try:
+            raw_b64 = data.file_data
+            if "," in raw_b64:
+                header, raw_b64 = raw_b64.split(",", 1)
+            file_bytes = base64.b64decode(raw_b64)
+            file_size = len(file_bytes)
+
+            safe_ext = ".bin"
+            if file_name and "." in file_name:
+                safe_ext = "." + file_name.rsplit(".", 1)[1].lower()[:10]
+            elif msg_type == "image":
+                safe_ext = ".jpg"
+
+            clean_name = f"{uuid.uuid4().hex[:12]}_{safe_ext}"
+            saved_path = os.path.join(UPLOAD_DIR, clean_name)
+            with open(saved_path, "wb") as f:
+                f.write(file_bytes)
+            file_url = f"/uploads/{clean_name}"
+            if not file_name:
+                file_name = clean_name
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Lỗi tải lên tệp: {str(e)}")
+
+    new_msg = ConsultationMessage(
+        appointment_id=appt.id,
+        sender_id=user.id,
+        sender_role=user.role,
+        sender_name=user.full_name,
+        message_type=msg_type,
+        content=data.content,
+        file_url=file_url,
+        file_name=file_name,
+        file_size=file_size
+    )
+    db.add(new_msg)
+    db.commit()
+    db.refresh(new_msg)
+
+    # Phát tín hiệu tức thì qua WebSocket cho cả Bác sĩ & Bệnh nhân
+    out_payload = {
+        "id": new_msg.id,
+        "appointment_id": new_msg.appointment_id,
+        "sender_id": new_msg.sender_id,
+        "sender_role": new_msg.sender_role,
+        "sender_name": new_msg.sender_name,
+        "message_type": new_msg.message_type,
+        "content": new_msg.content,
+        "file_url": new_msg.file_url,
+        "file_name": new_msg.file_name,
+        "file_size": new_msg.file_size,
+        "created_at": new_msg.created_at.isoformat() if hasattr(new_msg.created_at, "isoformat") else str(new_msg.created_at)
+    }
+    await signaling_manager.broadcast_to_room(
+        str(appt.id),
+        {"type": "CHAT_MESSAGE", "appointment_id": appt.id, "message": out_payload},
+        sender=None
+    )
+
+    return new_msg
+
 
 
 # ----------------- CLINICAL RECORDS & DOCTOR WORKSPACE -----------------

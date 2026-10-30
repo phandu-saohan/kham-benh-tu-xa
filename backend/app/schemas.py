@@ -229,3 +229,25 @@ class AppointmentCancelOut(BaseModel):
     refund_reason: str
     message: str
 
+class ConsultationMessageIn(BaseModel):
+    content: str | None = None
+    message_type: str = "text"  # "text", "image", "file"
+    file_name: str | None = None
+    file_data: str | None = None  # Base64 string or data URL
+    file_size: int | None = None
+
+class ConsultationMessageOut(BaseModel):
+    id: int
+    appointment_id: int
+    sender_id: int
+    sender_role: str
+    sender_name: str
+    message_type: str
+    content: str | None = None
+    file_url: str | None = None
+    file_name: str | None = None
+    file_size: int | None = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+

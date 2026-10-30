@@ -169,3 +169,18 @@ class AuditLog(Base):
     resource_type: Mapped[str] = mapped_column(String(80))
     resource_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+class ConsultationMessage(Base):
+    __tablename__ = "consultation_messages"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    appointment_id: Mapped[int] = mapped_column(ForeignKey("appointments.id"), index=True)
+    sender_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    sender_role: Mapped[str] = mapped_column(String(30))  # "doctor" | "patient"
+    sender_name: Mapped[str] = mapped_column(String(200))
+    message_type: Mapped[str] = mapped_column(String(20), default="text")  # "text", "image", "file"
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    file_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
