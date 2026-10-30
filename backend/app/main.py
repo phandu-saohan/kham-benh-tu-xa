@@ -45,6 +45,7 @@ from app.adapters.his import get_his_adapter
 from app.adapters.his.fhir import FHIRHISAdapter
 from app.adapters.pacs import get_pacs_adapter
 from app.adapters.pacs.dicomweb import DICOMwebPACSAdapter
+from app.paraclinical import get_patient_lab_results, get_patient_pacs_studies
 from app.icd10 import search_icd10
 from app.vietqr import generate_vietqr_url
 from app.smartca import sign_medical_document, verify_medical_signature
@@ -995,12 +996,57 @@ def export_fhir_bundle(appointment_id: int, db: Session = Depends(get_db), user:
         prescription=prescription.summary if prescription else ""
     )
 
-# ----------------- PACS DICOMWEB VIEWER -----------------
+# ----------------- PARACLINICAL (LAB/LIS) & PACS DICOMVIEWER -----------------
+
+@app.get("/api/v1/patients/me/lab-results")
+def patient_my_lab_results(user: User = Depends(require_roles("patient"))):
+    """Bệnh nhân tự tra cứu kết quả xét nghiệm cận lâm sàng của mình"""
+    return get_patient_lab_results(user.id, user.full_name)
 
 @app.get("/api/v1/patients/me/pacs-studies")
 def list_dicom_studies(user: User = Depends(get_current_user)):
-    patient_id = user.external_patient_id or f"DEMO-{user.id}"
-    return DICOMwebPACSAdapter.get_patient_studies(patient_id)
+    """Lấy danh sách các ca chụp PACS/DICOM của bệnh nhân hiện tại"""
+    return get_patient_pacs_studies(user.id, user.full_name)
+
+@app.get("/api/v1/patients/{patient_id}/lab-results")
+def get_patient_lab_results_endpoint(patient_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Bác sĩ, Điều dưỡng tra cứu kết quả cận lâm sàng của từng bệnh nhân cụ thể"""
+    if user.role not in ["doctor", "nurse", "admin"] and user.id != patient_id:
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập kết quả cận lâm sàng của bệnh nhân này")
+    patient = db.get(User, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Bệnh nhân không tồn tại")
+    return get_patient_lab_results(patient.id, patient.full_name)
+
+@app.get("/api/v1/patients/{patient_id}/pacs-studies")
+def get_patient_pacs_studies_endpoint(patient_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Bác sĩ, Điều dưỡng tra cứu chẩn đoán hình ảnh PACS/DICOM của từng bệnh nhân cụ thể"""
+    if user.role not in ["doctor", "nurse", "admin"] and user.id != patient_id:
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập phim PACS của bệnh nhân này")
+    patient = db.get(User, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Bệnh nhân không tồn tại")
+    return get_patient_pacs_studies(patient.id, patient.full_name)
+
+@app.get("/api/v1/appointments/{appointment_id}/lab-results")
+def get_appointment_lab_results(appointment_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Bác sĩ trong buồng khám lấy kết quả cận lâm sàng của bệnh nhân trong ca khám"""
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Ca khám không tồn tại")
+    check_appointment_access(appt, user)
+    patient = db.get(User, appt.patient_id)
+    return get_patient_lab_results(appt.patient_id, patient.full_name if patient else None)
+
+@app.get("/api/v1/appointments/{appointment_id}/pacs-studies")
+def get_appointment_pacs_studies(appointment_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Bác sĩ trong buồng khám lấy phim chụp PACS/DICOM của bệnh nhân trong ca khám"""
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Ca khám không tồn tại")
+    check_appointment_access(appt, user)
+    patient = db.get(User, appt.patient_id)
+    return get_patient_pacs_studies(appt.patient_id, patient.full_name if patient else None)
 
 @app.get("/api/v1/patients/me/records")
 def patient_records(db: Session = Depends(get_db), user: User = Depends(require_roles("patient"))):

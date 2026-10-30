@@ -592,5 +592,91 @@ export async function updateAdminSettings(data: Partial<SystemSettingsData>) {
   })
 }
 
+// --- PARACLINICAL (LAB/LIS) & PACS STUDIES API ---
+
+export interface LabIndicator {
+  code: string
+  name: string
+  value: string
+  unit: string
+  ref_range: string
+  flag: 'NORMAL' | 'HIGH' | 'LOW'
+  flag_label: string
+  note?: string | null
+}
+
+export interface LabReport {
+  report_id: string
+  title: string
+  category: 'biochemistry' | 'hematology' | 'urinalysis' | 'immunology' | string
+  category_name: string
+  sampled_at: string
+  result_at: string
+  performed_by: string
+  doctor_order: string
+  conclusion: string
+  indicators: LabIndicator[]
+}
+
+export interface LabResultsData {
+  patient_id: number
+  patient_name: string
+  total_reports: number
+  abnormal_indicators_count: number
+  reports: LabReport[]
+}
+
+export interface PACSStudy {
+  study_id: string
+  modality: 'CR' | 'CT' | 'MRI' | 'US' | string
+  modality_name: string
+  body_part: string
+  description: string
+  date: string
+  institution: string
+  radiologist: string
+  findings: string
+  impression: string
+  series_count: number
+  instances_count: number
+  viewer_url: string
+  dicom_web_endpoint?: string
+  study_instance_uid?: string
+}
+
+export interface PACSStudiesData {
+  patient_id: number
+  patient_name: string
+  total_studies: number
+  viewer_engine: string
+  notice: string
+  studies: PACSStudy[]
+}
+
+export async function getPatientLabResults(patientId: number) {
+  return request<LabResultsData>(`/api/v1/patients/${patientId}/lab-results`)
+}
+
+export async function getPatientPacsStudies(patientId: number) {
+  return request<PACSStudiesData>(`/api/v1/patients/${patientId}/pacs-studies`)
+}
+
+export async function getAppointmentLabResults(appointmentId: number) {
+  return request<LabResultsData>(`/api/v1/appointments/${appointmentId}/lab-results`)
+}
+
+export async function getAppointmentPacsStudies(appointmentId: number) {
+  return request<PACSStudiesData>(`/api/v1/appointments/${appointmentId}/pacs-studies`)
+}
+
+export async function getMyLabResults() {
+  return request<LabResultsData>('/api/v1/patients/me/lab-results')
+}
+
+export async function getMyPacsStudies() {
+  return request<PACSStudiesData>('/api/v1/patients/me/pacs-studies')
+}
+
+
 
 

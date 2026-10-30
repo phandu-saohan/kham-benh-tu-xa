@@ -1,18 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import {
   CalendarDays, Video, FileText, FlaskConical, Pill, CreditCard,
   LogOut, HeartPulse, Clock, UserRound, ShieldCheck, ArrowRight,
   Plus, X, Phone, Lock, Stethoscope, AlertCircle, RefreshCw, QrCode,
   FileDown, ExternalLink, PenTool, Building2, Sparkles, CheckCircle2,
-  HelpCircle, ShieldAlert, Undo2, Activity, Settings
+  HelpCircle, ShieldAlert, Undo2, Activity, Settings, ScanLine
 } from 'lucide-react'
 import {
   login, sendOtp, verifyOtp, request, cancelAppointment,
   getConsentStatus, downloadMedicalRecordPdf, getPacsDicomStudies,
   checkBhyt, applyBhyt, getDepartments, getDoctorShifts,
   checkIncomingCall, declineIncomingCall,
+  getPatientLabResults, getPatientPacsStudies, getMyLabResults, getMyPacsStudies,
   type Appointment, type User, type Department, type DoctorShift,
-  type BhytCheckOut, type IncomingCallData
+  type BhytCheckOut, type IncomingCallData, type LabResultsData, type PACSStudiesData
 } from './api'
 import { VideoRoom } from './VideoRoom'
 import { DoctorWorkspace } from './DoctorWorkspace'
@@ -77,6 +78,58 @@ export default function App() {
   const [hisSummary, setHisSummary] = useState<any>(null)
   const [imaging, setImaging] = useState<any>(null)
   const [toast, setToast] = useState('')
+
+  // Cận lâm sàng & PACS cho từng bệnh nhân
+  const [selectedPatientId, setSelectedPatientId] = useState<number>(1)
+  const [patientLabData, setPatientLabData] = useState<LabResultsData | null>(null)
+  const [patientPacsData, setPatientPacsData] = useState<PACSStudiesData | null>(null)
+  const [loadingPatientLab, setLoadingPatientLab] = useState(false)
+  const [loadingPatientPacs, setLoadingPatientPacs] = useState(false)
+  const [appLabFilter, setAppLabFilter] = useState<string>('all')
+  const [appPacsFilter, setAppPacsFilter] = useState<string>('all')
+
+  // Danh sách bệnh nhân độc nhất cho Bác sĩ / Điều dưỡng tra cứu
+  const uniquePatients = useMemo(() => {
+    const map = new Map<number, { id: number; name: string; phone?: string; bhyt?: string; lastReason?: string }>()
+    map.set(1, { id: 1, name: 'Nguyễn Minh An (Demo)', phone: '0912345678', bhyt: 'GD4797931812345', lastReason: 'Khám tim mạch theo dõi' })
+    appointments.forEach(a => {
+      if (a.patient_id && !map.has(a.patient_id)) {
+        map.set(a.patient_id, {
+          id: a.patient_id,
+          name: (a as any).patient_name || `Bệnh nhân #${a.patient_id}`,
+          phone: (a as any).patient_phone,
+          bhyt: a.bhyt_code,
+          lastReason: a.reason
+        })
+      }
+    })
+    return Array.from(map.values())
+  }, [appointments])
+
+  // Tải dữ liệu cận lâm sàng & PACS theo từng bệnh nhân được chọn
+  useEffect(() => {
+    if (!user) return
+    if (view === 'lab' || view === 'results') {
+      setLoadingPatientLab(true)
+      const fetchLab = user.role === 'patient'
+        ? getMyLabResults()
+        : getPatientLabResults(selectedPatientId)
+      fetchLab
+        .then(setPatientLabData)
+        .catch(console.error)
+        .finally(() => setLoadingPatientLab(false))
+    }
+    if (view === 'pacs' || view === 'results') {
+      setLoadingPatientPacs(true)
+      const fetchPacs = user.role === 'patient'
+        ? getMyPacsStudies()
+        : getPatientPacsStudies(selectedPatientId)
+      fetchPacs
+        .then(setPatientPacsData)
+        .catch(console.error)
+        .finally(() => setLoadingPatientPacs(false))
+    }
+  }, [view, user, selectedPatientId])
 
   async function loadDashboard(current: User) {
     try {
@@ -528,7 +581,8 @@ export default function App() {
             ['appointments', 'Lịch hẹn', CalendarDays],
             ...(!isPatient ? [['triage', 'Bàn Sàng lọc (Triage)', Activity]] : []),
             ['records', 'Hồ sơ bệnh án', FileText],
-            ['results', 'Cận lâm sàng & PACS', FlaskConical],
+            ['lab', 'Cận lâm sàng (Xét nghiệm)', FlaskConical],
+            ['pacs', 'Chẩn đoán hình ảnh PACS', ScanLine],
             ['prescriptions', 'Đơn thuốc Quốc gia', Pill],
             ['insurance', 'Bảo hiểm Y tế (BHYT)', ShieldCheck],
             ['payments', 'Thanh toán VietQR', CreditCard]
@@ -676,10 +730,16 @@ export default function App() {
                   onClick={() => setView('records')}
                 />
                 <Quick
-                  label="Xem phim PACS/DICOM (OHIF)"
-                  sub="Bộ đọc phim X-Quang, CT trực tuyến"
+                  label="Cận lâm sàng (Xét nghiệm)"
+                  sub="Sinh hóa máu, huyết học, nước tiểu"
                   icon={<FlaskConical />}
-                  onClick={() => setView('results')}
+                  onClick={() => setView('lab')}
+                />
+                <Quick
+                  label="Chẩn đoán hình ảnh PACS"
+                  sub="Bộ đọc phim X-Quang, CT, MRI"
+                  icon={<ScanLine />}
+                  onClick={() => setView('pacs')}
                 />
                 <Quick
                   label="Đơn thuốc Quốc gia"
@@ -750,39 +810,319 @@ export default function App() {
           </section>
         )}
 
-        {/* Tab: Cận lâm sàng & PACS */}
-        {view === 'results' && (
+        {/* Tab 1: Cận lâm sàng & Xét nghiệm */}
+        {(view === 'lab' || view === 'results') && (
           <section className="panel page-panel">
             <div className="panel-heading">
               <div>
-                <h3>Kết quả chẩn đoán hình ảnh PACS / DICOM</h3>
-                <p>Tích hợp bộ đọc ảnh y khoa trực tuyến OHIF Viewer</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FlaskConical size={22} color="#0f766e" />
+                  <h3 style={{ margin: 0 }}>Phiếu Cận lâm sàng & Kết quả Xét nghiệm</h3>
+                </div>
+                <p>Theo dõi chỉ số sinh hóa máu, công thức máu và tổng phân tích nước tiểu</p>
               </div>
             </div>
-            {(imaging?.studies || []).map((s: any) => (
-              <div className="result-row" key={s.study_id}>
-                <div className="result-icon">
-                  <FlaskConical />
+
+            {/* Thanh chọn Bệnh nhân dành cho Bác sĩ & Điều dưỡng */}
+            {!isPatient && (
+              <div className="patient-selector-panel" style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '14px 16px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
+                      👤 Chọn Bệnh nhân để xem Cận lâm sàng:
+                    </label>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {uniquePatients.map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setSelectedPatientId(p.id)}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '6px',
+                            border: selectedPatientId === p.id ? '2px solid #0f766e' : '1px solid #cbd5e1',
+                            background: selectedPatientId === p.id ? '#ccfbf1' : '#fff',
+                            color: selectedPatientId === p.id ? '#0f766e' : '#334155',
+                            fontWeight: selectedPatientId === p.id ? 700 : 500,
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          <UserRound size={14} />
+                          <span>{p.name}</span>
+                          {p.bhyt && <small style={{ opacity: 0.75, fontSize: '11px' }}>({p.bhyt})</small>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div className="grow">
-                  <b>{s.description}</b>
-                  <small>{s.modality} · {s.date} · Đơn vị: {s.institution} · Mã ca chụp: {s.study_id}</small>
-                </div>
-                {s.viewer_url ? (
-                  <button
-                    className="primary small-primary"
-                    onClick={() => window.open(s.viewer_url, '_blank')}
-                  >
-                    <ExternalLink size={14} /> Mở OHIF Viewer
-                  </button>
-                ) : (
-                  <span className="tag">Metadata</span>
-                )}
               </div>
-            ))}
-            <div className="notice">
+            )}
+
+            {/* Filter Category chips */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', overflowX: 'auto', paddingBottom: '4px' }}>
+              {[
+                ['all', `Tất cả (${patientLabData?.reports?.length || 0})`],
+                ['biochemistry', 'Sinh hóa máu'],
+                ['hematology', 'Huyết học & Tế bào'],
+                ['urinalysis', 'Nước tiểu']
+              ].map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setAppLabFilter(key)}
+                  style={{
+                    padding: '5px 14px',
+                    borderRadius: '20px',
+                    border: appLabFilter === key ? '1px solid #0f766e' : '1px solid #cbd5e1',
+                    background: appLabFilter === key ? '#0f766e' : '#f8fafc',
+                    color: appLabFilter === key ? '#fff' : '#475569',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {loadingPatientLab && <p className="muted">Đang tải kết quả cận lâm sàng của bệnh nhân...</p>}
+
+            {patientLabData && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {patientLabData.reports
+                  .filter(r => appLabFilter === 'all' || r.category === appLabFilter)
+                  .map(report => (
+                    <div key={report.report_id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px', marginBottom: '12px' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ background: '#ccfbf1', color: '#0f766e', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>
+                              {report.category_name}
+                            </span>
+                            <h4 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>{report.title}</h4>
+                          </div>
+                          <small style={{ color: '#64748b', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                            Mã: <strong>{report.report_id}</strong> · Lấy mẫu: {report.sampled_at} · Trả KQ: {report.result_at}
+                          </small>
+                        </div>
+                        <div style={{ textAlign: 'right', fontSize: '11px', color: '#64748b' }}>
+                          <div>KTV: <strong>{report.performed_by}</strong></div>
+                          <div>BS chỉ định: {report.doctor_order}</div>
+                        </div>
+                      </div>
+
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ background: '#f8fafc', color: '#475569', textAlign: 'left', borderBottom: '2px solid #e2e8f0' }}>
+                              <th style={{ padding: '8px 10px' }}>Tên xét nghiệm / Chỉ số</th>
+                              <th style={{ padding: '8px 10px', textAlign: 'right' }}>Kết quả</th>
+                              <th style={{ padding: '8px 10px' }}>Đơn vị</th>
+                              <th style={{ padding: '8px 10px' }}>Khoảng tham chiếu</th>
+                              <th style={{ padding: '8px 10px', textAlign: 'center' }}>Đánh giá</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {report.indicators.map((ind, idx) => (
+                              <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: ind.flag !== 'NORMAL' ? '#fffbeb' : 'transparent' }}>
+                                <td style={{ padding: '8px 10px' }}>
+                                  <strong style={{ color: '#1e293b' }}>{ind.name}</strong>
+                                  <code style={{ marginLeft: 6, fontSize: '11px', color: '#64748b', background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>{ind.code}</code>
+                                  {ind.note && <div style={{ fontSize: '11px', color: '#94a3b8' }}>{ind.note}</div>}
+                                </td>
+                                <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, fontSize: '13px', color: ind.flag === 'HIGH' ? '#dc2626' : ind.flag === 'LOW' ? '#d97706' : '#0f172a' }}>
+                                  {ind.value}
+                                </td>
+                                <td style={{ padding: '8px 10px', color: '#64748b' }}>{ind.unit}</td>
+                                <td style={{ padding: '8px 10px', color: '#475569' }}>{ind.ref_range}</td>
+                                <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                                  {ind.flag === 'HIGH' && (
+                                    <span style={{ background: '#fee2e2', color: '#dc2626', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 700 }}>
+                                      ▲ Tăng cao
+                                    </span>
+                                  )}
+                                  {ind.flag === 'LOW' && (
+                                    <span style={{ background: '#ffedd5', color: '#c2410c', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 700 }}>
+                                      ▼ Giảm thấp
+                                    </span>
+                                  )}
+                                  {ind.flag === 'NORMAL' && (
+                                    <span style={{ background: '#dcfce7', color: '#16a34a', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                                      Bình thường
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {report.conclusion && (
+                        <div style={{ marginTop: '12px', padding: '10px 12px', background: '#f8fafc', borderRadius: '6px', borderLeft: '3px solid #0f766e', fontSize: '12px' }}>
+                          <strong style={{ color: '#0f766e' }}>Kết luận chuyên môn:</strong> {report.conclusion}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            <div className="notice" style={{ marginTop: '16px' }}>
               <ShieldCheck size={18} />
-              {imaging?.notice || 'Hệ thống PACS hỗ trợ giao thức DICOMweb WADO-RS hiển thị trực tiếp trên trình duyệt.'}
+              Dữ liệu cận lâm sàng được kết nối trực tiếp từ hệ thống LIS bệnh viện theo chuẩn HL7 FHIR bảo vệ quyền riêng tư bệnh nhân.
+            </div>
+          </section>
+        )}
+
+        {/* Tab 2: Chẩn đoán hình ảnh PACS / DICOM */}
+        {view === 'pacs' && (
+          <section className="panel page-panel">
+            <div className="panel-heading">
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ScanLine size={22} color="#0284c7" />
+                  <h3 style={{ margin: 0 }}>Kết quả Chẩn đoán Hình ảnh PACS / DICOM</h3>
+                </div>
+                <p>Xem phim X-Quang, Siêu âm, CT Scanner trực tuyến qua trình đọc ảnh y khoa OHIF Viewer</p>
+              </div>
+            </div>
+
+            {/* Thanh chọn Bệnh nhân dành cho Bác sĩ & Điều dưỡng */}
+            {!isPatient && (
+              <div className="patient-selector-panel" style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '14px 16px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#0369a1', textTransform: 'uppercase', marginBottom: '4px' }}>
+                      🩻 Chọn Bệnh nhân để xem phim PACS:
+                    </label>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {uniquePatients.map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setSelectedPatientId(p.id)}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '6px',
+                            border: selectedPatientId === p.id ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                            background: selectedPatientId === p.id ? '#e0f2fe' : '#fff',
+                            color: selectedPatientId === p.id ? '#0369a1' : '#334155',
+                            fontWeight: selectedPatientId === p.id ? 700 : 500,
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          <UserRound size={14} />
+                          <span>{p.name}</span>
+                          {p.bhyt && <small style={{ opacity: 0.75, fontSize: '11px' }}>({p.bhyt})</small>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Filter Modality chips */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', overflowX: 'auto', paddingBottom: '4px' }}>
+              {[
+                ['all', `Tất cả (${patientPacsData?.studies?.length || 0})`],
+                ['CR', 'X-Quang (CR)'],
+                ['US', 'Siêu âm (US)'],
+                ['CT', 'Cắt lớp vi tính (CT)']
+              ].map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setAppPacsFilter(key)}
+                  style={{
+                    padding: '5px 14px',
+                    borderRadius: '20px',
+                    border: appPacsFilter === key ? '1px solid #0284c7' : '1px solid #cbd5e1',
+                    background: appPacsFilter === key ? '#0284c7' : '#f8fafc',
+                    color: appPacsFilter === key ? '#fff' : '#475569',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {loadingPatientPacs && <p className="muted">Đang tải danh sách phim chụp PACS của bệnh nhân...</p>}
+
+            {patientPacsData && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {patientPacsData.studies
+                  .filter(s => appPacsFilter === 'all' || s.modality === appPacsFilter)
+                  .map(study => (
+                    <div key={study.study_id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px', marginBottom: '12px' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{
+                              background: study.modality === 'CT' ? '#fef3c7' : study.modality === 'US' ? '#f3e8ff' : '#e0f2fe',
+                              color: study.modality === 'CT' ? '#b45309' : study.modality === 'US' ? '#7e22ce' : '#0369a1',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: 800
+                            }}>
+                              {study.modality}
+                            </span>
+                            <h4 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>{study.description}</h4>
+                          </div>
+                          <small style={{ color: '#64748b', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                            Mã ca: <strong>{study.study_id}</strong> · Bộ phận: <strong>{study.body_part}</strong> · Ngày chụp: <strong>{study.date}</strong> · Đơn vị: {study.institution}
+                          </small>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '11px', color: '#64748b' }}>BS CĐHA:</span>
+                          <div style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>{study.radiologist}</div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px', marginBottom: '14px' }}>
+                        <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '6px', fontSize: '12px' }}>
+                          <strong style={{ color: '#475569', display: 'block', marginBottom: '4px' }}>📝 Mô tả hình ảnh (Findings):</strong>
+                          <p style={{ margin: 0, color: '#1e293b', lineHeight: 1.5 }}>{study.findings}</p>
+                        </div>
+
+                        <div style={{ background: '#ecfdf5', padding: '10px 12px', borderRadius: '6px', borderLeft: '3px solid #10b981', fontSize: '12px' }}>
+                          <strong style={{ color: '#047857', display: 'block', marginBottom: '4px' }}>🎯 Kết luận (Impression):</strong>
+                          <p style={{ margin: 0, color: '#064e3b', fontWeight: 600, lineHeight: 1.5 }}>{study.impression}</p>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
+                        <button
+                          type="button"
+                          className="primary small-primary"
+                          onClick={() => window.open(study.viewer_url, '_blank')}
+                          style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', background: '#0284c7', borderColor: '#0284c7' }}
+                        >
+                          <ExternalLink size={14} /> Mở phim DICOM (OHIF Viewer)
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            <div className="notice" style={{ marginTop: '16px' }}>
+              <ShieldCheck size={18} />
+              {patientPacsData?.notice || 'Hệ thống PACS hỗ trợ giao thức DICOMweb WADO-RS hiển thị trực tiếp trên trình duyệt.'}
             </div>
           </section>
         )}

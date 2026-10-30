@@ -155,6 +155,60 @@ class PACSViewerOut(BaseModel):
     viewer_url: str
     source: str
 
+class LabIndicatorOut(BaseModel):
+    code: str
+    name: str
+    value: str
+    unit: str
+    ref_range: str
+    flag: str  # NORMAL, HIGH, LOW
+    flag_label: str
+    note: str | None = None
+
+class LabReportOut(BaseModel):
+    report_id: str
+    title: str
+    category: str
+    category_name: str
+    sampled_at: str
+    result_at: str
+    performed_by: str
+    doctor_order: str
+    conclusion: str
+    indicators: list[LabIndicatorOut]
+
+class LabResultsOut(BaseModel):
+    patient_id: int
+    patient_name: str
+    total_reports: int
+    abnormal_indicators_count: int
+    reports: list[LabReportOut]
+
+class PACSStudyDetailOut(BaseModel):
+    study_id: str
+    modality: str
+    modality_name: str
+    body_part: str
+    description: str
+    date: str
+    institution: str
+    radiologist: str
+    findings: str
+    impression: str
+    series_count: int
+    instances_count: int
+    viewer_url: str
+    dicom_web_endpoint: str | None = None
+    study_instance_uid: str | None = None
+
+class PACSStudiesListOut(BaseModel):
+    patient_id: int
+    patient_name: str
+    total_studies: int
+    viewer_engine: str
+    notice: str
+    studies: list[PACSStudyDetailOut]
+
 # --- GIAI ĐOẠN 3 SCHEMAS: AI SCRIBE, BHYT & LỊCH TRỰC CHỐNG QUÁ TẢI ---
 
 class AmbientScribeIn(BaseModel):

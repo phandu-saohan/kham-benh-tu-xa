@@ -189,3 +189,46 @@ def test_admin_dashboard_and_settings_api():
         forbidden_res = client.get("/api/v1/admin/settings", headers=p_headers)
         assert forbidden_res.status_code == 403
 
+def test_patient_specific_paraclinical_and_pacs():
+    # 1. Doctor login
+    doc_res = client.post("/api/v1/auth/login", json={"email": "doctor@example.test", "password": "ChangeMe123!"})
+    assert doc_res.status_code == 200
+    doc_token = doc_res.json()["access_token"]
+    doc_headers = {"Authorization": f"Bearer {doc_token}"}
+
+    db = SessionLocal()
+    patient = db.query(User).filter_by(role="patient").first()
+    p_id = patient.id
+    db.close()
+
+    # 2. Doctor queries patient's lab results
+    lab_res = client.get(f"/api/v1/patients/{p_id}/lab-results", headers=doc_headers)
+    assert lab_res.status_code == 200
+    lab_data = lab_res.json()
+    assert lab_data["patient_id"] == p_id
+    assert "reports" in lab_data
+    assert len(lab_data["reports"]) >= 3
+    # Check that biochemistry report has Glucose and HbA1c
+    bio_report = next(r for r in lab_data["reports"] if r["category"] == "biochemistry")
+    assert any(ind["code"] == "GLU" for ind in bio_report["indicators"])
+    assert any(ind["code"] == "HBA1C" for ind in bio_report["indicators"])
+
+    # 3. Doctor queries patient's PACS studies
+    pacs_res = client.get(f"/api/v1/patients/{p_id}/pacs-studies", headers=doc_headers)
+    assert pacs_res.status_code == 200
+    pacs_data = pacs_res.json()
+    assert pacs_data["patient_id"] == p_id
+    assert "studies" in pacs_data
+    assert len(pacs_data["studies"]) >= 3
+    # Check that studies have modalities CR, US, CT with OHIF viewer URLs
+    modalities = [s["modality"] for s in pacs_data["studies"]]
+    assert "CR" in modalities
+    assert "US" in modalities
+    assert "CT" in modalities
+    for study in pacs_data["studies"]:
+        assert "viewer_url" in study
+        assert "viewer.ohif.org" in study["viewer_url"]
+        assert "findings" in study
+        assert "impression" in study
+
+

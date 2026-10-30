@@ -291,6 +291,9 @@
   border-bottom: 1px solid #e2eaed;
   padding: 6px 12px 0;
   gap: 6px;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: thin;
 }
 .tab-btn {
   display: flex;
@@ -303,6 +306,8 @@
   font-weight: 700;
   border-radius: 8px 8px 0 0;
   border-bottom: 2px solid transparent;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .tab-btn.active {
   background: #ffffff;
