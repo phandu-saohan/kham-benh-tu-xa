@@ -5,7 +5,7 @@ export type User = {
   email: string
   phone_number?: string
   full_name: string
-  role: 'patient' | 'doctor' | 'admin'
+  role: 'patient' | 'doctor' | 'admin' | 'nurse'
   doctor_cchn?: string
 }
 
@@ -468,4 +468,59 @@ export async function sendConsultationMessage(
     body: JSON.stringify(data)
   })
 }
+
+// --- TRIAGE DESK (BÀN SÀNG LỌC & ĐIỀU PHỐI ĐIỀU DƯỠNG) ---
+
+export interface TriageItem {
+  appointment_id: number
+  patient_id: number
+  patient_name: string
+  patient_phone?: string
+  bhyt_code?: string
+  doctor_id: number
+  doctor_name: string
+  department_name?: string
+  starts_at: string
+  reason: string
+  status: string
+  triage_status: 'pending' | 'assessed' | 'dispatched'
+  triage_level: 'normal' | 'priority' | 'emergency'
+  pulse?: number
+  blood_pressure?: string
+  temperature?: number
+  spo2?: number
+  weight?: number
+  height?: number
+  triage_notes?: string
+}
+
+export interface TriageAssessmentData {
+  pulse?: number
+  blood_pressure?: string
+  temperature?: number
+  spo2?: number
+  weight?: number
+  height?: number
+  triage_level: 'normal' | 'priority' | 'emergency'
+  triage_notes?: string
+  dispatch_to_doctor?: boolean
+}
+
+export async function getTriageQueue() {
+  return request<TriageItem[]>('/api/v1/triage/queue')
+}
+
+export async function assessTriage(appointmentId: number, data: TriageAssessmentData) {
+  return request<{
+    success: boolean
+    appointment_id: number
+    triage_status: string
+    triage_level: string
+    message: string
+  }>(`/api/v1/triage/${appointmentId}/assess`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
 

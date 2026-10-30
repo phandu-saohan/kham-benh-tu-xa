@@ -1,4 +1,4 @@
-from sqlalchemy import String, Integer, Boolean, DateTime, Text, ForeignKey, func
+from sqlalchemy import String, Integer, Float, Boolean, DateTime, Text, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db import Base
 
@@ -75,6 +75,19 @@ class Appointment(Base):
     bhyt_rate: Mapped[int] = mapped_column(Integer, default=0) # Mức hưởng % (ví dụ 80)
     bhyt_discount: Mapped[int] = mapped_column(Integer, default=0) # Số tiền BHYT chi trả
     patient_pay_amount: Mapped[int] = mapped_column(Integer, default=0) # Tiền bệnh nhân đồng chi trả
+
+    # Phân luồng & Sàng lọc Điều dưỡng (Triage Desk)
+    triage_status: Mapped[str] = mapped_column(String(30), default="pending")  # pending, assessed, dispatched
+    triage_level: Mapped[str] = mapped_column(String(20), default="normal")    # normal (Xanh), priority (Vàng), emergency (Đỏ)
+    pulse: Mapped[int | None] = mapped_column(Integer, nullable=True)          # Mạch (bpm)
+    blood_pressure: Mapped[str | None] = mapped_column(String(20), nullable=True) # Huyết áp (mmHg)
+    temperature: Mapped[float | None] = mapped_column(Float, nullable=True)     # Thân nhiệt (°C)
+    spo2: Mapped[int | None] = mapped_column(Integer, nullable=True)            # SpO2 (%)
+    weight: Mapped[float | None] = mapped_column(Float, nullable=True)          # Cân nặng (kg)
+    height: Mapped[float | None] = mapped_column(Float, nullable=True)          # Chiều cao (cm)
+    triage_notes: Mapped[str | None] = mapped_column(Text, nullable=True)      # Nhận định sơ bộ điều dưỡng
+    triaged_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    triaged_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
     
     paid_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
     refund_amount: Mapped[int] = mapped_column(Integer, default=0)

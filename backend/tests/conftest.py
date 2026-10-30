@@ -6,6 +6,7 @@ from app.security import hash_password
 
 @pytest.fixture(autouse=True)
 def clean_database():
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     # Reset all tables before each test

@@ -50,6 +50,7 @@ export class TelemedicineWebRTCService {
 
   private queuedIceCandidates: RTCIceCandidateInit[] = []
   private canvasAnimationId: number | null = null
+  private dynamicRtcConfig: RTCConfiguration | null = null
 
   private readonly RTC_CONFIG: RTCConfiguration = {
     iceServers: [
@@ -58,6 +59,32 @@ export class TelemedicineWebRTCService {
       { urls: 'stun:stun2.l.google.com:19302' },
       { urls: 'stun:stun.cloudflare.com:3478' }
     ]
+  }
+
+  /**
+   * Lấy cấu hình máy chủ Coturn STUN/TURN động từ Backend có xác thực HMAC-SHA1
+   * Giúp WebRTC kết nối xuyên qua mọi loại NAT đối xứng, mạng 4G/5G và tường lửa bệnh viện.
+   */
+  public async fetchProductionIceServers(): Promise<RTCConfiguration> {
+    try {
+      const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:'
+      let baseUrl = ''
+      if (typeof window !== 'undefined' && import.meta.env.DEV) {
+        baseUrl = 'http://localhost:8000'
+      }
+      const res = await fetch(`${baseUrl}/api/v1/telehealth/ice-servers`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.iceServers && data.iceServers.length > 0) {
+          this.dynamicRtcConfig = { iceServers: data.iceServers }
+          console.log('[WebRTC] 🌐 Đã nạp cấu hình Coturn STUN/TURN Production thành công:', data.iceServers.length, 'máy chủ.')
+          return this.dynamicRtcConfig
+        }
+      }
+    } catch (e) {
+      console.warn('[WebRTC] Không thể lấy ICE servers động từ backend, dùng fallback cấu hình mặc định:', e)
+    }
+    return this.RTC_CONFIG
   }
 
   public getState(): WebRTCState {
@@ -281,6 +308,9 @@ export class TelemedicineWebRTCService {
     this.role = role
     this.userName = userName
 
+    // Nạp cấu hình Coturn TURN/STUN Production trước khi thiết lập kết nối
+    await this.fetchProductionIceServers()
+
     if (!this.localStream) {
       await this.initMedia('user')
     }
@@ -355,7 +385,8 @@ export class TelemedicineWebRTCService {
       this.peerConnection = null
     }
 
-    this.peerConnection = new RTCPeerConnection(this.RTC_CONFIG)
+    const config = this.dynamicRtcConfig || this.RTC_CONFIG
+    this.peerConnection = new RTCPeerConnection(config)
 
     if (this.localStream) {
       this.localStream.getTracks().forEach(track => {

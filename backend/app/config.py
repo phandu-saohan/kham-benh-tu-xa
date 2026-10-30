@@ -19,6 +19,34 @@ class Settings(BaseSettings):
     BANK_ACCOUNT_NO: str = "0988888888"
     BANK_ACCOUNT_NAME: str = "BENH VIEN CARECONNECT"
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # Coturn WebRTC Production TURN/STUN Settings
+    COTURN_AUTH_SECRET: str = "careconnect-turn-secret-change-me"
+    COTURN_REALM: str = "telemedicine.careconnect.local"
+    COTURN_HOST: str = "72.61.123.73"
+    COTURN_PORT: int = 3478
+    COTURN_TLS_PORT: int = 5349
+
+    # SMS / Zalo ZNS OTP Gateway
+    SMS_PROVIDER: str = "mock"  # mock, esms, zalo_zns
+    SMS_API_KEY: str = ""
+    SMS_SECRET_KEY: str = ""
+    SMS_BRANDNAME: str = "CARECONNECT"
+    ZALO_APP_ID: str = ""
+    ZALO_SECRET_KEY: str = ""
+    ZALO_TEMPLATE_ID: str = ""
+
+    # Payment Webhook Secret (VietQR Pro / PayOS / Banking API)
+    PAYMENT_WEBHOOK_SECRET: str = "vietqr-webhook-secret-key-2026"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @property
+    def sqlalchemy_database_url(self) -> str:
+        """Chuẩn hóa connection string cho PostgreSQL dùng psycopg3 driver"""
+        url = self.DATABASE_URL
+        if url.startswith("postgresql://") and not url.startswith("postgresql+psycopg://"):
+            return url.replace("postgresql://", "postgresql+psycopg://", 1)
+        return url
 
 settings = Settings()

@@ -3,12 +3,16 @@ import random
 import os
 import base64
 import uuid
+import hmac
+import hashlib
+import time
+import re
 from fastapi import FastAPI, Depends, HTTPException, Query, status, Response, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, text
 from livekit import api as livekit_api
 
 from app.config import settings
@@ -27,8 +31,11 @@ from app.schemas import (
     NationalPrescriptionSyncOut, PACSViewerOut,
     AmbientScribeIn, AmbientScribeOut, BhytCheckIn, BhytCheckOut,
     DepartmentOut, DoctorShiftOut, AppointmentCancelIn, AppointmentCancelOut,
-    ConsultationMessageIn, ConsultationMessageOut
+    ConsultationMessageIn, ConsultationMessageOut,
+    IceServersOut, IceServerConfig, PaymentWebhookOut,
+    TriageAssessmentIn, TriageAssessmentOut, TriageQueueItem
 )
+from app.adapters.sms_gateway import send_otp_message
 from app.security import (
     verify_password, create_access_token, create_refresh_token, decode_token,
     get_current_user, require_roles, hash_password
@@ -99,20 +106,28 @@ def login(data: LoginIn, db: Session = Depends(get_db)):
     }
 
 @app.post("/api/v1/auth/otp/send", response_model=OtpSendOut)
-def send_otp(data: OtpSendIn, db: Session = Depends(get_db)):
+async def send_otp(data: OtpSendIn, db: Session = Depends(get_db)):
     phone = data.phone_number.strip()
-    code = "123456"
+    if settings.SMS_PROVIDER == "mock" or not settings.SMS_API_KEY:
+        code = "123456"
+    else:
+        code = str(random.randint(100000, 999999))
+        
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
     
     otp_record = OtpCode(phone_number=phone, code=code, expires_at=expires_at, is_used=False)
     db.add(otp_record)
     db.commit()
+
+    # Gửi tin nhắn xác thực qua cổng SMS Brandname / Zalo ZNS
+    user = db.query(User).filter(User.phone_number == phone).first()
+    await send_otp_message(phone, code, patient_name=user.full_name if user else None)
     
     return {
         "success": True,
         "phone_number": phone,
-        "message": f"Mã xác thực OTP đã được gửi tới {phone}. Mã cố định: {code}",
-        "dev_code": "123456"
+        "message": f"Mã xác thực OTP đã được gửi tới {phone} qua {settings.SMS_PROVIDER.upper()}." if settings.SMS_PROVIDER != "mock" else f"Mã xác thực OTP đã được gửi tới {phone}. Mã cố định: {code}",
+        "dev_code": code if (settings.APP_ENV != "production" or settings.SMS_PROVIDER == "mock") else None
     }
 
 @app.post("/api/v1/auth/otp/verify", response_model=TokenOut)
@@ -1030,13 +1045,12 @@ def get_appointment_vietqr(appointment_id: int, db: Session = Depends(get_db), u
         "refund_status": payment.refund_status if payment else None
     }
 
-@app.post("/api/v1/payments/webhook")
+@app.post("/api/v1/payments/webhook", response_model=PaymentWebhookOut)
 def payment_webhook(data: PaymentWebhookIn, db: Session = Depends(get_db)):
-    content = data.transfer_content.upper()
-    import re
+    content = (data.content or data.transfer_content or "").upper()
     match = re.search(r"TM(\d+)", content)
     if not match:
-        raise HTTPException(status_code=400, detail="Không tìm thấy mã lịch hẹn hợp lệ trong nội dung chuyển khoản")
+        raise HTTPException(status_code=400, detail="Không tìm thấy mã lịch hẹn hợp lệ (TM{id}) trong nội dung chuyển khoản")
     
     appointment_id = int(match.group(1))
     appt = db.get(Appointment, appointment_id)
@@ -1050,16 +1064,29 @@ def payment_webhook(data: PaymentWebhookIn, db: Session = Depends(get_db)):
         payment.status = "paid"
         payment.paid_at = now
         payment.provider_reference = data.transaction_id or payment.provider_reference
+    else:
+        payment = Payment(
+            appointment_id=appt.id,
+            amount=data.amount or appt.fee_amount,
+            currency="VND",
+            provider=data.gateway,
+            status="paid",
+            paid_at=now,
+            provider_reference=data.transaction_id
+        )
+        db.add(payment)
     
     appt.status = "confirmed"
-    db.add(AuditLog(actor_user_id=appt.patient_id, action="payment.webhook_confirmed", resource_type="payment", resource_id=str(appointment_id)))
+    appt.paid_at = now
+    db.add(AuditLog(actor_user_id=appt.patient_id, action="payment.webhook_auto_confirmed", resource_type="payment", resource_id=str(appointment_id)))
     db.commit()
     
     return {
         "success": True,
         "appointment_id": appt.id,
+        "amount": payment.amount,
         "status": "confirmed",
-        "message": f"Đã xác nhận thanh toán thành công cho lịch hẹn #{appt.id}"
+        "message": f"Đối soát tự động thành công! Đã xác nhận thanh toán lịch hẹn #{appt.id}."
     }
 
 @app.post("/api/v1/payments/{appointment_id}/simulate-success")
@@ -1274,6 +1301,162 @@ def cancel_appointment(
         message=f"Đã hủy lịch hẹn thành công. Số tiền hoàn trả theo chính sách viện: {refund_amount:,} VND ({refund_percent}%)."
     )
 
+# ----------------- COTURN WEBRTC ICE SERVERS CONFIG -----------------
+
+@app.get("/api/v1/telehealth/ice-servers", response_model=IceServersOut)
+def get_ice_servers():
+    """
+    Tạo thông tin chứng thực động STUN/TURN/TURNS cho WebRTC Peer Connection
+    theo chuẩn Coturn REST API (draft-uberti-behave-turn-rest-00, HMAC-SHA1).
+    Hỗ trợ kết nối xuyên qua Symmetric NAT, tường lửa bệnh viện và mạng 4G/5G.
+    """
+    now = int(time.time())
+    ttl = 86400  # 24 giờ
+    timestamp = now + ttl
+    username = f"{timestamp}:careconnect-user"
+    secret = settings.COTURN_AUTH_SECRET.encode("utf-8")
+    
+    # Tính HMAC-SHA1 signature
+    signature = hmac.new(secret, username.encode("utf-8"), hashlib.sha1).digest()
+    credential = base64.b64encode(signature).decode("utf-8")
+    
+    host = settings.COTURN_HOST
+    port = settings.COTURN_PORT
+    tls_port = settings.COTURN_TLS_PORT
+    
+    return {
+        "iceServers": [
+            IceServerConfig(urls=["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"]),
+            IceServerConfig(urls=[f"stun:{host}:{port}"]),
+            IceServerConfig(
+                urls=[
+                    f"turn:{host}:{port}?transport=udp",
+                    f"turn:{host}:{port}?transport=tcp",
+                    f"turns:{host}:{tls_port}?transport=tcp"
+                ],
+                username=username,
+                credential=credential
+            )
+        ],
+        "ttl": ttl,
+        "realm": settings.COTURN_REALM
+    }
+
+# ----------------- BÀN SÀNG LỌC & ĐIỀU PHỐI ĐIỀU DƯỠNG (TRIAGE DESK) -----------------
+
+@app.get("/api/v1/triage/queue", response_model=list[TriageQueueItem])
+def get_triage_queue(db: Session = Depends(get_db), user: User = Depends(require_roles("nurse", "doctor", "admin"))):
+    """
+    Hàng đợi sàng lọc điều dưỡng (Triage Queue):
+    Liệt kê các ca khám chờ sàng lọc và phân luồng vào phòng bác sĩ.
+    Ưu tiên hiển thị ca Cấp cứu (Emergency) -> Ưu tiên (Priority) -> Thường (Normal).
+    """
+    appts = db.query(Appointment).filter(
+        Appointment.status.in_(["scheduled", "confirmed", "in_progress"])
+    ).all()
+    
+    # Sắp xếp ưu tiên: emergency (0) -> priority (1) -> normal (2)
+    priority_order = {"emergency": 0, "priority": 1, "normal": 2}
+    appts.sort(key=lambda a: (priority_order.get(a.triage_level, 2), a.starts_at))
+    
+    results = []
+    for a in appts:
+        patient = db.get(User, a.patient_id)
+        doctor = db.get(User, a.doctor_id)
+        dept = db.get(Department, a.department_id) if a.department_id else None
+        
+        results.append(TriageQueueItem(
+            appointment_id=a.id,
+            patient_id=a.patient_id,
+            patient_name=patient.full_name if patient else f"Bệnh nhân #{a.patient_id}",
+            patient_phone=patient.phone_number if patient else None,
+            bhyt_code=a.bhyt_code or (patient.bhyt_code if patient else None),
+            doctor_id=a.doctor_id,
+            doctor_name=doctor.full_name if doctor else f"Bác sĩ #{a.doctor_id}",
+            department_name=dept.name if dept else "Khoa Khám bệnh",
+            starts_at=a.starts_at,
+            reason=a.reason,
+            status=a.status,
+            triage_status=a.triage_status or "pending",
+            triage_level=a.triage_level or "normal",
+            pulse=a.pulse,
+            blood_pressure=a.blood_pressure,
+            temperature=a.temperature,
+            spo2=a.spo2,
+            weight=a.weight,
+            height=a.height,
+            triage_notes=a.triage_notes
+        ))
+    return results
+
+@app.post("/api/v1/triage/{appointment_id}/assess", response_model=TriageAssessmentOut)
+def assess_and_dispatch_triage(
+    appointment_id: int,
+    data: TriageAssessmentIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("nurse", "doctor", "admin"))
+):
+    """
+    Điều dưỡng ghi nhận chỉ số sinh hiệu (Mạch, HA, Thân nhiệt, SpO2),
+    xác định mức độ ưu tiên và điều phối chuyển bệnh nhân vào buồng Bác sĩ.
+    """
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
+        
+    now = datetime.now(timezone.utc)
+    appt.pulse = data.pulse
+    appt.blood_pressure = data.blood_pressure
+    appt.temperature = data.temperature
+    appt.spo2 = data.spo2
+    appt.weight = data.weight
+    appt.height = data.height
+    appt.triage_level = data.triage_level
+    appt.triage_notes = data.triage_notes
+    appt.triaged_by = user.id
+    appt.triaged_at = now
+    
+    if data.dispatch_to_doctor:
+        appt.triage_status = "dispatched"
+        if appt.status == "scheduled":
+            appt.status = "confirmed"
+    else:
+        appt.triage_status = "assessed"
+        
+    # Tự động đồng bộ các chỉ số sinh tồn vào hồ sơ lâm sàng (Clinical Notes)
+    record = db.query(ClinicalRecord).filter_by(appointment_id=appt.id).first()
+    vitals_summary = f"[SÀNG LỌC ĐIỀU DƯỠNG]: Mạch: {data.pulse or '—'} l/p | HA: {data.blood_pressure or '—'} mmHg | Nhiệt độ: {data.temperature or '—'}°C | SpO2: {data.spo2 or '—'}% | Cân nặng: {data.weight or '—'} kg. Phân luồng: {data.triage_level.upper()}"
+    if data.triage_notes:
+        vitals_summary += f" | Nhận định: {data.triage_notes}"
+        
+    if record:
+        if not record.clinical_notes:
+            record.clinical_notes = vitals_summary
+        elif "[SÀNG LỌC ĐIỀU DƯỠNG]" not in record.clinical_notes:
+            record.clinical_notes = f"{vitals_summary}\n{record.clinical_notes}"
+    else:
+        db.add(ClinicalRecord(
+            appointment_id=appt.id,
+            clinical_notes=vitals_summary,
+            created_by=user.id
+        ))
+        
+    db.add(AuditLog(
+        actor_user_id=user.id,
+        action="triage.assessed_and_dispatched",
+        resource_type="appointment",
+        resource_id=str(appt.id)
+    ))
+    db.commit()
+    
+    return TriageAssessmentOut(
+        success=True,
+        appointment_id=appt.id,
+        triage_status=appt.triage_status,
+        triage_level=appt.triage_level,
+        message=f"Đã hoàn thành sàng lọc và chuyển bệnh nhân #{appt.id} vào hàng đợi Bác sĩ thành công."
+    )
+
 # ----------------- SEEDING & STARTUP -----------------
 
 def seed_demo():
@@ -1322,8 +1505,26 @@ def seed_demo():
                     full_name="Quản trị CareConnect",
                     role="admin",
                     password_hash=hash_password("ChangeMe123!")
+                ),
+                User(
+                    email="nurse@example.test",
+                    phone_number="0977665544",
+                    full_name="ĐD. Nguyễn Thị Mai (Điều dưỡng trưởng)",
+                    role="nurse",
+                    password_hash=hash_password("ChangeMe123!")
                 )
             ])
+            db.commit()
+
+        # Đảm bảo tài khoản Điều dưỡng (Nurse) luôn sẵn sàng
+        if not db.query(User).filter_by(role="nurse").first():
+            db.add(User(
+                email="nurse@example.test",
+                phone_number="0977665544",
+                full_name="ĐD. Nguyễn Thị Mai (Điều dưỡng trưởng)",
+                role="nurse",
+                password_hash=hash_password("ChangeMe123!")
+            ))
             db.commit()
 
         # 3. Khởi tạo lịch trực & giới hạn ca khám (Anti-overload Quota)
@@ -1355,12 +1556,47 @@ def seed_demo():
                     )
                 ])
                 db.commit()
+
+        # Đảm bảo tài khoản Điều dưỡng (Nurse) luôn sẵn sàng
+        if not db.query(User).filter_by(role="nurse").first():
+            db.add(User(
+                email="nurse@example.test",
+                phone_number="0977665544",
+                full_name="ĐD. Nguyễn Thị Mai (Điều dưỡng trưởng)",
+                role="nurse",
+                password_hash=hash_password("ChangeMe123!")
+            ))
+            db.commit()
     finally:
         db.close()
+
+def auto_migrate_schema():
+    """Tự động thêm các cột mới nếu chạy trên database cũ mà không làm mất dữ liệu"""
+    triage_columns = [
+        ("triage_status", "VARCHAR(30) DEFAULT 'pending'"),
+        ("triage_level", "VARCHAR(20) DEFAULT 'normal'"),
+        ("pulse", "INTEGER"),
+        ("blood_pressure", "VARCHAR(20)"),
+        ("temperature", "FLOAT"),
+        ("spo2", "INTEGER"),
+        ("weight", "FLOAT"),
+        ("height", "FLOAT"),
+        ("triage_notes", "TEXT"),
+        ("triaged_by", "INTEGER"),
+        ("triaged_at", "DATETIME")
+    ]
+    with engine.connect() as conn:
+        for col_name, col_type in triage_columns:
+            try:
+                conn.execute(text(f"ALTER TABLE appointments ADD COLUMN {col_name} {col_type}"))
+                conn.commit()
+            except Exception:
+                pass
 
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
+    auto_migrate_schema()
     if settings.SEED_DEMO:
         seed_demo()
 

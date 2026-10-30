@@ -250,4 +250,74 @@ class ConsultationMessageOut(BaseModel):
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
+# --- PRODUCTION STAGE SCHEMAS: COTURN ICE, PAYMENT WEBHOOK, TRIAGE DESK ---
+
+class IceServerConfig(BaseModel):
+    urls: list[str] | str
+    username: str | None = None
+    credential: str | None = None
+
+class IceServersOut(BaseModel):
+    iceServers: list[IceServerConfig]
+    ttl: int
+    realm: str
+
+class PaymentWebhookIn(BaseModel):
+    transaction_id: str | None = None
+    amount: int = 0
+    content: str | None = None
+    transfer_content: str | None = None
+    gateway: str = "vietqr_pro"  # vietqr_pro, payos, vietinbank, mbbank, sepay
+    status: str = "PAID"  # PAID, SUCCESS
+    signature: str | None = None
+
+class PaymentWebhookOut(BaseModel):
+    success: bool
+    appointment_id: int
+    amount: int
+    status: str
+    message: str
+
+class TriageAssessmentIn(BaseModel):
+    pulse: int | None = None          # Mạch (bpm)
+    blood_pressure: str | None = None # Huyết áp (vd: "120/80")
+    temperature: float | None = None  # Thân nhiệt (°C)
+    spo2: int | None = None           # SpO2 (%)
+    weight: float | None = None       # Cân nặng (kg)
+    height: float | None = None       # Chiều cao (cm)
+    triage_level: str = "normal"      # normal, priority, emergency
+    triage_notes: str | None = None
+    dispatch_to_doctor: bool = True   # Tự động đẩy vào hàng đợi khám của Bác sĩ
+
+class TriageAssessmentOut(BaseModel):
+    success: bool
+    appointment_id: int
+    triage_status: str
+    triage_level: str
+    message: str
+
+class TriageQueueItem(BaseModel):
+    appointment_id: int
+    patient_id: int
+    patient_name: str
+    patient_phone: str | None = None
+    bhyt_code: str | None = None
+    doctor_id: int
+    doctor_name: str
+    department_name: str | None = None
+    starts_at: datetime
+    reason: str
+    status: str
+    triage_status: str
+    triage_level: str
+    pulse: int | None = None
+    blood_pressure: str | None = None
+    temperature: float | None = None
+    spo2: int | None = None
+    weight: float | None = None
+    height: float | None = None
+    triage_notes: str | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+
 

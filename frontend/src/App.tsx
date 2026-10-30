@@ -4,7 +4,7 @@ import {
   LogOut, HeartPulse, Clock, UserRound, ShieldCheck, ArrowRight,
   Plus, X, Phone, Lock, Stethoscope, AlertCircle, RefreshCw, QrCode,
   FileDown, ExternalLink, PenTool, Building2, Sparkles, CheckCircle2,
-  HelpCircle, ShieldAlert, Undo2
+  HelpCircle, ShieldAlert, Undo2, Activity
 } from 'lucide-react'
 import {
   login, sendOtp, verifyOtp, request, cancelAppointment,
@@ -19,6 +19,7 @@ import { DoctorWorkspace } from './DoctorWorkspace'
 import { VietQRModal } from './VietQRModal'
 import { ConsentModal } from './ConsentModal'
 import { IncomingCallModal } from './IncomingCallModal'
+import { TriageDesk } from './TriageDesk'
 
 const money = (n: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n)
@@ -513,7 +514,7 @@ export default function App() {
           </div>
           <div>
             <b>{user.full_name}</b>
-            <small>{isPatient ? 'Bệnh nhân' : isDoctor ? `Bác sĩ (${user.doctor_cchn || 'CCHN'})` : 'Quản trị viên'}</small>
+            <small>{isPatient ? 'Bệnh nhân' : isDoctor ? `Bác sĩ (${user.doctor_cchn || 'CCHN'})` : user.role === 'nurse' ? 'Điều dưỡng trưởng' : 'Quản trị viên'}</small>
           </div>
         </div>
 
@@ -521,6 +522,7 @@ export default function App() {
           {[
             ['overview', 'Tổng quan', HeartPulse],
             ['appointments', 'Lịch hẹn', CalendarDays],
+            ...(!isPatient ? [['triage', 'Bàn Sàng lọc (Triage)', Activity]] : []),
             ['records', 'Hồ sơ bệnh án', FileText],
             ['results', 'Cận lâm sàng & PACS', FlaskConical],
             ['prescriptions', 'Đơn thuốc Quốc gia', Pill],
@@ -964,6 +966,13 @@ export default function App() {
                 )}
               </div>
             ))}
+          </section>
+        )}
+
+        {/* Tab: Bàn Sàng lọc & Điều phối Điều dưỡng (Triage Desk) */}
+        {view === 'triage' && (
+          <section className="panel page-panel">
+            <TriageDesk />
           </section>
         )}
 

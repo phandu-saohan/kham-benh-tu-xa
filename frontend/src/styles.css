@@ -3285,6 +3285,545 @@
   }
 }
 
+/* ==========================================================================
+   MODULE BÀN SÀNG LỌC & ĐIỀU PHỐI ĐIỀU DƯỠNG (TRIAGE DESK)
+   ========================================================================== */
+
+.triage-desk-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.triage-toast-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  animation: slideDown 0.25s ease-out;
+}
+
+.triage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.triage-header h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  color: #0f172a;
+}
+
+.btn-refresh-triage {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-refresh-triage:hover {
+  background: #f1f5f9;
+  border-color: #0f766e;
+  color: #0f766e;
+}
+
+/* Thanh chip đếm số lượng & lọc */
+.triage-stats-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.triage-stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.triage-stat-chip:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.triage-stat-chip.active {
+  background: #0f766e;
+  color: #ffffff;
+  border-color: #0f766e;
+  box-shadow: 0 2px 6px rgba(15, 118, 110, 0.2);
+}
+
+.triage-stat-chip.urgent.active {
+  background: #dc2626;
+  border-color: #dc2626;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.2);
+}
+
+/* Thanh tìm kiếm */
+.triage-search-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.triage-search-bar .search-icon {
+  position: absolute;
+  left: 14px;
+  color: #94a3b8;
+}
+
+.triage-search-bar input {
+  width: 100%;
+  padding: 11px 40px 11px 38px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.triage-search-bar input:focus {
+  border-color: #0f766e;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+}
+
+.triage-search-bar .clear-btn {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+/* Lưới danh sách thẻ bệnh nhân */
+.triage-queue-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 14px;
+}
+
+.triage-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px dashed #cbd5e1;
+  color: #64748b;
+  gap: 8px;
+}
+
+.triage-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.triage-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+.triage-card.border-priority {
+  border-left: 4px solid #f59e0b;
+}
+
+.triage-card.border-emergency {
+  border-left: 4px solid #ef4444;
+  background: #fffafa;
+}
+
+.triage-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.triage-patient-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.appt-id-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.patient-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.badge-priority {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+.badge-priority.normal {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.badge-priority.priority {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.badge-priority.emergency {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.triage-reason {
+  margin: 0;
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.4;
+}
+
+.triage-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 6px;
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.meta-item.bhyt-verified {
+  background: #e6fffa;
+  color: #0f766e;
+  font-weight: 600;
+}
+
+.meta-item.bhyt-none {
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+.triage-vitals-pill-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.vital-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.triage-no-vitals {
+  margin-top: 6px;
+}
+
+.triage-notes-box {
+  background: #f8fafc;
+  border-left: 2px solid #94a3b8;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #475569;
+  margin-top: 6px;
+  border-radius: 0 6px 6px 0;
+}
+
+.triage-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 10px;
+  margin-top: auto;
+}
+
+.status-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.status-pill.dispatched {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.status-pill.pending {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.btn-triage-action {
+  background: #0f766e;
+  color: #ffffff;
+  border: none;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-triage-action:hover {
+  background: #0d9488;
+}
+
+/* Modal Sàng lọc Sinh hiệu */
+.triage-modal {
+  max-width: 600px !important;
+  width: 95% !important;
+}
+
+.triage-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.triage-modal-header h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  color: #0f172a;
+}
+
+.vital-alert-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+
+.vitals-input-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.vital-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vital-col label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.vital-col input {
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+}
+
+.vital-col input:focus {
+  border-color: #0f766e;
+}
+
+.triage-level-section {
+  margin-bottom: 16px;
+}
+
+.section-label {
+  display: block;
+  font-size: 13px;
+  color: #1e293b;
+  margin-bottom: 8px;
+}
+
+.triage-level-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.level-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.level-option small {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.level-option.normal.selected {
+  border-color: #10b981;
+  background: #ecfdf5;
+}
+
+.level-option.priority.selected {
+  border-color: #f59e0b;
+  background: #fef3c7;
+}
+
+.level-option.emergency.selected {
+  border-color: #ef4444;
+  background: #fee2e2;
+}
+
+.triage-notes-section textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.triage-notes-section textarea:focus {
+  border-color: #0f766e;
+}
+
+.triage-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 14px;
+}
+
+.btn-cancel {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-save-draft {
+  background: #ffffff;
+  border: 1px solid #0f766e;
+  color: #0f766e;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-dispatch-doctor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #0f766e;
+  color: #ffffff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .triage-queue-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .triage-level-options {
+    grid-template-columns: 1fr !important;
+  }
+
+  .triage-modal-footer {
+    flex-direction: column !important;
+  }
+
+  .btn-dispatch-doctor,
+  .btn-save-draft,
+  .btn-cancel {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+}
+
+
 
 
 

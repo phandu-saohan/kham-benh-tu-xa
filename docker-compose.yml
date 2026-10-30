@@ -57,6 +57,11 @@ services:
       DATABASE_URL: postgresql+psycopg://telemedicine:${POSTGRES_PASSWORD:-change-me}@db:5432/telemedicine
       LIVEKIT_INTERNAL_URL: http://livekit:7880
       REDIS_URL: redis://redis:6379/0
+      COTURN_AUTH_SECRET: ${COTURN_AUTH_SECRET:-careconnect-turn-secret-change-me}
+      COTURN_REALM: ${COTURN_REALM:-telemedicine.careconnect.local}
+      COTURN_HOST: ${COTURN_HOST:-72.61.123.73}
+      SMS_PROVIDER: ${SMS_PROVIDER:-mock}
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-vietqr-webhook-secret-key-2026}
     ports:
       - "8000:8000"
     depends_on:
