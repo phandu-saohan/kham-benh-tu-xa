@@ -955,8 +955,9 @@ export default function App() {
         {/* Modal đặt lịch khám */}
         {showBooking && (
           <div className="modal-backdrop">
-            <form className="modal" onSubmit={book} style={{ maxWidth: '580px', width: '100%' }}>
-              <div className="panel-heading">
+            <form className="modal booking-modal" onSubmit={book}>
+              <div className="booking-modal-drag-bar" />
+              <div className="booking-modal-header panel-heading">
                 <div>
                   <h3>Đặt lịch khám trực tuyến</h3>
                   <p>Chọn chuyên khoa, bác sĩ và ca trực chống quá tải</p>
@@ -966,117 +967,114 @@ export default function App() {
                 </button>
               </div>
 
-              <label>
-                Khoa / Chuyên khoa
-                <select
-                  value={selectedDeptId}
-                  onChange={e => {
-                    setSelectedDeptId(e.target.value)
-                    setDoctorId('')
-                    setSelectedShiftId(null)
-                  }}
-                >
-                  <option value="">-- Tất cả chuyên khoa --</option>
-                  {departments.map(d => (
-                    <option key={d.id} value={d.id}>
-                      {d.code} - {d.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                Bác sĩ tiếp nhận
-                <select
-                  value={doctorId}
-                  onChange={e => {
-                    setDoctorId(e.target.value)
-                    setSelectedShiftId(null)
-                  }}
-                  required
-                >
-                  <option value="">-- Chọn Bác sĩ chuyên khoa --</option>
-                  {doctors
-                    .filter((d: any) => !selectedDeptId || String(d.department_id) === String(selectedDeptId))
-                    .map(d => (
+              <div className="booking-modal-body">
+                <label>
+                  Khoa / Chuyên khoa
+                  <select
+                    value={selectedDeptId}
+                    onChange={e => {
+                      setSelectedDeptId(e.target.value)
+                      setDoctorId('')
+                      setSelectedShiftId(null)
+                    }}
+                  >
+                    <option value="">-- Tất cả chuyên khoa --</option>
+                    {departments.map(d => (
                       <option key={d.id} value={d.id}>
-                        {d.full_name} {d.cchn ? `(${d.cchn})` : ''}
+                        {d.code} - {d.name}
                       </option>
                     ))}
-                </select>
-              </label>
+                  </select>
+                </label>
 
-              {/* Lịch trực chuyên khoa & Hạn ngạch ca khám (Anti-overload) */}
-              {doctorId && doctorShifts.length > 0 && (
-                <div style={{ margin: '10px 0 14px' }}>
-                  <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, fontSize: '13px' }}>
-                    Chọn Ca trực bác sĩ (Định mức chống quá tải):
-                  </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
-                    {doctorShifts.map(s => {
-                      const isSelected = selectedShiftId === s.id
-                      const isFull = s.is_overloaded
-                      return (
-                        <button
-                          key={s.id}
-                          type="button"
-                          disabled={isFull}
-                          onClick={() => {
-                            setSelectedShiftId(s.id)
-                            setStartsAt(`${s.shift_date}T${s.start_time}:00`)
-                          }}
-                          style={{
-                            border: isSelected ? '2px solid #0d9488' : '1px solid #cbd5e1',
-                            background: isFull ? '#f1f5f9' : isSelected ? '#f0fdfa' : '#fff',
-                            padding: '8px 10px',
-                            borderRadius: '6px',
-                            textAlign: 'left',
-                            cursor: isFull ? 'not-allowed' : 'pointer',
-                            opacity: isFull ? 0.6 : 1
-                          }}
-                        >
-                          <div style={{ fontWeight: 600, fontSize: '12px', color: '#0f172a' }}>
-                            {s.shift_type === 'morning' ? '☀️ Ca sáng' : s.shift_type === 'afternoon' ? '🌤️ Ca chiều' : '🌙 Ca tối'} ({s.start_time.slice(0, 5)} - {s.end_time.slice(0, 5)})
-                          </div>
-                          <div style={{ fontSize: '11px', color: '#64748b' }}>Ngày: {s.shift_date}</div>
-                          <div style={{ fontSize: '11px', marginTop: '4px', color: isFull ? '#ef4444' : '#0d9488', fontWeight: 600 }}>
-                            {isFull ? '⚠️ ĐÃ ĐỦ ĐỊNH MỨC' : `Còn ${s.available_slots}/${s.max_patients} lượt khám`}
-                          </div>
-                        </button>
-                      )
-                    })}
+                <label>
+                  Bác sĩ tiếp nhận
+                  <select
+                    value={doctorId}
+                    onChange={e => {
+                      setDoctorId(e.target.value)
+                      setSelectedShiftId(null)
+                    }}
+                    required
+                  >
+                    <option value="">-- Chọn Bác sĩ chuyên khoa --</option>
+                    {doctors
+                      .filter((d: any) => !selectedDeptId || String(d.department_id) === String(selectedDeptId))
+                      .map(d => (
+                        <option key={d.id} value={d.id}>
+                          {d.full_name} {d.cchn ? `(${d.cchn})` : ''}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+
+                {/* Lịch trực chuyên khoa & Hạn ngạch ca khám (Anti-overload) */}
+                {doctorId && doctorShifts.length > 0 && (
+                  <div className="booking-shift-section">
+                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, fontSize: '13px' }}>
+                      Chọn Ca trực bác sĩ (Định mức chống quá tải):
+                    </label>
+                    <div className="booking-shifts-grid">
+                      {doctorShifts.map(s => {
+                        const isSelected = selectedShiftId === s.id
+                        const isFull = s.is_overloaded
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            disabled={isFull}
+                            onClick={() => {
+                              setSelectedShiftId(s.id)
+                              setStartsAt(`${s.shift_date}T${s.start_time}:00`)
+                            }}
+                            className={`shift-card-btn ${isSelected ? 'selected' : ''} ${isFull ? 'full-quota' : ''}`}
+                          >
+                            <div className="shift-card-title">
+                              {s.shift_type === 'morning' ? '☀️ Ca sáng' : s.shift_type === 'afternoon' ? '🌤️ Ca chiều' : '🌙 Ca tối'} ({s.start_time.slice(0, 5)} - {s.end_time.slice(0, 5)})
+                            </div>
+                            <div className="shift-card-date">Ngày: {s.shift_date}</div>
+                            <div className={`shift-card-quota ${isFull ? 'danger' : 'success'}`}>
+                              {isFull ? '⚠️ ĐÃ ĐỦ ĐỊNH MỨC' : `Còn ${s.available_slots}/${s.max_patients} lượt khám`}
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
+                )}
+
+                <label>
+                  Ngày và giờ khám
+                  <input
+                    type="datetime-local"
+                    value={startsAt}
+                    onChange={e => setStartsAt(e.target.value)}
+                    required
+                  />
+                </label>
+
+                <label>
+                  Lý do khám / Triệu chứng ban đầu
+                  <textarea
+                    value={reason}
+                    onChange={e => setReason(e.target.value)}
+                    required
+                    minLength={3}
+                    placeholder="Mô tả triệu chứng bệnh của bạn..."
+                    rows={3}
+                  />
+                </label>
+
+                <div className="notice booking-fee-notice">
+                  Phí khám chuyên khoa: <strong>500.000 ₫</strong>. Có thể áp dụng giảm trừ thẻ BHYT trực tuyến sau khi tạo lịch.
                 </div>
-              )}
-
-              <label>
-                Ngày và giờ khám
-                <input
-                  type="datetime-local"
-                  value={startsAt}
-                  onChange={e => setStartsAt(e.target.value)}
-                  required
-                />
-              </label>
-
-              <label>
-                Lý do khám / Triệu chứng ban đầu
-                <textarea
-                  value={reason}
-                  onChange={e => setReason(e.target.value)}
-                  required
-                  minLength={3}
-                  placeholder="Mô tả triệu chứng bệnh của bạn..."
-                />
-              </label>
-
-              <div className="notice">
-                Phí khám chuyên khoa: <strong>500.000 ₫</strong>. Có thể áp dụng giảm trừ thẻ BHYT trực tuyến sau khi tạo lịch.
               </div>
 
-              <button className="primary full" type="submit">
-                Xác nhận tạo lịch khám
-              </button>
+              <div className="booking-modal-footer">
+                <button className="primary full booking-submit-btn" type="submit">
+                  📅 Xác nhận tạo lịch khám
+                </button>
+              </div>
             </form>
           </div>
         )}
