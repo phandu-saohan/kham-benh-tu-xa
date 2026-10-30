@@ -14,6 +14,7 @@ import {
 } from './api'
 import { webrtcService, type WebRTCState } from './webrtcService'
 import { ConsultationChat } from './ConsultationChat'
+import { PrescriptionBuilder } from './PrescriptionBuilder'
 
 export function DoctorWorkspace({
   appointment,
@@ -903,54 +904,20 @@ export function DoctorWorkspace({
             )}
 
             {activeTab === 'prescription' && (
-              <div className="form-section">
-                {/* Thẻ hiển thị mã đơn thuốc quốc gia nếu đã đồng bộ */}
-                {nationalPrescription ? (
-                  <div className="national-prescription-card">
-                    <div className="national-qr-wrapper">
-                      <img
-                        src={nationalPrescription.qr_url}
-                        alt="QR Don thuoc Quoc gia"
-                        className="national-qr-img"
-                      />
-                    </div>
-                    <div className="national-details">
-                      <span className="tag-national">CỔNG ĐƠN THUỐC QUỐC GIA</span>
-                      <h3>{nationalPrescription.national_code}</h3>
-                      <p className="tiny muted">
-                        Đã phát hành theo chuẩn Thông tư 04/2022/TT-BYT. Bệnh nhân có thể quét mã tại bất kỳ nhà thuốc GPP nào trên toàn quốc.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="sync-prompt-card">
-                    <div>
-                      <b>Đồng bộ Đơn thuốc điện tử Quốc gia</b>
-                      <p className="tiny muted">
-                        Tự động cấp mã đơn quốc gia và mã QR tra cứu trên hệ thống <code>donthuocquocgia.vn</code>.
-                      </p>
-                    </div>
-                    <button
-                      className="primary"
-                      onClick={handleSyncNational}
-                      disabled={syncingPres}
-                    >
-                      <Share2 size={16} /> {syncingPres ? 'Đang đồng bộ...' : 'Đẩy lên Cổng Quốc gia'}
-                    </button>
-                  </div>
-                )}
-
-                <div className="field-group">
-                  <label>Nội dung đơn thuốc điều trị ngoại trú</label>
-                  <textarea
-                    rows={10}
-                    placeholder="1. Paracetamol 500mg: Uống 1 viên khi sốt > 38.5C (cách ít nhất 4-6 giờ)&#10;2. Siro ho thảo dược: Uống 5ml x 3 lần/ngày sau ăn&#10;3. Oresol 245: Pha 1 gói trong 200ml nước đun sôi để nguội, uống rải rác..."
-                    value={prescription}
-                    onChange={e => setPrescription(e.target.value)}
-                    disabled={isLocked}
-                  />
-                </div>
-              </div>
+              <PrescriptionBuilder
+                prescriptionText={prescription}
+                onChange={setPrescription}
+                onSave={handleSaveDraft}
+                onSyncNational={handleSyncNational}
+                onDownloadPdf={handleDownloadPdf}
+                isLocked={isLocked}
+                isSaving={saving}
+                isSyncing={syncingPres}
+                isDownloadingPdf={downloadingPdf}
+                nationalPrescription={nationalPrescription}
+                aiScribeDraft={soapResult?.prescription_draft}
+                onApplyAiDraft={(draft) => setPrescription(draft)}
+              />
             )}
 
             {activeTab === 'patient_info' && (

@@ -2573,6 +2573,719 @@
   }
 }
 
+/* ==========================================================================
+   MODULE TẠO ĐƠN THUỐC ĐIỆN TỬ BÁC SĨ (PRESCRIPTION BUILDER)
+   ========================================================================== */
+
+.prescription-builder-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Thanh công cụ Đơn thuốc */
+.rx-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #f8fafc;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.rx-mode-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.mode-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mode-tab-btn:hover {
+  color: #0f766e;
+  background: #f1f5f9;
+}
+
+.mode-tab-btn.active {
+  background: #0f766e;
+  color: #ffffff;
+  border-color: #0f766e;
+  box-shadow: 0 2px 6px rgba(15, 118, 110, 0.2);
+}
+
+.rx-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-rx-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-rx-action.save-btn {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+.btn-rx-action.save-btn:hover:not(:disabled) {
+  background: #0369a1;
+}
+
+.btn-rx-action.pdf-btn {
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.btn-rx-action.pdf-btn:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.btn-rx-action.reset-btn {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.btn-rx-action.reset-btn:hover:not(:disabled) {
+  background: #fecaca;
+}
+
+.btn-rx-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Thẻ Thông báo gợi ý từ AI Scribe */
+.ai-scribe-prescription-alert {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  background: #f0fdfa;
+  border: 1px dashed #5eead4;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.ai-scribe-prescription-alert .alert-content {
+  display: flex;
+  gap: 10px;
+  color: #134e4a;
+}
+
+/* Đơn thuốc mẫu chuẩn lâm sàng */
+.rx-presets-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+
+.presets-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.presets-title {
+  font-weight: 700;
+  font-size: 13px;
+  color: #0f766e;
+}
+
+.presets-pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.preset-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #1e293b;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.preset-pill-btn:hover {
+  background: #e6fffa;
+  border-color: #0d9488;
+  color: #0f766e;
+  transform: translateY(-1px);
+}
+
+.tpl-count {
+  background: #e2e8f0;
+  color: #475569;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+.preset-pill-btn:hover .tpl-count {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+/* Thẻ Thêm thuốc mới */
+.add-drug-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.card-sub-title {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f766e;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Tìm kiếm thuốc & Menu gợi ý */
+.drug-search-wrapper {
+  position: relative;
+  margin-bottom: 14px;
+}
+
+.field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.search-input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-input-group input {
+  width: 100%;
+  padding: 10px 36px 10px 12px;
+  border: 1.5px solid #0f766e;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  background: #f0fdfa;
+}
+
+.search-input-group input:focus {
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
+}
+
+.clear-search-btn {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.drug-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  margin-top: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.drug-dropdown-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.drug-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.drug-dropdown-item:hover {
+  background: #f0fdf4;
+}
+
+.drug-item-primary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3px;
+}
+
+.drug-name {
+  font-weight: 700;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.drug-badge {
+  font-size: 11px;
+  font-weight: 500;
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.drug-item-secondary {
+  font-size: 12px;
+  color: #64748b;
+  display: flex;
+  gap: 8px;
+}
+
+.drug-dropdown-empty {
+  padding: 12px 14px;
+  font-size: 12px;
+  color: #64748b;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.use-custom-btn {
+  align-self: flex-start;
+  background: #0f766e;
+  color: #ffffff;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* Lưới nhập thông tin thuốc */
+.drug-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 12px;
+}
+
+.field-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-col label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.field-col .req {
+  color: #dc2626;
+}
+
+.field-col input,
+.field-col select {
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  background: #ffffff;
+}
+
+.field-col input:focus,
+.field-col select:focus {
+  border-color: #0f766e;
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.1);
+}
+
+.col-name { grid-column: span 6; }
+.col-active { grid-column: span 6; }
+.col-qty { grid-column: span 3; }
+.col-unit { grid-column: span 3; }
+.col-route { grid-column: span 3; }
+.col-duration { grid-column: span 3; }
+.col-full { grid-column: span 12; }
+
+.qty-controls {
+  display: flex;
+  align-items: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.qty-controls button {
+  width: 32px;
+  height: 34px;
+  background: #f1f5f9;
+  border: none;
+  font-weight: 700;
+  font-size: 15px;
+  color: #334155;
+  cursor: pointer;
+}
+
+.qty-controls button:hover {
+  background: #e2e8f0;
+}
+
+.qty-controls input {
+  width: 100%;
+  border: none !important;
+  text-align: center;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 6px 0 !important;
+}
+
+/* Helper gợi ý cách dùng nhanh */
+.instruction-chips-container,
+.advice-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.chip-btn {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.chip-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.submit-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.btn-add-drug {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* Bảng danh sách thuốc đã kê */
+.prescribed-list-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.list-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.list-heading h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.badge-count-rx {
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+
+.empty-rx-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  text-align: center;
+  gap: 6px;
+}
+
+.rx-items-table-wrapper {
+  overflow-x: auto;
+}
+
+.rx-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.rx-items-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 12px;
+}
+
+.rx-items-table td {
+  padding: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: top;
+}
+
+.rx-item-row:hover {
+  background: #fcfcfd;
+}
+
+.rx-table-drug-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.rx-table-strength {
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.rx-table-active {
+  display: block;
+  color: #64748b;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.rx-table-note {
+  display: block;
+  color: #b45309;
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+.rx-table-qty b {
+  font-size: 14px;
+  color: #0f766e;
+}
+
+.rx-table-route {
+  display: inline-block;
+  background: #f1f5f9;
+  color: #334155;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.rx-table-instructions {
+  color: #1e293b;
+  line-height: 1.4;
+}
+
+.btn-delete-item {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.btn-delete-item:hover {
+  background: #fee2e2;
+}
+
+/* Lời dặn của Bác sĩ */
+.doctor-advice-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.doctor-advice-card textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.doctor-advice-card textarea:focus {
+  border-color: #0f766e;
+}
+
+/* Khung mô phỏng tờ đơn thuốc in */
+.prescription-preview-paper {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 20px 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.paper-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2px solid #0f766e;
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+}
+
+.hospital-seal {
+  display: flex;
+  flex-direction: column;
+}
+
+.hospital-seal span {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f766e;
+}
+
+.hospital-seal small {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.rx-symbol {
+  font-size: 28px;
+  font-weight: 900;
+  font-style: italic;
+  font-family: serif;
+  color: #0f766e;
+}
+
+.paper-title {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #0f172a;
+  margin: 0 0 16px;
+}
+
+.paper-body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  color: #1e293b;
+  margin: 0;
+}
+
+/* Điều chỉnh trên màn hình di động */
+@media (max-width: 768px) {
+  .col-name,
+  .col-active {
+    grid-column: span 12 !important;
+  }
+
+  .col-qty,
+  .col-unit,
+  .col-route,
+  .col-duration {
+    grid-column: span 6 !important;
+  }
+
+  .rx-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .rx-mode-tabs {
+    flex-direction: column !important;
+  }
+
+  .rx-actions-right {
+    justify-content: space-between !important;
+  }
+
+  .btn-rx-action {
+    flex: 1 !important;
+    justify-content: center !important;
+  }
+}
+
+
 
 
 

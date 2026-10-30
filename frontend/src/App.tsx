@@ -795,9 +795,24 @@ export default function App() {
               <div>
                 <b>Hệ thống Quản lý Kê đơn thuốc điện tử Quốc gia (Bộ Y tế)</b>
                 <p className="muted">
-                  Bác sĩ sau khi khám có thể bấm "Đẩy lên Cổng Quốc gia" để nhận mã đơn thuốc chuẩn <code>{`{Mã CSKCB}-{Năm}-{Mã đơn}`}</code> kèm mã QR quét tại các nhà thuốc đạt chuẩn GPP.
+                  Bác sĩ sau khi khám có thể kê đơn thuốc điện tử và bấm "Đẩy lên Cổng Quốc gia" để nhận mã đơn thuốc chuẩn <code>{`{Mã CSKCB}-{Năm}-{Mã đơn}`}</code> kèm mã QR quét tại các nhà thuốc đạt chuẩn GPP trên toàn quốc.
                 </p>
               </div>
+            </div>
+
+            <div style={{ marginTop: '24px' }}>
+              <h4 style={{ margin: '0 0 14px', fontSize: '15px', color: '#1e293b', fontWeight: 700 }}>
+                📋 Danh sách đơn thuốc từ các đợt khám của bạn:
+              </h4>
+              <AppointmentList
+                items={appointments.filter(a => a.status === 'completed' || a.status === 'in_progress')}
+                doctors={doctors}
+                isDoctor={isDoctor}
+                onJoin={handleJoinConsultation}
+                onPay={setQrAppointment}
+                onCancel={handleCancelAppointment}
+                onDownloadPdf={handleDownloadPdf}
+              />
             </div>
           </section>
         )}
