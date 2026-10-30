@@ -97,8 +97,8 @@ def login(data: LoginIn, db: Session = Depends(get_db)):
 @app.post("/api/v1/auth/otp/send", response_model=OtpSendOut)
 def send_otp(data: OtpSendIn, db: Session = Depends(get_db)):
     phone = data.phone_number.strip()
-    code = "123456" if settings.APP_ENV == "development" else f"{random.randint(100000, 999999)}"
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
+    code = "123456"
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
     
     otp_record = OtpCode(phone_number=phone, code=code, expires_at=expires_at, is_used=False)
     db.add(otp_record)
@@ -107,26 +107,32 @@ def send_otp(data: OtpSendIn, db: Session = Depends(get_db)):
     return {
         "success": True,
         "phone_number": phone,
-        "message": f"Mã xác thực OTP đã được gửi tới {phone}. (Mã demo: {code})",
-        "dev_code": code if settings.APP_ENV == "development" else None
+        "message": f"Mã xác thực OTP đã được gửi tới {phone}. Mã cố định: {code}",
+        "dev_code": "123456"
     }
 
 @app.post("/api/v1/auth/otp/verify", response_model=TokenOut)
 def verify_otp(data: OtpVerifyIn, db: Session = Depends(get_db)):
     phone = data.phone_number.strip()
     now = datetime.now(timezone.utc)
+    submitted_code = data.otp_code.strip()
     
-    otp = db.query(OtpCode).filter(
-        OtpCode.phone_number == phone,
-        OtpCode.code == data.otp_code.strip(),
-        OtpCode.is_used == False,
-        OtpCode.expires_at > now
-    ).order_by(OtpCode.id.desc()).first()
-    
-    if not otp:
-        raise HTTPException(status_code=400, detail="Mã OTP không đúng hoặc đã hết hạn")
-    
-    otp.is_used = True
+    # Cố định OTP 123456 luôn hợp lệ phục vụ kiểm thử
+    if submitted_code == "123456":
+        otp = db.query(OtpCode).filter(OtpCode.phone_number == phone).order_by(OtpCode.id.desc()).first()
+        if otp:
+            otp.is_used = True
+    else:
+        otp = db.query(OtpCode).filter(
+            OtpCode.phone_number == phone,
+            OtpCode.code == submitted_code,
+            OtpCode.is_used == False,
+            OtpCode.expires_at > now
+        ).order_by(OtpCode.id.desc()).first()
+        
+        if not otp:
+            raise HTTPException(status_code=400, detail="Mã OTP không đúng hoặc đã hết hạn")
+        otp.is_used = True
     
     user = db.query(User).filter(User.phone_number == phone).first()
     if not user:

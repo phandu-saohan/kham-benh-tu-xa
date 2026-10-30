@@ -30,9 +30,9 @@ export default function App() {
   // Auth state
   const [authMode, setAuthMode] = useState<'otp' | 'password'>('otp')
   const [phone, setPhone] = useState('0912345678')
-  const [otpCode, setOtpCode] = useState('')
+  const [otpCode, setOtpCode] = useState('123456')
   const [otpSent, setOtpSent] = useState(false)
-  const [otpDevHint, setOtpDevHint] = useState('')
+  const [otpDevHint, setOtpDevHint] = useState('123456')
   const [patientFullName, setPatientFullName] = useState('')
 
   const [email, setEmail] = useState('doctor@example.test')
@@ -401,7 +401,7 @@ export default function App() {
           {error && <p className="error">{error}</p>}
           <div className="demo-hint">
             Bác sĩ mẫu: <code>doctor@example.test</code> (Mật khẩu: <code>ChangeMe123!</code>)<br />
-            Bệnh nhân: Nhập SĐT bất kỳ hoặc <code>0912345678</code> và bấm "Lấy mã OTP".
+            Bệnh nhân: Nhập SĐT bất kỳ (hoặc <code>0912345678</code>) và nhập mã OTP cố định: <code>123456</code>.
           </div>
         </div>
       </main>
