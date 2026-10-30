@@ -1,9 +1,26 @@
 {
-  "name": "CareConnect Telemedicine",
-  "short_name": "CareConnect",
+  "name": "CareConnect - Bệnh Nhân Khám Bệnh Từ Xa",
+  "short_name": "CareConnect BN",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f4f7f9",
+  "orientation": "portrait-primary",
+  "background_color": "#0f766e",
   "theme_color": "#0f766e",
-  "description": "Cổng khám bệnh từ xa"
+  "description": "Ứng dụng khám chữa bệnh từ xa, gọi video với Bác sĩ, đặt lịch chuyên khoa, tra cứu BHYT và nhận đơn thuốc điện tử quốc gia.",
+  "lang": "vi",
+  "categories": ["medical", "health", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }
