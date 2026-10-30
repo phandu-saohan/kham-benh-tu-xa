@@ -1,80 +1,100 @@
-# HỆ THỐNG KHÁM BỆNH TỪ XA TÍCH HỢP BỆNH ÁN ĐIỆN TỬ (TELEMEDICINE & HIS/EMR)
+# Telemedicine V1.0
 
-Ứng dụng WebApp y tế toàn diện (Full-Stack), đáp ứng đầy đủ tiêu chuẩn Thông tư 49/2017, 54/2017, 27/2021, 04/2022/TT-BYT và Nghị định 13/2023/NĐ-CP (Bảo vệ dữ liệu cá nhân & e-Consent).
+Nền tảng khám bệnh từ xa: React + TypeScript + Vite, FastAPI, PostgreSQL, Redis, LiveKit self-hosted.
+HIS/EMR và PACS/DICOM dùng mock adapter mặc định. Không giả định API của bệnh viện.
 
----
+## Thành phần
+- `frontend/`: dashboard bệnh nhân/bác sĩ, lịch hẹn, trang phòng video LiveKit, xem kết quả lâm sàng demo.
+- `backend/`: FastAPI, JWT auth demo, appointments, telehealth sessions, patient records, billing, HIS/PACS adapters.
+- `database/`: Alembic migration.
+- `docs/openapi.yaml`: API contract mẫu.
+- `tests/`: API smoke tests.
+- `infra/`: LiveKit config.
+- `docker-compose.yml`: chạy các dịch vụ cốt lõi.
 
-## 🌟 CÁC TÍNH NĂNG NỔI BẬT
+## Yêu cầu
+Docker Desktop + Docker Compose plugin. Để chạy test local không dùng Docker: Python 3.11+, Node.js 20+.
 
-1. **Đồng bộ Hai chiều Thời gian Thực (Real-Time Bidirectional Synchronization)**:
-   - Kết nối qua WebSocket Gateway (`/ws`), mọi thao tác của Bác sĩ (chú thích ảnh PACS, cập nhật SOAP, kê đơn, gửi lệnh đo huyết áp từ xa) lập tức hiển thị trên màn hình Bệnh nhân và ngược lại.
-   - Hỗ trợ mở trên nhiều thiết bị cùng lúc (Ví dụ: Bác sĩ trên PC: `http://<ip>:3001/?role=doctor`, Bệnh nhân trên Smartphone: `http://<ip>:3001/?role=patient`).
+## Chạy nhanh
+1. Sao chép `.env.example` thành `.env`.
+2. Thay tất cả secret mặc định trước khi dùng ngoài máy phát triển.
+3. Chạy:
+   ```bash
+   docker compose up --build -d
+   docker compose ps
+   ```
+4. Backend API: http://localhost:8000/docs
+5. Frontend: http://localhost:5173
+6. Health: http://localhost:8000/health
 
-2. **Trạm Làm Việc Bác Sĩ (Doctor Workstation - 40/60 Split)**:
-   - Hội chẩn trực tuyến WebRTC đa điểm (Mời Bác sĩ Tim mạch / Dược sĩ lâm sàng tham gia 3 chiều).
-   - Đo đạc & Giám sát Tín hiệu Sinh học IoT: Điện tim ECG Lead II và Ống nghe điện tử kỹ thuật số tích hợp xử lý tín hiệu số DSP (lọc dải tần Tim 20-200Hz và Phổi 100-1000Hz với Web Audio API).
-   - AI Medical Scribe: Tự động trích xuất cấu trúc SOAP và gợi ý mã ICD-10 từ hội thoại lâm sàng.
-   - Trình đọc ảnh Web PACS DICOM: Điều chỉnh Window Level/Width, thước đo mm, vẽ chú thích đồng bộ trực tiếp.
-   - Hệ thống hỗ trợ ra quyết định lâm sàng (CDS Blocker): Tự động phát hiện và ngăn chặn kê đơn thuốc dị ứng (như nhóm Penicillin/Beta-lactam).
-   - Ký số Y tế SmartCA (VNPT/Viettel-CA/MISA eSign) và sinh mã Đơn thuốc Quốc gia ([donthuocquocgia.vn](https://donthuocquocgia.vn)).
+Tài khoản demo (chỉ dành cho local/dev):
+- Bệnh nhân: `patient@example.test` / `ChangeMe123!`
+- Bác sĩ: `doctor@example.test` / `ChangeMe123!`
 
-3. **Cổng Bệnh Nhân (Patient Virtual Care Portal)**:
-   - Quy trình khám có hướng dẫn 4 bước: Sàng lọc & ghép nối thiết bị BLE -> Phòng chờ ảo -> Khám Video 2 chiều -> Kế hoạch điều trị & Đơn thuốc.
-   - Ghép nối thiết bị y tế qua Web Bluetooth API (GATT 0x1810 Huyết áp, 0x1822 SpO2, 0x1808 Đường huyết).
-   - Thanh toán viện phí trực tuyến tự động qua VietQR/Napas247 với Webhook IPN đối soát gạch nợ tức thì.
+Seed demo được chạy khi backend khởi động nếu `SEED_DEMO=true`. Không bật seed demo trong production.
 
-4. **Tuân thủ Chuẩn Liên thông Y tế**:
-   - Xuất gói dữ liệu giám định chi phí KCB BHYT XML 4210 / Quyết định 130/QĐ-BYT.
-   - Chuỗi khối kiểm toán (Audit Trail) bất biến băm SHA-256 theo cấp độ 3 Nghị định 85/2016/NĐ-CP.
-
----
-
-## 🚀 HƯỚNG DẪN KHỞI CHẠY TRÊN MÁY CHỦ (PRODUCTION DEPLOYMENT)
-
-### Cách 1: Khởi chạy trực tiếp bằng Node.js / TSX (Đơn giản nhất)
+## Chạy migrations
+Trong Docker:
 ```bash
-# 1. Cài đặt các gói phụ thuộc
-npm install
-
-# 2. Build ứng dụng React SPA
-npm run build
-
-# 3. Khởi chạy máy chủ Full-Stack (Cả WebApp + WebSocket + REST API)
-npm start
+docker compose exec api alembic upgrade head
 ```
-Ứng dụng sẽ khả dụng tại:
-- **Web App**: `http://localhost:3001`
-- **Màn hình Bác sĩ**: `http://localhost:3001/?role=doctor`
-- **Màn hình Bệnh nhân**: `http://localhost:3001/?role=patient`
-- **Kiểm tra trạng thái**: `http://localhost:3001/api/health`
-
----
-
-### Cách 2: Triển khai Cụm Máy Chủ Docker Enterprise (Bệnh Viện)
-Cụm bao gồm:
-- **`web-app`**: Ứng dụng Fullstack (Node 22 + React)
-- **`livekit`**: WebRTC SFU Server hội chẩn video đa điểm băng thông lớn
-- **`orthanc-pacs`**: Máy chủ DICOM PACS lưu trữ phim chụp X-Quang, CT, MRI
-- **`postgres-fhir`**: Cơ sở dữ liệu chuẩn HL7 FHIR R4
-- **`caddy`**: Reverse Proxy tự động cấp phát HTTPS SSL TLS 1.3 và định tuyến WebSocket
-
+Migration đầu tiên được áp dụng tự động khi backend khởi động. Nếu thay đổi schema, tạo migration mới bằng:
 ```bash
-cd docker
-docker compose -f docker-compose.production.yml up -d
+docker compose exec api alembic revision --autogenerate -m "describe change"
+docker compose exec api alembic upgrade head
 ```
 
----
+## Test
+```bash
+docker compose exec api pytest -q
+```
+Hoặc chạy backend local:
+```bash
+cd backend
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+# Linux/macOS: source .venv/bin/activate
+pip install -r requirements.txt
+pytest -q
+```
 
-## 📡 DANH SÁCH REST API & WEBSOCKET GATEWAY
+## Tích hợp HIS/EMR thật
+- Mặc định `HIS_ADAPTER=mock`. Mock trả dữ liệu giả, không lấy dữ liệu bệnh nhân thật.
+- Khi có tài liệu API: triển khai adapter mới trong `backend/app/adapters/his/`, định nghĩa timeout, retry, idempotency, mapping mã bệnh nhân, logging đã khử dữ liệu nhạy cảm.
+- Không kết nối trực tiếp database HIS nếu chưa được phê duyệt. Ưu tiên API chính thức/FHIR.
+- Xác minh ánh xạ mã bệnh nhân và mã lần khám trước khi ghi dữ liệu.
+- Các endpoint tích hợp hiện chỉ là adapter boundary; chưa đồng bộ hoặc ghi hồ sơ vào HIS thật.
 
-| Phương thức | Đường dẫn (Endpoint) | Chức năng |
-|---|---|---|
-| `GET` | `/api/health` | Kiểm tra tình trạng máy chủ & số client kết nối |
-| `GET` | `/api/patients` | Lấy danh sách hàng đợi bệnh nhân & bệnh án |
-| `PUT` | `/api/patients/:id/vitals` | Cập nhật sinh hiệu đo từ thiết bị IoT |
-| `GET/POST`| `/api/soap/:patientId` | Truy vấn & Lưu trữ bệnh án SOAP + mã ICD-10 |
-| `POST` | `/api/prescriptions` | Phát hành đơn thuốc ký số SmartCA liên thông Quốc gia |
-| `GET` | `/api/bhyt/xml-4210/:patientId`| Tải bảng kê chi phí KCB BHYT XML 4210 |
-| `POST` | `/api/payment/vietqr-webhook` | Webhook IPN ngân hàng tự động gạch nợ viện phí |
-| `POST` | `/api/livekit/token` | Cấp JWT Token kết nối phòng họp WebRTC SFU |
-| `WS` | `/ws` | Kênh WebSocket đồng bộ hai chiều thời gian thực |
+## Tích hợp PACS/DICOM
+- Mặc định `PACS_ADAPTER=mock`.
+- Với PACS hỗ trợ DICOMweb, cấu hình QIDO-RS để tìm study và WADO-RS để truy xuất ảnh; yêu cầu PACS/Orthanc/OHIF cụ thể trước khi viết adapter production.
+- Không đưa URL/token PACS nhạy cảm ra frontend. Backend cần kiểm tra quyền và cấp URL/token ngắn hạn nếu kiến trúc PACS cho phép.
+- Demo hiện hiển thị metadata mock, không hiển thị ảnh DICOM chẩn đoán thực tế.
+
+## LiveKit
+- LiveKit local dùng cấu hình `infra/livekit.yaml`; frontend xin token từ backend.
+- Cấu hình domain public, TLS, UDP port range, TURN/TLS, firewall và load balancing trước khi triển khai private cloud.
+- Không mở LiveKit Admin API ra Internet.
+- Video call trong bản scaffold cần được kiểm thử trên trình duyệt và mạng thực tế; chưa bao gồm ghi hình.
+
+## Lưu ý triển khai production
+1. Thay `SECRET_KEY`, mật khẩu database, LiveKit API secret và mọi credential.
+2. Dùng TLS ở reverse proxy; không dùng HTTP cho bệnh nhân thật.
+3. Thêm SSO/MFA, RBAC chi tiết theo quan hệ điều trị, consent, audit append-only, rate limiting và quản lý secrets.
+4. Đánh giá pháp lý, an toàn thông tin và quy trình telehealth của bệnh viện.
+5. Bổ sung quy trình ký số, ký đơn thuốc, đối soát thanh toán và hoàn tiền theo hệ thống được bệnh viện phê duyệt.
+6. Kiểm thử tải với 50/100/150 phiên đồng thời, kiểm tra băng thông, CPU, packet loss, TURN và phục hồi sự cố.
+7. Không dùng dữ liệu thật trong môi trường demo/test.
+
+## Cấu trúc
+```text
+telemedicine-v1/
+  backend/
+  frontend/
+  database/
+  docs/
+  infra/
+  tests/
+  docker-compose.yml
+  .env.example
+```

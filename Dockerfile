@@ -1,41 +1,47 @@
 # ==============================================================================
-# DOCKERFILE - HỆ THỐNG KHÁM BỆNH TỪ XA TÍCH HỢP HIS/EMR (PRODUCTION IMAGE)
+# DOCKERFILE - TELEMEDICINE & HIS/EMR FULL-STACK PRODUCTION RUNTIME (DOKPLOY)
 # ==============================================================================
 
-# Giai đoạn 1: Build Frontend React SPA & Cài đặt Dependencies
-FROM node:22-alpine AS builder
-
-WORKDIR /app
-
-# Copy tệp định nghĩa thư viện
-COPY package*.json tsconfig*.json ./
-
-# Cài đặt tất cả phụ thuộc
-RUN npm ci
-
-# Copy toàn bộ mã nguồn
-COPY . .
-
-# Build ứng dụng React thành sản phẩm tĩnh tối ưu (dist/)
+# Stage 1: Build Frontend React SPA
+FROM node:20-alpine AS frontend-builder
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend/ ./
 RUN npm run build
 
-# Giai đoạn 2: Runtime Production
-FROM node:22-alpine AS runner
-
+# Stage 2: Python 3.11 Production Server (FastAPI + SPA Static Delivery)
+FROM python:3.11-slim AS runner
 WORKDIR /app
 
-ENV NODE_ENV=production
-ENV PORT=3001
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PORT=3001 \
+    APP_ENV=production \
+    DATABASE_URL=sqlite:////app/data/telemedicine.db \
+    SEED_DEMO=true \
+    CORS_ORIGINS="*"
 
-# Copy package.json và node_modules từ giai đoạn build
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/server ./server
-COPY --from=builder /app/src ./src
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Cổng dịch vụ Web App + WebSocket + REST API
+# Install Backend Dependencies
+COPY backend/requirements.txt ./backend/
+RUN pip install --no-cache-dir -r backend/requirements.txt
+
+# Copy Backend Source Code
+COPY backend/ ./backend/
+
+# Copy Compiled Frontend Assets from Builder Stage
+COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
+COPY --from=frontend-builder /app/frontend/dist /app/backend/frontend/dist
+
+# Persistent data directory for SQLite fallback
+RUN mkdir -p /app/data /app/backend/data
+
+WORKDIR /app/backend
+
 EXPOSE 3001
 
-# Lệnh khởi chạy server chính thức
-CMD ["npm", "start"]
+CMD ["sh", "-c", "python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-3001}"]

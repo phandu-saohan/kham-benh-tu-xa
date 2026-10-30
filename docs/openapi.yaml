@@ -1,0 +1,77 @@
+openapi: 3.1.0
+info:
+  title: Telemedicine API
+  version: 1.0.0
+  description: Contract baseline. HIS/PACS adapters are mock until real interface specs are approved.
+servers:
+  - url: http://localhost:8000
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200': { description: API available }
+  /api/v1/auth/login:
+    post:
+      summary: Login and issue bearer token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200': { description: Access token and user profile }
+        '401': { description: Invalid credentials }
+  /api/v1/appointments:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List appointments visible to current user
+      responses:
+        '200': { description: Appointment list }
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Create patient appointment
+      responses:
+        '200': { description: Created appointment }
+        '403': { description: Patient role required }
+  /api/v1/telehealth/sessions/{appointment_id}/join-token:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Create or retrieve LiveKit room token for an authorized participant
+      parameters:
+        - in: path
+          name: appointment_id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: LiveKit connection URL and token }
+        '403': { description: No access to appointment }
+  /api/v1/patients/me/his-summary:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: HIS adapter summary for current patient
+      responses:
+        '200': { description: Mock summary by default }
+  /api/v1/patients/me/imaging-studies:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: PACS adapter studies for current patient
+      responses:
+        '200': { description: Mock study metadata by default }
+  /api/v1/payments:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Create a mock payment intent
+      responses:
+        '200': { description: No money is charged by mock provider }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

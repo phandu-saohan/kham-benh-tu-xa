@@ -1,0 +1,12 @@
+.git
+.github
+temp_repo
+**/.venv
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache
+**/node_modules
+backend/telemedicine.db*
+*.log
