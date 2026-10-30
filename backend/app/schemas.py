@@ -47,8 +47,16 @@ class AppointmentOut(BaseModel):
     status: str
     fee_amount: int
     currency: str
+    shift_id: int | None = None
+    department_id: int | None = None
+    bhyt_code: str | None = None
+    bhyt_rate: int = 0
+    bhyt_discount: int = 0
+    patient_pay_amount: int = 0
     paid_at: datetime | None = None
     refund_amount: int = 0
+    refund_reason: str | None = None
+    cancelled_at: datetime | None = None
     model_config = ConfigDict(from_attributes=True)
 
 class ClinicalRecordIn(BaseModel):

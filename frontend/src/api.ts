@@ -20,6 +20,14 @@ export type Appointment = {
   currency: string
   paid_at?: string
   refund_amount?: number
+  refund_reason?: string
+  cancelled_at?: string
+  shift_id?: number
+  department_id?: number
+  bhyt_code?: string
+  bhyt_rate?: number
+  bhyt_discount?: number
+  patient_pay_amount?: number
 }
 
 export type ICD10Item = {

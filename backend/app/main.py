@@ -763,7 +763,8 @@ def get_appointment_vietqr(appointment_id: int, db: Session = Depends(get_db), u
         raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
     check_appointment_access(appt, user)
     
-    vietqr_data = generate_vietqr_url(appt.id, appt.fee_amount)
+    amount_to_pay = appt.patient_pay_amount if (appt.bhyt_discount and appt.patient_pay_amount > 0) else appt.fee_amount
+    vietqr_data = generate_vietqr_url(appt.id, amount_to_pay)
     payment = db.query(Payment).filter_by(appointment_id=appt.id).first()
     
     return {
@@ -905,6 +906,13 @@ def apply_bhyt_to_appointment(
     appt.bhyt_rate = rate
     appt.bhyt_discount = fee_calc["bhyt_discount"]
     appt.patient_pay_amount = fee_calc["patient_pay_amount"]
+    
+    payment = db.query(Payment).filter_by(appointment_id=appt.id).first()
+    if payment and payment.status == "pending":
+        payment.amount = fee_calc["patient_pay_amount"]
+        new_qr = generate_vietqr_url(appt.id, payment.amount)
+        payment.qr_code_url = new_qr["qr_image_url"]
+        payment.provider_reference = new_qr["transfer_content"]
     
     db.add(AuditLog(actor_user_id=user.id, action="appointment.apply_bhyt", resource_type="appointment", resource_id=str(appt.id)))
     db.commit()

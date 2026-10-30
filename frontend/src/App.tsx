@@ -821,7 +821,7 @@ export default function App() {
             )}
 
             {/* Danh sách lịch hẹn có thể áp dụng BHYT */}
-            <h4 style={{ margin: '20px 0 10px', fontSize: '15px' }}>Lịch hẹn có thể áp dụng giảm trừ viện phí BHYT</h4>
+            <h4 style={{ margin: '20px 0 10px', fontSize: '15px' }}>Lịch hẹn áp dụng quyền lợi BHYT</h4>
             {appointments.filter(a => a.status === 'scheduled').length === 0 ? (
               <p className="muted">Hiện không có lịch hẹn nào đang chờ xử lý chiết khấu BHYT.</p>
             ) : (
@@ -830,17 +830,30 @@ export default function App() {
                   <div>
                     <b>Lịch hẹn #{a.id}</b>
                     <small>{dateText(a.starts_at)} · {a.reason}</small>
+                    {a.bhyt_discount ? (
+                      <div style={{ color: '#0d9488', fontSize: '12px', fontWeight: 600, marginTop: '3px' }}>
+                        🛡️ Đã áp dụng thẻ BHYT ({a.bhyt_code}): Giảm {a.bhyt_rate}% (-{money(a.bhyt_discount)})
+                      </div>
+                    ) : null}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span>Viện phí gốc: <b>{money(a.fee_amount)}</b></span>
-                    <button
-                      className="primary"
-                      onClick={() => handleApplyBhyt(a.id)}
-                      disabled={applyingBhytId === a.id}
-                      style={{ padding: '6px 14px', fontSize: '13px' }}
-                    >
-                      {applyingBhytId === a.id ? 'Đang áp dụng...' : '⚡ Áp dụng thẻ BHYT'}
-                    </button>
+                    {a.bhyt_discount ? (
+                      <span style={{ fontSize: '13px' }}>
+                        Đồng chi trả: <b style={{ color: '#0f766e', fontSize: '15px' }}>{money(a.patient_pay_amount || (a.fee_amount - a.bhyt_discount))}</b>
+                      </span>
+                    ) : (
+                      <>
+                        <span>Viện phí gốc: <b>{money(a.fee_amount)}</b></span>
+                        <button
+                          className="primary"
+                          onClick={() => handleApplyBhyt(a.id)}
+                          disabled={applyingBhytId === a.id}
+                          style={{ padding: '6px 14px', fontSize: '13px' }}
+                        >
+                          {applyingBhytId === a.id ? 'Đang áp dụng...' : '⚡ Áp dụng thẻ BHYT'}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))
@@ -1172,6 +1185,16 @@ function AppointmentList({
               <b>{docName}</b>
               <small>{dateText(a.starts_at)}</small>
               <span className="reason">{a.reason}</span>
+              {a.bhyt_discount ? (
+                <div style={{ color: '#0d9488', fontSize: '12px', fontWeight: 600, marginTop: '2px' }}>
+                  🛡️ BHYT chi trả {a.bhyt_rate}% (-{money(a.bhyt_discount)}) · Cần thanh toán: {money(a.patient_pay_amount || (a.fee_amount - a.bhyt_discount))}
+                </div>
+              ) : null}
+              {a.status === 'cancelled' && a.refund_amount ? (
+                <div style={{ color: '#dc2626', fontSize: '12px', fontWeight: 600, marginTop: '2px' }}>
+                  💰 Đã hoàn tiền 100% ({money(a.refund_amount)}) {a.refund_reason ? `· Lý do: ${a.refund_reason}` : ''}
+                </div>
+              ) : null}
             </div>
 
             <span className={`status ${a.status}`}>
