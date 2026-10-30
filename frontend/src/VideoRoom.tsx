@@ -1,20 +1,22 @@
 import { useEffect, useState, useRef } from 'react'
-import { LiveKitRoom, VideoConference, RoomAudioRenderer } from '@livekit/components-react'
-import '@livekit/components-styles'
 import {
   ArrowLeft,
   ShieldCheck,
   Video,
+  VideoOff,
+  Mic,
+  MicOff,
+  SwitchCamera,
   PhoneOff,
   FileText,
   Clock,
   X,
-  ChevronUp,
   Pill,
-  Sparkles,
-  Stethoscope
+  Stethoscope,
+  Volume2
 } from 'lucide-react'
-import { request, type Appointment, type User, getClinicalRecord } from './api'
+import { type Appointment, type User, getClinicalRecord } from './api'
+import { webrtcService, type WebRTCState } from './webrtcService'
 
 export function VideoRoom({
   appointment,
@@ -25,15 +27,13 @@ export function VideoRoom({
   onBack: () => void
   user: User
 }) {
-  const [connection, setConnection] = useState<{
-    server_url: string
-    token: string
-    room_name: string
-  } | null>(null)
-  const [error, setError] = useState('')
+  const [rtcState, setRtcState] = useState<WebRTCState>(webrtcService.getState())
   const [callDuration, setCallDuration] = useState(0)
   const [showClinicalSheet, setShowClinicalSheet] = useState(false)
   const [clinicalData, setClinicalData] = useState<any>(null)
+  
+  const localVideoRef = useRef<HTMLVideoElement>(null)
+  const remoteVideoRef = useRef<HTMLVideoElement>(null)
   const wakeLockRef = useRef<any>(null)
 
   // 1. Giữ sáng màn hình điện thoại xuyên suốt cuộc khám (Screen Wake Lock)
@@ -64,15 +64,44 @@ export function VideoRoom({
     return () => clearInterval(timer)
   }, [])
 
-  // 3. Kết nối LiveKit WebRTC Session
+  // 3. Khởi tạo kết nối WebRTC trực tiếp hai chiều (P2P Full Duplex)
   useEffect(() => {
-    request<{ server_url: string; token: string; room_name: string }>(
-      `/api/v1/telehealth/sessions/${appointment.id}/join-token`,
-      { method: 'POST' }
-    )
-      .then(setConnection)
-      .catch(e => setError(e instanceof Error ? e.message : 'Không kết nối được phòng khám'))
-  }, [appointment.id])
+    const unbindState = webrtcService.onStateChange(setRtcState)
+
+    const unbindLocal = webrtcService.onLocalStream(stream => {
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream
+      }
+    })
+
+    const unbindRemote = webrtcService.onRemoteStream(stream => {
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = stream
+      }
+    })
+
+    webrtcService.joinRoom(appointment.id, 'patient', user.full_name)
+
+    return () => {
+      unbindState()
+      unbindLocal()
+      unbindRemote()
+      webrtcService.endCall()
+    }
+  }, [appointment.id, user.full_name])
+
+  // Gắn lại stream nếu element mount sau
+  useEffect(() => {
+    if (localVideoRef.current && rtcState.localStream) {
+      localVideoRef.current.srcObject = rtcState.localStream
+    }
+  }, [rtcState.localStream])
+
+  useEffect(() => {
+    if (remoteVideoRef.current && rtcState.remoteStream) {
+      remoteVideoRef.current.srcObject = rtcState.remoteStream
+    }
+  }, [rtcState.remoteStream])
 
   // 4. Tải dữ liệu bệnh án & đơn thuốc để bệnh nhân xem trực tiếp trong cuộc gọi
   function loadClinicalDetails() {
@@ -98,7 +127,10 @@ export function VideoRoom({
         <button
           type="button"
           className="mobile-back-btn"
-          onClick={onBack}
+          onClick={() => {
+            webrtcService.endCall()
+            onBack()
+          }}
           title="Rời phòng"
         >
           <ArrowLeft size={18} />
@@ -107,12 +139,12 @@ export function VideoRoom({
         <div className="mobile-doctor-header-info">
           <b>Buồng khám trực tuyến #{appointment.id}</b>
           <div className="call-status-row">
-            <span className="live-pulse-dot" />
+            <span className={`live-pulse-dot ${rtcState.remoteStream ? 'online' : 'connecting'}`} />
             <span className="timer-badge">
               <Clock size={12} /> {formatTime(callDuration)}
             </span>
             <span className="secure-badge">
-              <ShieldCheck size={12} /> E2EE
+              <ShieldCheck size={12} /> WebRTC P2P
             </span>
           </div>
         </div>
@@ -132,38 +164,107 @@ export function VideoRoom({
         </button>
       </header>
 
-      {error && <div className="alert error mobile-call-alert">{error}</div>}
+      {/* Main Video View Area */}
+      <div className="webrtc-stage-container">
+        {/* Remote Video Stream (Bác sĩ) */}
+        <video
+          ref={remoteVideoRef}
+          autoPlay
+          playsInline
+          className={`webrtc-remote-video ${rtcState.remoteStream ? 'visible' : 'hidden'}`}
+        />
 
-      {!connection && !error && (
-        <div className="mobile-video-loading">
-          <div className="loading-spinner-circle">
-            <Video size={36} className="spin" />
+        {/* Fallback khi chưa kết nối được Bác sĩ hoặc Bác sĩ chưa vào phòng */}
+        {!rtcState.remoteStream && (
+          <div className="mobile-video-loading">
+            <div className="loading-spinner-circle">
+              <Video size={40} className="pulse-slow" color="#10b981" />
+            </div>
+            <h2>Đang kết nối Bác sĩ chuyên khoa...</h2>
+            <p>Hệ thống tự động kích hoạt đàm thoại âm thanh & video hai chiều bảo mật.</p>
+            <div className="audio-live-pill">
+              <Volume2 size={15} /> Micro đang sẵn sàng phát tín hiệu
+            </div>
+            <small className="muted">Màn hình điện thoại sẽ luôn giữ sáng trong suốt cuộc gọi.</small>
           </div>
-          <h2>Đang kết nối bác sĩ...</h2>
-          <p>Màn hình điện thoại sẽ luôn giữ sáng trong suốt cuộc gọi.</p>
-          <small className="muted">Vui lòng cấp quyền Camera & Micro cho trình duyệt.</small>
-        </div>
-      )}
+        )}
 
-      {/* LiveKit Video Shell */}
-      {connection && (
-        <div className="mobile-livekit-container">
-          <LiveKitRoom
-            video
-            audio
-            token={connection.token}
-            serverUrl={connection.server_url}
-            connect
-            data-lk-theme="default"
-            className="mobile-livekit-room"
+        {/* Local Video Thumbnail PiP (Camera của chính bệnh nhân) */}
+        <div className="webrtc-local-pip-wrapper">
+          <video
+            ref={localVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="webrtc-local-pip"
+          />
+          <div className="pip-label">
+            {rtcState.isAudioMuted && <MicOff size={11} color="#ef4444" />}
+            <span>Bạn</span>
+          </div>
+        </div>
+
+        {/* Floating Call Action Controls Bar (Dưới đáy màn hình) */}
+        <div className="mobile-call-controls-bar">
+          {/* 1. Mic On/Off */}
+          <button
+            type="button"
+            className={`control-circle-btn ${rtcState.isAudioMuted ? 'muted' : 'active'}`}
+            onClick={() => webrtcService.toggleAudio()}
+            title={rtcState.isAudioMuted ? 'Bật Mic' : 'Tắt Mic'}
           >
-            <VideoConference />
-            <RoomAudioRenderer />
-          </LiveKitRoom>
-        </div>
-      )}
+            {rtcState.isAudioMuted ? <MicOff size={22} /> : <Mic size={22} />}
+          </button>
 
-      {/* Collapsible Clinical Bottom Sheet (Dành riêng cho bệnh nhân dùng điện thoại) */}
+          {/* 2. Video On/Off */}
+          <button
+            type="button"
+            className={`control-circle-btn ${rtcState.isVideoMuted ? 'muted' : 'active'}`}
+            onClick={() => webrtcService.toggleVideo()}
+            title={rtcState.isVideoMuted ? 'Bật Camera' : 'Tắt Camera'}
+          >
+            {rtcState.isVideoMuted ? <VideoOff size={22} /> : <Video size={22} />}
+          </button>
+
+          {/* 3. Đổi Camera Trước/Sau (Flip Camera trên Mobile) */}
+          <button
+            type="button"
+            className="control-circle-btn flip-btn"
+            onClick={() => webrtcService.switchCamera()}
+            title="Đổi camera trước / sau"
+          >
+            <SwitchCamera size={22} />
+          </button>
+
+          {/* 4. Mở đơn thuốc nhanh */}
+          <button
+            type="button"
+            className={`control-circle-btn ${showClinicalSheet ? 'active-sheet' : ''}`}
+            onClick={() => {
+              setShowClinicalSheet(!showClinicalSheet)
+              if (!showClinicalSheet) loadClinicalDetails()
+            }}
+            title="Xem hồ sơ / đơn thuốc"
+          >
+            <FileText size={20} />
+          </button>
+
+          {/* 5. Kết thúc cuộc gọi */}
+          <button
+            type="button"
+            className="control-circle-btn hangup-btn"
+            onClick={() => {
+              webrtcService.endCall()
+              onBack()
+            }}
+            title="Kết thúc khám"
+          >
+            <PhoneOff size={22} />
+          </button>
+        </div>
+      </div>
+
+      {/* Collapsible Clinical Bottom Sheet (Dành riêng cho bệnh nhân xem đơn thuốc) */}
       {showClinicalSheet && (
         <div className="mobile-clinical-sheet">
           <div className="sheet-header">

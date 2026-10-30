@@ -1,10 +1,8 @@
-import { useEffect, useState } from 'react'
-import { LiveKitRoom, VideoConference, RoomAudioRenderer } from '@livekit/components-react'
-import '@livekit/components-styles'
+import { useEffect, useState, useRef } from 'react'
 import {
   ArrowLeft, ShieldCheck, Save, CheckCircle2, Lock, FileText,
-  Pill, User, Search, AlertCircle, Stethoscope, Video, X,
-  FileDown, PenTool, Share2, Code2, QrCode, Sparkles, Mic, MicOff, Bot, PhoneCall
+  Pill, User, Search, AlertCircle, Stethoscope, Video, VideoOff, X,
+  FileDown, PenTool, Share2, Code2, QrCode, Sparkles, Mic, MicOff, Bot, PhoneCall, Volume2
 } from 'lucide-react'
 import {
   type Appointment, type User as CurrentUser, type ICD10Item,
@@ -13,6 +11,7 @@ import {
   syncNationalPrescription, downloadMedicalRecordPdf, getFhirBundle,
   generateAiScribeSoap, callPatient
 } from './api'
+import { webrtcService, type WebRTCState } from './webrtcService'
 
 export function DoctorWorkspace({
   appointment,
@@ -27,6 +26,11 @@ export function DoctorWorkspace({
 }) {
   const [connection, setConnection] = useState<{ server_url: string; token: string; room_name: string } | null>(null)
   const [activeTab, setActiveTab] = useState<'record' | 'ai_scribe' | 'prescription' | 'patient_info' | 'fhir'>('record')
+  
+  // WebRTC P2P Video & Audio Engine
+  const [rtcState, setRtcState] = useState<WebRTCState>(webrtcService.getState())
+  const localVideoRef = useRef<HTMLVideoElement>(null)
+  const remoteVideoRef = useRef<HTMLVideoElement>(null)
   
   // Thông tin phiếu khám lâm sàng
   const [symptoms, setSymptoms] = useState('')
@@ -86,15 +90,45 @@ export function DoctorWorkspace({
     }
   }, [appointment.id])
 
-  // 1. Lấy token kết nối LiveKit
+  // 1. Khởi tạo WebRTC P2P Video & Audio Consultation
   useEffect(() => {
+    const unbindState = webrtcService.onStateChange(setRtcState)
+    const unbindLocal = webrtcService.onLocalStream(stream => {
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream
+    })
+    const unbindRemote = webrtcService.onRemoteStream(stream => {
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = stream
+    })
+
+    webrtcService.joinRoom(appointment.id, 'doctor', user.full_name)
+
+    // Đồng thời gọi join-token để backend đánh dấu ca khám in_progress
     request<{ server_url: string; token: string; room_name: string }>(
       `/api/v1/telehealth/sessions/${appointment.id}/join-token`,
       { method: 'POST' }
     )
       .then(setConnection)
-      .catch(e => setError(e instanceof Error ? e.message : 'Không tạo được phòng khám trực tuyến'))
-  }, [appointment.id])
+      .catch(console.warn)
+
+    return () => {
+      unbindState()
+      unbindLocal()
+      unbindRemote()
+      webrtcService.endCall()
+    }
+  }, [appointment.id, user.full_name])
+
+  useEffect(() => {
+    if (localVideoRef.current && rtcState.localStream) {
+      localVideoRef.current.srcObject = rtcState.localStream
+    }
+  }, [rtcState.localStream])
+
+  useEffect(() => {
+    if (remoteVideoRef.current && rtcState.remoteStream) {
+      remoteVideoRef.current.srcObject = rtcState.remoteStream
+    }
+  }, [rtcState.remoteStream])
 
   // 2. Tải hồ sơ lâm sàng hiện tại
   function loadRecord() {
@@ -422,34 +456,86 @@ export function DoctorWorkspace({
 
       {/* Main Split View: Left = Video, Right = Clinical Documentation */}
       <div className="workspace-split">
-        {/* Left Pane: LiveKit Video Call */}
+        {/* Left Pane: WebRTC Full-Duplex Video & Audio Workspace */}
         <div className="video-pane">
-          {!connection && !error && (
-            <div className="video-loading-box">
-              <Video size={36} className="spin" />
-              <h3>Đang kết nối buồng khám trực tuyến...</h3>
-              <p>Mã hóa WebRTC E2EE · Chuẩn âm thanh/hình ảnh HD y tế</p>
+          <div className="doctor-video-stage">
+            <div className="room-secure-indicator">
+              <span className={`live-dot ${rtcState.remoteStream ? 'online' : 'connecting'}`} />
+              Buồng khám #{appointment.id} · WebRTC P2P {rtcState.remoteStream ? '(Bệnh nhân đang kết nối)' : '(Đang chờ bệnh nhân)'}
             </div>
-          )}
 
-          {connection && (
-            <div className="livekit-box">
-              <div className="room-secure-indicator">
-                <span className="live-dot" /> Phòng khám bảo mật: {connection.room_name}
+            {/* Remote Patient Video */}
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              className={`doctor-remote-video ${rtcState.remoteStream ? 'visible' : 'hidden'}`}
+            />
+
+            {/* Placeholder khi bệnh nhân chưa nối máy */}
+            {!rtcState.remoteStream && (
+              <div className="video-placeholder doctor-waiting-screen">
+                <div className="pulse-spinner">
+                  <Video size={44} color="#0d9488" className="spin-slow" />
+                </div>
+                <h3>Đang chờ bệnh nhân kết nối vào buồng khám...</h3>
+                <p>Hệ thống truyền tải âm thanh & video độ trễ cực thấp (WebRTC P2P).</p>
+                <div className="audio-live-pill">
+                  <Volume2 size={15} /> Kênh âm thanh y tế chất lượng cao đã sẵn sàng
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary call-recall-btn"
+                  onClick={handleCallPatient}
+                  disabled={callingPatient}
+                  style={{ marginTop: '14px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <PhoneCall size={16} /> {callingPatient ? 'Đang gửi tín hiệu chuông...' : '📞 Gọi lại chuông điện thoại bệnh nhân'}
+                </button>
               </div>
-              <LiveKitRoom
-                video
-                audio
-                token={connection.token}
-                serverUrl={connection.server_url}
-                connect
-                data-lk-theme="default"
-              >
-                <VideoConference />
-                <RoomAudioRenderer />
-              </LiveKitRoom>
+            )}
+
+            {/* Doctor local webcam PiP */}
+            <div className="doctor-local-pip-box">
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="doctor-local-video"
+              />
+              <span className="pip-label">
+                {rtcState.isAudioMuted && <MicOff size={11} color="#ef4444" />}
+                BS. {user.full_name}
+              </span>
             </div>
-          )}
+
+            {/* Doctor media toolbar */}
+            <div className="doctor-media-toolbar">
+              <button
+                type="button"
+                className={`doctor-media-btn ${rtcState.isAudioMuted ? 'muted' : 'active'}`}
+                onClick={() => webrtcService.toggleAudio()}
+                title={rtcState.isAudioMuted ? 'Bật Mic' : 'Tắt Mic'}
+              >
+                {rtcState.isAudioMuted ? <MicOff size={18} /> : <Mic size={18} />}
+                <span>{rtcState.isAudioMuted ? 'Bật Mic' : 'Tắt Mic'}</span>
+              </button>
+              <button
+                type="button"
+                className={`doctor-media-btn ${rtcState.isVideoMuted ? 'muted' : 'active'}`}
+                onClick={() => webrtcService.toggleVideo()}
+                title={rtcState.isVideoMuted ? 'Bật Camera' : 'Tắt Camera'}
+              >
+                {rtcState.isVideoMuted ? <VideoOff size={18} /> : <Video size={18} />}
+                <span>{rtcState.isVideoMuted ? 'Bật Cam' : 'Tắt Cam'}</span>
+              </button>
+              <div className="doctor-media-status-badge">
+                <ShieldCheck size={14} color="#10b981" />
+                <span>WebRTC E2EE</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Right Pane: Clinical Documentation Workspace */}

@@ -1,7 +1,7 @@
 from datetime import datetime, timezone, timedelta
 import random
 import os
-from fastapi import FastAPI, Depends, HTTPException, Query, status, Response, Request
+from fastapi import FastAPI, Depends, HTTPException, Query, status, Response, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -503,6 +503,64 @@ def decline_call(appointment_id: int, db: Session = Depends(get_db), user: User 
         session.status = "declined"
         db.commit()
     return {"success": True, "message": "Đã từ chối cuộc gọi"}
+
+# ----------------- REAL-TIME WEBRTC SIGNALING GATEWAY -----------------
+
+class SignalingManager:
+    def __init__(self):
+        # room_id -> list of WebSocket
+        self.active_rooms: dict[str, list[WebSocket]] = {}
+
+    async def connect(self, room_id: str, websocket: WebSocket):
+        await websocket.accept()
+        if room_id not in self.active_rooms:
+            self.active_rooms[room_id] = []
+        if websocket not in self.active_rooms[room_id]:
+            self.active_rooms[room_id].append(websocket)
+
+    def disconnect(self, room_id: str, websocket: WebSocket):
+        if room_id in self.active_rooms:
+            if websocket in self.active_rooms[room_id]:
+                self.active_rooms[room_id].remove(websocket)
+            if not self.active_rooms[room_id]:
+                del self.active_rooms[room_id]
+
+    async def broadcast_to_room(self, room_id: str, message: dict, sender: WebSocket):
+        if room_id in self.active_rooms:
+            for connection in list(self.active_rooms[room_id]):
+                if connection != sender:
+                    try:
+                        await connection.send_json(message)
+                    except Exception:
+                        pass
+
+signaling_manager = SignalingManager()
+
+@app.websocket("/ws")
+@app.websocket("/ws/{appointment_id}")
+@app.websocket("/api/v1/ws/{appointment_id}")
+async def websocket_signaling_endpoint(websocket: WebSocket, appointment_id: str = "default"):
+    current_room = str(appointment_id)
+    await signaling_manager.connect(current_room, websocket)
+    try:
+        while True:
+            data = await websocket.receive_json()
+            target_room = str(data.get("appointment_id", current_room))
+            if target_room != current_room:
+                signaling_manager.disconnect(current_room, websocket)
+                current_room = target_room
+                await signaling_manager.connect(current_room, websocket)
+            await signaling_manager.broadcast_to_room(current_room, data, sender=websocket)
+    except WebSocketDisconnect:
+        signaling_manager.disconnect(current_room, websocket)
+        await signaling_manager.broadcast_to_room(
+            current_room,
+            {"type": "PEER_LEFT", "appointment_id": current_room},
+            sender=websocket
+        )
+    except Exception:
+        signaling_manager.disconnect(current_room, websocket)
+
 
 # ----------------- CLINICAL RECORDS & DOCTOR WORKSPACE -----------------
 

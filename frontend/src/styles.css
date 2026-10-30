@@ -1483,3 +1483,291 @@
   }
 }
 
+/* ==================== WEBRTC P2P HD VIDEO & AUDIO ==================== */
+.webrtc-stage-container {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #020617;
+}
+
+.webrtc-remote-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #020617;
+  z-index: 10;
+  transition: opacity 0.3s ease;
+}
+
+.webrtc-remote-video.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.webrtc-remote-video.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.webrtc-local-pip-wrapper {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 10px) + 65px);
+  right: 14px;
+  width: 110px;
+  height: 154px;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.65);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  z-index: 35;
+  background: #0f172a;
+}
+
+.webrtc-local-pip {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.pip-label {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  border-radius: 4px;
+  font-size: 10px;
+  color: white;
+  padding: 2px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-weight: 500;
+}
+
+.mobile-call-controls-bar {
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom, 12px) + 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50px;
+  padding: 8px 16px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+}
+
+.control-circle-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: none;
+  cursor: pointer;
+  color: white;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.control-circle-btn:active {
+  transform: scale(0.92);
+}
+
+.control-circle-btn.muted {
+  background: #dc2626;
+  color: white;
+}
+
+.control-circle-btn.flip-btn {
+  background: rgba(14, 165, 233, 0.25);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+.control-circle-btn.active-sheet {
+  background: #0f766e;
+  color: #5eead4;
+}
+
+.control-circle-btn.hangup-btn {
+  background: #ef4444;
+  color: white;
+  width: 52px;
+  height: 52px;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.5);
+}
+
+.audio-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  margin: 12px 0 6px;
+}
+
+.live-pulse-dot.online {
+  background: #22c55e;
+  box-shadow: 0 0 10px #22c55e;
+}
+
+.live-pulse-dot.connecting {
+  background: #f59e0b;
+  box-shadow: 0 0 10px #f59e0b;
+  animation: pulse 1.2s infinite ease-in-out;
+}
+
+/* ==================== DOCTOR WORKSPACE WEBRTC ==================== */
+.doctor-video-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 460px;
+  display: flex;
+  flex-direction: column;
+  background: #020617;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #1e293b;
+}
+
+.doctor-remote-video {
+  width: 100%;
+  flex: 1;
+  min-height: 380px;
+  object-fit: cover;
+  background: #020617;
+  transition: opacity 0.3s ease;
+}
+
+.doctor-remote-video.hidden {
+  display: none;
+}
+
+.doctor-remote-video.visible {
+  display: block;
+}
+
+.doctor-waiting-screen {
+  flex: 1;
+  min-height: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #94a3b8;
+  padding: 30px;
+  background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+}
+
+.doctor-waiting-screen h3 {
+  color: #f1f5f9;
+  margin: 14px 0 6px;
+  font-size: 17px;
+}
+
+.doctor-waiting-screen p {
+  color: #64748b;
+  font-size: 13px;
+  max-width: 380px;
+  margin: 0 0 8px;
+}
+
+.doctor-local-pip-box {
+  position: absolute;
+  top: 48px;
+  right: 14px;
+  width: 140px;
+  height: 95px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+  z-index: 25;
+  background: #0f172a;
+}
+
+.doctor-local-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.doctor-media-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #090d16;
+  border-top: 1px solid #1e293b;
+  z-index: 30;
+}
+
+.doctor-media-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #f1f5f9;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.doctor-media-btn:hover {
+  background: #334155;
+}
+
+.doctor-media-btn.muted {
+  background: #7f1d1d;
+  border-color: #ef4444;
+  color: #fecaca;
+}
+
+.doctor-media-status-badge {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.pulse-slow {
+  animation: pulse 2.5s infinite ease-in-out;
+}
+
+
