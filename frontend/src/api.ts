@@ -263,6 +263,18 @@ export async function verifyOtp(phone_number: string, otp_code: string, full_nam
   return result.user
 }
 
+export async function loginWithFirebaseToken(id_token: string, full_name?: string) {
+  const result = await request<{ access_token: string; refresh_token?: string; user: User }>(
+    '/api/v1/auth/firebase/verify-token',
+    { method: 'POST', body: JSON.stringify({ id_token, full_name }) }
+  )
+  localStorage.setItem('tm_token', result.access_token)
+  if (result.refresh_token) {
+    localStorage.setItem('tm_refresh_token', result.refresh_token)
+  }
+  return result.user
+}
+
 export async function searchICD10(query: string = '') {
   return request<ICD10Item[]>(`/api/v1/icd10/search?q=${encodeURIComponent(query)}`)
 }
@@ -857,10 +869,15 @@ export async function checkPatientHis(data: PatientHisCheckRequest): Promise<Pat
 }
 
 export async function registerPatientAccount(data: PatientRegisterRequest): Promise<PatientRegisterResponse> {
-  return request<PatientRegisterResponse>('/api/v1/auth/patient-register', {
+  const result = await request<PatientRegisterResponse>('/api/v1/auth/patient-register', {
     method: 'POST',
     body: JSON.stringify(data)
   })
+  localStorage.setItem('tm_token', result.access_token)
+  if (result.refresh_token) {
+    localStorage.setItem('tm_refresh_token', result.refresh_token)
+  }
+  return result
 }
 
 

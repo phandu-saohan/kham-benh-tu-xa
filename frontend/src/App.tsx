@@ -418,8 +418,8 @@ export default function App() {
       return (
         <PatientRegisterPage
           onSuccess={(data) => {
-            localStorage.setItem('access_token', data.access_token)
-            localStorage.setItem('refresh_token', data.refresh_token)
+            localStorage.setItem('tm_token', data.access_token)
+            localStorage.setItem('tm_refresh_token', data.refresh_token)
             setUser(data.user)
             setView('overview')
             setAuthScreen('login')
