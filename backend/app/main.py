@@ -23,7 +23,7 @@ from app.models import (
     ConsultationMessage, SystemSetting
 )
 from app.schemas import (
-    LoginIn, TokenOut, OtpSendIn, OtpSendOut, OtpVerifyIn, RefreshTokenIn,
+    LoginIn, TokenOut, OtpSendIn, OtpSendOut, OtpVerifyIn, FirebaseVerifyIn, RefreshTokenIn,
     AppointmentCreate, AppointmentOut,
     ClinicalRecordIn, ClinicalRecordOut, PrescriptionIn,
     PaymentCreate, PaymentOut, PaymentWebhookIn, ICD10Item,
@@ -57,6 +57,7 @@ from app.consent import get_consent_terms, CONSENT_VERSION
 from app.encryption import encrypt_sensitive_data, decrypt_sensitive_data
 from app.ai_scribe import generate_soap_notes
 from app.bhyt import verify_and_lookup_bhyt, calculate_bhyt_consultation_fee
+from app.firebase_auth import verify_firebase_id_token, process_firebase_login
 
 app = FastAPI(
     title="Telemedicine Platform API",
@@ -108,6 +109,19 @@ def login(data: LoginIn, db: Session = Depends(get_db)):
             "doctor_cchn": user.doctor_cchn
         }
     }
+
+def get_db_setting(db: Session, key: str, default: str = "") -> str:
+    row = db.query(SystemSetting).filter_by(key=key).first()
+    return row.value if row else default
+
+def set_db_setting(db: Session, key: str, value: str, description: str = ""):
+    row = db.query(SystemSetting).filter_by(key=key).first()
+    if row:
+        row.value = value
+    else:
+        row = SystemSetting(key=key, value=value, description=description)
+        db.add(row)
+    db.commit()
 
 @app.post("/api/v1/auth/otp/send", response_model=OtpSendOut)
 async def send_otp(data: OtpSendIn, db: Session = Depends(get_db)):
@@ -188,6 +202,32 @@ def verify_otp(data: OtpVerifyIn, db: Session = Depends(get_db)):
             "full_name": user.full_name,
             "role": user.role
         }
+    }
+
+@app.post("/api/v1/auth/firebase/verify-token", response_model=TokenOut)
+@app.post("/api/v1/auth/firebase/verify", response_model=TokenOut)
+async def verify_firebase_token_endpoint(data: FirebaseVerifyIn, db: Session = Depends(get_db)):
+    project_id = get_db_setting(db, "firebase_project_id", settings.FIREBASE_PROJECT_ID)
+    api_key = get_db_setting(db, "firebase_api_key", settings.FIREBASE_WEB_API_KEY)
+    phone, firebase_uid = await verify_firebase_id_token(data.id_token, project_id=project_id, web_api_key=api_key)
+    return process_firebase_login(db, phone, data.full_name)
+
+@app.get("/api/v1/auth/firebase-config")
+def get_firebase_config_endpoint(db: Session = Depends(get_db)):
+    project_id = get_db_setting(db, "firebase_project_id", settings.FIREBASE_PROJECT_ID)
+    api_key = get_db_setting(db, "firebase_api_key", settings.FIREBASE_WEB_API_KEY)
+    auth_domain = get_db_setting(db, "firebase_auth_domain", f"{project_id}.firebaseapp.com" if project_id else "")
+    app_id = get_db_setting(db, "firebase_app_id", "")
+    storage_bucket = get_db_setting(db, "firebase_storage_bucket", f"{project_id}.appspot.com" if project_id else "")
+    messaging_sender_id = get_db_setting(db, "firebase_messaging_sender_id", "")
+    return {
+        "apiKey": api_key,
+        "projectId": project_id,
+        "authDomain": auth_domain,
+        "appId": app_id,
+        "storageBucket": storage_bucket,
+        "messagingSenderId": messaging_sender_id,
+        "enabled": bool(api_key and project_id)
     }
 
 @app.post("/api/v1/auth/refresh")
@@ -1739,19 +1779,6 @@ def assess_and_dispatch_triage(
 
 # ----------------- ADMIN DASHBOARD & SYSTEM SETTINGS -----------------
 
-def get_db_setting(db: Session, key: str, default: str) -> str:
-    row = db.query(SystemSetting).filter_by(key=key).first()
-    return row.value if row else default
-
-def set_db_setting(db: Session, key: str, value: str, description: str = ""):
-    row = db.query(SystemSetting).filter_by(key=key).first()
-    if row:
-        row.value = value
-    else:
-        row = SystemSetting(key=key, value=value, description=description)
-        db.add(row)
-    db.commit()
-
 @app.get("/api/v1/admin/overview", response_model=AdminOverviewOut)
 def get_admin_overview(db: Session = Depends(get_db), user: User = Depends(require_roles("admin"))):
     all_appts = db.query(Appointment).all()
@@ -1836,6 +1863,10 @@ def get_admin_settings(db: Session = Depends(get_db), user: User = Depends(requi
         sms_provider=get_db_setting(db, "sms_provider", settings.SMS_PROVIDER),
         sms_brandname=get_db_setting(db, "sms_brandname", settings.SMS_BRANDNAME),
         allow_test_otp=get_db_setting(db, "allow_test_otp", "true").lower() == "true",
+        firebase_project_id=get_db_setting(db, "firebase_project_id", settings.FIREBASE_PROJECT_ID),
+        firebase_api_key=get_db_setting(db, "firebase_api_key", settings.FIREBASE_WEB_API_KEY),
+        firebase_auth_domain=get_db_setting(db, "firebase_auth_domain", f"{settings.FIREBASE_PROJECT_ID}.firebaseapp.com" if settings.FIREBASE_PROJECT_ID else ""),
+        firebase_app_id=get_db_setting(db, "firebase_app_id", ""),
         bank_id=get_db_setting(db, "bank_id", settings.BANK_ID),
         bank_account_no=get_db_setting(db, "bank_account_no", settings.BANK_ACCOUNT_NO),
         bank_account_name=get_db_setting(db, "bank_account_name", settings.BANK_ACCOUNT_NAME),

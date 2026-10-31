@@ -66,6 +66,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
     sms_provider: 'mock',
     sms_brandname: 'CARECONNECT',
     allow_test_otp: true,
+    firebase_project_id: '',
+    firebase_api_key: '',
+    firebase_auth_domain: '',
+    firebase_app_id: '',
     bank_id: 'MB',
     bank_account_no: '0988888888',
     bank_account_name: 'BENH VIEN CARECONNECT',
@@ -328,9 +332,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                   value={settingsForm.sms_provider}
                   onChange={e => setSettingsForm({ ...settingsForm, sms_provider: e.target.value })}
                 >
-                  <option value="mock">MOCK / Thử nghiệm nội bộ</option>
+                  <option value="firebase">Google Firebase Phone Auth (SMS thật toàn cầu & VN)</option>
                   <option value="esms">eSMS Việt Nam (SMS Brandname)</option>
                   <option value="zalo_zns">Zalo Notification Service (ZNS)</option>
+                  <option value="mock">MOCK / Thử nghiệm nội bộ</option>
                 </select>
               </div>
 
@@ -359,6 +364,56 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                   </span>
                 </div>
               </div>
+
+              {settingsForm.sms_provider === 'firebase' && (
+                <div className="col-12" style={{ background: '#f0fdf4', padding: '14px', borderRadius: '10px', border: '1px solid #bbf7d0', marginTop: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                    <ShieldCheck size={18} color="#15803d" />
+                    <strong style={{ color: '#166534', fontSize: '13.5px' }}>Cấu hình Google Firebase Phone Authentication (Gửi SMS OTP Thật)</strong>
+                  </div>
+                  <p className="tiny" style={{ color: '#166534', margin: '0 0 12px 0' }}>
+                    Lấy thông tin từ Firebase Console (Project Settings &gt; General &gt; Your apps &gt; Web App). Hãy chắc chắn mục <b>Authentication &gt; Sign-in method &gt; Phone</b> đã được BẬT.
+                  </p>
+                  <div className="settings-grid">
+                    <div className="settings-field col-3">
+                      <label>Firebase Project ID:</label>
+                      <input
+                        type="text"
+                        placeholder="Ví dụ: my-telemedicine-app"
+                        value={settingsForm.firebase_project_id || ''}
+                        onChange={e => setSettingsForm({ ...settingsForm, firebase_project_id: e.target.value })}
+                      />
+                    </div>
+                    <div className="settings-field col-3">
+                      <label>Firebase Web API Key:</label>
+                      <input
+                        type="password"
+                        placeholder="AIzaSy..."
+                        value={settingsForm.firebase_api_key || ''}
+                        onChange={e => setSettingsForm({ ...settingsForm, firebase_api_key: e.target.value })}
+                      />
+                    </div>
+                    <div className="settings-field col-3">
+                      <label>Auth Domain:</label>
+                      <input
+                        type="text"
+                        placeholder="project-id.firebaseapp.com"
+                        value={settingsForm.firebase_auth_domain || ''}
+                        onChange={e => setSettingsForm({ ...settingsForm, firebase_auth_domain: e.target.value })}
+                      />
+                    </div>
+                    <div className="settings-field col-3">
+                      <label>Firebase App ID (tùy chọn):</label>
+                      <input
+                        type="text"
+                        placeholder="1:123456789:web:abcdef..."
+                        value={settingsForm.firebase_app_id || ''}
+                        onChange={e => setSettingsForm({ ...settingsForm, firebase_app_id: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

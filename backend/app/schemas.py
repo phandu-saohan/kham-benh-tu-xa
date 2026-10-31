@@ -22,6 +22,10 @@ class OtpVerifyIn(BaseModel):
     otp_code: str = Field(min_length=4, max_length=10)
     full_name: str | None = None
 
+class FirebaseVerifyIn(BaseModel):
+    id_token: str
+    full_name: str | None = None
+
 class TokenOut(BaseModel):
     access_token: str
     refresh_token: str | None = None
@@ -411,6 +415,10 @@ class SystemSettingsOut(BaseModel):
     sms_provider: str
     sms_brandname: str
     allow_test_otp: bool
+    firebase_project_id: str | None = None
+    firebase_api_key: str | None = None
+    firebase_auth_domain: str | None = None
+    firebase_app_id: str | None = None
     bank_id: str
     bank_account_no: str
     bank_account_name: str
@@ -430,6 +438,10 @@ class SystemSettingsUpdateIn(BaseModel):
     sms_provider: str | None = None
     sms_brandname: str | None = None
     allow_test_otp: bool | None = None
+    firebase_project_id: str | None = None
+    firebase_api_key: str | None = None
+    firebase_auth_domain: str | None = None
+    firebase_app_id: str | None = None
     bank_id: str | None = None
     bank_account_no: str | None = None
     bank_account_name: str | None = None

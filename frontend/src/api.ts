@@ -275,6 +275,18 @@ export async function loginWithFirebaseToken(id_token: string, full_name?: strin
   return result.user
 }
 
+export async function getFirebaseConfig() {
+  return request<{
+    apiKey: string
+    projectId: string
+    authDomain: string
+    appId: string
+    storageBucket: string
+    messagingSenderId: string
+    enabled: boolean
+  }>('/api/v1/auth/firebase-config')
+}
+
 export async function searchICD10(query: string = '') {
   return request<ICD10Item[]>(`/api/v1/icd10/search?q=${encodeURIComponent(query)}`)
 }
@@ -666,6 +678,10 @@ export interface SystemSettingsData {
   sms_provider: string
   sms_brandname: string
   allow_test_otp: boolean
+  firebase_project_id?: string
+  firebase_api_key?: string
+  firebase_auth_domain?: string
+  firebase_app_id?: string
   bank_id: string
   bank_account_no: string
   bank_account_name: string

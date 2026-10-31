@@ -7,7 +7,7 @@ import {
   HelpCircle, ShieldAlert, Undo2, Activity, Settings, ScanLine
 } from 'lucide-react'
 import {
-  login, sendOtp, verifyOtp, request, cancelAppointment,
+  login, sendOtp, verifyOtp, loginWithFirebaseToken, getFirebaseConfig, request, cancelAppointment,
   getConsentStatus, downloadMedicalRecordPdf, getPacsDicomStudies,
   checkBhyt, applyBhyt, getDepartments, getDoctorShifts,
   checkIncomingCall, declineIncomingCall,
@@ -15,6 +15,10 @@ import {
   type Appointment, type User, type Department, type DoctorShift,
   type BhytCheckOut, type IncomingCallData, type LabResultsData, type PACSStudiesData
 } from './api'
+import {
+  isFirebaseConfigured, setupRecaptcha, sendFirebaseOtp, verifyFirebaseOtp, setFirebaseRuntimeConfig
+} from './firebase'
+import type { ConfirmationResult } from 'firebase/auth'
 import { VideoRoom } from './VideoRoom'
 import { DoctorWorkspace } from './DoctorWorkspace'
 import { VietQRModal } from './VietQRModal'
@@ -42,6 +46,9 @@ export default function App() {
   const [otpSent, setOtpSent] = useState(false)
   const [otpDevHint, setOtpDevHint] = useState('123456')
   const [patientFullName, setPatientFullName] = useState('')
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null)
+  const [isSendingOtp, setIsSendingOtp] = useState(false)
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -173,6 +180,15 @@ export default function App() {
   }, [doctorId])
 
   useEffect(() => {
+    // Tải cấu hình Firebase động từ backend nếu đã thiết lập
+    getFirebaseConfig()
+      .then(cfg => {
+        if (cfg && cfg.apiKey) {
+          setFirebaseRuntimeConfig(cfg)
+        }
+      })
+      .catch(() => {})
+
     const saved = localStorage.getItem('tm_token')
     if (saved) {
       request<User>('/api/v1/auth/me')
@@ -200,37 +216,82 @@ export default function App() {
     }
   }
 
-  // Gửi mã OTP
+  // Gửi mã OTP (Firebase Phone Auth hoặc Fallback SMS/Dev Mock)
   async function handleSendOtp() {
     if (!phone.trim()) {
       setError('Vui lòng nhập số điện thoại')
       return
     }
     setError('')
+    setIsSendingOtp(true)
     try {
-      const res = await sendOtp(phone)
-      setOtpSent(true)
-      // Dev OTP hint chỉ hiển thị trong môi trường dev (backend cũng chỉ trả ở dev/mock)
-      if (res.dev_code && import.meta.env.DEV) {
-        setOtpDevHint(res.dev_code)
-        setOtpCode(res.dev_code)
+      if (isFirebaseConfigured()) {
+        const verifier = setupRecaptcha('recaptcha-container')
+        if (!verifier) {
+          throw new Error('Không thể khởi tạo reCAPTCHA Firebase')
+        }
+        const confirmResult = await sendFirebaseOtp(phone, verifier)
+        setConfirmationResult(confirmResult)
+        setOtpSent(true)
+        setOtpDevHint('')
+        setOtpCode('')
+        setToast(`Mã xác thực Firebase OTP đã được gửi tới ${phone}`)
+      } else {
+        const res = await sendOtp(phone)
+        setOtpSent(true)
+        if (res.dev_code && import.meta.env.DEV) {
+          setOtpDevHint(res.dev_code)
+          setOtpCode(res.dev_code)
+        }
+        setToast(res.message)
       }
-      setToast(res.message)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Không gửi được OTP')
+    } catch (e: any) {
+      console.error('Lỗi gửi OTP:', e)
+      const msg = e?.message || 'Không gửi được OTP'
+      if (msg.includes('auth/invalid-phone-number')) {
+        setError('Số điện thoại không đúng định dạng. Vui lòng nhập số hợp lệ (ví dụ: 0912345678).')
+      } else if (msg.includes('auth/too-many-requests')) {
+        setError('Đã gửi quá nhiều yêu cầu xác thực. Vui lòng thử lại sau ít phút.')
+      } else {
+        setError(msg)
+      }
+    } finally {
+      setIsSendingOtp(false)
     }
   }
 
   // Xác thực mã OTP
   async function handleVerifyOtp(e: React.FormEvent) {
     e.preventDefault()
+    if (!otpCode.trim()) {
+      setError('Vui lòng nhập mã OTP')
+      return
+    }
     setError('')
+    setIsVerifyingOtp(true)
     try {
-      const u = await verifyOtp(phone, otpCode, patientFullName)
-      setUser(u)
-      await loadDashboard(u)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Xác thực OTP không thành công')
+      if (confirmationResult) {
+        // Xác thực qua Firebase Phone Auth
+        const idToken = await verifyFirebaseOtp(confirmationResult, otpCode.trim())
+        const u = await loginWithFirebaseToken(idToken, patientFullName)
+        setUser(u)
+        await loadDashboard(u)
+      } else {
+        // Fallback qua backend OTP thông thường / mock
+        const u = await verifyOtp(phone, otpCode, patientFullName)
+        setUser(u)
+        await loadDashboard(u)
+      }
+    } catch (e: any) {
+      console.error('Lỗi xác thực OTP:', e)
+      const msg = e?.message || 'Xác thực OTP không thành công'
+      if (msg.includes('auth/invalid-verification-code')) {
+        setError('Mã OTP không đúng hoặc đã hết hạn')
+      } else {
+        setError(msg)
+      }
+    } finally {
+      setIsVerifyingOtp(false)
     }
   }
 
@@ -477,11 +538,15 @@ export default function App() {
                     type="button"
                     className="btn-send-otp"
                     onClick={handleSendOtp}
+                    disabled={isSendingOtp}
                   >
-                    {otpSent ? 'Gửi lại mã' : 'Lấy mã OTP'}
+                    {isSendingOtp ? 'Đang gửi...' : (otpSent ? 'Gửi lại mã' : 'Lấy mã OTP')}
                   </button>
                 </div>
               </label>
+
+              {/* reCAPTCHA container dùng cho Firebase Phone Auth */}
+              <div id="recaptcha-container" style={{ margin: '4px 0' }}></div>
 
               {otpSent && (
                 <>
@@ -501,8 +566,8 @@ export default function App() {
                       Mã OTP thử nghiệm nhanh: <b>{otpDevHint}</b>
                     </div>
                   )}
-                  <button className="primary full" type="submit">
-                    Xác nhận & Đăng nhập <ArrowRight size={17} />
+                  <button className="primary full" type="submit" disabled={isVerifyingOtp}>
+                    {isVerifyingOtp ? 'Đang xác thực...' : 'Xác nhận & Đăng nhập'} <ArrowRight size={17} />
                   </button>
                 </>
               )}
