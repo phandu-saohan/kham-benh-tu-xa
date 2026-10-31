@@ -4,7 +4,8 @@ import {
   LogOut, HeartPulse, Clock, UserRound, ShieldCheck, ArrowRight,
   Plus, X, Phone, Lock, Stethoscope, AlertCircle, RefreshCw, QrCode,
   FileDown, ExternalLink, PenTool, Building2, Sparkles, CheckCircle2,
-  HelpCircle, ShieldAlert, Undo2, Activity, Settings, ScanLine
+  HelpCircle, ShieldAlert, Undo2, Activity, Settings, ScanLine,
+  Mail, Eye, EyeOff, UserPlus
 } from 'lucide-react'
 import {
   login, sendOtp, verifyOtp, loginWithFirebaseToken, getFirebaseConfig, request, cancelAppointment,
@@ -52,6 +53,7 @@ export default function App() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [doctors, setDoctors] = useState<{ id: number; full_name: string; cchn?: string; department_id?: number }[]>([])
@@ -496,128 +498,273 @@ export default function App() {
     return (
       <main className="login-page">
         <div className="login-card">
-          <div className="brand-mark">
-            <HeartPulse size={28} />
+          {/* Header Brand Identity */}
+          <div className="login-header-brand">
+            <div className="login-logo-badge">
+              <HeartPulse size={24} className="heart-pulse-icon" />
+            </div>
+            <div className="login-brand-meta">
+              <div className="login-brand-title">
+                <strong>CareConnect</strong>
+                <span className="medical-verified-tag">HIS / EMR</span>
+              </div>
+              <span className="login-brand-desc">Cổng Khám chữa bệnh & Y tế số</span>
+            </div>
           </div>
-          <p className="eyebrow">CỔNG Y TẾ TRỰC TUYẾN CARECONNECT</p>
-          <h1>Chăm sóc sức khỏe,<br />chuẩn hóa & tin cậy.</h1>
-          <p className="muted">
-            Khám từ xa chuẩn Thông tư 30/2023 · Ký số SmartCA · Đơn thuốc Quốc gia · VietQR.
-          </p>
 
-          <div className="auth-tab-switch">
+          {/* Heading */}
+          <div className="login-title-section">
+            <h1 className="login-title">Đăng nhập tài khoản</h1>
+            <p className="login-subtitle">
+              Khám bệnh từ xa · Kết nối bác sĩ chuyên khoa · Liên thông hồ sơ bệnh viện
+            </p>
+          </div>
+
+          {/* Segmented Role Switcher */}
+          <div className="login-segmented-switch">
             <button
               type="button"
-              className={`auth-tab ${authMode === 'otp' ? 'active' : ''}`}
+              className={`segment-btn ${authMode === 'otp' ? 'active' : ''}`}
               onClick={() => { setAuthMode('otp'); setError(''); }}
             >
-              <Phone size={15} /> Số điện thoại (OTP)
+              <Phone size={14} />
+              <span>Bệnh nhân (OTP)</span>
             </button>
             <button
               type="button"
-              className={`auth-tab ${authMode === 'password' ? 'active' : ''}`}
+              className={`segment-btn ${authMode === 'password' ? 'active' : ''}`}
               onClick={() => { setAuthMode('password'); setError(''); }}
             >
-              <Lock size={15} /> Bác sĩ / Quản trị
+              <Stethoscope size={14} />
+              <span>Bác sĩ / Cán bộ</span>
             </button>
           </div>
 
+          {/* Forms */}
           {authMode === 'otp' ? (
-            <form onSubmit={handleVerifyOtp} className="login-form">
-              <label>
-                Số điện thoại
-                <div className="phone-input-wrap">
+            <form onSubmit={handleVerifyOtp} className="modern-login-form">
+              <div className="login-field-group">
+                <label className="login-label">
+                  <Phone size={13} className="label-icon" />
+                  <span>Số điện thoại di động</span>
+                </label>
+                <div className="login-input-with-action">
                   <input
                     type="tel"
                     placeholder="Ví dụ: 0912345678"
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
+                    className="login-input"
                     required
                   />
                   <button
                     type="button"
-                    className="btn-send-otp"
+                    className={`btn-otp-action ${isSendingOtp ? 'loading' : ''} ${otpSent ? 'sent' : ''}`}
                     onClick={handleSendOtp}
                     disabled={isSendingOtp}
                   >
                     {isSendingOtp ? 'Đang gửi...' : (otpSent ? 'Gửi lại mã' : 'Lấy mã OTP')}
                   </button>
                 </div>
-              </label>
+              </div>
 
               {/* reCAPTCHA container dùng cho Firebase Phone Auth */}
               <div id="recaptcha-container" style={{ margin: '4px 0' }}></div>
 
               {otpSent && (
-                <>
-                  <label>
-                    Mã xác thực OTP (6 chữ số)
+                <div className="login-field-group otp-verify-box">
+                  <label className="login-label">
+                    <ShieldCheck size={13} className="label-icon" />
+                    <span>Mã xác thực OTP (6 chữ số)</span>
+                  </label>
+                  <div className="login-input-wrap">
                     <input
                       type="text"
                       maxLength={6}
-                      placeholder="Nhập 6 số OTP"
+                      placeholder="Nhập 6 số OTP vừa nhận"
                       value={otpCode}
                       onChange={e => setOtpCode(e.target.value)}
+                      className="login-input otp-number-input"
                       required
                     />
-                  </label>
+                  </div>
                   {otpDevHint && (
-                    <div className="otp-hint-badge">
-                      Mã OTP thử nghiệm nhanh: <b>{otpDevHint}</b>
+                    <div className="otp-dev-badge">
+                      <Sparkles size={12} />
+                      <span>Mã OTP test nhanh: <strong>{otpDevHint}</strong></span>
                     </div>
                   )}
-                  <button className="primary full" type="submit" disabled={isVerifyingOtp}>
-                    {isVerifyingOtp ? 'Đang xác thực...' : 'Xác nhận & Đăng nhập'} <ArrowRight size={17} />
+                  <button className="btn-login-primary" type="submit" disabled={isVerifyingOtp}>
+                    {isVerifyingOtp ? (
+                      <>
+                        <Activity size={16} className="animate-spin" />
+                        <span>Đang xác thực OTP...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Xác nhận & Vào ứng dụng</span>
+                        <ArrowRight size={16} />
+                      </>
+                    )}
                   </button>
-                </>
+                </div>
+              )}
+
+              {!otpSent && (
+                <button
+                  type="button"
+                  className="btn-login-primary"
+                  onClick={handleSendOtp}
+                  disabled={isSendingOtp || !phone.trim()}
+                >
+                  {isSendingOtp ? (
+                    <>
+                      <Activity size={16} className="animate-spin" />
+                      <span>Đang gửi mã xác thực...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Tiếp tục với mã OTP</span>
+                      <ArrowRight size={16} />
+                    </>
+                  )}
+                </button>
               )}
             </form>
           ) : (
-            <form onSubmit={handlePasswordLogin} className="login-form">
-              <label>
-                Email y tế
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                />
-              </label>
-              <label>
-                Mật khẩu
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                />
-              </label>
-              <button className="primary full" type="submit">
-                Đăng nhập tài khoản y tế <ArrowRight size={17} />
+            <form onSubmit={handlePasswordLogin} className="modern-login-form">
+              <div className="login-field-group">
+                <label className="login-label">
+                  <Mail size={13} className="label-icon" />
+                  <span>Email hoặc tài khoản y tế</span>
+                </label>
+                <div className="login-input-wrap">
+                  <input
+                    type="email"
+                    placeholder="doctor@example.test"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    className="login-input"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="login-field-group">
+                <label className="login-label">
+                  <Lock size={13} className="label-icon" />
+                  <span>Mật khẩu</span>
+                </label>
+                <div className="login-input-wrap password-wrap">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Nhập mật khẩu"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className="login-input"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="btn-password-toggle"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                    aria-label="Ẩn / Hiện mật khẩu"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <button className="btn-login-primary" type="submit">
+                <span>Đăng nhập Bác sĩ / Quản trị</span>
+                <ArrowRight size={16} />
               </button>
             </form>
           )}
 
-          {error && <p className="error">{error}</p>}
+          {error && (
+            <div className="login-error-alert">
+              <AlertCircle size={15} />
+              <span>{error}</span>
+            </div>
+          )}
 
-          {/* Switch to Registration */}
-          <div className="login-register-switch">
-            <span>Chưa có tài khoản bệnh nhân? </span>
+          {/* Quick Demo Switcher */}
+          <div className="login-quick-demo">
+            <span className="quick-demo-title">
+              <Sparkles size={11} /> Thử nhanh:
+            </span>
+            <div className="quick-demo-buttons">
+              <button
+                type="button"
+                className="demo-pill-btn"
+                onClick={() => {
+                  setAuthMode('password')
+                  setEmail('doctor@example.test')
+                  setPassword('ChangeMe123!')
+                  setError('')
+                }}
+                title="Đăng nhập tài khoản Bác sĩ mẫu"
+              >
+                <Stethoscope size={11} /> Bác sĩ
+              </button>
+              <button
+                type="button"
+                className="demo-pill-btn"
+                onClick={() => {
+                  setAuthMode('password')
+                  setEmail('admin@example.test')
+                  setPassword('ChangeMe123!')
+                  setError('')
+                }}
+                title="Đăng nhập tài khoản Quản trị viên"
+              >
+                <ShieldCheck size={11} /> Quản trị
+              </button>
+              <button
+                type="button"
+                className="demo-pill-btn"
+                onClick={() => {
+                  setAuthMode('otp')
+                  setPhone('0912345678')
+                  setOtpCode('123456')
+                  setError('')
+                }}
+                title="Đăng nhập tài khoản Bệnh nhân mẫu"
+              >
+                <Phone size={11} /> Bệnh nhân
+              </button>
+            </div>
+          </div>
+
+          {/* Dedicated Registration Banner */}
+          <div className="login-register-card">
+            <div className="reg-card-top">
+              <div className="reg-card-heading">
+                <UserPlus size={15} className="reg-card-icon" />
+                <span>Bệnh nhân chưa có tài khoản?</span>
+              </div>
+              <span className="reg-card-badge">Liên thông HIS</span>
+            </div>
+            <p className="reg-card-desc">
+              Đăng ký định danh CCCD/VNeID để tự động kết nối hồ sơ bệnh án, lịch sử khám và đơn thuốc từ bệnh viện.
+            </p>
             <button
               type="button"
-              className="text-link"
+              className="btn-register-action"
               onClick={() => { setAuthScreen('register'); setError(''); }}
             >
-              Đăng ký ngay (Liên thông HIS)
+              <span>Đăng ký tài khoản Bệnh nhân mới</span>
+              <ArrowRight size={14} />
             </button>
           </div>
 
-          {import.meta.env.DEV && (
-            <div className="demo-hint">
-              (Dev only) Bác sĩ mẫu: <code>doctor@example.test</code> / mật khẩu demo trong <code>SEED_DEMO</code>.
-              Bệnh nhân: đăng nhập bằng SĐT + mã OTP được gửi hoặc Đăng ký bệnh nhân mới liên thông HIS.
-            </div>
-          )}
+          {/* Trust / Compliance footer */}
+          <div className="login-trust-footer">
+            <ShieldCheck size={12} />
+            <span>Bảo mật dữ liệu y tế theo Nghị định 13/2023/NĐ-CP & TT 30/2023/BYT</span>
+          </div>
         </div>
       </main>
     )
