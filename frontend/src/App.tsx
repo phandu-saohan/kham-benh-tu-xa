@@ -574,7 +574,8 @@ export default function App() {
           </div>
         </div>
 
-        <nav>
+        {/* Desktop Navigation (Thanh bên đầy đủ tính năng cho máy tính) */}
+        <nav className="desktop-nav">
           {[
             ...(user.role === 'admin' ? [['admin', '⚙️ Quản trị & Cài đặt', Settings]] : []),
             ['overview', 'Tổng quan', HeartPulse],
@@ -594,6 +595,25 @@ export default function App() {
             >
               <Icon size={18} />
               {label}
+            </button>
+          ))}
+        </nav>
+
+        {/* Mobile Bottom Navigation Bar (Đúng 4 mục theo yêu cầu: Tổng quan, Lịch hẹn, Hồ sơ bệnh án, Bảo hiểm) */}
+        <nav className="mobile-bottom-nav">
+          {[
+            ['overview', 'Tổng quan', HeartPulse],
+            ['appointments', 'Lịch hẹn', CalendarDays],
+            ['records', 'Hồ sơ bệnh án', FileText],
+            ['insurance', 'Bảo hiểm', ShieldCheck]
+          ].map(([id, label, Icon]: any) => (
+            <button
+              key={id}
+              className={`mobile-nav-item ${view === id ? 'selected' : ''}`}
+              onClick={() => setView(id)}
+            >
+              <Icon size={21} />
+              <span>{label}</span>
             </button>
           ))}
         </nav>
@@ -625,8 +645,11 @@ export default function App() {
           </div>
           <div className="top-actions">
             <span className="status-dot" /> SmartCA & Cổng Đơn thuốc sẵn sàng
-            <button className="avatar small-avatar">
+            <button className="avatar small-avatar" title={user.full_name}>
               <UserRound size={17} />
+            </button>
+            <button className="mobile-logout-btn" onClick={logout} title="Đăng xuất tài khoản">
+              <LogOut size={16} />
             </button>
           </div>
         </header>
@@ -677,6 +700,134 @@ export default function App() {
                 <div className="art-bubble bubble-two">
                   <CalendarDays />
                 </div>
+              </div>
+            </section>
+
+            {/* Quick Menu Nhanh trên Layout Tổng Quan */}
+            <section className="overview-quick-menu-card">
+              <div className="quick-menu-header">
+                <div>
+                  <h3>Tiện ích & Dịch vụ nhanh</h3>
+                  <p>Truy cập tức thì chuyên khoa, cận lâm sàng, PACS & viện phí</p>
+                </div>
+                <span className="quick-menu-tag">Chạm mở nhanh</span>
+              </div>
+              <div className="quick-menu-grid">
+                {/* 1. Đặt lịch khám mới */}
+                <button
+                  className="quick-menu-item"
+                  onClick={() => (isPatient ? setShowBooking(true) : setView('appointments'))}
+                  title={isPatient ? 'Đặt lịch khám trực tuyến' : 'Xem danh sách buồng khám'}
+                >
+                  <div className="quick-menu-icon" style={{ backgroundColor: '#f0fdfa', color: '#0f766e' }}>
+                    <CalendarDays size={22} />
+                  </div>
+                  <span className="quick-menu-title">{isPatient ? 'Đặt lịch khám' : 'Buồng khám'}</span>
+                  <small className="quick-menu-sub">{isPatient ? 'Chọn BS & giờ' : 'Hôm nay'}</small>
+                </button>
+
+                {/* 2. Cận lâm sàng (Xét nghiệm) */}
+                <button
+                  className="quick-menu-item"
+                  onClick={() => setView('lab')}
+                  title="Kết quả xét nghiệm máu, sinh hóa, nước tiểu"
+                >
+                  <div className="quick-menu-icon" style={{ backgroundColor: '#f0f9ff', color: '#0284c7' }}>
+                    <FlaskConical size={22} />
+                  </div>
+                  <span className="quick-menu-title">Cận lâm sàng</span>
+                  <small className="quick-menu-sub">Xét nghiệm & Máu</small>
+                </button>
+
+                {/* 3. Chẩn đoán hình ảnh PACS */}
+                <button
+                  className="quick-menu-item"
+                  onClick={() => setView('pacs')}
+                  title="Kho phim X-Quang, Siêu âm, CT Scanner DICOM"
+                >
+                  <div className="quick-menu-icon" style={{ backgroundColor: '#faf5ff', color: '#9333ea' }}>
+                    <ScanLine size={22} />
+                  </div>
+                  <span className="quick-menu-title">Phim PACS</span>
+                  <small className="quick-menu-sub">X-Quang, CT, MRI</small>
+                </button>
+
+                {/* 4. Đơn thuốc Quốc gia */}
+                <button
+                  className="quick-menu-item"
+                  onClick={() => setView('prescriptions')}
+                  title="Tra cứu đơn thuốc điện tử quốc gia"
+                >
+                  <div className="quick-menu-icon" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>
+                    <Pill size={22} />
+                  </div>
+                  <span className="quick-menu-title">Đơn thuốc</span>
+                  <small className="quick-menu-sub">Mã đơn & QR</small>
+                </button>
+
+                {/* 5. Bảo hiểm Y tế */}
+                <button
+                  className="quick-menu-item"
+                  onClick={() => setView('insurance')}>
+                  <div className="quick-menu-icon" style={{ backgroundColor: '#fffbeb', color: '#d97706' }}>
+                    <ShieldCheck size={22} />
+                  </div>
+                  <span className="quick-menu-title">Bảo hiểm Y tế</span>
+                  <small className="quick-menu-sub">Tra cứu BHYT</small>
+                </button>
+
+                {/* 6. Thanh toán VietQR */}
+                <button
+                  className="quick-menu-item"
+                  onClick={() => setView('payments')}
+                  title="Thanh toán viện phí & dịch vụ trực tuyến"
+                >
+                  <div className="quick-menu-icon" style={{ backgroundColor: '#fff1f2', color: '#e11d48' }}>
+                    <CreditCard size={22} />
+                  </div>
+                  <span className="quick-menu-title">Thanh toán</span>
+                  <small className="quick-menu-sub">VietQR chuẩn 24/7</small>
+                </button>
+
+                {/* 7. Hồ sơ bệnh án */}
+                <button
+                  className="quick-menu-item"
+                  onClick={() => setView('records')}
+                  title="Bệnh án điện tử & Ký số SmartCA"
+                >
+                  <div className="quick-menu-icon" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}>
+                    <FileText size={22} />
+                  </div>
+                  <span className="quick-menu-title">Bệnh án điện tử</span>
+                  <small className="quick-menu-sub">Ký số SmartCA</small>
+                </button>
+
+                {/* 8. Sàng lọc Triage hoặc Tư vấn video */}
+                {!isPatient ? (
+                  <button
+                    className="quick-menu-item"
+                    onClick={() => setView('triage')}
+                    title="Bàn sàng lọc điều phối bệnh nhân"
+                  >
+                    <div className="quick-menu-icon" style={{ backgroundColor: '#fef2f2', color: '#dc2626' }}>
+                      <Activity size={22} />
+                    </div>
+                    <span className="quick-menu-title">Bàn Triage</span>
+                    <small className="quick-menu-sub">Phân luồng khám</small>
+                  </button>
+                ) : (
+                  <button
+                    className="quick-menu-item"
+                    onClick={() => setView('appointments')}
+                    title="Tham gia buồng tư vấn video trực tuyến"
+                  >
+                    <div className="quick-menu-icon" style={{ backgroundColor: '#f5f3ff', color: '#6366f1' }}>
+                      <Video size={22} />
+                    </div>
+                    <span className="quick-menu-title">Tư vấn Video</span>
+                    <small className="quick-menu-sub">Vào phòng khám</small>
+                  </button>
+                )}
               </div>
             </section>
 
