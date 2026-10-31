@@ -51,6 +51,12 @@ export function getFirebaseAuth(): Auth | null {
   if (!auth) {
     auth = getAuth(app)
     auth.useDeviceLanguage()
+    // Tắt reCAPTCHA trên Mobile / Dev / WebView
+    try {
+      auth.settings.appVerificationDisabledForTesting = true
+    } catch (e) {
+      console.warn('Không thể đặt appVerificationDisabledForTesting:', e)
+    }
   }
   return auth
 }
