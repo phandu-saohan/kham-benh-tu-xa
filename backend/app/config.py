@@ -47,8 +47,10 @@ class Settings(BaseSettings):
     ZALO_TEMPLATE_ID: str = ""
 
     # Firebase Authentication
-    FIREBASE_PROJECT_ID: str = ""
-    FIREBASE_WEB_API_KEY: str = ""
+    FIREBASE_PROJECT_ID: str = "vidcall-93993"
+    FIREBASE_WEB_API_KEY: str = "AIzaSyB2MDpw-mEG4lT_ZhLejdFIc-i02MDsQ4c"
+    FIREBASE_AUTH_DOMAIN: str = "vidcall-93993.firebaseapp.com"
+    FIREBASE_APP_ID: str = "1:674517761576:web:e0ea8694158ef40521ff1d"
 
     # Payment Webhook Secret (VietQR Pro / PayOS / Banking API)
     PAYMENT_WEBHOOK_SECRET: str = "vietqr-webhook-secret-key-2026"
