@@ -1,5 +1,8 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+WEAK_SECRETS = {"replace-me", "replace-with-a-long-random-secret-before-deploying", "secret-change-me", ""}
+
+
 class Settings(BaseSettings):
     APP_ENV: str = "development"
     SECRET_KEY: str = "replace-me"
@@ -7,12 +10,17 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./telemedicine.db"
     REDIS_URL: str = "redis://localhost:6379/0"
     CORS_ORIGINS: str = "*"
-    SEED_DEMO: bool = True
+    # Chỉ bật trong dev. Không bao giờ để mặc định true.
+    SEED_DEMO: bool = False
+    # Khóa mã hóa PHI cấp độ cột — PHÂN BIỆT với SECRET_KEY (domain separation)
+    PHI_ENCRYPTION_KEY: str = ""
     LIVEKIT_URL: str = "ws://localhost:7880"
     LIVEKIT_INTERNAL_URL: str = "http://localhost:7880"
     LIVEKIT_API_KEY: str = "devkey"
     LIVEKIT_API_SECRET: str = "secret-change-me"
-    HIS_ADAPTER: str = "mock"
+    HIS_ADAPTER: str = "mock"  # mock | http
+    HIS_BASE_URL: str = "http://localhost:8100"
+    HIS_API_KEY: str = "his-dev-key-change-me"
     PACS_ADAPTER: str = "mock"
     PAYMENT_PROVIDER: str = "vietqr"
     BANK_ID: str = "MB"
@@ -26,9 +34,11 @@ class Settings(BaseSettings):
     COTURN_HOST: str = "72.61.123.73"
     COTURN_PORT: int = 3478
     COTURN_TLS_PORT: int = 5349
+    # TTL credential TURN động — ngắn hạn tránh bị trộm dùng relay (chuẩn 5-15 phút)
+    COTURN_CREDENTIAL_TTL: int = 600
 
-    # SMS / Zalo ZNS OTP Gateway
-    SMS_PROVIDER: str = "mock"  # mock, esms, zalo_zns
+    # SMS / Zalo ZNS / Firebase OTP Gateway
+    SMS_PROVIDER: str = "firebase"  # firebase, esms, zalo_zns, mock
     SMS_API_KEY: str = ""
     SMS_SECRET_KEY: str = ""
     SMS_BRANDNAME: str = "CARECONNECT"
@@ -36,10 +46,24 @@ class Settings(BaseSettings):
     ZALO_SECRET_KEY: str = ""
     ZALO_TEMPLATE_ID: str = ""
 
+    # Firebase Authentication
+    FIREBASE_PROJECT_ID: str = ""
+    FIREBASE_WEB_API_KEY: str = ""
+
     # Payment Webhook Secret (VietQR Pro / PayOS / Banking API)
     PAYMENT_WEBHOOK_SECRET: str = "vietqr-webhook-secret-key-2026"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Fail-fast: chặn chạy production với secret mặc định/yếu
+        if self.APP_ENV.lower() in ("production", "prod") and self.SECRET_KEY in WEAK_SECRETS:
+            raise RuntimeError(
+                "SECRET_KEY đang dùng giá trị mặc định/yếu. Bắt buộc đặt SECRET_KEY mạnh trước khi chạy APP_ENV=production."
+            )
+        if self.APP_ENV.lower() in ("production", "prod") and self.SEED_DEMO:
+            raise RuntimeError("SEED_DEMO=true không được phép trong môi trường production.")
 
     @property
     def sqlalchemy_database_url(self) -> str:

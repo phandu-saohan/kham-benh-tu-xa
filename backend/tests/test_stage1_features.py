@@ -14,7 +14,10 @@ def test_otp_flow_and_registration():
         assert r1.status_code == 200
         data1 = r1.json()
         assert data1["success"] is True
-        code = data1.get("dev_code") or "123456"
+        with SessionLocal() as db:
+            from app.models import OtpCode
+            otp_obj = db.query(OtpCode).filter(OtpCode.phone_number == phone).order_by(OtpCode.id.desc()).first()
+            code = data1.get("dev_code") or (otp_obj.code if otp_obj else "")
 
         # 2. Xác thực OTP và đăng ký tài khoản tự động
         r2 = c.post("/api/v1/auth/otp/verify", json={
@@ -132,12 +135,17 @@ def test_vietqr_and_webhook():
         assert "qr_image_url" in qr_data
         assert qr_data["transfer_content"] == f"TM{appt_id}"
 
-        # Giả lập webhook ngân hàng
-        r_webhook = c.post("/api/v1/payments/webhook", json={
+        # Giả lập webhook ngân hàng (BẮT BUỘC X-Signature HMAC-SHA256)
+        import json as _json
+        from conftest import sign_webhook_payload
+        payload = {
             "transfer_content": f"CHUYEN TIEN TM{appt_id} NGUYEN MINH AN",
             "amount": 500000,
             "transaction_id": "MB-BANK-998811"
-        })
+        }
+        raw = _json.dumps(payload).encode("utf-8")
+        r_webhook = c.post("/api/v1/payments/webhook", content=raw,
+                           headers={"Content-Type": "application/json", "X-Signature": sign_webhook_payload(raw)})
         assert r_webhook.status_code == 200
         assert r_webhook.json()["status"] == "confirmed"
 

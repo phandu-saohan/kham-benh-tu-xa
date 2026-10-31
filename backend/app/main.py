@@ -126,26 +126,25 @@ def set_db_setting(db: Session, key: str, value: str, description: str = ""):
 @app.post("/api/v1/auth/otp/send", response_model=OtpSendOut)
 async def send_otp(data: OtpSendIn, db: Session = Depends(get_db)):
     phone = data.phone_number.strip()
-    if settings.SMS_PROVIDER == "mock" or not settings.SMS_API_KEY:
-        code = "123456"
-    else:
-        code = str(random.randint(100000, 999999))
-        
+    sms_prov = get_db_setting(db, "sms_provider", settings.SMS_PROVIDER)
+    
+    # Sinh mã OTP 6 chữ số ngẫu nhiên thực thụ (Xóa hoàn toàn mã cố định 123456)
+    code = f"{random.randint(100000, 999999):06d}"
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
     
     otp_record = OtpCode(phone_number=phone, code=code, expires_at=expires_at, is_used=False)
     db.add(otp_record)
     db.commit()
 
-    # Gửi tin nhắn xác thực qua cổng SMS Brandname / Zalo ZNS
+    # Gửi tin nhắn xác thực qua cổng SMS Brandname / Zalo ZNS / Gateway
     user = db.query(User).filter(User.phone_number == phone).first()
     await send_otp_message(phone, code, patient_name=user.full_name if user else None)
     
     return {
         "success": True,
         "phone_number": phone,
-        "message": f"Mã xác thực OTP đã được gửi tới {phone} qua {settings.SMS_PROVIDER.upper()}." if settings.SMS_PROVIDER != "mock" else f"Mã xác thực OTP đã được gửi tới {phone}. Mã cố định: {code}",
-        "dev_code": code if (settings.APP_ENV != "production" or settings.SMS_PROVIDER == "mock") else None
+        "message": f"Mã xác thực OTP đã được gửi tới số điện thoại {phone}.",
+        "dev_code": code if (settings.APP_ENV != "production" and sms_prov == "mock") else None
     }
 
 @app.post("/api/v1/auth/otp/verify", response_model=TokenOut)
@@ -154,22 +153,17 @@ def verify_otp(data: OtpVerifyIn, db: Session = Depends(get_db)):
     now = datetime.now(timezone.utc)
     submitted_code = data.otp_code.strip()
     
-    # Cố định OTP 123456 luôn hợp lệ phục vụ kiểm thử
-    if submitted_code == "123456":
-        otp = db.query(OtpCode).filter(OtpCode.phone_number == phone).order_by(OtpCode.id.desc()).first()
-        if otp:
-            otp.is_used = True
-    else:
-        otp = db.query(OtpCode).filter(
-            OtpCode.phone_number == phone,
-            OtpCode.code == submitted_code,
-            OtpCode.is_used == False,
-            OtpCode.expires_at > now
-        ).order_by(OtpCode.id.desc()).first()
-        
-        if not otp:
-            raise HTTPException(status_code=400, detail="Mã OTP không đúng hoặc đã hết hạn")
-        otp.is_used = True
+    # Xác thực mã OTP hợp lệ trong database - đã xóa hoàn toàn backdoor 123456
+    otp = db.query(OtpCode).filter(
+        OtpCode.phone_number == phone,
+        OtpCode.code == submitted_code,
+        OtpCode.is_used == False,
+        OtpCode.expires_at > now
+    ).order_by(OtpCode.id.desc()).first()
+    
+    if not otp:
+        raise HTTPException(status_code=400, detail="Mã OTP không đúng hoặc đã hết hạn")
+    otp.is_used = True
     
     user = db.query(User).filter(User.phone_number == phone).first()
     if not user:
@@ -1860,9 +1854,9 @@ def get_admin_settings(db: Session = Depends(get_db), user: User = Depends(requi
         coturn_host=get_db_setting(db, "coturn_host", settings.COTURN_HOST),
         coturn_port=int(get_db_setting(db, "coturn_port", str(settings.COTURN_PORT))),
         coturn_realm=get_db_setting(db, "coturn_realm", settings.COTURN_REALM),
-        sms_provider=get_db_setting(db, "sms_provider", settings.SMS_PROVIDER),
+        sms_provider=get_db_setting(db, "sms_provider", "firebase"),
         sms_brandname=get_db_setting(db, "sms_brandname", settings.SMS_BRANDNAME),
-        allow_test_otp=get_db_setting(db, "allow_test_otp", "true").lower() == "true",
+        allow_test_otp=get_db_setting(db, "allow_test_otp", "false").lower() == "true",
         firebase_project_id=get_db_setting(db, "firebase_project_id", settings.FIREBASE_PROJECT_ID),
         firebase_api_key=get_db_setting(db, "firebase_api_key", settings.FIREBASE_WEB_API_KEY),
         firebase_auth_domain=get_db_setting(db, "firebase_auth_domain", f"{settings.FIREBASE_PROJECT_ID}.firebaseapp.com" if settings.FIREBASE_PROJECT_ID else ""),

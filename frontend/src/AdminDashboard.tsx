@@ -63,9 +63,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
     coturn_host: '72.61.123.73',
     coturn_port: 3478,
     coturn_realm: 'telemedicine.careconnect.local',
-    sms_provider: 'mock',
+    sms_provider: 'firebase',
     sms_brandname: 'CARECONNECT',
-    allow_test_otp: true,
+    allow_test_otp: false,
     firebase_project_id: '',
     firebase_api_key: '',
     firebase_auth_domain: '',
@@ -349,18 +349,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
               </div>
 
               <div className="settings-field col-4">
-                <label>Mã OTP cố định thử nghiệm (123456):</label>
-                <div className="toggle-wrapper" style={{ marginTop: '8px' }}>
-                  <label className="toggle-switch">
-                    <input
-                      type="checkbox"
-                      checked={settingsForm.allow_test_otp}
-                      onChange={e => setSettingsForm({ ...settingsForm, allow_test_otp: e.target.checked })}
-                    />
-                    <span className="slider round"></span>
-                  </label>
-                  <span className="tiny" style={{ marginLeft: '8px', fontWeight: 600 }}>
-                    {settingsForm.allow_test_otp ? 'Đang BẬT (Cho phép 123456)' : 'Đang TẮT (Chỉ gửi OTP thật)'}
+                <label>Chế độ bảo mật OTP (Mã 123456):</label>
+                <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ShieldCheck size={16} color="#059669" />
+                  <span className="tiny" style={{ color: '#059669', fontWeight: 700 }}>
+                    Đã xóa hoàn toàn mã 123456 (Bắt buộc OTP thật)
                   </span>
                 </div>
               </div>

@@ -42,10 +42,10 @@ export default function App() {
   // Auth state
   const [authScreen, setAuthScreen] = useState<'login' | 'register'>('login')
   const [authMode, setAuthMode] = useState<'otp' | 'password'>('otp')
-  const [phone, setPhone] = useState('0912345678')
-  const [otpCode, setOtpCode] = useState('123456')
+  const [phone, setPhone] = useState('')
+  const [otpCode, setOtpCode] = useState('')
   const [otpSent, setOtpSent] = useState(false)
-  const [otpDevHint, setOtpDevHint] = useState('123456')
+  const [otpDevHint, setOtpDevHint] = useState('')
   const [patientFullName, setPatientFullName] = useState('')
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null)
   const [isSendingOtp, setIsSendingOtp] = useState(false)
@@ -241,10 +241,8 @@ export default function App() {
       } else {
         const res = await sendOtp(phone)
         setOtpSent(true)
-        if (res.dev_code && import.meta.env.DEV) {
-          setOtpDevHint(res.dev_code)
-          setOtpCode(res.dev_code)
-        }
+        setOtpDevHint('')
+        setOtpCode('')
         setToast(res.message)
       }
     } catch (e: any) {
@@ -588,12 +586,6 @@ export default function App() {
                       required
                     />
                   </div>
-                  {otpDevHint && (
-                    <div className="otp-dev-badge">
-                      <Sparkles size={12} />
-                      <span>Mã OTP test nhanh: <strong>{otpDevHint}</strong></span>
-                    </div>
-                  )}
                   <button className="btn-login-primary" type="submit" disabled={isVerifyingOtp}>
                     {isVerifyingOtp ? (
                       <>
@@ -728,7 +720,7 @@ export default function App() {
                 onClick={() => {
                   setAuthMode('otp')
                   setPhone('0912345678')
-                  setOtpCode('123456')
+                  setOtpCode('')
                   setError('')
                 }}
                 title="Đăng nhập tài khoản Bệnh nhân mẫu"
