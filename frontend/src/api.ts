@@ -1,5 +1,5 @@
-export const DEFAULT_PROD_API_URL = 'https://app-bypass-back-end-circuit-7mgyyh-664221-72-61-123-73.sslip.io'
-
+// BASE URL resolution: bắt buộc từ VITE_API_BASE_URL hoặc dev localhost.
+// KHÔNG fallback URL production hardcode trong source — cấu hình qua .env khi deploy.
 export function isCapacitorNative(): boolean {
   if (typeof window === 'undefined') return false
   const w = window as any
@@ -20,12 +20,10 @@ export function getApiBaseUrl(): string {
   if (import.meta.env.VITE_API_BASE_URL) {
     return (import.meta.env.VITE_API_BASE_URL as string).replace(/\/+$/, '')
   }
-  if (isCapacitorNative()) {
-    return DEFAULT_PROD_API_URL
-  }
   if (import.meta.env.DEV) {
     return 'http://localhost:8000'
   }
+  //     Build production thiếu cấu hình -> rỗng (= same-origin, reverse proxy phục vụ API + UI cùng domain)
   return ''
 }
 
@@ -143,7 +141,7 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   })
 
   // Nếu token hết hạn (401), thử refresh token tự động
-  if (response.status === 401 && getRefreshToken() && !path.includes('/auth/')) {
+  if (response.status === 401 && getRefreshToken() && !path.includes('/auth/') && !path.includes('/files/')) {
     try {
       const refRes = await fetch(`${API}/api/v1/auth/refresh`, {
         method: 'POST',
@@ -153,6 +151,10 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
       if (refRes.ok) {
         const data = await refRes.json()
         localStorage.setItem('tm_token', data.access_token)
+        if (data.refresh_token) {
+          // Backend rotate refresh token — lưu token mới, token cũ vô hiệu
+          localStorage.setItem('tm_refresh_token', data.refresh_token)
+        }
         return request<T>(path, init)
       } else {
         localStorage.removeItem('tm_token')
@@ -191,6 +193,43 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   }
 
   return response.json()
+}
+
+// ---------------------------------------------------------------------------
+// File đính kèm chat: backend không phục vụ /uploads công khai nữa.
+// resolveAuthedMediaUrl: /uploads/{name} -> /api/v1/files/{name} (yêu cầu Authorization)
+// objectUrlForMedia: fetch có auth -> blob URL dùng cho <img> / download
+// ---------------------------------------------------------------------------
+const isUploadPath = (url: string) => url && url.startsWith('/uploads/')
+
+export function resolveAuthedMediaUrl(fileUrl: string): string {
+  if (!isUploadPath(fileUrl)) return fileUrl
+  return `${API}/api/v1/files/${fileUrl.replace('/uploads/', '')}`
+}
+
+const objectUrlCache = new Map<string, string>()
+
+export async function objectUrlForMedia(fileUrl: string): Promise<string> {
+  const url = resolveAuthedMediaUrl(fileUrl)
+  const cached = objectUrlCache.get(url)
+  if (cached) return cached
+  const token = getToken()
+  const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+  if (!res.ok) throw new Error(`Không tải được tệp (${res.status})`)
+  const blob = await res.blob()
+  const objectUrl = URL.createObjectURL(blob)
+  objectUrlCache.set(url, objectUrl)
+  return objectUrl
+}
+
+export async function downloadAuthedFile(fileUrl: string, fileName: string) {
+  const objectUrl = await objectUrlForMedia(fileUrl)
+  const a = document.createElement('a')
+  a.href = objectUrl
+  a.download = fileName || 'download'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
 }
 
 export async function login(email: string, password: string) {
@@ -763,6 +802,67 @@ export async function updateMyProfile(data: Partial<PatientProfile>): Promise<Pa
     body: JSON.stringify(data)
   })
 }
+
+export interface PatientHisCheckRequest {
+  full_name: string
+  phone_number: string
+  identity_card: string
+}
+
+export interface PatientHisCheckResponse {
+  exists_in_his: boolean
+  external_patient_id?: string
+  full_name?: string
+  dob?: string
+  gender?: string
+  bhyt_no?: string
+  address?: string
+  blood_type?: string
+  conditions: Array<{ code?: string; display?: string; note?: string }>
+  allergies: Array<{ substance?: string; severity?: string }>
+  already_registered_in_app: boolean
+  message: string
+}
+
+export interface PatientRegisterRequest {
+  full_name: string
+  phone_number: string
+  identity_card: string
+  password: string
+  email?: string
+  dob?: string
+  gender?: string
+  bhyt_code?: string
+  address?: string
+  blood_type?: string
+  allergies?: string
+  emergency_contact_name?: string
+  emergency_contact_phone?: string
+}
+
+export interface PatientRegisterResponse {
+  access_token: string
+  refresh_token: string
+  user: User
+  external_patient_id: string
+  his_action: 'linked_existing' | 'created_new_his'
+  message: string
+}
+
+export async function checkPatientHis(data: PatientHisCheckRequest): Promise<PatientHisCheckResponse> {
+  return request<PatientHisCheckResponse>('/api/v1/auth/check-patient-his', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function registerPatientAccount(data: PatientRegisterRequest): Promise<PatientRegisterResponse> {
+  return request<PatientRegisterResponse>('/api/v1/auth/patient-register', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
 
 
 

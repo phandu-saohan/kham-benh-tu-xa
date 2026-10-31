@@ -23,6 +23,7 @@ import { IncomingCallModal } from './IncomingCallModal'
 import { TriageDesk } from './TriageDesk'
 import { AdminDashboard } from './AdminDashboard'
 import { PatientProfilePage } from './PatientProfilePage'
+import { PatientRegisterPage } from './PatientRegisterPage'
 
 const money = (n: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n)
@@ -34,6 +35,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null)
   
   // Auth state
+  const [authScreen, setAuthScreen] = useState<'login' | 'register'>('login')
   const [authMode, setAuthMode] = useState<'otp' | 'password'>('otp')
   const [phone, setPhone] = useState('0912345678')
   const [otpCode, setOtpCode] = useState('123456')
@@ -41,8 +43,8 @@ export default function App() {
   const [otpDevHint, setOtpDevHint] = useState('123456')
   const [patientFullName, setPatientFullName] = useState('')
 
-  const [email, setEmail] = useState('doctor@example.test')
-  const [password, setPassword] = useState('ChangeMe123!')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
 
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [doctors, setDoctors] = useState<{ id: number; full_name: string; cchn?: string; department_id?: number }[]>([])
@@ -208,7 +210,8 @@ export default function App() {
     try {
       const res = await sendOtp(phone)
       setOtpSent(true)
-      if (res.dev_code) {
+      // Dev OTP hint chỉ hiển thị trong môi trường dev (backend cũng chỉ trả ở dev/mock)
+      if (res.dev_code && import.meta.env.DEV) {
         setOtpDevHint(res.dev_code)
         setOtpCode(res.dev_code)
       }
@@ -283,7 +286,8 @@ export default function App() {
         setPendingConsentAppointment(a)
       }
     } catch {
-      setActiveAppointment(a)
+      // KHÔNG bypass: nếu không xác nhận được đồng thuận NĐ-13 thì không cho vào phòng khám
+      setError('Không thể xác nhận trạng thái đồng thuận khám từ xa (Nghị định 13). Vui lòng thử lại để tiếp tục.')
     }
   }
 
@@ -408,8 +412,26 @@ export default function App() {
     setIncomingCall(null)
   }
 
-  // 1. Màn hình Đăng nhập
+  // 1. Màn hình Đăng nhập & Đăng ký tài khoản
   if (!user) {
+    if (authScreen === 'register') {
+      return (
+        <PatientRegisterPage
+          onSuccess={(data) => {
+            localStorage.setItem('access_token', data.access_token)
+            localStorage.setItem('refresh_token', data.refresh_token)
+            setUser(data.user)
+            setView('overview')
+            setAuthScreen('login')
+          }}
+          onBackToLogin={() => {
+            setAuthScreen('login')
+            setError('')
+          }}
+        />
+      )
+    }
+
     return (
       <main className="login-page">
         <div className="login-card">
@@ -512,10 +534,25 @@ export default function App() {
           )}
 
           {error && <p className="error">{error}</p>}
-          <div className="demo-hint">
-            Bác sĩ mẫu: <code>doctor@example.test</code> (Mật khẩu: <code>ChangeMe123!</code>)<br />
-            Bệnh nhân: Nhập SĐT bất kỳ (hoặc <code>0912345678</code>) và nhập mã OTP cố định: <code>123456</code>.
+
+          {/* Switch to Registration */}
+          <div className="login-register-switch">
+            <span>Chưa có tài khoản bệnh nhân? </span>
+            <button
+              type="button"
+              className="text-link"
+              onClick={() => { setAuthScreen('register'); setError(''); }}
+            >
+              Đăng ký ngay (Liên thông HIS)
+            </button>
           </div>
+
+          {import.meta.env.DEV && (
+            <div className="demo-hint">
+              (Dev only) Bác sĩ mẫu: <code>doctor@example.test</code> / mật khẩu demo trong <code>SEED_DEMO</code>.
+              Bệnh nhân: đăng nhập bằng SĐT + mã OTP được gửi hoặc Đăng ký bệnh nhân mới liên thông HIS.
+            </div>
+          )}
         </div>
       </main>
     )

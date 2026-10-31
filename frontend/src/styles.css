@@ -4950,6 +4950,332 @@ input:checked + .slider:before {
   }
 }
 
+/* ==================== TRANG ĐĂNG KÝ BỆNH NHÂN & ĐỐI SOÁT HIS/EMR ==================== */
+.patient-register-wrapper {
+  padding: 30px 16px;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.patient-register-card {
+  max-width: 620px !important;
+  width: 100%;
+}
+
+.demo-chip-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 14px 0 20px 0;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+}
+
+.demo-chip-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.demo-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0f766e;
+  background: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.demo-chip-btn:hover {
+  background: #ccfbf1;
+  color: #115e59;
+}
+
+.register-step-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0 14px 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 10px;
+  background: #0f766e;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+}
+
+.register-step-badge strong {
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.register-input-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.icon-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.icon-input-wrap .input-icon {
+  position: absolute;
+  left: 12px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.icon-input-wrap input {
+  padding-left: 36px;
+  width: 100%;
+}
+
+.btn-toggle-eye {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.btn-toggle-eye:hover {
+  color: #475569;
+}
+
+.his-check-action-wrap {
+  margin: 12px 0 16px 0;
+}
+
+.btn-check-his {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 18px;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 12px;
+  border: 1.5px solid #0f766e;
+  color: #0f766e;
+  background: #f0fdfa;
+  transition: all 0.2s ease;
+}
+
+.btn-check-his:hover:not(:disabled) {
+  background: #ccfbf1;
+  color: #115e59;
+}
+
+.btn-check-his:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* HIS Result Cards */
+.his-result-container {
+  margin: 16px 0 20px 0;
+}
+
+.his-card {
+  padding: 18px 20px;
+  border-radius: 16px;
+  margin-bottom: 14px;
+}
+
+.his-card.success {
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+}
+
+.his-card.info {
+  background: #eff6ff;
+  border: 1.5px solid #bfdbfe;
+}
+
+.his-card.warning {
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+}
+
+.his-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.his-card-header strong {
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.his-pid-pill {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #059669;
+  color: #ffffff;
+  border-radius: 12px;
+}
+
+.his-msg {
+  font-size: 13px;
+  color: #334155;
+  margin: 4px 0 12px 0;
+  line-height: 1.45;
+}
+
+.his-subtext {
+  font-size: 12.5px;
+  color: #475569;
+  margin-bottom: 14px;
+  line-height: 1.45;
+}
+
+.his-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+  background: #ffffff;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid #dcfce7;
+  margin-bottom: 12px;
+}
+
+.his-summary-grid small {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.his-summary-grid b,
+.his-summary-grid span {
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.his-summary-grid .full-col {
+  grid-column: span 2;
+}
+
+.his-sync-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #065f46;
+  font-weight: 500;
+}
+
+.new-patient-extra-fields {
+  background: #ffffff;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #dbeafe;
+  margin-top: 10px;
+}
+
+.register-step-two {
+  margin-top: 16px;
+}
+
+.register-consent-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 16px 0 20px 0;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.register-consent-label input {
+  margin-top: 3px;
+}
+
+.btn-submit-register {
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.register-footer-switch,
+.login-register-switch {
+  text-align: center;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+  font-size: 13.5px;
+  color: #64748b;
+}
+
+.login-register-switch .text-link,
+.register-footer-switch .text-link {
+  background: transparent;
+  border: none;
+  color: #0f766e;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 6px;
+  text-decoration: underline;
+}
+
+.login-register-switch .text-link:hover,
+.register-footer-switch .text-link:hover {
+  color: #115e59;
+}
+
+@media (max-width: 600px) {
+  .register-input-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .his-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .his-summary-grid .full-col {
+    grid-column: span 1;
+  }
+}
+
+
 
 
 

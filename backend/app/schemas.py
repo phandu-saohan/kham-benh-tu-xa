@@ -471,6 +471,49 @@ class PatientProfileUpdateIn(BaseModel):
     emergency_contact_name: str | None = None
     emergency_contact_phone: str | None = None
 
+class PatientHisCheckIn(BaseModel):
+    full_name: str = Field(min_length=1)
+    phone_number: str = Field(min_length=9)
+    identity_card: str = Field(min_length=9, max_length=15)  # Số CCCD 9 hoặc 12 số
+
+class PatientHisCheckOut(BaseModel):
+    exists_in_his: bool
+    external_patient_id: str | None = None
+    full_name: str | None = None
+    dob: str | None = None
+    gender: str | None = None
+    bhyt_no: str | None = None
+    address: str | None = None
+    blood_type: str | None = None
+    conditions: list[dict] = Field(default_factory=list)
+    allergies: list[dict] = Field(default_factory=list)
+    already_registered_in_app: bool = False
+    message: str
+
+class PatientRegisterIn(BaseModel):
+    full_name: str = Field(min_length=1)
+    phone_number: str = Field(min_length=9)
+    identity_card: str = Field(min_length=9, max_length=15)
+    password: str = Field(min_length=6)
+    email: str | None = None
+    dob: str | None = None
+    gender: str | None = None
+    bhyt_code: str | None = None
+    address: str | None = None
+    blood_type: str | None = None
+    allergies: str | None = None
+    emergency_contact_name: str | None = None
+    emergency_contact_phone: str | None = None
+
+class PatientRegisterOut(BaseModel):
+    access_token: str
+    refresh_token: str
+    user: dict
+    external_patient_id: str
+    his_action: str  # "linked_existing" | "created_new_his"
+    message: str
+
+
 
 
 

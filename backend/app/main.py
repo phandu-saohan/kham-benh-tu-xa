@@ -35,7 +35,8 @@ from app.schemas import (
     IceServersOut, IceServerConfig, PaymentWebhookOut,
     TriageAssessmentIn, TriageAssessmentOut, TriageQueueItem,
     AdminOverviewOut, AuditLogOut, SystemSettingsOut, SystemSettingsUpdateIn,
-    PatientProfileOut, PatientProfileUpdateIn
+    PatientProfileOut, PatientProfileUpdateIn,
+    PatientHisCheckIn, PatientHisCheckOut, PatientRegisterIn, PatientRegisterOut
 )
 from app.adapters.sms_gateway import send_otp_message
 from app.security import (
@@ -222,6 +223,169 @@ def me(user: User = Depends(get_current_user)):
         "full_name": user.full_name,
         "role": user.role,
         "doctor_cchn": user.doctor_cchn
+    }
+
+@app.post("/api/v1/auth/check-patient-his", response_model=PatientHisCheckOut)
+def check_patient_his(data: PatientHisCheckIn, db: Session = Depends(get_db)):
+    clean_phone = data.phone_number.strip()
+    clean_cccd = data.identity_card.strip()
+    clean_name = data.full_name.strip()
+
+    # 1. Kiểm tra xem tài khoản đã tồn tại trong ứng dụng CareConnect chưa
+    existing_user = db.query(User).filter(
+        or_(User.phone_number == clean_phone, User.identity_card == clean_cccd)
+    ).first()
+    if existing_user:
+        return {
+            "exists_in_his": True,
+            "external_patient_id": existing_user.external_patient_id,
+            "full_name": existing_user.full_name,
+            "dob": existing_user.date_of_birth,
+            "gender": existing_user.gender,
+            "bhyt_no": existing_user.bhyt_code,
+            "address": existing_user.address,
+            "blood_type": existing_user.blood_type,
+            "conditions": [],
+            "allergies": [],
+            "already_registered_in_app": True,
+            "message": "Số điện thoại hoặc CCCD này đã được đăng ký tài khoản trên CareConnect. Vui lòng đăng nhập để tiếp tục."
+        }
+
+    # 2. Tra cứu trên hệ thống HIS/EMR của Bệnh viện
+    his_adapter = get_his_adapter()
+    his_patient = his_adapter.find_patient(national_id=clean_cccd, phone=clean_phone, full_name=clean_name)
+
+    if his_patient:
+        return {
+            "exists_in_his": True,
+            "external_patient_id": his_patient.get("pid"),
+            "full_name": his_patient.get("full_name") or clean_name,
+            "dob": his_patient.get("dob"),
+            "gender": his_patient.get("gender"),
+            "bhyt_no": his_patient.get("bhyt_no"),
+            "address": his_patient.get("address"),
+            "blood_type": his_patient.get("blood_type"),
+            "conditions": his_patient.get("conditions", []),
+            "allergies": his_patient.get("allergies", []),
+            "already_registered_in_app": False,
+            "message": f"Tìm thấy hồ sơ bệnh án điện tử tại bệnh viện (Mã PID: {his_patient.get('pid')}). Thông tin BHYT và lịch sử khám sẽ được liên thông tự động."
+        }
+    else:
+        return {
+            "exists_in_his": False,
+            "external_patient_id": None,
+            "full_name": clean_name,
+            "dob": None,
+            "gender": None,
+            "bhyt_no": None,
+            "address": None,
+            "blood_type": None,
+            "conditions": [],
+            "allergies": [],
+            "already_registered_in_app": False,
+            "message": "Chưa có hồ sơ bệnh án trên HIS/EMR bệnh viện. Hệ thống sẽ tự động tạo hồ sơ bệnh nhân điện tử mới khi bạn hoàn tất đăng ký."
+        }
+
+@app.post("/api/v1/auth/patient-register", response_model=PatientRegisterOut)
+def register_patient_account(data: PatientRegisterIn, db: Session = Depends(get_db)):
+    clean_phone = data.phone_number.strip()
+    clean_cccd = data.identity_card.strip()
+    clean_name = data.full_name.strip()
+
+    # Kiểm tra trùng SĐT
+    if db.query(User).filter(User.phone_number == clean_phone).first():
+        raise HTTPException(status_code=400, detail="Số điện thoại này đã được đăng ký tài khoản trên hệ thống.")
+
+    # Kiểm tra trùng CCCD
+    if db.query(User).filter(User.identity_card == clean_cccd).first():
+        raise HTTPException(status_code=400, detail="Số CCCD này đã được đăng ký tài khoản trên hệ thống.")
+
+    his_adapter = get_his_adapter()
+    his_patient = his_adapter.find_patient(national_id=clean_cccd, phone=clean_phone, full_name=clean_name)
+
+    if his_patient:
+        external_pid = his_patient.get("pid")
+        his_action = "linked_existing"
+        final_dob = data.dob or his_patient.get("dob") or "1990-01-01"
+        final_gender = data.gender or his_patient.get("gender") or "Nam"
+        final_bhyt = data.bhyt_code or his_patient.get("bhyt_no") or ""
+        final_address = data.address or his_patient.get("address") or ""
+        final_blood = data.blood_type or his_patient.get("blood_type") or "O+"
+        msg = f"Đăng ký thành công! Đã liên thông với hồ sơ bệnh án điện tử HIS ({external_pid})."
+    else:
+        new_pid = his_adapter.register_patient({
+            "full_name": clean_name,
+            "phone": clean_phone,
+            "national_id": clean_cccd,
+            "dob": data.dob or "1990-01-01",
+            "gender": data.gender or "Nam",
+            "bhyt_no": data.bhyt_code or "",
+            "address": data.address or "",
+            "blood_type": data.blood_type or "O+",
+            "allergies": data.allergies or ""
+        })
+        external_pid = new_pid or f"HIS-CC-{clean_cccd[-6:] if len(clean_cccd) >= 6 else uuid.uuid4().hex[:6].upper()}"
+        his_action = "created_new_his"
+        final_dob = data.dob or "1990-01-01"
+        final_gender = data.gender or "Nam"
+        final_bhyt = data.bhyt_code or ""
+        final_address = data.address or ""
+        final_blood = data.blood_type or "O+"
+        msg = f"Đăng ký tài khoản thành công! Đã tạo mới hồ sơ bệnh nhân điện tử HIS ({external_pid})."
+
+    email_val = data.email.lower().strip() if data.email and data.email.strip() else f"{clean_phone}@patient.careconnect.local"
+    counter = 1
+    while db.query(User).filter(User.email == email_val).first():
+        email_val = f"{clean_phone}_{counter}@patient.careconnect.local"
+        counter += 1
+
+    new_user = User(
+        email=email_val,
+        phone_number=clean_phone,
+        full_name=clean_name,
+        role="patient",
+        password_hash=hash_password(data.password),
+        bhyt_code=final_bhyt,
+        external_patient_id=external_pid,
+        date_of_birth=final_dob,
+        gender=final_gender,
+        identity_card=clean_cccd,
+        address=final_address,
+        blood_type=final_blood,
+        allergies=data.allergies or "Không ghi nhận dị ứng thuốc",
+        emergency_contact_name=data.emergency_contact_name or "",
+        emergency_contact_phone=data.emergency_contact_phone or ""
+    )
+    db.add(new_user)
+    db.flush()
+
+    db.add(AuditLog(
+        actor_user_id=new_user.id,
+        action="auth.patient_register",
+        resource_type="user",
+        resource_id=str(new_user.id)
+    ))
+
+    access_token = create_access_token(new_user)
+    refresh_token = create_refresh_token(new_user)
+    new_user.refresh_token = refresh_token
+    db.commit()
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "user": {
+            "id": new_user.id,
+            "email": new_user.email,
+            "phone_number": new_user.phone_number,
+            "full_name": new_user.full_name,
+            "role": new_user.role,
+            "external_patient_id": new_user.external_patient_id,
+            "bhyt_code": new_user.bhyt_code
+        },
+        "external_patient_id": external_pid,
+        "his_action": his_action,
+        "message": msg
     }
 
 # ----------------- NGHỊ ĐỊNH 13/2023/NĐ-CP & CONSENT -----------------
