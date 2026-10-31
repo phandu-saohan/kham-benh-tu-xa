@@ -436,6 +436,42 @@ class SystemSettingsUpdateIn(BaseModel):
     default_max_patients_per_shift: int | None = None
     consultation_duration_minutes: int | None = None
 
+class PatientProfileOut(BaseModel):
+    id: int
+    full_name: str
+    phone_number: str | None = None
+    email: str
+    role: str
+    bhyt_code: str | None = None
+    external_patient_id: str | None = None
+    date_of_birth: str | None = None
+    gender: str | None = None
+    identity_card: str | None = None
+    address: str | None = None
+    blood_type: str | None = None
+    allergies: str | None = None
+    emergency_contact_name: str | None = None
+    emergency_contact_phone: str | None = None
+    consent_agreed: bool = False
+    consent_agreed_at: datetime | None = None
+    total_appointments: int = 0
+    completed_appointments: int = 0
+    total_prescriptions: int = 0
+
+class PatientProfileUpdateIn(BaseModel):
+    full_name: str | None = None
+    email: EmailStr | None = None
+    bhyt_code: str | None = None
+    date_of_birth: str | None = None
+    gender: str | None = None
+    identity_card: str | None = None
+    address: str | None = None
+    blood_type: str | None = None
+    allergies: str | None = None
+    emergency_contact_name: str | None = None
+    emergency_contact_phone: str | None = None
+
+
 
 
 

@@ -23,6 +23,14 @@ class User(Base):
     department_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id"), nullable=True)
     bhyt_code: Mapped[str | None] = mapped_column(String(30), nullable=True)  # Mã thẻ BHYT 15 ký tự
     external_patient_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    date_of_birth: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    gender: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    identity_card: Mapped[str | None] = mapped_column(String(30), nullable=True)  # Số CCCD 12 số
+    address: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    blood_type: Mapped[str | None] = mapped_column(String(10), nullable=True)  # Nhóm máu A+, B+, O+...
+    allergies: Mapped[str | None] = mapped_column(String(300), nullable=True)  # Tiền sử dị ứng
+    emergency_contact_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    emergency_contact_phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

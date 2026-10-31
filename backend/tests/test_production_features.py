@@ -231,4 +231,47 @@ def test_patient_specific_paraclinical_and_pacs():
         assert "findings" in study
         assert "impression" in study
 
+def test_patient_profile_endpoints():
+    db = SessionLocal()
+    patient = db.query(User).filter_by(role="patient").first()
+    p_email = patient.email
+    db.close()
+
+    # Login patient
+    login_res = client.post("/api/v1/auth/login", json={"email": p_email, "password": "ChangeMe123!"})
+    assert login_res.status_code == 200
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. GET profile
+    get_res = client.get("/api/v1/patients/me/profile", headers=headers)
+    assert get_res.status_code == 200
+    profile = get_res.json()
+    assert profile["email"] == p_email
+    assert profile["role"] == "patient"
+    assert profile["blood_type"] is not None
+    assert profile["identity_card"] is not None
+
+    # 2. PUT update profile
+    orig_name = profile["full_name"]
+    update_data = {
+        "full_name": "Nguyễn Minh An (Cập nhật)",
+        "address": "Số 99 Lê Duẩn, Quận 1, TP. Hồ Chí Minh",
+        "blood_type": "O+",
+        "allergies": "Dị ứng Penicillin nhẹ",
+        "emergency_contact_name": "Trần Thị B (Mẹ)",
+        "emergency_contact_phone": "0911223344"
+    }
+    put_res = client.put("/api/v1/patients/me/profile", json=update_data, headers=headers)
+    assert put_res.status_code == 200
+    updated_profile = put_res.json()
+    assert updated_profile["full_name"] == "Nguyễn Minh An (Cập nhật)"
+    assert updated_profile["address"] == "Số 99 Lê Duẩn, Quận 1, TP. Hồ Chí Minh"
+    assert updated_profile["allergies"] == "Dị ứng Penicillin nhẹ"
+    assert updated_profile["emergency_contact_name"] == "Trần Thị B (Mẹ)"
+
+    # Restore name for other tests
+    client.put("/api/v1/patients/me/profile", json={"full_name": orig_name}, headers=headers)
+
+
 

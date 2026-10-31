@@ -730,6 +730,41 @@ export async function getMyPacsStudies() {
   return request<PACSStudiesData>('/api/v1/patients/me/pacs-studies')
 }
 
+export interface PatientProfile {
+  id: number
+  full_name: string
+  phone_number?: string
+  email: string
+  role: string
+  bhyt_code?: string
+  external_patient_id?: string
+  date_of_birth?: string
+  gender?: string
+  identity_card?: string
+  address?: string
+  blood_type?: string
+  allergies?: string
+  emergency_contact_name?: string
+  emergency_contact_phone?: string
+  consent_agreed: boolean
+  consent_agreed_at?: string
+  total_appointments: number
+  completed_appointments: number
+  total_prescriptions: number
+}
+
+export async function getMyProfile(): Promise<PatientProfile> {
+  return request<PatientProfile>('/api/v1/patients/me/profile')
+}
+
+export async function updateMyProfile(data: Partial<PatientProfile>): Promise<PatientProfile> {
+  return request<PatientProfile>('/api/v1/patients/me/profile', {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  })
+}
+
+
 
 
 

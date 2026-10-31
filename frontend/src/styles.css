@@ -4411,6 +4411,546 @@ input:checked + .slider:before {
   }
 }
 
+/* ==================== TRANG TÀI KHOẢN BỆNH NHÂN (PATIENT PROFILE) ==================== */
+.patient-profile-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.profile-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 15px;
+  color: #64748b;
+}
+
+/* Profile Hero Card */
+.profile-hero-card {
+  background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+  border-radius: 20px;
+  padding: 28px;
+  color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 10px 25px rgba(15, 118, 110, 0.15);
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.profile-hero-main {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.profile-avatar-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-avatar-large {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #0f766e;
+  font-family: Manrope, sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  border: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.profile-verified-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #10b981;
+  color: #ffffff;
+  padding: 3px 8px;
+  border-radius: 20px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.profile-hero-info h2 {
+  font-family: Manrope, sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  margin: 6px 0 4px;
+  color: #ffffff;
+}
+
+.profile-hero-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.badge-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-pill.role { background: rgba(255, 255, 255, 0.2); color: #ffffff; }
+.badge-pill.id { background: rgba(0, 0, 0, 0.25); color: #a7f3d0; font-family: monospace; }
+.badge-pill.legal { background: rgba(255, 255, 255, 0.15); color: #e2e8f0; }
+
+.profile-meta-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #ccfbf1;
+  margin: 0;
+}
+
+.profile-meta-line span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.profile-hero-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-edit-profile {
+  background: #ffffff !important;
+  color: #0f766e !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+.btn-edit-profile:hover {
+  background: #f0fdfa !important;
+}
+
+.btn-logout-profile {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+.btn-logout-profile:hover {
+  background: rgba(239, 68, 68, 0.85) !important;
+  border-color: transparent !important;
+}
+
+/* Stats Counter Strip */
+.profile-stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.profile-stat-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.profile-stat-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+  border-color: #cbd5e1;
+}
+
+.stat-icon-circ {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.profile-stat-box strong {
+  display: block;
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.profile-stat-box small {
+  font-size: 11px;
+  color: #64748b;
+}
+
+/* Tabs Bar */
+.profile-tab-bar {
+  display: flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 14px;
+  gap: 4px;
+}
+
+.profile-tab-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.profile-tab-btn.active {
+  background: #ffffff;
+  color: #0f766e;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* Profile Form & Fields */
+.profile-panel {
+  padding: 24px;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profile-field.full-width {
+  grid-column: span 2;
+}
+
+.profile-field label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.text-warning-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #b45309 !important;
+}
+
+.field-value-text {
+  padding: 11px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.verified-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.verified-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #059669;
+  background: #ecfdf5;
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid #a7f3d0;
+}
+
+.field-value-box {
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.allergy-box {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-weight: 600;
+}
+
+.form-actions-bottom {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.btn-save-profile {
+  padding: 11px 24px !important;
+}
+
+/* Thẻ BHYT Visual Card */
+.bhyt-card-visual {
+  background: linear-gradient(135deg, #1e3a8a 0%, #0369a1 100%);
+  border-radius: 18px;
+  padding: 22px 24px;
+  color: #ffffff;
+  box-shadow: 0 10px 25px rgba(3, 105, 161, 0.2);
+  margin-bottom: 20px;
+}
+
+.bhyt-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.bhyt-card-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+.bhyt-status-chip {
+  background: #22c55e;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 20px;
+  text-transform: uppercase;
+}
+
+.bhyt-card-code {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: #fef08a;
+  margin: 10px 0 16px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 8px 12px;
+  border-radius: 8px;
+  display: inline-block;
+}
+
+.bhyt-card-footer {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  padding-top: 12px;
+}
+
+.bhyt-card-footer small {
+  display: block;
+  font-size: 10.5px;
+  color: #bae6fd;
+}
+
+.bhyt-card-footer b {
+  display: block;
+  font-size: 12.5px;
+  color: #ffffff;
+  margin-top: 2px;
+}
+
+/* Privacy Cards */
+.privacy-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.privacy-item-card {
+  display: flex;
+  gap: 16px;
+  padding: 18px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  align-items: flex-start;
+}
+
+.privacy-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.privacy-content h4 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.privacy-content p {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.privacy-status-text {
+  font-size: 11.5px;
+  color: #0f766e;
+}
+
+.account-danger-zone {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.account-danger-zone h4 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.danger-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
+  border-radius: 12px;
+}
+
+.danger-row b {
+  display: block;
+  font-size: 13.5px;
+  color: #991b1b;
+}
+
+.danger-row p {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: #b91c1c;
+}
+
+.btn-logout-danger {
+  background: #ffffff !important;
+  color: #dc2626 !important;
+  border: 1px solid #fca5a5 !important;
+  padding: 8px 16px !important;
+}
+
+.btn-logout-danger:hover {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+/* Mobile Responsiveness for Patient Profile */
+@media (max-width: 768px) {
+  .profile-hero-card {
+    padding: 20px 16px;
+    border-radius: 16px;
+  }
+
+  .profile-hero-main {
+    flex-direction: column;
+    text-align: center;
+    width: 100%;
+    gap: 12px;
+  }
+
+  .profile-hero-badges {
+    justify-content: center;
+  }
+
+  .profile-meta-line {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .profile-meta-line span:nth-child(2) {
+    display: none;
+  }
+
+  .profile-hero-actions {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .profile-stats-strip {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .profile-tab-bar {
+    flex-direction: column;
+  }
+
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-field.full-width {
+    grid-column: span 1;
+  }
+
+  .bhyt-card-code {
+    font-size: 17px;
+    letter-spacing: 2px;
+  }
+
+  .bhyt-card-footer {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .danger-row {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .btn-logout-danger {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+
 
 
 

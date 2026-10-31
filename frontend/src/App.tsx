@@ -22,6 +22,7 @@ import { ConsentModal } from './ConsentModal'
 import { IncomingCallModal } from './IncomingCallModal'
 import { TriageDesk } from './TriageDesk'
 import { AdminDashboard } from './AdminDashboard'
+import { PatientProfilePage } from './PatientProfilePage'
 
 const money = (n: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n)
@@ -586,7 +587,8 @@ export default function App() {
             ['pacs', 'Chẩn đoán hình ảnh PACS', ScanLine],
             ['prescriptions', 'Đơn thuốc Quốc gia', Pill],
             ['insurance', 'Bảo hiểm Y tế (BHYT)', ShieldCheck],
-            ['payments', 'Thanh toán VietQR', CreditCard]
+            ['payments', 'Thanh toán VietQR', CreditCard],
+            ...(isPatient ? [['profile', 'Tài khoản bệnh nhân', UserRound]] : [])
           ].map(([id, label, Icon]: any) => (
             <button
               key={id}
@@ -645,7 +647,11 @@ export default function App() {
           </div>
           <div className="top-actions">
             <span className="status-dot" /> SmartCA & Cổng Đơn thuốc sẵn sàng
-            <button className="avatar small-avatar" title={user.full_name}>
+            <button
+              className={`avatar small-avatar ${view === 'profile' ? 'selected' : ''}`}
+              title={`Hồ sơ tài khoản bệnh nhân: ${user.full_name}`}
+              onClick={() => setView('profile')}
+            >
               <UserRound size={17} />
             </button>
             <button className="mobile-logout-btn" onClick={logout} title="Đăng xuất tài khoản">
@@ -1476,6 +1482,16 @@ export default function App() {
           <section className="panel page-panel">
             <TriageDesk />
           </section>
+        )}
+
+        {/* Tab: Trang Tài khoản Bệnh nhân (Patient Profile Page) */}
+        {view === 'profile' && (
+          <PatientProfilePage
+            currentUser={user}
+            onLogout={logout}
+            onUpdateUser={(updated) => setUser(updated)}
+            onNavigate={(v) => setView(v)}
+          />
         )}
 
         {/* Modal đặt lịch khám */}

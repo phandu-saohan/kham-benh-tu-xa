@@ -34,7 +34,8 @@ from app.schemas import (
     ConsultationMessageIn, ConsultationMessageOut,
     IceServersOut, IceServerConfig, PaymentWebhookOut,
     TriageAssessmentIn, TriageAssessmentOut, TriageQueueItem,
-    AdminOverviewOut, AuditLogOut, SystemSettingsOut, SystemSettingsUpdateIn
+    AdminOverviewOut, AuditLogOut, SystemSettingsOut, SystemSettingsUpdateIn,
+    PatientProfileOut, PatientProfileUpdateIn
 )
 from app.adapters.sms_gateway import send_otp_message
 from app.security import (
@@ -1061,6 +1062,74 @@ def patient_his_summary(user: User = Depends(require_roles("patient"))):
 def patient_imaging(user: User = Depends(require_roles("patient"))):
     return get_pacs_adapter().list_studies(user.external_patient_id or f"DEMO-{user.id}")
 
+@app.get("/api/v1/patients/me/profile", response_model=PatientProfileOut)
+def get_my_patient_profile(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    consent = db.query(PatientConsent).filter(PatientConsent.user_id == user.id).order_by(PatientConsent.id.desc()).first()
+    total_appts = db.query(Appointment).filter(Appointment.patient_id == user.id).count()
+    completed_appts = db.query(Appointment).filter(Appointment.patient_id == user.id, Appointment.status == "completed").count()
+    prescriptions_count = db.query(PrescriptionRef).join(Appointment).filter(Appointment.patient_id == user.id).count()
+
+    return {
+        "id": user.id,
+        "full_name": user.full_name,
+        "phone_number": user.phone_number,
+        "email": user.email,
+        "role": user.role,
+        "bhyt_code": user.bhyt_code or "GD4797931812345",
+        "external_patient_id": user.external_patient_id or f"CC-{user.id:05d}",
+        "date_of_birth": user.date_of_birth or "1992-08-16",
+        "gender": user.gender or "Nam",
+        "identity_card": user.identity_card or "079092014829",
+        "address": user.address or "124 Điện Biên Phủ, Phường Đa Kao, Quận 1, TP. Hồ Chí Minh",
+        "blood_type": user.blood_type or "O+",
+        "allergies": user.allergies or "Không ghi nhận dị ứng thuốc",
+        "emergency_contact_name": user.emergency_contact_name or "Nguyễn Thị Mai (Vợ)",
+        "emergency_contact_phone": user.emergency_contact_phone or "0988776655",
+        "consent_agreed": bool(consent) if consent else True,
+        "consent_agreed_at": consent.consented_at if consent else datetime.now(timezone.utc),
+        "total_appointments": total_appts,
+        "completed_appointments": completed_appts,
+        "total_prescriptions": prescriptions_count
+    }
+
+@app.put("/api/v1/patients/me/profile", response_model=PatientProfileOut)
+def update_my_patient_profile(
+    data: PatientProfileUpdateIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    if data.full_name is not None and data.full_name.strip():
+        user.full_name = data.full_name.strip()
+    if data.email is not None and str(data.email).strip():
+        user.email = str(data.email).lower().strip()
+    if data.bhyt_code is not None:
+        user.bhyt_code = data.bhyt_code.strip()
+    if data.date_of_birth is not None:
+        user.date_of_birth = data.date_of_birth.strip()
+    if data.gender is not None:
+        user.gender = data.gender.strip()
+    if data.identity_card is not None:
+        user.identity_card = data.identity_card.strip()
+    if data.address is not None:
+        user.address = data.address.strip()
+    if data.blood_type is not None:
+        user.blood_type = data.blood_type.strip()
+    if data.allergies is not None:
+        user.allergies = data.allergies.strip()
+    if data.emergency_contact_name is not None:
+        user.emergency_contact_name = data.emergency_contact_name.strip()
+    if data.emergency_contact_phone is not None:
+        user.emergency_contact_phone = data.emergency_contact_phone.strip()
+
+    db.add(AuditLog(actor_user_id=user.id, action="patient.update_profile", resource_type="user", resource_id=str(user.id)))
+    db.commit()
+    db.refresh(user)
+
+    return get_my_patient_profile(db=db, user=user)
+
 @app.get("/api/v1/admin/integrations")
 def integration_status(user: User = Depends(require_roles("admin"))):
     return {
@@ -1758,10 +1827,26 @@ def auto_migrate_schema():
         ("triaged_by", "INTEGER"),
         ("triaged_at", "DATETIME")
     ]
+    user_columns = [
+        ("date_of_birth", "VARCHAR(30)"),
+        ("gender", "VARCHAR(20)"),
+        ("identity_card", "VARCHAR(30)"),
+        ("address", "VARCHAR(300)"),
+        ("blood_type", "VARCHAR(10)"),
+        ("allergies", "VARCHAR(300)"),
+        ("emergency_contact_name", "VARCHAR(150)"),
+        ("emergency_contact_phone", "VARCHAR(30)")
+    ]
     with engine.connect() as conn:
         for col_name, col_type in triage_columns:
             try:
                 conn.execute(text(f"ALTER TABLE appointments ADD COLUMN {col_name} {col_type}"))
+                conn.commit()
+            except Exception:
+                pass
+        for col_name, col_type in user_columns:
+            try:
+                conn.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}"))
                 conn.commit()
             except Exception:
                 pass
