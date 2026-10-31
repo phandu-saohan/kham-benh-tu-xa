@@ -6,6 +6,8 @@
  * Canvas/Oscillator Fallback if hardware is missing, and WebSocket Signaling.
  */
 
+import { getApiBaseUrl } from './api'
+
 export interface WebRTCState {
   localStream: MediaStream | null
   remoteStream: MediaStream | null
@@ -67,11 +69,7 @@ export class TelemedicineWebRTCService {
    */
   public async fetchProductionIceServers(): Promise<RTCConfiguration> {
     try {
-      const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:'
-      let baseUrl = ''
-      if (typeof window !== 'undefined' && import.meta.env.DEV) {
-        baseUrl = 'http://localhost:8000'
-      }
+      const baseUrl = getApiBaseUrl()
       const res = await fetch(`${baseUrl}/api/v1/telehealth/ice-servers`)
       if (res.ok) {
         const data = await res.json()
@@ -321,6 +319,12 @@ export class TelemedicineWebRTCService {
 
   private getWebSocketUrl(): string {
     if (typeof window === 'undefined') return ''
+    const apiBase = getApiBaseUrl()
+    if (apiBase.startsWith('http://') || apiBase.startsWith('https://')) {
+      const parsed = new URL(apiBase)
+      const wsProto = parsed.protocol === 'https:' ? 'wss:' : 'ws:'
+      return `${wsProto}//${parsed.host}/api/v1/ws/${this.appointmentId}`
+    }
     const isHttps = window.location.protocol === 'https:'
     const wsProto = isHttps ? 'wss:' : 'ws:'
     let host = window.location.host

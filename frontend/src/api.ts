@@ -1,4 +1,35 @@
-const API = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : '')
+export const DEFAULT_PROD_API_URL = 'https://app-bypass-back-end-circuit-7mgyyh-664221-72-61-123-73.sslip.io'
+
+export function isCapacitorNative(): boolean {
+  if (typeof window === 'undefined') return false
+  const w = window as any
+  if (w.Capacitor?.isNativePlatform?.()) return true
+  if (
+    !import.meta.env.DEV &&
+    (window.location.hostname === 'localhost' ||
+     window.location.hostname === '127.0.0.1' ||
+     window.location.protocol === 'capacitor:' ||
+     window.location.protocol === 'file:')
+  ) {
+    return true
+  }
+  return false
+}
+
+export function getApiBaseUrl(): string {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return (import.meta.env.VITE_API_BASE_URL as string).replace(/\/+$/, '')
+  }
+  if (isCapacitorNative()) {
+    return DEFAULT_PROD_API_URL
+  }
+  if (import.meta.env.DEV) {
+    return 'http://localhost:8000'
+  }
+  return ''
+}
+
+export const API = getApiBaseUrl()
 
 export type User = {
   id: number
@@ -134,9 +165,31 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   }
 
   if (!response.ok) {
-    const body = await response.json().catch(() => ({}))
-    throw new Error(body.detail || `Yêu cầu thất bại (${response.status})`)
+    const contentType = response.headers.get('content-type') || ''
+    if (contentType.includes('application/json')) {
+      const body = await response.json().catch(() => ({}))
+      throw new Error(body.detail || `Yêu cầu thất bại (${response.status})`)
+    }
+    const text = await response.text()
+    if (text.trim().startsWith('<!doctype') || text.trim().startsWith('<html')) {
+      throw new Error(`Máy chủ trả về trang HTML thay vì JSON (${response.status}). Vui lòng kiểm tra lại địa chỉ máy chủ API.`)
+    }
+    throw new Error(text.slice(0, 100) || `Yêu cầu thất bại (${response.status})`)
   }
+
+  const contentType = response.headers.get('content-type') || ''
+  if (!contentType.includes('application/json')) {
+    const text = await response.text()
+    if (text.trim().startsWith('<!doctype') || text.trim().startsWith('<html')) {
+      throw new Error(`Đường dẫn API ${path} trả về trang HTML thay vì dữ liệu JSON. Kiểm tra lại địa chỉ máy chủ API.`)
+    }
+    try {
+      return JSON.parse(text)
+    } catch {
+      throw new Error(`Phản hồi không phải định dạng JSON hợp lệ.`)
+    }
+  }
+
   return response.json()
 }
 
