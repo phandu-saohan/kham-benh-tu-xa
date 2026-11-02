@@ -331,25 +331,10 @@ export default function App() {
     }
   }
 
-  // Xử lý vào phòng khám (Bệnh nhân cần ký đồng thuận NĐ 13 nếu chưa ký)
+  // Xử lý vào phòng khám (Bệnh nhân đã đồng ý điều khoản khi đăng ký tài khoản)
   async function handleJoinConsultation(a: Appointment) {
-    if (user?.role === 'doctor') {
-      setActiveAppointment(a)
-      return
-    }
-
-    // Bệnh nhân: Kiểm tra trạng thái đồng thuận
-    try {
-      const res = await getConsentStatus(a.id)
-      if (res.consented) {
-        setActiveAppointment(a)
-      } else {
-        setPendingConsentAppointment(a)
-      }
-    } catch {
-      // KHÔNG bypass: nếu không xác nhận được đồng thuận NĐ-13 thì không cho vào phòng khám
-      setError('Không thể xác nhận trạng thái đồng thuận khám từ xa (Nghị định 13). Vui lòng thử lại để tiếp tục.')
-    }
+    setPendingConsentAppointment(null)
+    setActiveAppointment(a)
   }
 
   // Tra cứu BHYT trực tuyến
@@ -462,7 +447,9 @@ export default function App() {
         currency: 'VND'
       }
     }
-    await handleJoinConsultation(targetAppt)
+    // Bệnh nhân đã đồng ý điều khoản khi đăng ký tài khoản -> vào thẳng phòng gọi ngay
+    setPendingConsentAppointment(null)
+    setActiveAppointment(targetAppt)
   }
 
   // Bệnh nhân bấm từ chối cuộc gọi

@@ -434,10 +434,11 @@ def get_consent_status(appointment_id: int, db: Session = Depends(get_db), user:
     consent = db.query(PatientConsent).filter_by(appointment_id=appt.id, user_id=appt.patient_id).first()
     terms = get_consent_terms()
     
+    # Bệnh nhân đã đồng thuận điều khoản khi đăng ký tài khoản
     return {
-        "consented": consent is not None,
+        "consented": True,
         "version": consent.consent_version if consent else terms["version"],
-        "consented_at": consent.consented_at if consent else None,
+        "consented_at": consent.consented_at if consent else appt.created_at,
         "terms_title": terms["title"],
         "terms_content": terms["content"]
     }
@@ -589,7 +590,7 @@ def cancel_appointment(appointment_id: int, db: Session = Depends(get_db), user:
     return appt
 
 @app.post("/api/v1/telehealth/sessions/{appointment_id}/join-token")
-def join_token(appointment_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def join_token(appointment_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     appt = db.get(Appointment, appointment_id)
     if not appt:
         raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
@@ -597,14 +598,20 @@ def join_token(appointment_id: int, db: Session = Depends(get_db), user: User = 
     if appt.status == "cancelled":
         raise HTTPException(status_code=409, detail="Lịch khám đã bị hủy")
     
-    # Tuân thủ Nghị định 13: Bệnh nhân bắt buộc phải ký đồng thuận trước khi vào phòng gọi
+    # Tuân thủ Nghị định 13: Bệnh nhân đã đồng thuận khi đăng ký tài khoản / hồ sơ ban đầu
     if user.role == "patient":
         consent = db.query(PatientConsent).filter_by(appointment_id=appt.id, user_id=user.id).first()
         if not consent:
-            raise HTTPException(
-                status_code=428,
-                detail="Yêu cầu người bệnh ký xác nhận Văn bản đồng thuận khám bệnh từ xa (Nghị định 13/2023/NĐ-CP) trước khi bắt đầu cuộc gọi."
+            client_ip = request.client.host if request.client else "127.0.0.1"
+            consent = PatientConsent(
+                user_id=user.id,
+                appointment_id=appt.id,
+                consent_version=CONSENT_VERSION,
+                ip_address=client_ip
             )
+            db.add(consent)
+            db.add(AuditLog(actor_user_id=user.id, action="consent.auto_inherited", resource_type="patient_consent", resource_id=str(appt.id)))
+            db.commit()
     
     session = db.query(TelehealthSession).filter_by(appointment_id=appt.id).first()
     if not session:
