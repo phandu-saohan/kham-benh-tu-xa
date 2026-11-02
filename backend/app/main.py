@@ -2223,10 +2223,59 @@ def auto_migrate_schema():
             except Exception:
                 pass
 
+def ensure_system_initialized():
+    """Khởi tạo cấu trúc danh mục và tài khoản quản trị cán bộ ban đầu nếu database trống"""
+    from app.db import SessionLocal
+    db = SessionLocal()
+    try:
+        if db.query(Department).count() == 0:
+            db.add_all([
+                Department(code="K01", name="Khoa Nội Tổng Quát", description="Khám và điều trị các bệnh lý nội khoa người lớn"),
+                Department(code="K02", name="Khoa Nhi", description="Chăm sóc sức khỏe và khám bệnh chuyên sâu cho trẻ em"),
+                Department(code="K03", name="Khoa Da Liễu", description="Khám và điều trị viêm da cơ địa, dị ứng, mụn trứng cá, bệnh ngoài da"),
+                Department(code="K04", name="Khoa Tai Mũi Họng", description="Khám nội soi viêm họng, viêm amidan, viêm xoang, thanh quản"),
+                Department(code="K05", name="Khoa Tâm Thần & Tâm Lý Lâm Sàng", description="Tư vấn stress, rối loạn lo âu, mất ngủ, trầm cảm từ xa"),
+                Department(code="K06", name="Khoa Tim Mạch", description="Quản lý tăng huyết áp, rối loạn mỡ máu, theo dõi bệnh tim mạn tính")
+            ])
+            db.commit()
+
+        if not db.query(User).filter(User.role.in_(["admin", "doctor", "nurse"])).first():
+            dept_internal = db.query(Department).filter_by(code="K01").first()
+            dept_id = dept_internal.id if dept_internal else None
+            db.add_all([
+                User(
+                    email="doctor@example.test",
+                    phone_number="0987654321",
+                    full_name="BS.CKII Trần Minh",
+                    role="doctor",
+                    doctor_cchn="008912/BYT-CCHN",
+                    department_id=dept_id,
+                    password_hash=hash_password("ChangeMe123!")
+                ),
+                User(
+                    email="admin@example.test",
+                    phone_number="0909090909",
+                    full_name="Quản trị CareConnect",
+                    role="admin",
+                    password_hash=hash_password("ChangeMe123!")
+                ),
+                User(
+                    email="nurse@example.test",
+                    phone_number="0977665544",
+                    full_name="ĐD. Nguyễn Thị Mai",
+                    role="nurse",
+                    password_hash=hash_password("ChangeMe123!")
+                )
+            ])
+            db.commit()
+    finally:
+        db.close()
+
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
     auto_migrate_schema()
+    ensure_system_initialized()
     if settings.SEED_DEMO:
         seed_demo()
 

@@ -170,7 +170,15 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
     const contentType = response.headers.get('content-type') || ''
     if (contentType.includes('application/json')) {
       const body = await response.json().catch(() => ({}))
-      throw new Error(body.detail || `Yêu cầu thất bại (${response.status})`)
+      let detailMsg = ''
+      if (typeof body.detail === 'string') {
+        detailMsg = body.detail
+      } else if (Array.isArray(body.detail)) {
+        detailMsg = body.detail.map((d: any) => d.msg || JSON.stringify(d)).join(', ')
+      } else if (body.detail) {
+        detailMsg = JSON.stringify(body.detail)
+      }
+      throw new Error(detailMsg || body.message || `Yêu cầu thất bại (${response.status})`)
     }
     const text = await response.text()
     if (text.trim().startsWith('<!doctype') || text.trim().startsWith('<html')) {
