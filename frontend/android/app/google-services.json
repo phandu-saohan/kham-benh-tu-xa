@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "674517761576",
+    "project_id": "vidcall-93993",
+    "storage_bucket": "vidcall-93993.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:674517761576:android:1fc3d26343603e6b21ff1d",
+        "android_client_info": {
+          "package_name": "vn.careconnect.telemedicine.patient"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "674517761576-fa9rsbcrp087e7hb0te9tdcurboa5at8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB7Zdkq2GbhoMSLll8IHhVa0w-ws0bY3JM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "674517761576-fa9rsbcrp087e7hb0te9tdcurboa5at8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
