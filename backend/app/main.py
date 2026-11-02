@@ -2915,11 +2915,11 @@ def get_consultation_members(
     if not appt:
         raise HTTPException(status_code=404, detail="Không tìm thấy lượt khám")
     
-    members = db.query(ConsultationMember).filter_by(appointment_id=appointment_id).all()
-    # Nếu chưa có thành viên nào, tự động thêm Bác sĩ chủ trì
-    if not members:
+    # Đảm bảo Bác sĩ chủ trì luôn có mặt trong danh sách hội chẩn
+    host = db.query(ConsultationMember).filter_by(appointment_id=appointment_id, role="host").first()
+    if not host:
         doc = db.get(User, appt.doctor_id)
-        host_member = ConsultationMember(
+        host = ConsultationMember(
             appointment_id=appt.id,
             doctor_id=appt.doctor_id,
             doctor_name=doc.full_name if doc else "Bác sĩ chủ trì",
@@ -2929,11 +2929,10 @@ def get_consultation_members(
             status="joined",
             joined_at=datetime.now(timezone.utc)
         )
-        db.add(host_member)
+        db.add(host)
         db.commit()
-        db.refresh(host_member)
-        members = [host_member]
-    return members
+
+    return db.query(ConsultationMember).filter_by(appointment_id=appointment_id).order_by(ConsultationMember.id.asc()).all()
 
 @app.post("/api/v1/appointments/{appointment_id}/multi-doctor/invite", response_model=ConsultationMemberOut)
 def invite_consultation_member(
