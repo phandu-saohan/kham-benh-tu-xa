@@ -661,6 +661,31 @@ class DeidentifyOut(BaseModel):
     pii_types_found: list[str]
     compliance: str
 
+class NotificationOut(BaseModel):
+    id: int
+    user_id: Optional[int] = None
+    target_role: Optional[str] = None
+    title: str
+    message: str
+    category: str = "system"
+    priority: str = "normal"
+    action_url: Optional[str] = None
+    is_read: bool = False
+    created_at: Optional[datetime] = None
+
+class NotificationCreateIn(BaseModel):
+    user_id: Optional[int] = None
+    target_role: Optional[str] = None
+    title: str = Field(min_length=2, max_length=255)
+    message: str = Field(min_length=2)
+    category: str = "system"
+    priority: str = "normal"
+    action_url: Optional[str] = None
+
+class UnreadCountOut(BaseModel):
+    unread_count: int
+
+
 
 
 

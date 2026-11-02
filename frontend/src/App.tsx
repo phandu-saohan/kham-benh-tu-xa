@@ -28,6 +28,7 @@ import { ConsentModal } from './ConsentModal'
 import { IncomingCallModal } from './IncomingCallModal'
 import { TriageDesk } from './TriageDesk'
 import { AdminDashboard } from './AdminDashboard'
+import { NotificationCenter } from './NotificationCenter'
 import { PatientProfilePage } from './PatientProfilePage'
 import { PatientRegisterPage } from './PatientRegisterPage'
 
@@ -1012,6 +1013,16 @@ export default function App() {
             </h2>
           </div>
           <div className="top-actions">
+            <NotificationCenter
+              userRole={user.role}
+              onNavigate={(url) => {
+                if (url.includes('appointments') || url.includes('booking')) setView('appointments')
+                else if (url.includes('prescriptions')) setView('prescriptions')
+                else if (url.includes('paraclinical') || url.includes('labs')) setView('paraclinical')
+                else if (url.includes('profile')) setView('profile')
+                else if (url.includes('admin')) setView('admin')
+              }}
+            />
             <span className="status-dot" /> SmartCA & Cổng Đơn thuốc sẵn sàng
             <button
               className={`avatar small-avatar ${view === 'profile' ? 'selected' : ''}`}

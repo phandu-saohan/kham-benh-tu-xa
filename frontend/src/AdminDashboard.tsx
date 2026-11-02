@@ -43,6 +43,7 @@ import {
   updateUserRole,
   deidentifyRecord
 } from './api'
+import { NotificationCenter } from './NotificationCenter'
 
 interface AdminDashboardProps {
   onBack?: () => void
@@ -210,15 +211,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
           </p>
         </div>
 
-        <button
-          type="button"
-          className="btn-refresh-admin"
-          onClick={loadData}
-          disabled={loading}
-        >
-          <RefreshCw size={15} className={loading ? 'spin' : ''} />
-          {loading ? 'Đang tải...' : 'Làm mới'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <NotificationCenter userRole="admin" />
+          <button
+            type="button"
+            className="btn-refresh-admin"
+            onClick={loadData}
+            disabled={loading}
+          >
+            <RefreshCw size={15} className={loading ? 'spin' : ''} />
+            {loading ? 'Đang tải...' : 'Làm mới'}
+          </button>
+        </div>
       </div>
 
       {/* Main Tab Navigation */}

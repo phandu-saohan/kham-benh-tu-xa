@@ -18,6 +18,7 @@ import {
 import { webrtcService, type WebRTCState } from './webrtcService'
 import { ConsultationChat } from './ConsultationChat'
 import { PrescriptionBuilder } from './PrescriptionBuilder'
+import { NotificationCenter } from './NotificationCenter'
 
 export function DoctorWorkspace({
   appointment,
@@ -529,6 +530,7 @@ export function DoctorWorkspace({
         </div>
 
         <div className="workspace-header-actions">
+          <NotificationCenter userRole="doctor" />
           {/* Nút Gọi chuông bệnh nhân */}
           {!isLocked && (
             <button

@@ -213,4 +213,18 @@ class SystemSetting(Base):
     description: Mapped[str | None] = mapped_column(String(255), nullable=True)
     updated_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+class Notification(Base):
+    __tablename__ = "notifications"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
+    target_role: Mapped[str | None] = mapped_column(String(30), nullable=True)  # "all", "patient", "doctor", "nurse", "admin"
+    title: Mapped[str] = mapped_column(String(255))
+    message: Mapped[str] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(String(50), default="system")  # "appointment", "prescription", "paraclinical", "ai_alert", "system", "payment"
+    priority: Mapped[str] = mapped_column(String(20), default="normal")  # "urgent", "high", "normal", "info"
+    action_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 

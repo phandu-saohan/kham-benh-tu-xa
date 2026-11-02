@@ -1133,6 +1133,53 @@ export async function deidentifyRecord(text: string, maskType: string = 'ANONYMI
   })
 }
 
+// ==================== NOTIFICATION CENTER MODULE ====================
+
+export type NotificationItem = {
+  id: number
+  user_id?: number | null
+  target_role?: string | null
+  title: string
+  message: string
+  category: 'appointment' | 'prescription' | 'paraclinical' | 'ai_alert' | 'system' | 'payment' | string
+  priority: 'urgent' | 'high' | 'normal' | 'info' | string
+  action_url?: string | null
+  is_read: boolean
+  created_at?: string | null
+}
+
+export async function fetchNotifications(category?: string, unreadOnly: boolean = false) {
+  const params = new URLSearchParams()
+  if (category && category !== 'all') params.append('category', category)
+  if (unreadOnly) params.append('unread_only', 'true')
+  const query = params.toString() ? `?${params.toString()}` : ''
+  return request<NotificationItem[]>(`/api/v1/notifications${query}`)
+}
+
+export async function fetchUnreadNotificationCount() {
+  return request<{ unread_count: number }>('/api/v1/notifications/unread-count')
+}
+
+export async function markNotificationRead(notificationId: number) {
+  return request<{ success: boolean; id: number }>(`/api/v1/notifications/${notificationId}/read`, {
+    method: 'POST'
+  })
+}
+
+export async function markAllNotificationsRead() {
+  return request<{ success: boolean; marked_count: number }>('/api/v1/notifications/mark-all-read', {
+    method: 'POST'
+  })
+}
+
+export async function createNotification(data: Partial<NotificationItem>) {
+  return request<NotificationItem>('/api/v1/notifications', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+
 
 
 

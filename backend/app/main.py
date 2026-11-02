@@ -20,7 +20,7 @@ from app.db import get_db, Base, engine
 from app.models import (
     User, Appointment, TelehealthSession, ClinicalRecord, PrescriptionRef,
     Payment, AuditLog, OtpCode, PatientConsent, Department, DoctorShift,
-    ConsultationMessage, SystemSetting
+    ConsultationMessage, SystemSetting, Notification
 )
 from app.schemas import (
     LoginIn, TokenOut, OtpSendIn, OtpSendOut, OtpVerifyIn, FirebaseVerifyIn, RefreshTokenIn,
@@ -46,7 +46,8 @@ from app.schemas import (
     LabInterpretIn, LabInterpretOut,
     PostConsultationPlanIn, PostConsultationPlanOut,
     BhytAuditIn, BhytAuditOut,
-    DeidentifyIn, DeidentifyOut
+    DeidentifyIn, DeidentifyOut,
+    NotificationOut, NotificationCreateIn, UnreadCountOut
 )
 from app.adapters.sms_gateway import send_otp_message
 from app.security import (
@@ -2237,6 +2238,105 @@ def update_admin_settings(
     db.commit()
     return get_admin_settings(db, user)
 
+# ----------------- NOTIFICATION CENTER MODULE -----------------
+
+@app.get("/api/v1/notifications", response_model=list[NotificationOut])
+def get_user_notifications(
+    category: str | None = None,
+    unread_only: bool = False,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    from sqlalchemy import or_
+    query = db.query(Notification).filter(
+        or_(
+            Notification.user_id == user.id,
+            (Notification.user_id.is_(None)) & (
+                (Notification.target_role == "all") |
+                (Notification.target_role == user.role)
+            )
+        )
+    )
+    if category and category != "all":
+        query = query.filter(Notification.category == category)
+    if unread_only:
+        query = query.filter(Notification.is_read == False)
+    
+    return query.order_by(Notification.created_at.desc()).limit(50).all()
+
+@app.get("/api/v1/notifications/unread-count", response_model=UnreadCountOut)
+def get_unread_count(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    from sqlalchemy import or_
+    count = db.query(Notification).filter(
+        or_(
+            Notification.user_id == user.id,
+            (Notification.user_id.is_(None)) & (
+                (Notification.target_role == "all") |
+                (Notification.target_role == user.role)
+            )
+        ),
+        Notification.is_read == False
+    ).count()
+    return UnreadCountOut(unread_count=count)
+
+@app.post("/api/v1/notifications/{notification_id}/read")
+def mark_notification_read(
+    notification_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    n = db.query(Notification).filter(Notification.id == notification_id).first()
+    if not n:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    n.is_read = True
+    db.commit()
+    return {"success": True, "id": notification_id}
+
+@app.post("/api/v1/notifications/mark-all-read")
+def mark_all_notifications_read(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    from sqlalchemy import or_
+    notifs = db.query(Notification).filter(
+        or_(
+            Notification.user_id == user.id,
+            (Notification.user_id.is_(None)) & (
+                (Notification.target_role == "all") |
+                (Notification.target_role == user.role)
+            )
+        ),
+        Notification.is_read == False
+    ).all()
+    for n in notifs:
+        n.is_read = True
+    db.commit()
+    return {"success": True, "marked_count": len(notifs)}
+
+@app.post("/api/v1/notifications", response_model=NotificationOut)
+def create_notification(
+    data: NotificationCreateIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "doctor", "nurse"))
+):
+    notif = Notification(
+        user_id=data.user_id,
+        target_role=data.target_role,
+        title=data.title,
+        message=data.message,
+        category=data.category,
+        priority=data.priority,
+        action_url=data.action_url,
+        is_read=False
+    )
+    db.add(notif)
+    db.commit()
+    db.refresh(notif)
+    return notif
+
 # ----------------- SEEDING & STARTUP -----------------
 
 def seed_demo():
@@ -2431,6 +2531,67 @@ def ensure_system_initialized():
                     full_name="ĐD. Nguyễn Thị Mai",
                     role="nurse",
                     password_hash=hash_password("ChangeMe123!")
+                )
+            ])
+            db.commit()
+
+        # Khởi tạo thông báo mẫu chuyên nghiệp nếu chưa có
+        if db.query(Notification).count() == 0:
+            db.add_all([
+                Notification(
+                    target_role="doctor",
+                    title="Lịch hẹn khám mới (Khoa Nội)",
+                    message="Bệnh nhân Phan Hoàng Phúc đã đặt lịch khám trực tuyến. Lý do: Đau thắt ngực khi gắng sức, cần tư vấn chuyên khoa.",
+                    category="appointment",
+                    priority="high",
+                    action_url="/workspace"
+                ),
+                Notification(
+                    target_role="doctor",
+                    title="🛡️ AI Cảnh báo Dược lâm sàng",
+                    message="Phát hiện tương tác mức độ Nặng giữa Clopidogrel và Omeprazole. Khuyến nghị bác sĩ cân nhắc đổi sang Pantoprazole để đảm bảo hiệu lực chống đông.",
+                    category="ai_alert",
+                    priority="urgent",
+                    action_url="/workspace"
+                ),
+                Notification(
+                    target_role="doctor",
+                    title="🔬 Kết quả Xét nghiệm mới sẵn sàng",
+                    message="Khoa Xét nghiệm đã cập nhật kết quả Sinh hóa máu (HbA1c 8.2%, Glucose 8.9 mmol/L). AI đã tạo sẵn bản tóm tắt diễn giải.",
+                    category="paraclinical",
+                    priority="normal",
+                    action_url="/workspace"
+                ),
+                Notification(
+                    target_role="patient",
+                    title="🩺 Xác nhận lịch khám trực tuyến",
+                    message="Lịch khám chuyên khoa Nội Tổng Quát của bạn đã được xác nhận. Bác sĩ BS.CKII Trần Minh Tuấn sẽ kết nối trực tiếp trong phòng khám ảo.",
+                    category="appointment",
+                    priority="high",
+                    action_url="/appointments"
+                ),
+                Notification(
+                    target_role="patient",
+                    title="💊 Đơn thuốc điện tử đã sẵn sàng",
+                    message="Bác sĩ đã hoàn tất kê đơn điện tử và ký số SmartCA (Mã DT-2026-9881). Bạn có thể xem toa thuốc và đặt giao tận nhà.",
+                    category="prescription",
+                    priority="normal",
+                    action_url="/prescriptions"
+                ),
+                Notification(
+                    target_role="admin",
+                    title="🛡️ Kiểm toán An toàn Dữ liệu & Nghị định 13",
+                    message="Cổng lưu trữ Supabase Storage hoạt động ổn định. Đã mã hóa AES-256 dữ liệu định danh bệnh nhân theo quy chuẩn.",
+                    category="system",
+                    priority="info",
+                    action_url="/admin"
+                ),
+                Notification(
+                    target_role="all",
+                    title="⚡ CareConnect Telemedicine v2.5",
+                    message="Hệ thống đã nâng cấp Bộ công cụ Trợ lý AI Y tế (CDSS), OCR thẻ BHYT tự động và Trung tâm Thông báo Y tế chuyên nghiệp.",
+                    category="system",
+                    priority="info"
                 )
             ])
             db.commit()
