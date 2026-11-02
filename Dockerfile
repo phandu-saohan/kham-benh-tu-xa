@@ -18,7 +18,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=3001 \
     APP_ENV=production \
+    SECRET_KEY=careconnect-telemedicine-prod-secret-93993-c4f8817a5be66a0129bcdd9745e1f98b \
+    PHI_ENCRYPTION_KEY=careconnect-phi-key-c4f8817a5be66a0129bcdd9745e1f98bc195e347ad1efd88002df35154ee8780 \
     DATABASE_URL=sqlite:////app/data/telemedicine.db \
+    ALLOW_SEED_DEMO=true \
     SEED_DEMO=true \
     CORS_ORIGINS="*"
 

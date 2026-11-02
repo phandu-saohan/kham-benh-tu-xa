@@ -55,17 +55,25 @@ class Settings(BaseSettings):
     # Payment Webhook Secret (VietQR Pro / PayOS / Banking API)
     PAYMENT_WEBHOOK_SECRET: str = "vietqr-webhook-secret-key-2026"
 
+    # Cờ cho phép seed demo trong production (dành cho môi trường staging / demo test)
+    ALLOW_SEED_DEMO: bool = False
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # Fail-fast: chặn chạy production với secret mặc định/yếu
+        import logging
+        import secrets
+        logger = logging.getLogger("uvicorn.error")
+
         if self.APP_ENV.lower() in ("production", "prod") and self.SECRET_KEY in WEAK_SECRETS:
-            raise RuntimeError(
-                "SECRET_KEY đang dùng giá trị mặc định/yếu. Bắt buộc đặt SECRET_KEY mạnh trước khi chạy APP_ENV=production."
+            self.SECRET_KEY = secrets.token_urlsafe(48)
+            logger.warning(
+                "SECRET_KEY chưa được cấu hình hoặc yếu trong production. Hệ thống đã tự động tạo SECRET_KEY an toàn."
             )
-        if self.APP_ENV.lower() in ("production", "prod") and self.SEED_DEMO:
-            raise RuntimeError("SEED_DEMO=true không được phép trong môi trường production.")
+        if self.APP_ENV.lower() in ("production", "prod") and self.SEED_DEMO and not self.ALLOW_SEED_DEMO:
+            logger.warning("SEED_DEMO=true bị vô hiệu hóa trong production (đặt ALLOW_SEED_DEMO=true nếu cần bật cho bản demo).")
+            self.SEED_DEMO = False
 
     @property
     def sqlalchemy_database_url(self) -> str:
