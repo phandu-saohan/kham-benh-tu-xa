@@ -710,6 +710,164 @@ class ShareLabResultOut(BaseModel):
     message_id: Optional[int] = None
     notification_id: Optional[int] = None
 
+# -------------------------------------------------------------
+# 1. Cổng Giám định BHYT Quốc gia (XML 4210 / QĐ 130)
+# -------------------------------------------------------------
+class BHYTClaimOut(BaseModel):
+    id: int
+    appointment_id: int
+    patient_id: int
+    ma_lk: str
+    ma_the_bhyt: str
+    ma_dkbd: str
+    muc_huong: int
+    ma_benh_chinh: str
+    ma_benh_kem: Optional[str] = None
+    t_tongchi: float
+    t_bntt: float
+    t_bhyttt: float
+    status: str
+    gdbhyt_code: Optional[str] = None
+    submitted_at: Optional[datetime] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class BHYTXML4210Out(BaseModel):
+    appointment_id: int
+    ma_lk: str
+    patient_name: str
+    ma_the_bhyt: str
+    muc_huong: int
+    xml1_tonghop: str
+    xml2_chitietthuoc: str
+    xml3_chitietdvkt: str
+    xml4_chitietcls: str
+    xml5_dienbien: str
+    summary_financials: dict
+
+# -------------------------------------------------------------
+# 2. Hội chẩn Liên viện & Đa chuyên khoa (Multi-Doctor)
+# -------------------------------------------------------------
+class ConsultationMemberIn(BaseModel):
+    doctor_name: str
+    hospital_name: str = "Bệnh viện Bạch Mai - Tuyến Trung Ương"
+    specialty: str
+    role: str = "specialist"  # host, specialist, secretary
+
+class ConsultationMemberOut(BaseModel):
+    id: int
+    appointment_id: int
+    doctor_id: Optional[int] = None
+    doctor_name: str
+    hospital_name: str
+    specialty: str
+    role: str
+    status: str
+    clinical_opinion: Optional[str] = None
+    joined_at: Optional[datetime] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class ConsultationOpinionIn(BaseModel):
+    clinical_opinion: str
+
+# -------------------------------------------------------------
+# 3. Giám sát Sinh hiệu Từ xa (RPM IoT)
+# -------------------------------------------------------------
+class RPMVitalLogIn(BaseModel):
+    device_type: str  # blood_pressure, blood_glucose, spo2, heart_rate, temperature, weight
+    device_name: str = "Omron Bluetooth Smart Monitor"
+    connection_method: str = "bluetooth_ble"  # bluetooth_ble, manual
+    systolic: Optional[int] = None
+    diastolic: Optional[int] = None
+    pulse: Optional[int] = None
+    glucose_value: Optional[float] = None
+    glucose_context: Optional[str] = "fasting"
+    spo2_percent: Optional[float] = None
+    temperature_celsius: Optional[float] = None
+    weight_kg: Optional[float] = None
+
+class RPMVitalLogOut(BaseModel):
+    id: int
+    patient_id: int
+    device_type: str
+    device_name: str
+    connection_method: str
+    systolic: Optional[int] = None
+    diastolic: Optional[int] = None
+    pulse: Optional[int] = None
+    glucose_value: Optional[float] = None
+    glucose_context: Optional[str] = None
+    spo2_percent: Optional[float] = None
+    temperature_celsius: Optional[float] = None
+    weight_kg: Optional[float] = None
+    is_warning: bool
+    warning_message: Optional[str] = None
+    measured_at: datetime
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+# -------------------------------------------------------------
+# 4. Hồ sơ Sức khỏe Gia đình (Family Health Vault)
+# -------------------------------------------------------------
+class FamilyMemberProfileIn(BaseModel):
+    full_name: str
+    relationship: str  # child, parent, spouse, sibling, other
+    gender: str  # male, female, other
+    date_of_birth: str  # YYYY-MM-DD
+    phone_number: Optional[str] = None
+    national_id: Optional[str] = None
+    bhyt_code: Optional[str] = None
+    blood_group: Optional[str] = None
+    allergies: Optional[str] = None
+    chronic_conditions: Optional[str] = None
+
+class FamilyMemberProfileOut(BaseModel):
+    id: int
+    owner_user_id: int
+    full_name: str
+    relationship: str
+    gender: str
+    date_of_birth: str
+    phone_number: Optional[str] = None
+    national_id: Optional[str] = None
+    bhyt_code: Optional[str] = None
+    blood_group: Optional[str] = None
+    allergies: Optional[str] = None
+    chronic_conditions: Optional[str] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+# -------------------------------------------------------------
+# 5. AI PACS Hỗ trợ Chẩn đoán Hình ảnh
+# -------------------------------------------------------------
+class AIPACSAnalyzeIn(BaseModel):
+    appointment_id: int
+    dicom_study_id: Optional[str] = "STUDY-CXR-2026-88"
+    modality: str = "DX"
+    body_part: str = "CHEST"
+    image_url: Optional[str] = None
+
+class AIPACSConsultationOut(BaseModel):
+    id: int
+    appointment_id: int
+    dicom_study_id: Optional[str] = None
+    modality: str
+    body_part: str
+    ai_model_name: str
+    primary_finding: str
+    confidence_score: float
+    findings: list[dict]
+    heatmap_regions: list[dict]
+    doctor_concurrence: Optional[str] = None
+    doctor_feedback: Optional[str] = None
+    created_at: datetime
+
+class AIPACSFeedbackIn(BaseModel):
+    doctor_concurrence: str  # approved, disagreed
+    doctor_feedback: Optional[str] = None
+
+
 
 
 

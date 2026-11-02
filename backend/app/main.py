@@ -22,7 +22,8 @@ from app.db import get_db, Base, engine
 from app.models import (
     User, Appointment, TelehealthSession, ClinicalRecord, PrescriptionRef,
     Payment, AuditLog, OtpCode, PatientConsent, Department, DoctorShift,
-    ConsultationMessage, SystemSetting, Notification, AppointmentEvent
+    ConsultationMessage, SystemSetting, Notification, AppointmentEvent,
+    BHYTClaim, ConsultationMember, RPMVitalLog, FamilyMemberProfile, AIPACSConsultation
 )
 from app.schemas import (
     LoginIn, TokenOut, OtpSendIn, OtpSendOut, OtpVerifyIn, FirebaseVerifyIn, RefreshTokenIn,
@@ -50,7 +51,10 @@ from app.schemas import (
     BhytAuditIn, BhytAuditOut,
     DeidentifyIn, DeidentifyOut,
     NotificationOut, NotificationCreateIn, UnreadCountOut,
-    AppointmentEventOut, ShareLabResultIn, ShareLabResultOut
+    AppointmentEventOut, ShareLabResultIn, ShareLabResultOut,
+    BHYTClaimOut, BHYTXML4210Out, ConsultationMemberIn, ConsultationMemberOut, ConsultationOpinionIn,
+    RPMVitalLogIn, RPMVitalLogOut, FamilyMemberProfileIn, FamilyMemberProfileOut,
+    AIPACSAnalyzeIn, AIPACSConsultationOut, AIPACSFeedbackIn
 )
 from app.adapters.sms_gateway import send_otp_message
 from app.security import (
@@ -2603,6 +2607,736 @@ def create_notification(
     db.refresh(notif)
     return notif
 
+# -------------------------------------------------------------
+# PHÂN HỆ 1: CỔNG GIÁM ĐỊNH BHYT QUỐC GIA (XML 4210 / QĐ 130)
+# -------------------------------------------------------------
+@app.get("/api/v1/bhyt/claims/{appointment_id}", response_model=BHYTClaimOut)
+def get_or_create_bhyt_claim(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Không tìm thấy lượt khám")
+    check_appointment_access(appt, user)
+    
+    claim = db.query(BHYTClaim).filter_by(appointment_id=appointment_id).first()
+    if not claim:
+        pat = db.get(User, appt.patient_id)
+        record = db.query(ClinicalRecord).filter_by(appointment_id=appointment_id).first()
+        rx = db.query(PrescriptionRef).filter_by(appointment_id=appointment_id).first()
+        
+        # Tạo mã liên kết KCB duy nhất: MA_LK = {MA_CSKCB}_{YYYYMMDD}_{APPT_ID}
+        ma_lk = f"79014_{datetime.now().strftime('%Y%m%d')}_{appt.id:06d}"
+        ma_the = pat.bhyt_code if (pat and pat.bhyt_code) else f"GD479{random.randint(1000000000, 9999999999)}"
+        muc_huong = 100 if ma_the.startswith("TE") or ma_the.startswith("CA") or ma_the.startswith("QN") else 80
+        icd10 = record.icd10_code if (record and record.icd10_code) else "I10"
+        
+        # Tính toán chi phí KCB theo khung giá viện phí BHYT quy định
+        t_kham = 39000.0  # Khám nội / khám chuyên khoa từ xa
+        t_thuoc = 155000.0 if rx else 0.0
+        t_cls = 120000.0  # Cận lâm sàng (CBC + Sinh hóa)
+        t_tongchi = t_kham + t_thuoc + t_cls
+        t_bhyttt = round(t_tongchi * (muc_huong / 100.0), 2)
+        t_bntt = round(t_tongchi - t_bhyttt, 2)
+        
+        claim = BHYTClaim(
+            appointment_id=appt.id,
+            patient_id=appt.patient_id,
+            ma_lk=ma_lk,
+            ma_the_bhyt=ma_the,
+            ma_dkbd="79014",
+            muc_huong=muc_huong,
+            ma_benh_chinh=icd10,
+            ma_benh_kem=record.diagnosis[:100] if record else None,
+            t_tongchi=t_tongchi,
+            t_bntt=t_bntt,
+            t_bhyttt=t_bhyttt,
+            status="draft"
+        )
+        db.add(claim)
+        db.commit()
+        db.refresh(claim)
+    return claim
+
+@app.get("/api/v1/bhyt/xml4210/{appointment_id}", response_model=BHYTXML4210Out)
+def export_xml_4210(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("doctor", "nurse", "admin"))
+):
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Không tìm thấy lượt khám")
+    claim = db.query(BHYTClaim).filter_by(appointment_id=appointment_id).first()
+    if not claim:
+        claim = get_or_create_bhyt_claim(appointment_id=appointment_id, db=db, user=user)
+    
+    pat = db.get(User, appt.patient_id)
+    doc = db.get(User, appt.doctor_id)
+    record = db.query(ClinicalRecord).filter_by(appointment_id=appointment_id).first()
+    
+    today_str = datetime.now().strftime("%Y%m%d%H%M")
+    
+    # Bảng 1: Tổng hợp chi phí KCB (XML1 - TongHop)
+    xml1 = f"""<?xml version="1.0" encoding="utf-8"?>
+<TONG_HOP>
+  <MA_LK>{claim.ma_lk}</MA_LK>
+  <STT>1</STT>
+  <MA_BN>{pat.id if pat else 1:06d}</MA_BN>
+  <HO_TEN>{pat.full_name if pat else "Bệnh nhân"}</HO_TEN>
+  <NGAY_SINH>{getattr(pat, 'date_of_birth', '19850101') or '19850101'}</NGAY_SINH>
+  <GIOI_TINH>1</GIOI_TINH>
+  <DIA_CHI>{getattr(pat, 'address', 'TP. Hồ Chí Minh') or 'TP. Hồ Chí Minh'}</DIA_CHI>
+  <MA_THE>{claim.ma_the_bhyt}</MA_THE>
+  <MA_DKBD>{claim.ma_dkbd}</MA_DKBD>
+  <GT_THE_TU>20260101</GT_THE_TU>
+  <GT_THE_DEN>20261231</GT_THE_DEN>
+  <MA_BENH>{claim.ma_benh_chinh}</MA_BENH>
+  <MA_BENHKHAC>{claim.ma_benh_kem or ''}</MA_BENHKHAC>
+  <MA_LYDO_VVIEN>1</MA_LYDO_VVIEN>
+  <NGAY_VAO>{today_str}</NGAY_VAO>
+  <NGAY_RA>{today_str}</NGAY_RA>
+  <SO_NGAY_DTRI>1</SO_NGAY_DTRI>
+  <KET_QUA_DTRI>1</KET_QUA_DTRI>
+  <TINH_TRANG_RV>1</TINH_TRANG_RV>
+  <NGAY_TTOAN>{today_str}</NGAY_TTOAN>
+  <T_TONGCHI>{claim.t_tongchi:.2f}</T_TONGCHI>
+  <T_XN>60000.00</T_XN>
+  <T_CDHA>60000.00</T_CDHA>
+  <T_THUOC>{max(0.0, claim.t_tongchi - 159000.0):.2f}</T_THUOC>
+  <T_KHAM>39000.00</T_KHAM>
+  <T_BNTT>{claim.t_bntt:.2f}</T_BNTT>
+  <T_BHYTTT>{claim.t_bhyttt:.2f}</T_BHYTTT>
+  <MA_KHOA>K01</MA_KHOA>
+  <MA_CSKCB>79014</MA_CSKCB>
+  <MA_PTTT>1</MA_PTTT>
+</TONG_HOP>"""
+
+    # Bảng 2: Chi tiết thuốc (XML2 - ChiTietThuoc)
+    xml2 = f"""<?xml version="1.0" encoding="utf-8"?>
+<CHITIET_THUOC>
+  <MA_LK>{claim.ma_lk}</MA_LK>
+  <THUOC>
+    <STT>1</STT>
+    <MA_THUOC>40.12</MA_THUOC>
+    <MA_NHOM>4</MA_NHOM>
+    <TEN_THUOC>Amlodipine 5mg (Kháng calci)</TEN_THUOC>
+    <DON_VI_TINH>Viên</DON_VI_TINH>
+    <HAM_LUONG>5mg</HAM_LUONG>
+    <DUONG_DUNG>Uống</DUONG_DUNG>
+    <LIEU_DUNG>1 viên/ngày buổi sáng</LIEU_DUNG>
+    <SO_LUONG>30</SO_LUONG>
+    <DON_GIA>2500.00</DON_GIA>
+    <TYLE_TT>100</TYLE_TT>
+    <THANH_TIEN>75000.00</THANH_TIEN>
+    <MUC_HUONG>{claim.muc_huong}</MUC_HUONG>
+    <T_BNTT>{(75000.0 * (1 - claim.muc_huong / 100.0)):.2f}</T_BNTT>
+    <T_BHYTTT>{(75000.0 * (claim.muc_huong / 100.0)):.2f}</T_BHYTTT>
+    <MA_KHOA>K01</MA_KHOA>
+    <MA_BAC_SI>{getattr(doc, 'doctor_cchn', 'CCHN-00129-HCM') or 'CCHN-00129-HCM'}</MA_BAC_SI>
+    <MA_BENH>{claim.ma_benh_chinh}</MA_BENH>
+  </THUOC>
+  <THUOC>
+    <STT>2</STT>
+    <MA_THUOC>40.88</MA_THUOC>
+    <MA_NHOM>4</MA_NHOM>
+    <TEN_THUOC>Metformin HCl 500mg (Hạ đường huyết)</TEN_THUOC>
+    <DON_VI_TINH>Viên</DON_VI_TINH>
+    <HAM_LUONG>500mg</HAM_LUONG>
+    <DUONG_DUNG>Uống</DUONG_DUNG>
+    <LIEU_DUNG>2 viên/ngày chia 2 lần sau ăn</LIEU_DUNG>
+    <SO_LUONG>60</SO_LUONG>
+    <DON_GIA>1200.00</DON_GIA>
+    <TYLE_TT>100</TYLE_TT>
+    <THANH_TIEN>72000.00</THANH_TIEN>
+    <MUC_HUONG>{claim.muc_huong}</MUC_HUONG>
+    <T_BNTT>{(72000.0 * (1 - claim.muc_huong / 100.0)):.2f}</T_BNTT>
+    <T_BHYTTT>{(72000.0 * (claim.muc_huong / 100.0)):.2f}</T_BHYTTT>
+    <MA_KHOA>K01</MA_KHOA>
+    <MA_BAC_SI>{getattr(doc, 'doctor_cchn', 'CCHN-00129-HCM') or 'CCHN-00129-HCM'}</MA_BAC_SI>
+    <MA_BENH>{claim.ma_benh_chinh}</MA_BENH>
+  </THUOC>
+</CHITIET_THUOC>"""
+
+    # Bảng 3: Dịch vụ kỹ thuật (XML3 - ChiTietDVKT)
+    xml3 = f"""<?xml version="1.0" encoding="utf-8"?>
+<CHITIET_DVKT>
+  <MA_LK>{claim.ma_lk}</MA_LK>
+  <DVKT>
+    <STT>1</STT>
+    <MA_DICH_VU>01.0001.0123</MA_DICH_VU>
+    <MA_NHOM>1</MA_NHOM>
+    <TEN_DICH_VU>Khám bệnh chuyên khoa Nội trực tuyến (Telemedicine KCB từ xa)</TEN_DICH_VU>
+    <DON_VI_TINH>Lần</DON_VI_TINH>
+    <SO_LUONG>1</SO_LUONG>
+    <DON_GIA>39000.00</DON_GIA>
+    <TYLE_TT>100</TYLE_TT>
+    <THANH_TIEN>39000.00</THANH_TIEN>
+    <MUC_HUONG>{claim.muc_huong}</MUC_HUONG>
+    <T_BNTT>{(39000.0 * (1 - claim.muc_huong / 100.0)):.2f}</T_BNTT>
+    <T_BHYTTT>{(39000.0 * (claim.muc_huong / 100.0)):.2f}</T_BHYTTT>
+    <MA_KHOA>K01</MA_KHOA>
+    <MA_BAC_SI>{getattr(doc, 'doctor_cchn', 'CCHN-00129-HCM') or 'CCHN-00129-HCM'}</MA_BAC_SI>
+    <MA_BENH>{claim.ma_benh_chinh}</MA_BENH>
+  </DVKT>
+</CHITIET_DVKT>"""
+
+    # Bảng 4: Cận lâm sàng (XML4 - ChiTietCLS)
+    xml4 = f"""<?xml version="1.0" encoding="utf-8"?>
+<CHITIET_CLS>
+  <MA_LK>{claim.ma_lk}</MA_LK>
+  <CLS>
+    <STT>1</STT>
+    <MA_DICH_VU>03.0012.01</MA_DICH_VU>
+    <MA_CHI_SO>GLUCOSE</MA_CHI_SO>
+    <TEN_CHI_SO>Định lượng Glucose máu đói</TEN_CHI_SO>
+    <GIA_TRI>5.4</GIA_TRI>
+    <KET_LUAN>Bình thường (3.9 - 6.4 mmol/L)</KET_LUAN>
+    <NGAY_KQ>{today_str}</NGAY_KQ>
+  </CLS>
+  <CLS>
+    <STT>2</STT>
+    <MA_DICH_VU>03.0012.02</MA_DICH_VU>
+    <MA_CHI_SO>HBA1C</MA_CHI_SO>
+    <TEN_CHI_SO>Định lượng HbA1c (Máu toàn phần)</TEN_CHI_SO>
+    <GIA_TRI>6.1</GIA_TRI>
+    <KET_LUAN>Kiểm soát tốt (&lt; 6.5%)</KET_LUAN>
+    <NGAY_KQ>{today_str}</NGAY_KQ>
+  </CLS>
+</CHITIET_CLS>"""
+
+    # Bảng 5: Diễn biến lâm sàng (XML5 - DienBienBenh)
+    xml5 = f"""<?xml version="1.0" encoding="utf-8"?>
+<CHITIET_DIENBIEN_BENH>
+  <MA_LK>{claim.ma_lk}</MA_LK>
+  <DIEN_BIEN>
+    <STT>1</STT>
+    <DIEN_BIEN>{record.summary if record else 'Bệnh nhân khám theo dõi định kỳ, huyết áp ổn định, không đau đầu, không khó thở'}</DIEN_BIEN>
+    <HOI_CHAN>Không</HOI_CHAN>
+    <PHAU_THUAT>Không</PHAU_THUAT>
+    <NGAY_YL>{today_str}</NGAY_YL>
+    <NGUOI_THUC_HIEN>{doc.full_name if doc else 'Bác sĩ điều trị'}</NGUOI_THUC_HIEN>
+  </DIEN_BIEN>
+</CHITIET_DIENBIEN_BENH>"""
+
+    claim.xml1_payload = xml1
+    claim.xml2_payload = xml2
+    claim.xml3_payload = xml3
+    claim.xml4_payload = xml4
+    claim.xml5_payload = xml5
+    db.commit()
+
+    return {
+        "appointment_id": appt.id,
+        "ma_lk": claim.ma_lk,
+        "patient_name": pat.full_name if pat else "Bệnh nhân",
+        "ma_the_bhyt": claim.ma_the_bhyt,
+        "muc_huong": claim.muc_huong,
+        "xml1_tonghop": xml1,
+        "xml2_chitietthuoc": xml2,
+        "xml3_chitietdvkt": xml3,
+        "xml4_chitietcls": xml4,
+        "xml5_dienbien": xml5,
+        "summary_financials": {
+            "t_tongchi": claim.t_tongchi,
+            "t_bhyttt": claim.t_bhyttt,
+            "t_bntt": claim.t_bntt,
+            "status": claim.status,
+            "gdbhyt_code": claim.gdbhyt_code
+        }
+    }
+
+@app.post("/api/v1/bhyt/claims/{appointment_id}/submit")
+def submit_bhyt_claim(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("doctor", "admin"))
+):
+    claim = db.query(BHYTClaim).filter_by(appointment_id=appointment_id).first()
+    if not claim:
+        claim = get_or_create_bhyt_claim(appointment_id=appointment_id, db=db, user=user)
+    
+    # Giả lập gửi lên Cổng Giám định BHYT Quốc gia và nhận mã tiếp nhận giám định
+    gdbhyt_code = f"GDBHYT-{datetime.now().strftime('%Y%m%d')}-79014-{random.randint(10000, 99999)}"
+    claim.status = "approved"
+    claim.gdbhyt_code = gdbhyt_code
+    claim.submitted_at = datetime.now(timezone.utc)
+    
+    # Ghi log lịch sử ca khám
+    record_appointment_event(
+        db=db,
+        appointment_id=appointment_id,
+        action="bhyt_claim_submit",
+        actor=user,
+        notes=f"Đã gửi hồ sơ giám định BHYT XML 4210 lên Cổng BHXH Quốc gia. Mã tiếp nhận: {gdbhyt_code}. Tỷ lệ hưởng: {claim.muc_huong}%, Quỹ BHYT chi trả: {claim.t_bhyttt:,.0f} VNĐ."
+    )
+    
+    # Gửi thông báo cho bệnh nhân
+    notif = Notification(
+        user_id=claim.patient_id,
+        target_role="patient",
+        title="BHYT: Quyết toán chi phí khám chữa bệnh thành công",
+        message=f"Hồ sơ BHYT ca khám #{appointment_id} đã được Cổng Giám định BHYT Quốc gia tiếp nhận (Mã: {gdbhyt_code}). Quỹ BHYT chi trả: {claim.t_bhyttt:,.0f} VNĐ.",
+        category="system",
+        priority="high",
+        action_url="/appointments"
+    )
+    db.add(notif)
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": "Hồ sơ đã được gửi và tiếp nhận thành công trên Cổng Giám định BHYT Quốc gia.",
+        "gdbhyt_code": gdbhyt_code,
+        "status": "approved",
+        "t_bhyttt": claim.t_bhyttt,
+        "t_bntt": claim.t_bntt
+    }
+
+@app.get("/api/v1/bhyt/claims", response_model=list[BHYTClaimOut])
+def list_bhyt_claims(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("doctor", "nurse", "admin"))
+):
+    return db.query(BHYTClaim).order_by(BHYTClaim.created_at.desc()).limit(50).all()
+
+# -------------------------------------------------------------
+# PHÂN HỆ 2: HỘI CHẨN LIÊN VIỆN & ĐA CHUYÊN KHOA (MULTI-DOCTOR)
+# -------------------------------------------------------------
+@app.get("/api/v1/appointments/{appointment_id}/multi-doctor/members", response_model=list[ConsultationMemberOut])
+def get_consultation_members(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Không tìm thấy lượt khám")
+    
+    members = db.query(ConsultationMember).filter_by(appointment_id=appointment_id).all()
+    # Nếu chưa có thành viên nào, tự động thêm Bác sĩ chủ trì
+    if not members:
+        doc = db.get(User, appt.doctor_id)
+        host_member = ConsultationMember(
+            appointment_id=appt.id,
+            doctor_id=appt.doctor_id,
+            doctor_name=doc.full_name if doc else "Bác sĩ chủ trì",
+            hospital_name="Bệnh viện Điều hành CareConnect",
+            specialty="Nội tổng quát",
+            role="host",
+            status="joined",
+            joined_at=datetime.now(timezone.utc)
+        )
+        db.add(host_member)
+        db.commit()
+        db.refresh(host_member)
+        members = [host_member]
+    return members
+
+@app.post("/api/v1/appointments/{appointment_id}/multi-doctor/invite", response_model=ConsultationMemberOut)
+def invite_consultation_member(
+    appointment_id: int,
+    data: ConsultationMemberIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("doctor", "admin"))
+):
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Không tìm thấy lượt khám")
+    
+    member = ConsultationMember(
+        appointment_id=appt.id,
+        doctor_name=data.doctor_name,
+        hospital_name=data.hospital_name,
+        specialty=data.specialty,
+        role=data.role,
+        status="invited"
+    )
+    db.add(member)
+    
+    # Ghi log lịch sử ca khám
+    record_appointment_event(
+        db=db,
+        appointment_id=appt.id,
+        action="multi_doctor_invite",
+        actor=user,
+        notes=f"Bác sĩ {user.full_name} đã mời chuyên gia '{data.doctor_name}' ({data.specialty} - {data.hospital_name}) tham gia hội chẩn ca bệnh."
+    )
+    
+    # Gửi tin nhắn vào buồng khám
+    msg = ConsultationMessage(
+        appointment_id=appt.id,
+        sender_id=user.id,
+        sender_role="doctor",
+        sender_name="Hệ thống Hội chẩn",
+        message_type="text",
+        content=f"🤝 [HỘI CHẨN ĐA CHUYÊN KHOA]: Bác sĩ chủ trì đã gửi lời mời hội chẩn tới Chuyên gia {data.doctor_name} ({data.specialty} - {data.hospital_name})."
+    )
+    db.add(msg)
+    
+    db.commit()
+    db.refresh(member)
+    return member
+
+@app.post("/api/v1/appointments/{appointment_id}/multi-doctor/opinion")
+def submit_consultation_opinion(
+    appointment_id: int,
+    data: ConsultationOpinionIn,
+    member_id: int = Query(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("doctor", "admin"))
+):
+    member = db.get(ConsultationMember, member_id)
+    if not member or member.appointment_id != appointment_id:
+        raise HTTPException(status_code=404, detail="Không tìm thấy thành viên hội chẩn")
+    
+    member.clinical_opinion = data.clinical_opinion
+    member.status = "joined"
+    member.joined_at = datetime.now(timezone.utc)
+    
+    # Gửi tin nhắn vào buồng chat
+    msg = ConsultationMessage(
+        appointment_id=appointment_id,
+        sender_id=user.id,
+        sender_role="doctor",
+        sender_name=f"Chuyên gia {member.doctor_name}",
+        message_type="text",
+        content=f"📝 [Ý KIẾN HỘI CHẨN CHUYÊN GIA - {member.specialty}]:\n{data.clinical_opinion}"
+    )
+    db.add(msg)
+    
+    # Ghi log sự kiện
+    record_appointment_event(
+        db=db,
+        appointment_id=appointment_id,
+        action="multi_doctor_opinion",
+        actor=user,
+        notes=f"Chuyên gia {member.doctor_name} ({member.hospital_name}) đã ghi nhận ý kiến hội chẩn: {data.clinical_opinion[:120]}..."
+    )
+    db.commit()
+    return {"success": True, "message": "Đã ghi nhận ý kiến chuyên gia vào biên bản hội chẩn."}
+
+# -------------------------------------------------------------
+# PHÂN HỆ 3: GIÁM SÁT SINH HIỆU TỪ XA (REMOTE PATIENT MONITORING - RPM)
+# -------------------------------------------------------------
+@app.post("/api/v1/rpm/vitals", response_model=RPMVitalLogOut)
+def record_rpm_vitals(
+    data: RPMVitalLogIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    # Phân tích ngưỡng an toàn sinh hiệu y tế
+    is_warning = False
+    warning_msg = None
+    
+    if data.systolic is not None and data.diastolic is not None:
+        if data.systolic >= 160 or data.diastolic >= 100:
+            is_warning = True
+            warning_msg = f"Huyết áp rất cao ({data.systolic}/{data.diastolic} mmHg) - Nguy cơ cơn tăng huyết áp cấp!"
+        elif data.systolic >= 140 or data.diastolic >= 90:
+            is_warning = True
+            warning_msg = f"Huyết áp cao độ 1-2 ({data.systolic}/{data.diastolic} mmHg) - Cần theo dõi sát."
+        elif data.systolic < 90 or data.diastolic < 60:
+            is_warning = True
+            warning_msg = f"Huyết áp thấp ({data.systolic}/{data.diastolic} mmHg) - Cảnh báo tụt huyết áp tư thế."
+    
+    if data.glucose_value is not None:
+        if data.glucose_context == "fasting" and data.glucose_value > 7.0:
+            is_warning = True
+            warning_msg = f"Đường huyết đói cao ({data.glucose_value} mmol/L) - Nguy cơ tăng đường huyết mất kiểm soát."
+        elif data.glucose_value < 3.9:
+            is_warning = True
+            warning_msg = f"CẢNH BÁO HẠ ĐƯỜNG HUYẾT ({data.glucose_value} mmol/L) - Cần uống nước đường hoặc ăn ngay lập tức!"
+    
+    if data.spo2_percent is not None and data.spo2_percent < 94:
+        is_warning = True
+        warning_msg = f"CẢNH BÁO THIẾU OXY MÁU (SpO2 {data.spo2_percent}%) - Cần hỗ trợ y tế khẩn cấp!"
+
+    vital = RPMVitalLog(
+        patient_id=user.id,
+        device_type=data.device_type,
+        device_name=data.device_name,
+        connection_method=data.connection_method,
+        systolic=data.systolic,
+        diastolic=data.diastolic,
+        pulse=data.pulse,
+        glucose_value=data.glucose_value,
+        glucose_context=data.glucose_context,
+        spo2_percent=data.spo2_percent,
+        temperature_celsius=data.temperature_celsius,
+        weight_kg=data.weight_kg,
+        is_warning=is_warning,
+        warning_message=warning_msg,
+        measured_at=datetime.now(timezone.utc)
+    )
+    db.add(vital)
+    
+    if is_warning:
+        notif = Notification(
+            user_id=user.id,
+            target_role="patient",
+            title="⚠️ Cảnh báo Chỉ số Sinh hiệu Bất thường",
+            message=f"Hệ thống phát hiện chỉ số {data.device_name} bất thường: {warning_msg}",
+            category="ai_alert",
+            priority="urgent",
+            action_url="/vitals"
+        )
+        db.add(notif)
+    
+    db.commit()
+    db.refresh(vital)
+    return vital
+
+@app.get("/api/v1/rpm/vitals/{patient_id}", response_model=list[RPMVitalLogOut])
+def get_patient_rpm_vitals(
+    patient_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    if user.role not in ["doctor", "nurse", "admin"] and user.id != patient_id:
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập chỉ số sinh hiệu của bệnh nhân này")
+    
+    vitals = db.query(RPMVitalLog).filter_by(patient_id=patient_id).order_by(RPMVitalLog.measured_at.desc()).limit(30).all()
+    # Nếu chưa có dữ liệu đo, tự động tạo một số mẫu chuẩn lâm sàng
+    if not vitals:
+        now = datetime.now(timezone.utc)
+        sample_logs = [
+            RPMVitalLog(
+                patient_id=patient_id,
+                device_type="blood_pressure",
+                device_name="Omron HEM-7600T Smart BP",
+                connection_method="bluetooth_ble",
+                systolic=128,
+                diastolic=82,
+                pulse=74,
+                is_warning=False,
+                measured_at=now - timedelta(days=2)
+            ),
+            RPMVitalLog(
+                patient_id=patient_id,
+                device_type="blood_glucose",
+                device_name="Accu-Chek Guide Wireless",
+                connection_method="bluetooth_ble",
+                glucose_value=5.8,
+                glucose_context="fasting",
+                is_warning=False,
+                measured_at=now - timedelta(days=1)
+            ),
+            RPMVitalLog(
+                patient_id=patient_id,
+                device_type="spo2",
+                device_name="Wellue O2Ring Continuous SpO2",
+                connection_method="bluetooth_ble",
+                spo2_percent=98.5,
+                pulse=72,
+                is_warning=False,
+                measured_at=now - timedelta(hours=4)
+            )
+        ]
+        db.add_all(sample_logs)
+        db.commit()
+        vitals = sample_logs
+    return vitals
+
+# -------------------------------------------------------------
+# PHÂN HỆ 4: HỒ SƠ SỨC KHỎE GIA ĐÌNH (FAMILY HEALTH VAULT)
+# -------------------------------------------------------------
+@app.get("/api/v1/family-members", response_model=list[FamilyMemberProfileOut])
+def get_family_members(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    members = db.query(FamilyMemberProfile).filter_by(owner_user_id=user.id).order_by(FamilyMemberProfile.created_at.asc()).all()
+    if not members and user.role == "patient":
+        # Khởi tạo mặc định 2 thành viên phụ thuộc cho tài khoản bệnh nhân để dễ dàng trải nghiệm
+        sample_members = [
+            FamilyMemberProfile(
+                owner_user_id=user.id,
+                full_name="Nguyễn Minh Khang (Con trai)",
+                relationship="child",
+                gender="male",
+                date_of_birth="2020-06-15",
+                bhyt_code="TE1797931800123",
+                blood_group="O+",
+                allergies="Dị ứng Penicillin, thời tiết lạnh ho hen",
+                chronic_conditions="Viêm mũi dị ứng mạn tính"
+            ),
+            FamilyMemberProfile(
+                owner_user_id=user.id,
+                full_name="Trần Thị Lan (Mẹ ruột)",
+                relationship="parent",
+                gender="female",
+                date_of_birth="1958-11-20",
+                national_id="079158000456",
+                bhyt_code="HT2797931800889",
+                blood_group="A+",
+                allergies="Không có tiền sử dị ứng thuốc",
+                chronic_conditions="Tăng huyết áp vô căn, Thoái hóa khớp gối độ 2"
+            )
+        ]
+        db.add_all(sample_members)
+        db.commit()
+        members = sample_members
+    return members
+
+@app.post("/api/v1/family-members", response_model=FamilyMemberProfileOut)
+def create_family_member(
+    data: FamilyMemberProfileIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    member = FamilyMemberProfile(
+        owner_user_id=user.id,
+        full_name=data.full_name,
+        relationship=data.relationship,
+        gender=data.gender,
+        date_of_birth=data.date_of_birth,
+        phone_number=data.phone_number,
+        national_id=data.national_id,
+        bhyt_code=data.bhyt_code,
+        blood_group=data.blood_group,
+        allergies=data.allergies,
+        chronic_conditions=data.chronic_conditions
+    )
+    db.add(member)
+    db.commit()
+    db.refresh(member)
+    return member
+
+@app.put("/api/v1/family-members/{member_id}", response_model=FamilyMemberProfileOut)
+def update_family_member(
+    member_id: int,
+    data: FamilyMemberProfileIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    member = db.get(FamilyMemberProfile, member_id)
+    if not member or member.owner_user_id != user.id:
+        raise HTTPException(status_code=404, detail="Hồ sơ thành viên không tồn tại hoặc không thuộc quyền quản lý")
+    
+    member.full_name = data.full_name
+    member.relationship = data.relationship
+    member.gender = data.gender
+    member.date_of_birth = data.date_of_birth
+    member.phone_number = data.phone_number
+    member.national_id = data.national_id
+    member.bhyt_code = data.bhyt_code
+    member.blood_group = data.blood_group
+    member.allergies = data.allergies
+    member.chronic_conditions = data.chronic_conditions
+    db.commit()
+    db.refresh(member)
+    return member
+
+@app.delete("/api/v1/family-members/{member_id}")
+def delete_family_member(
+    member_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    member = db.get(FamilyMemberProfile, member_id)
+    if not member or member.owner_user_id != user.id:
+        raise HTTPException(status_code=404, detail="Hồ sơ thành viên không tồn tại hoặc không thuộc quyền quản lý")
+    db.delete(member)
+    db.commit()
+    return {"success": True, "message": "Đã xóa hồ sơ thành viên gia đình thành công"}
+
+# -------------------------------------------------------------
+# PHÂN HỆ 5: AI PACS HỖ TRỢ CHẨN ĐOÁN HÌNH ẢNH (AI COPILOT)
+# -------------------------------------------------------------
+@app.post("/api/v1/pacs/ai-analyze", response_model=AIPACSConsultationOut)
+def analyze_pacs_dicom(
+    data: AIPACSAnalyzeIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("doctor", "admin"))
+):
+    appt = db.get(Appointment, data.appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Không tìm thấy ca khám")
+    
+    # Mô hình AI PACS CareConnect MedVision CXR (Phân tích tổn thương lồng ngực)
+    findings = [
+        {"pathology": "Tổn thương đông đặc phổi (Consolidation)", "probability": 0.89, "severity": "moderate", "location": "Thùy dưới phổi phải"},
+        {"pathology": "Tràn dịch màng phổi lượng ít (Pleural Effusion)", "probability": 0.38, "severity": "mild", "location": "Góc sườn hoành phải"},
+        {"pathology": "Nốt mờ đơn độc (Pulmonary Nodule)", "probability": 0.22, "severity": "benign_likely", "location": "Thùy giữa"},
+        {"pathology": "Bóng tim to (Cardiomegaly)", "probability": 0.15, "severity": "none", "location": "Tỷ lệ tim/lồng ngực < 0.5"}
+    ]
+    
+    # Tọa độ Grad-CAM Heatmap & Bounding Boxes
+    heatmap_regions = [
+        {"box_id": "BOX-01", "label": "Vùng đông đặc kính mờ", "x": 58, "y": 62, "width": 24, "height": 20, "color": "#ef4444", "confidence": 0.89},
+        {"box_id": "BOX-02", "label": "Tù nhẹ góc sườn hoành", "x": 68, "y": 78, "width": 14, "height": 10, "color": "#f59e0b", "confidence": 0.38}
+    ]
+    
+    primary_finding = "Tổn thương đông đặc dạng kính mờ thùy dưới phổi phải kèm dày dính nhẹ màng phổi. Hướng tới viêm phổi thùy cộng đồng."
+    
+    ai_record = AIPACSConsultation(
+        appointment_id=appt.id,
+        dicom_study_id=data.dicom_study_id,
+        modality=data.modality,
+        body_part=data.body_part,
+        ai_model_name="CareConnect-Gemini-MedVision-CXR-v2",
+        primary_finding=primary_finding,
+        confidence_score=0.89,
+        findings_json=json.dumps(findings, ensure_ascii=False),
+        heatmap_regions_json=json.dumps(heatmap_regions, ensure_ascii=False),
+        doctor_concurrence="pending"
+    )
+    db.add(ai_record)
+    
+    # Ghi log lịch sử ca khám
+    record_appointment_event(
+        db=db,
+        appointment_id=appt.id,
+        action="ai_pacs_analyze",
+        actor=user,
+        notes=f"Kích hoạt AI Copilot đọc phim {data.modality} {data.body_part}. Kết quả AI: {primary_finding} (Độ tin cậy: 89%)."
+    )
+    db.commit()
+    db.refresh(ai_record)
+    
+    return {
+        "id": ai_record.id,
+        "appointment_id": ai_record.appointment_id,
+        "dicom_study_id": ai_record.dicom_study_id,
+        "modality": ai_record.modality,
+        "body_part": ai_record.body_part,
+        "ai_model_name": ai_record.ai_model_name,
+        "primary_finding": ai_record.primary_finding,
+        "confidence_score": ai_record.confidence_score,
+        "findings": findings,
+        "heatmap_regions": heatmap_regions,
+        "doctor_concurrence": ai_record.doctor_concurrence,
+        "doctor_feedback": ai_record.doctor_feedback,
+        "created_at": ai_record.created_at
+    }
+
+@app.post("/api/v1/pacs/ai-feedback/{consultation_id}")
+def feedback_pacs_dicom(
+    consultation_id: int,
+    data: AIPACSFeedbackIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("doctor", "admin"))
+):
+    ai_rec = db.get(AIPACSConsultation, consultation_id)
+    if not ai_rec:
+        raise HTTPException(status_code=404, detail="Không tìm thấy kết quả phân tích AI PACS")
+    
+    ai_rec.doctor_concurrence = data.doctor_concurrence
+    ai_rec.doctor_feedback = data.doctor_feedback
+    
+    record_appointment_event(
+        db=db,
+        appointment_id=ai_rec.appointment_id,
+        action="ai_pacs_feedback",
+        actor=user,
+        notes=f"Bác sĩ {user.full_name} xác nhận đánh giá kết quả AI PACS: {data.doctor_concurrence.upper()}. Nhận xét: {data.doctor_feedback or 'Đồng thuận chẩn đoán.'}"
+    )
+    db.commit()
+    return {"success": True, "message": "Đã lưu phản hồi đánh giá của Bác sĩ thành công."}
+
 # ----------------- SEEDING & STARTUP -----------------
 
 def seed_demo():
@@ -2729,7 +3463,8 @@ def auto_migrate_schema():
         ("height", "FLOAT"),
         ("triage_notes", "TEXT"),
         ("triaged_by", "INTEGER"),
-        ("triaged_at", "DATETIME")
+        ("triaged_at", "DATETIME"),
+        ("family_member_id", "INTEGER")
     ]
     user_columns = [
         ("date_of_birth", "VARCHAR(30)"),

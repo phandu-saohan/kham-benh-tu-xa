@@ -5,7 +5,7 @@ import {
   Plus, X, Phone, Lock, Stethoscope, AlertCircle, RefreshCw, QrCode,
   FileDown, ExternalLink, PenTool, Building2, Sparkles, CheckCircle2,
   HelpCircle, ShieldAlert, Undo2, Activity, Settings, ScanLine,
-  Mail, Eye, EyeOff, UserPlus, ChevronRight
+  Mail, Eye, EyeOff, UserPlus, ChevronRight, Users, FileCheck, Check, Trash2, Download
 } from 'lucide-react'
 import {
   login, sendOtp, verifyOtp, loginWithFirebaseToken, getFirebaseConfig, request, cancelAppointment,
@@ -14,8 +14,11 @@ import {
   checkIncomingCall, declineIncomingCall,
   checkTriageSymptoms, type TriageSymptomResult,
   getPatientLabResults, getPatientPacsStudies, getMyLabResults, getMyPacsStudies,
+  getFamilyMembers, createFamilyMember, deleteFamilyMember,
+  recordRPMVitals, getPatientRPMVitals, listBHYTClaims, submitBHYTClaim, getBHYTXML4210,
   type Appointment, type User, type Department, type DoctorShift,
-  type BhytCheckOut, type IncomingCallData, type LabResultsData, type PACSStudiesData
+  type BhytCheckOut, type IncomingCallData, type LabResultsData, type PACSStudiesData,
+  type FamilyMemberItem, type RPMVitalItem, type BHYTClaimItem, type BHYTXML4210Package
 } from './api'
 import {
   isFirebaseConfigured, setupRecaptcha, sendFirebaseOtp, verifyFirebaseOtp, setFirebaseRuntimeConfig
@@ -90,6 +93,159 @@ export default function App() {
 
   // Cuộc gọi đến từ Bác sĩ (Incoming Call Ringing)
   const [incomingCall, setIncomingCall] = useState<IncomingCallData | null>(null)
+
+  // Hồ sơ Sức khỏe Gia đình (Family Health Vault)
+  const [familyMembers, setFamilyMembers] = useState<FamilyMemberItem[]>([])
+  const [loadingFamily, setLoadingFamily] = useState(false)
+  const [showAddFamilyModal, setShowAddFamilyModal] = useState(false)
+  const [famName, setFamName] = useState('')
+  const [famRel, setFamRel] = useState('child')
+  const [famGender, setFamGender] = useState('male')
+  const [famDob, setFamDob] = useState('2020-06-15')
+  const [famBhyt, setFamBhyt] = useState('')
+  const [famBlood, setFamBlood] = useState('O+')
+  const [famAllergies, setFamAllergies] = useState('')
+  const [famConditions, setFamConditions] = useState('')
+  const [savingFamily, setSavingFamily] = useState(false)
+
+  // Giám sát Sinh hiệu Từ xa (RPM IoT)
+  const [rpmVitals, setRpmVitals] = useState<RPMVitalItem[]>([])
+  const [loadingVitals, setLoadingVitals] = useState(false)
+  const [vitalSys, setVitalSys] = useState(128)
+  const [vitalDia, setVitalDia] = useState(82)
+  const [vitalPulse, setVitalPulse] = useState(74)
+  const [vitalGlucose, setVitalGlucose] = useState(5.8)
+  const [vitalSpo2, setVitalSpo2] = useState(98)
+  const [savingVital, setSavingVital] = useState(false)
+
+  // Giám định BHYT XML 4210 (Toàn viện)
+  const [bhytClaimsList, setBhytClaimsList] = useState<BHYTClaimItem[]>([])
+  const [loadingClaims, setLoadingClaims] = useState(false)
+  const [xmlModalPkg, setXmlModalPkg] = useState<BHYTXML4210Package | null>(null)
+  const [submittingClaimId, setSubmittingClaimId] = useState<number | null>(null)
+
+  async function loadFamily() {
+    try {
+      setLoadingFamily(true)
+      const data = await getFamilyMembers()
+      setFamilyMembers(data)
+    } catch (err: any) {
+      console.error('Lỗi tải hồ sơ gia đình:', err)
+    } finally {
+      setLoadingFamily(false)
+    }
+  }
+
+  async function handleAddFamily() {
+    if (!famName.trim()) {
+      setError('Vui lòng nhập họ và tên người thân')
+      return
+    }
+    try {
+      setSavingFamily(true)
+      await createFamilyMember({
+        full_name: famName.trim(),
+        relationship: famRel,
+        gender: famGender,
+        date_of_birth: famDob,
+        bhyt_code: famBhyt.trim() || undefined,
+        blood_group: famBlood,
+        allergies: famAllergies.trim() || undefined,
+        chronic_conditions: famConditions.trim() || undefined
+      })
+      setToast(`👨‍👩‍👧 Đã thêm hồ sơ ${famName} vào Gia đình`)
+      setShowAddFamilyModal(false)
+      setFamName('')
+      setFamBhyt('')
+      setFamAllergies('')
+      setFamConditions('')
+      loadFamily()
+    } catch (err: any) {
+      setError(err.message || 'Lỗi thêm thành viên gia đình')
+    } finally {
+      setSavingFamily(false)
+    }
+  }
+
+  async function handleDeleteFamily(id: number) {
+    if (!confirm('Bạn có chắc chắn muốn xóa hồ sơ thành viên này?')) return
+    try {
+      await deleteFamilyMember(id)
+      setToast('Đã xóa hồ sơ thành viên thành công')
+      loadFamily()
+    } catch (err: any) {
+      setError(err.message || 'Lỗi xóa hồ sơ')
+    }
+  }
+
+  async function loadVitals() {
+    if (!user) return
+    try {
+      setLoadingVitals(true)
+      const data = await getPatientRPMVitals(user.id)
+      setRpmVitals(data)
+    } catch (err: any) {
+      console.error('Lỗi tải sinh hiệu:', err)
+    } finally {
+      setLoadingVitals(false)
+    }
+  }
+
+  async function handleSaveVitalManual() {
+    try {
+      setSavingVital(true)
+      await recordRPMVitals({
+        device_type: 'blood_pressure',
+        device_name: 'Omron HEM-7600T Smart BP (Đo tại nhà)',
+        connection_method: 'bluetooth_ble',
+        systolic: Number(vitalSys),
+        diastolic: Number(vitalDia),
+        pulse: Number(vitalPulse),
+        glucose_value: Number(vitalGlucose),
+        spo2_percent: Number(vitalSpo2)
+      })
+      setToast('📊 Đã ghi nhận dữ liệu đo sinh hiệu thành công')
+      loadVitals()
+    } catch (err: any) {
+      setError(err.message || 'Lỗi lưu sinh hiệu')
+    } finally {
+      setSavingVital(false)
+    }
+  }
+
+  async function loadClaims() {
+    try {
+      setLoadingClaims(true)
+      const data = await listBHYTClaims()
+      setBhytClaimsList(data)
+    } catch (err: any) {
+      console.error('Lỗi tải danh sách BHYT:', err)
+    } finally {
+      setLoadingClaims(false)
+    }
+  }
+
+  async function handleSubmitClaim(appointmentId: number) {
+    try {
+      setSubmittingClaimId(appointmentId)
+      const res = await submitBHYTClaim(appointmentId)
+      setToast(`✅ Đã gửi Cổng Giám định BHYT Quốc gia thành công! Mã tiếp nhận: ${res.gdbhyt_code}`)
+      loadClaims()
+    } catch (err: any) {
+      setError(err.message || 'Lỗi gửi hồ sơ giám định BHYT')
+    } finally {
+      setSubmittingClaimId(null)
+    }
+  }
+
+  async function handleViewXmlPackage(appointmentId: number) {
+    try {
+      const pkg = await getBHYTXML4210(appointmentId)
+      setXmlModalPkg(pkg)
+    } catch (err: any) {
+      setError(err.message || 'Lỗi lấy dữ liệu XML 4210')
+    }
+  }
 
   const [showBooking, setShowBooking] = useState(false)
   const [doctorId, setDoctorId] = useState('')
@@ -170,6 +326,15 @@ export default function App() {
         .then(setPatientPacsData)
         .catch(console.error)
         .finally(() => setLoadingPatientPacs(false))
+    }
+    if (view === 'family') {
+      loadFamily()
+    }
+    if (view === 'vitals') {
+      loadVitals()
+    }
+    if (view === 'insurance') {
+      loadClaims()
     }
   }, [view, user, selectedPatientId])
 
@@ -871,19 +1036,21 @@ export default function App() {
   const navItems = isPatient ? [
     ['overview', 'Tổng quan', HeartPulse],
     ['appointments', 'Lịch khám của tôi', CalendarDays],
+    ['family', 'Hồ sơ Gia đình', Users],
+    ['vitals', 'Sinh hiệu RPM IoT', Activity],
     ['records', 'Hồ sơ bệnh án EMR', FileText],
-    ['insurance', 'Bảo hiểm Y tế (BHYT)', ShieldCheck],
+    ['insurance', 'Bảo hiểm Y tế & XML 4210', ShieldCheck],
     ['payments', 'Thanh toán VietQR', CreditCard],
     ['profile', 'Hồ sơ cá nhân & CCCD', UserRound]
   ] : isDoctor ? [
     ['appointments', 'Hàng đợi khám hôm nay', CalendarDays],
     ['triage', 'Bàn Tiếp đón & Sàng lọc', Activity],
     ['records', 'Tra cứu Bệnh án Toàn viện', FileText],
-    ['insurance', 'Giám định BHYT', ShieldCheck]
+    ['insurance', 'Giám định BHYT & XML 4210', ShieldCheck]
   ] : isNurse ? [
     ['triage', 'Bàn Sàng lọc & Triage Desk', Activity],
     ['appointments', 'Lịch hẹn cần điều phối', CalendarDays],
-    ['insurance', 'Giám định BHYT trực tuyến', ShieldCheck],
+    ['insurance', 'Giám định BHYT & XML 4210', ShieldCheck],
     ['records', 'Tra cứu Bệnh án', FileText]
   ] : [
     ['admin-settings', '⚙️ Cấu hình Hệ thống', Settings],
@@ -893,7 +1060,7 @@ export default function App() {
     ['admin-audit', '📜 Nhật ký Kiểm toán', FileText],
     ['appointments', '📅 Giám sát Lịch khám', CalendarDays],
     ['triage', '🏥 Bàn Tiếp đón Triage', Activity],
-    ['insurance', '🛡️ Giám định Thẻ BHYT', ShieldCheck],
+    ['insurance', '🛡️ Giám định BHYT & XML 4210', ShieldCheck],
     ['payments', '💳 Đối soát Viện phí VietQR', CreditCard]
   ]
 
@@ -901,8 +1068,10 @@ export default function App() {
   const mobileNavItems = isPatient ? [
     ['overview', 'Tổng quan', HeartPulse],
     ['appointments', 'Lịch khám', CalendarDays],
+    ['family', 'Gia đình', Users],
+    ['vitals', 'Sinh hiệu', Activity],
     ['records', 'Bệnh án', FileText],
-    ['insurance', 'Bảo hiểm', ShieldCheck],
+    ['insurance', 'BHYT', ShieldCheck],
     ['profile', 'Hồ sơ', UserRound]
   ] : isDoctor ? [
     ['appointments', 'Hàng đợi', CalendarDays],
@@ -1834,7 +2003,516 @@ export default function App() {
                 </div>
               ))
             )}
+
+            {/* PHÂN HỆ CỔNG GIÁM ĐỊNH BHYT QUỐC GIA (XML 4210 / QĐ 130) */}
+            <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '2px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '16px', color: '#064e3b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FileCheck size={20} color="#059669" /> Danh sách Hồ sơ Giám định BHYT Quốc gia (XML 4210)
+                  </h4>
+                  <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#64748b' }}>
+                    Xuất gói hồ sơ 5 bảng XML theo Quyết định 4210/QĐ-BYT & liên thông Cổng Giám định BHYT BHXH Việt Nam
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="secondary small-secondary"
+                  onClick={loadClaims}
+                  disabled={loadingClaims}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <RefreshCw size={14} /> Làm mới
+                </button>
+              </div>
+
+              {loadingClaims ? (
+                <p className="muted">Đang tải danh sách hồ sơ BHYT...</p>
+              ) : bhytClaimsList.length === 0 ? (
+                <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', textAlign: 'center', color: '#64748b' }}>
+                  Chưa có hồ sơ đề nghị quyết toán BHYT nào được lập. Bác sĩ sẽ tự động lập hồ sơ khi hoàn tất ca khám trực tuyến.
+                </div>
+              ) : (
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#64748b' }}>
+                        <th style={{ padding: '10px 12px' }}>Mã liên kết (MA_LK)</th>
+                        <th style={{ padding: '10px 12px' }}>Thẻ BHYT</th>
+                        <th style={{ padding: '10px 12px' }}>Mã bệnh (ICD-10)</th>
+                        <th style={{ padding: '10px 12px' }}>Tổng chi phí</th>
+                        <th style={{ padding: '10px 12px' }}>Quỹ BHYT chi</th>
+                        <th style={{ padding: '10px 12px' }}>Người bệnh trả</th>
+                        <th style={{ padding: '10px 12px' }}>Trạng thái Cổng GĐ</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'right' }}>Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bhytClaimsList.map(claim => (
+                        <tr key={claim.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '10px 12px', fontWeight: 700, color: '#0369a1' }}>{claim.ma_lk}</td>
+                          <td style={{ padding: '10px 12px' }}>{claim.ma_the_bhyt} ({claim.muc_huong}%)</td>
+                          <td style={{ padding: '10px 12px' }}><code>{claim.ma_benh_chinh}</code></td>
+                          <td style={{ padding: '10px 12px', fontWeight: 600 }}>{money(claim.t_tongchi)}</td>
+                          <td style={{ padding: '10px 12px', color: '#16a34a', fontWeight: 700 }}>{money(claim.t_bhyttt)}</td>
+                          <td style={{ padding: '10px 12px', color: '#dc2626' }}>{money(claim.t_bntt)}</td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <span style={{
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              background: claim.status === 'approved' ? '#dcfce7' : '#fef3c7',
+                              color: claim.status === 'approved' ? '#15803d' : '#b45309'
+                            }}>
+                              {claim.status === 'approved' ? `Đã duyệt: ${claim.gdbhyt_code || 'OK'}` : 'Chờ gửi giám định'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                              <button
+                                type="button"
+                                className="secondary small-secondary"
+                                onClick={() => handleViewXmlPackage(claim.appointment_id)}
+                                style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                              >
+                                <Eye size={12} /> Xem XML
+                              </button>
+                              {claim.status !== 'approved' && (
+                                <button
+                                  type="button"
+                                  className="primary small-primary"
+                                  onClick={() => handleSubmitClaim(claim.appointment_id)}
+                                  disabled={submittingClaimId === claim.appointment_id}
+                                  style={{ fontSize: '11px', background: '#059669', borderColor: '#059669', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                >
+                                  <Check size={12} /> Gửi Cổng
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </section>
+        )}
+
+        {/* VIEW: HỒ SƠ SỨC KHỎE GIA ĐÌNH (FAMILY HEALTH VAULT) */}
+        {view === 'family' && (
+          <section className="panel page-panel">
+            <div className="panel-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Users size={22} color="#0f766e" /> Hồ sơ Sức khỏe Gia đình (Family Health Vault)
+                </h3>
+                <p>Quản lý sổ y bạ, tiền sử bệnh và đặt lịch khám từ xa cho con nhỏ, bố mẹ già và người thân trong gia đình</p>
+              </div>
+              <button
+                type="button"
+                className="primary"
+                onClick={() => setShowAddFamilyModal(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Plus size={16} /> Thêm thành viên mới
+              </button>
+            </div>
+
+            {loadingFamily ? (
+              <p className="muted">Đang tải danh sách hồ sơ gia đình...</p>
+            ) : familyMembers.length === 0 ? (
+              <div style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '12px', padding: '32px', textAlign: 'center' }}>
+                <Users size={40} color="#94a3b8" style={{ margin: '0 auto 12px' }} />
+                <h4 style={{ margin: '0 0 6px', color: '#1e293b' }}>Chưa có hồ sơ người thân nào</h4>
+                <p style={{ margin: '0 0 16px', color: '#64748b', fontSize: '13px' }}>
+                  Thêm hồ sơ con nhỏ hoặc cha mẹ lớn tuổi để theo dõi diễn biến sức khỏe và liên kết thẻ BHYT
+                </p>
+                <button type="button" className="primary" onClick={() => setShowAddFamilyModal(true)}>
+                  <Plus size={16} /> Thêm người thân ngay
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px', marginTop: '16px' }}>
+                {familyMembers.map(member => (
+                  <div key={member.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', position: 'relative' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{
+                          width: '44px',
+                          height: '44px',
+                          borderRadius: '50%',
+                          background: member.relationship === 'child' ? '#fef3c7' : member.relationship === 'parent' ? '#e0f2fe' : '#f3e8ff',
+                          color: member.relationship === 'child' ? '#b45309' : member.relationship === 'parent' ? '#0369a1' : '#7e22ce',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 800,
+                          fontSize: '16px'
+                        }}>
+                          {member.full_name.charAt(0)}
+                        </div>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <h4 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>{member.full_name}</h4>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              background: '#f1f5f9',
+                              color: '#475569',
+                              padding: '2px 8px',
+                              borderRadius: '10px'
+                            }}>
+                              {member.relationship === 'child' ? '👶 Con nhỏ' : member.relationship === 'parent' ? '👵 Cha/Mẹ' : member.relationship === 'spouse' ? '💍 Vợ/Chồng' : '👥 Người thân'}
+                            </span>
+                          </div>
+                          <small style={{ color: '#64748b', fontSize: '12px', display: 'block', marginTop: '2px' }}>
+                            Sinh ngày: <strong>{member.date_of_birth}</strong> · Giới tính: <strong>{member.gender === 'male' ? 'Nam' : 'Nữ'}</strong>
+                          </small>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteFamily(member.id)}
+                        style={{ border: 'none', background: 'transparent', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}
+                        title="Xóa hồ sơ"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+
+                    <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', fontSize: '12px', marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ color: '#64748b' }}>Thẻ BHYT:</span>
+                        <strong>{member.bhyt_code || 'Chưa cập nhật'}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ color: '#64748b' }}>Nhóm máu:</span>
+                        <strong>{member.blood_group || 'O+'}</strong>
+                      </div>
+                      {member.allergies && (
+                        <div style={{ marginTop: '4px', color: '#b91c1c' }}>
+                          ⚠️ <strong>Dị ứng:</strong> {member.allergies}
+                        </div>
+                      )}
+                      {member.chronic_conditions && (
+                        <div style={{ marginTop: '2px', color: '#4338ca' }}>
+                          🏥 <strong>Bệnh nền:</strong> {member.chronic_conditions}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        className="primary small-primary"
+                        onClick={() => {
+                          setReason(`Khám cho ${member.full_name} (${member.relationship})`)
+                          setShowBooking(true)
+                        }}
+                        style={{ flex: 1, fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                      >
+                        <CalendarDays size={14} /> Đặt lịch khám cho {member.full_name.split(' ').slice(-1)[0]}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* VIEW: GIÁM SÁT SINH HIỆU TỪ XA (RPM IoT) */}
+        {view === 'vitals' && (
+          <section className="panel page-panel">
+            <div className="panel-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <HeartPulse size={22} color="#be185d" /> Giám sát Sinh hiệu Từ xa (RPM IoT)
+                </h3>
+                <p>Theo dõi chỉ số sinh hiệu đo tại nhà từ thiết bị y tế Bluetooth (Omron, Accu-Chek, SpO2)</p>
+              </div>
+              <button
+                type="button"
+                className="secondary"
+                onClick={loadVitals}
+                disabled={loadingVitals}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <RefreshCw size={14} /> Làm mới
+              </button>
+            </div>
+
+            {/* Dashboard Vitals Overview */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '20px' }}>
+              <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', borderTop: '4px solid #ef4444' }}>
+                <span style={{ fontSize: '12px', color: '#64748b' }}>Huyết áp (Omron HEM-7600T)</span>
+                <div style={{ fontSize: '26px', fontWeight: 800, color: '#0f172a', margin: '6px 0' }}>
+                  {rpmVitals.find(v => v.systolic)?.systolic || 128} / {rpmVitals.find(v => v.diastolic)?.diastolic || 82} <small style={{ fontSize: '13px', fontWeight: 500 }}>mmHg</small>
+                </div>
+                <div style={{ fontSize: '12px', color: '#16a34a', fontWeight: 600 }}>🟢 Tiền tăng huyết áp - Kiểm soát tốt</div>
+              </div>
+
+              <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', borderTop: '4px solid #f59e0b' }}>
+                <span style={{ fontSize: '12px', color: '#64748b' }}>Đường huyết (Accu-Chek Guide)</span>
+                <div style={{ fontSize: '26px', fontWeight: 800, color: '#0f172a', margin: '6px 0' }}>
+                  {rpmVitals.find(v => v.glucose_value)?.glucose_value || 5.8} <small style={{ fontSize: '13px', fontWeight: 500 }}>mmol/L</small>
+                </div>
+                <div style={{ fontSize: '12px', color: '#16a34a', fontWeight: 600 }}>🟢 Đường huyết đói chuẩn y tế</div>
+              </div>
+
+              <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', borderTop: '4px solid #0284c7' }}>
+                <span style={{ fontSize: '12px', color: '#64748b' }}>Nồng độ Oxy trong máu (SpO2)</span>
+                <div style={{ fontSize: '26px', fontWeight: 800, color: '#0f172a', margin: '6px 0' }}>
+                  {rpmVitals.find(v => v.spo2_percent)?.spo2_percent || 98.5} <small style={{ fontSize: '13px', fontWeight: 500 }}>%</small>
+                </div>
+                <div style={{ fontSize: '12px', color: '#16a34a', fontWeight: 600 }}>🟢 Bão hòa oxy rất tốt</div>
+              </div>
+
+              <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', borderTop: '4px solid #8b5cf6' }}>
+                <span style={{ fontSize: '12px', color: '#64748b' }}>Nhịp tim (Pulse)</span>
+                <div style={{ fontSize: '26px', fontWeight: 800, color: '#0f172a', margin: '6px 0' }}>
+                  {rpmVitals.find(v => v.pulse)?.pulse || 74} <small style={{ fontSize: '13px', fontWeight: 500 }}>bpm</small>
+                </div>
+                <div style={{ fontSize: '12px', color: '#16a34a', fontWeight: 600 }}>🟢 Nhịp tim bình thường</div>
+              </div>
+            </div>
+
+            {/* Quick Record Input */}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', marginBottom: '20px' }}>
+              <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#1e293b' }}>📱 Nhập chỉ số đo tại nhà hoặc đồng bộ thiết bị Bluetooth</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>Tâm thu (Sys mmHg)</label>
+                  <input type="number" value={vitalSys} onChange={e => setVitalSys(Number(e.target.value))} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>Tâm trương (Dia mmHg)</label>
+                  <input type="number" value={vitalDia} onChange={e => setVitalDia(Number(e.target.value))} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>Mạch (Pulse bpm)</label>
+                  <input type="number" value={vitalPulse} onChange={e => setVitalPulse(Number(e.target.value))} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>Đường huyết (mmol/L)</label>
+                  <input type="number" step="0.1" value={vitalGlucose} onChange={e => setVitalGlucose(Number(e.target.value))} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>SpO2 (%)</label>
+                  <input type="number" value={vitalSpo2} onChange={e => setVitalSpo2(Number(e.target.value))} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  className="primary small-primary"
+                  onClick={handleSaveVitalManual}
+                  disabled={savingVital}
+                  style={{ background: '#be185d', borderColor: '#be185d', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Check size={14} /> {savingVital ? 'Đang lưu...' : 'Lưu chỉ số đo'}
+                </button>
+              </div>
+            </div>
+
+            {/* Vitals History Table */}
+            <h4 style={{ margin: '0 0 10px', fontSize: '15px' }}>Nhật ký đo sinh hiệu gần đây ({rpmVitals.length} bản ghi)</h4>
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#64748b' }}>
+                    <th style={{ padding: '10px 12px' }}>Thời gian đo</th>
+                    <th style={{ padding: '10px 12px' }}>Thiết bị</th>
+                    <th style={{ padding: '10px 12px' }}>Huyết áp & Mạch</th>
+                    <th style={{ padding: '10px 12px' }}>Đường huyết</th>
+                    <th style={{ padding: '10px 12px' }}>SpO2</th>
+                    <th style={{ padding: '10px 12px' }}>Đánh giá</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rpmVitals.map(v => (
+                    <tr key={v.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '10px 12px' }}>{new Date(v.measured_at).toLocaleString('vi-VN')}</td>
+                      <td style={{ padding: '10px 12px', fontWeight: 600 }}>{v.device_name}</td>
+                      <td style={{ padding: '10px 12px' }}>
+                        {v.systolic ? <strong>{v.systolic}/{v.diastolic} mmHg ({v.pulse} bpm)</strong> : '—'}
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        {v.glucose_value ? <strong>{v.glucose_value} mmol/L</strong> : '—'}
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        {v.spo2_percent ? <strong>{v.spo2_percent}%</strong> : '—'}
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        {v.is_warning ? (
+                          <span style={{ color: '#dc2626', fontWeight: 700 }}>⚠️ {v.warning_message}</span>
+                        ) : (
+                          <span style={{ color: '#16a34a', fontWeight: 600 }}>✅ Chuẩn y tế</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {/* Modal Thêm Thành viên Gia đình */}
+        {showAddFamilyModal && (
+          <div className="modal-backdrop">
+            <div className="modal" style={{ maxWidth: '480px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <h3 style={{ margin: 0, fontSize: '17px', color: '#0f172a' }}>Thêm Thành viên Gia đình</h3>
+                <button type="button" onClick={() => setShowAddFamilyModal(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Họ và tên người thân *</label>
+                  <input
+                    type="text"
+                    placeholder="Ví dụ: Nguyễn Minh Khang"
+                    value={famName}
+                    onChange={e => setFamName(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Mối quan hệ</label>
+                    <select
+                      value={famRel}
+                      onChange={e => setFamRel(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                    >
+                      <option value="child">Con nhỏ</option>
+                      <option value="parent">Cha / Mẹ</option>
+                      <option value="spouse">Vợ / Chồng</option>
+                      <option value="sibling">Anh / Chị / Em</option>
+                      <option value="other">Người thân khác</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Giới tính</label>
+                    <select
+                      value={famGender}
+                      onChange={e => setFamGender(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                    >
+                      <option value="male">Nam</option>
+                      <option value="female">Nữ</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Ngày sinh (YYYY-MM-DD)</label>
+                    <input
+                      type="date"
+                      value={famDob}
+                      onChange={e => setFamDob(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Mã thẻ BHYT (nếu có)</label>
+                    <input
+                      type="text"
+                      placeholder="TE179..."
+                      value={famBhyt}
+                      onChange={e => setFamBhyt(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Tiền sử dị ứng thuốc</label>
+                  <input
+                    type="text"
+                    placeholder="Ví dụ: Dị ứng Penicillin, Paracetamol..."
+                    value={famAllergies}
+                    onChange={e => setFamAllergies(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Bệnh nền / Mãn tính</label>
+                  <input
+                    type="text"
+                    placeholder="Ví dụ: Tăng huyết áp, Đái tháo đường..."
+                    value={famConditions}
+                    onChange={e => setFamConditions(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+                <button type="button" className="secondary" onClick={() => setShowAddFamilyModal(false)}>
+                  Hủy
+                </button>
+                <button type="button" className="primary" onClick={handleAddFamily} disabled={savingFamily}>
+                  {savingFamily ? 'Đang lưu...' : 'Thêm hồ sơ'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Xem trước Gói XML 4210 */}
+        {xmlModalPkg && (
+          <div className="modal-backdrop">
+            <div className="modal" style={{ maxWidth: '780px', width: '90%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', color: '#064e3b' }}>
+                    Gói Hồ sơ Giám định XML 4210 · {xmlModalPkg.ma_lk}
+                  </h3>
+                  <small style={{ color: '#64748b' }}>Bệnh nhân: {xmlModalPkg.patient_name} · Thẻ BHYT: {xmlModalPkg.ma_the_bhyt} ({xmlModalPkg.muc_huong}%)</small>
+                </div>
+                <button type="button" onClick={() => setXmlModalPkg(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div style={{ background: '#1e293b', color: '#f8fafc', padding: '12px', borderRadius: '8px', fontSize: '11px', fontFamily: 'Consolas, monospace', maxHeight: '380px', overflowY: 'auto' }}>
+                <pre style={{ margin: 0 }}>
+                  {xmlModalPkg.xml1_tonghop}
+                </pre>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '14px' }}>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => {
+                    const blob = new Blob([xmlModalPkg.xml1_tonghop], { type: 'application/xml' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `XML4210_${xmlModalPkg.ma_lk}.xml`
+                    a.click()
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Download size={14} /> Tải file XML 4210
+                </button>
+                <button type="button" className="primary" onClick={() => setXmlModalPkg(null)}>
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Tab: Thanh toán VietQR */}

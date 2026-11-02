@@ -240,6 +240,97 @@ class AppointmentEvent(Base):
     meta_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+class BHYTClaim(Base):
+    __tablename__ = "bhyt_claims"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    appointment_id: Mapped[int] = mapped_column(ForeignKey("appointments.id"), unique=True, index=True)
+    patient_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    ma_lk: Mapped[str] = mapped_column(String(50), unique=True, index=True)  # Mã liên kết KCB BHYT
+    ma_the_bhyt: Mapped[str] = mapped_column(String(30))  # 15 ký tự thẻ BHYT
+    ma_dkbd: Mapped[str] = mapped_column(String(10), default="79014")  # Mã ĐK KCB ban đầu
+    muc_huong: Mapped[int] = mapped_column(Integer, default=80)  # 80%, 95%, 100%
+    ma_benh_chinh: Mapped[str] = mapped_column(String(20), default="I10")  # ICD-10
+    ma_benh_kem: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    t_tongchi: Mapped[float] = mapped_column(Float, default=0.0)
+    t_bntt: Mapped[float] = mapped_column(Float, default=0.0)  # Bệnh nhân cùng chi trả
+    t_bhyttt: Mapped[float] = mapped_column(Float, default=0.0)  # Quỹ BHYT chi trả
+    status: Mapped[str] = mapped_column(String(30), default="draft")  # draft, submitted, approved, rejected
+    gdbhyt_code: Mapped[str | None] = mapped_column(String(100), nullable=True)  # Mã tiếp nhận cổng GĐBHYT
+    xml1_payload: Mapped[str | None] = mapped_column(Text, nullable=True)  # Bảng 1: Tổng hợp chi phí
+    xml2_payload: Mapped[str | None] = mapped_column(Text, nullable=True)  # Bảng 2: Thuốc tân dược / YHCT
+    xml3_payload: Mapped[str | None] = mapped_column(Text, nullable=True)  # Bảng 3: Dịch vụ kỹ thuật
+    xml4_payload: Mapped[str | None] = mapped_column(Text, nullable=True)  # Bảng 4: Cận lâm sàng
+    xml5_payload: Mapped[str | None] = mapped_column(Text, nullable=True)  # Bảng 5: Diễn biến lâm sàng
+    submitted_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+class ConsultationMember(Base):
+    __tablename__ = "consultation_members"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    appointment_id: Mapped[int] = mapped_column(ForeignKey("appointments.id"), index=True)
+    doctor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    doctor_name: Mapped[str] = mapped_column(String(200))
+    hospital_name: Mapped[str] = mapped_column(String(255), default="Bệnh viện Bạch Mai - Tuyến Trung Ương")
+    specialty: Mapped[str] = mapped_column(String(100))  # "Tim mạch can thiệp", "Hô hấp", "Nội tiết"
+    role: Mapped[str] = mapped_column(String(30), default="specialist")  # host, specialist, secretary
+    status: Mapped[str] = mapped_column(String(30), default="invited")  # invited, accepted, joined, declined
+    clinical_opinion: Mapped[str | None] = mapped_column(Text, nullable=True)
+    joined_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+class RPMVitalLog(Base):
+    __tablename__ = "rpm_vital_logs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    patient_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    device_type: Mapped[str] = mapped_column(String(50))  # blood_pressure, blood_glucose, spo2, heart_rate, temperature, weight
+    device_name: Mapped[str] = mapped_column(String(150))  # Omron HEM-7600T, Accu-Chek Guide, Wellue SpO2
+    connection_method: Mapped[str] = mapped_column(String(50), default="bluetooth_ble")  # bluetooth_ble, manual, api_sync
+    systolic: Mapped[int | None] = mapped_column(Integer, nullable=True)  # mmHg
+    diastolic: Mapped[int | None] = mapped_column(Integer, nullable=True)  # mmHg
+    pulse: Mapped[int | None] = mapped_column(Integer, nullable=True)  # bpm
+    glucose_value: Mapped[float | None] = mapped_column(Float, nullable=True)  # mmol/L
+    glucose_context: Mapped[str | None] = mapped_column(String(30), nullable=True)  # fasting, 2h_postprandial
+    spo2_percent: Mapped[float | None] = mapped_column(Float, nullable=True)  # %
+    temperature_celsius: Mapped[float | None] = mapped_column(Float, nullable=True)  # °C
+    weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)  # kg
+    is_warning: Mapped[bool] = mapped_column(Boolean, default=False)
+    warning_message: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    measured_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+class FamilyMemberProfile(Base):
+    __tablename__ = "family_member_profiles"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)  # Chủ tài khoản
+    full_name: Mapped[str] = mapped_column(String(200))
+    relationship: Mapped[str] = mapped_column(String(50))  # child, parent, spouse, sibling, other
+    gender: Mapped[str] = mapped_column(String(20))  # male, female, other
+    date_of_birth: Mapped[str] = mapped_column(String(30))  # YYYY-MM-DD
+    phone_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    national_id: Mapped[str | None] = mapped_column(String(30), nullable=True)  # CCCD hoặc Định danh trẻ em
+    bhyt_code: Mapped[str | None] = mapped_column(String(30), nullable=True)  # Mã BHYT 15 ký tự
+    blood_group: Mapped[str | None] = mapped_column(String(10), nullable=True)  # A+, B+, O+, AB+
+    allergies: Mapped[str | None] = mapped_column(Text, nullable=True)
+    chronic_conditions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+class AIPACSConsultation(Base):
+    __tablename__ = "ai_pacs_consultations"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    appointment_id: Mapped[int] = mapped_column(ForeignKey("appointments.id"), index=True)
+    dicom_study_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    modality: Mapped[str] = mapped_column(String(20), default="DX")  # CR, DX, CT, MR
+    body_part: Mapped[str] = mapped_column(String(50), default="CHEST")
+    ai_model_name: Mapped[str] = mapped_column(String(100), default="CareConnect-Gemini-MedVision-CXR")
+    primary_finding: Mapped[str] = mapped_column(String(255))
+    confidence_score: Mapped[float] = mapped_column(Float, default=0.0)  # 0.0 - 1.0
+    findings_json: Mapped[str] = mapped_column(Text)  # JSON danh sách bệnh lý nghi ngờ & %
+    heatmap_regions_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # Bounding boxes / Grad-CAM coords
+    doctor_concurrence: Mapped[str | None] = mapped_column(String(30), default="pending")  # approved, disagreed, pending
+    doctor_feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 
 
 

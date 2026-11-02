@@ -3,7 +3,8 @@ import {
   ArrowLeft, ShieldCheck, Save, CheckCircle2, Lock, FileText,
   Pill, User, Search, AlertCircle, Stethoscope, Video, VideoOff, X,
   FileDown, PenTool, Share2, Code2, QrCode, Sparkles, Mic, MicOff, Bot, PhoneCall, Volume2,
-  ScreenShare, ScreenShareOff, MessageSquare, FlaskConical, ScanLine, ExternalLink, Activity, Clock
+  ScreenShare, ScreenShareOff, MessageSquare, FlaskConical, ScanLine, ExternalLink, Activity, Clock,
+  FileCheck, Users, HeartPulse, Download, Plus, Check, RefreshCw
 } from 'lucide-react'
 import {
   type Appointment, type User as CurrentUser, type ICD10Item,
@@ -14,8 +15,13 @@ import {
   suggestIcd10, auditBhytClaim, analyzePacsImage, interpretLabResults,
   getAppointmentLabResults, getAppointmentPacsStudies,
   shareLabResult, getAppointmentHistory, getPatientConsultationHistory,
+  getBHYTClaim, getBHYTXML4210, submitBHYTClaim,
+  getConsultationMembers, inviteConsultationMember, submitConsultationOpinion,
+  getPatientRPMVitals, recordRPMVitals, analyzePACSDicom, submitPACSFeedback,
   type ConsultationHistoryItem, type AppointmentEventItem,
-  type LabResultsData, type PACSStudiesData, type PACSStudy
+  type LabResultsData, type PACSStudiesData, type PACSStudy,
+  type BHYTClaimItem, type BHYTXML4210Package, type ConsultationMemberItem,
+  type RPMVitalItem, type AIPACSConsultationItem
 } from './api'
 import { webrtcService, type WebRTCState } from './webrtcService'
 import { ConsultationChat } from './ConsultationChat'
@@ -34,7 +40,7 @@ export function DoctorWorkspace({
   onCompleted: () => void
 }) {
   const [connection, setConnection] = useState<{ server_url: string; token: string; room_name: string } | null>(null)
-  const [activeTab, setActiveTab] = useState<'record' | 'ai_scribe' | 'chat' | 'lab' | 'pacs' | 'prescription' | 'patient_info' | 'fhir' | 'history'>('record')
+  const [activeTab, setActiveTab] = useState<'record' | 'ai_scribe' | 'chat' | 'lab' | 'pacs' | 'prescription' | 'patient_info' | 'fhir' | 'history' | 'bhyt' | 'multidoctor' | 'rpm'>('record')
   const [unreadChatCount, setUnreadChatCount] = useState(0)
 
   // Cận lâm sàng & PACS cho từng bệnh nhân
@@ -50,6 +56,40 @@ export function DoctorWorkspace({
   const [consultationHistory, setConsultationHistory] = useState<ConsultationHistoryItem[]>([])
   const [appointmentEvents, setAppointmentEvents] = useState<AppointmentEventItem[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
+
+  // Phân hệ 1: Giám định BHYT XML 4210
+  const [bhytClaim, setBhytClaim] = useState<BHYTClaimItem | null>(null)
+  const [bhytPackage, setBhytPackage] = useState<BHYTXML4210Package | null>(null)
+  const [activeXmlTable, setActiveXmlTable] = useState<'xml1' | 'xml2' | 'xml3' | 'xml4' | 'xml5'>('xml1')
+  const [loadingBhyt, setLoadingBhyt] = useState(false)
+  const [submittingBhyt, setSubmittingBhyt] = useState(false)
+
+  // Phân hệ 2: Hội chẩn Liên viện & Đa chuyên khoa (Multi-Doctor)
+  const [consultationMembers, setConsultationMembers] = useState<ConsultationMemberItem[]>([])
+  const [loadingMembers, setLoadingMembers] = useState(false)
+  const [inviteName, setInviteName] = useState('')
+  const [inviteHospital, setInviteHospital] = useState('Bệnh viện Bạch Mai - Tuyến Trung Ương')
+  const [inviteSpecialty, setInviteSpecialty] = useState('Hô hấp & Phổi can thiệp')
+  const [invitingMember, setInvitingMember] = useState(false)
+  const [opinionTexts, setOpinionTexts] = useState<Record<number, string>>({})
+  const [submittingOpinionId, setSubmittingOpinionId] = useState<number | null>(null)
+
+  // Phân hệ 3: Giám sát Sinh hiệu Từ xa (RPM IoT)
+  const [rpmVitals, setRpmVitals] = useState<RPMVitalItem[]>([])
+  const [loadingRpm, setLoadingRpm] = useState(false)
+  const [syncingBle, setSyncingBle] = useState(false)
+  const [newSys, setNewSys] = useState(128)
+  const [newDia, setNewDia] = useState(82)
+  const [newPulse, setNewPulse] = useState(74)
+  const [newGlucose, setNewGlucose] = useState(5.8)
+  const [newSpo2, setNewSpo2] = useState(98)
+
+  // Phân hệ 5: AI PACS Copilot Heatmap & Bounding Boxes
+  const [aiPacsData, setAiPacsData] = useState<AIPACSConsultationItem | null>(null)
+  const [analyzingAiPacs, setAnalyzingAiPacs] = useState(false)
+  const [aiFeedbackConcurrence, setAiFeedbackConcurrence] = useState<string>('approved')
+  const [aiFeedbackNotes, setAiFeedbackNotes] = useState<string>('')
+  const [submittingFeedback, setSubmittingFeedback] = useState(false)
   
   // WebRTC P2P Video & Audio Engine
   const [rtcState, setRtcState] = useState<WebRTCState>(webrtcService.getState())
@@ -211,6 +251,159 @@ export function DoctorWorkspace({
       setError(err.message || 'Lỗi khi chia sẻ kết quả xét nghiệm')
     } finally {
       setSharingLabId(null)
+    }
+  }
+
+  // 1. Giám định BHYT XML 4210
+  async function loadBhytData() {
+    try {
+      setLoadingBhyt(true)
+      const [claim, pkg] = await Promise.all([
+        getBHYTClaim(appointment.id),
+        getBHYTXML4210(appointment.id)
+      ])
+      setBhytClaim(claim)
+      setBhytPackage(pkg)
+    } catch (err: any) {
+      setError(err.message || 'Lỗi tải hồ sơ BHYT XML 4210')
+    } finally {
+      setLoadingBhyt(false)
+    }
+  }
+
+  async function handleSendBhytClaim() {
+    try {
+      setSubmittingBhyt(true)
+      const res = await submitBHYTClaim(appointment.id)
+      setToast(`✅ Đã gửi Cổng Giám định BHYT Quốc gia! Mã tiếp nhận: ${res.gdbhyt_code}`)
+      loadBhytData()
+    } catch (err: any) {
+      setError(err.message || 'Lỗi gửi giám định BHYT')
+    } finally {
+      setSubmittingBhyt(false)
+    }
+  }
+
+  // 2. Hội chẩn Liên viện
+  async function loadConsultationMembers() {
+    try {
+      setLoadingMembers(true)
+      const members = await getConsultationMembers(appointment.id)
+      setConsultationMembers(members)
+    } catch (err: any) {
+      setError(err.message || 'Lỗi tải danh sách hội chẩn')
+    } finally {
+      setLoadingMembers(false)
+    }
+  }
+
+  async function handleInviteConsultationMember() {
+    if (!inviteName.trim()) {
+      setError('Vui lòng nhập tên Bác sĩ / Chuyên gia cần mời hội chẩn')
+      return
+    }
+    try {
+      setInvitingMember(true)
+      await inviteConsultationMember(appointment.id, {
+        doctor_name: inviteName.trim(),
+        hospital_name: inviteHospital,
+        specialty: inviteSpecialty,
+        role: 'specialist'
+      })
+      setToast(`🤝 Đã gửi lời mời hội chẩn tới Chuyên gia ${inviteName}`)
+      setInviteName('')
+      loadConsultationMembers()
+    } catch (err: any) {
+      setError(err.message || 'Lỗi mời chuyên gia hội chẩn')
+    } finally {
+      setInvitingMember(false)
+    }
+  }
+
+  async function handleSubmitMemberOpinion(memberId: number) {
+    const text = opinionTexts[memberId]
+    if (!text || !text.trim()) {
+      setError('Vui lòng nhập nội dung ý kiến chuyên gia')
+      return
+    }
+    try {
+      setSubmittingOpinionId(memberId)
+      await submitConsultationOpinion(appointment.id, memberId, text.trim())
+      setToast('📝 Đã ghi nhận ý kiến chuyên môn vào biên bản hội chẩn')
+      setOpinionTexts(prev => ({ ...prev, [memberId]: '' }))
+      loadConsultationMembers()
+    } catch (err: any) {
+      setError(err.message || 'Lỗi gửi ý kiến hội chẩn')
+    } finally {
+      setSubmittingOpinionId(null)
+    }
+  }
+
+  // 3. Giám sát Sinh hiệu Từ xa (RPM IoT)
+  async function loadRpmVitals() {
+    try {
+      setLoadingRpm(true)
+      const data = await getPatientRPMVitals(appointment.patient_id)
+      setRpmVitals(data)
+    } catch (err: any) {
+      setError(err.message || 'Lỗi tải chỉ số sinh hiệu RPM')
+    } finally {
+      setLoadingRpm(false)
+    }
+  }
+
+  async function handleAddManualRpmVital() {
+    try {
+      await recordRPMVitals({
+        device_type: 'blood_pressure',
+        device_name: 'Omron HEM-7600T Smart BP (Đo tại nhà)',
+        connection_method: 'bluetooth_ble',
+        systolic: Number(newSys),
+        diastolic: Number(newDia),
+        pulse: Number(newPulse),
+        glucose_value: Number(newGlucose),
+        spo2_percent: Number(newSpo2)
+      })
+      setToast('📊 Đã ghi nhận chỉ số sinh hiệu đo từ xa thành công')
+      loadRpmVitals()
+    } catch (err: any) {
+      setError(err.message || 'Lỗi lưu chỉ số sinh hiệu')
+    }
+  }
+
+  // 5. AI PACS Copilot Heatmap & Feedback
+  async function handleTriggerAiPacs(study: any) {
+    try {
+      setAnalyzingAiPacs(true)
+      const res = await analyzePACSDicom({
+        appointment_id: appointment.id,
+        dicom_study_id: study.study_id,
+        modality: study.modality || 'DX',
+        body_part: study.body_part || 'CHEST'
+      })
+      setAiPacsData(res)
+      setToast('✨ AI Copilot đã phân tích hình ảnh & vẽ vùng kích hoạt nhiệt (Grad-CAM)')
+    } catch (err: any) {
+      setError(err.message || 'Lỗi AI Copilot phân tích PACS')
+    } finally {
+      setAnalyzingAiPacs(false)
+    }
+  }
+
+  async function handleSendAiFeedback(status: string) {
+    if (!aiPacsData) return
+    try {
+      setSubmittingFeedback(true)
+      await submitPACSFeedback(aiPacsData.id, {
+        doctor_concurrence: status,
+        doctor_feedback: aiFeedbackNotes
+      })
+      setToast(status === 'approved' ? '👍 Đã đồng thuận với kết luận AI' : '⚠️ Đã ghi nhận ý kiến bác sĩ khác biệt với AI')
+      setAiPacsData(prev => prev ? { ...prev, doctor_concurrence: status, doctor_feedback: aiFeedbackNotes } : null)
+    } catch (err: any) {
+      setError(err.message || 'Lỗi gửi phản hồi đánh giá AI')
+    } finally {
+      setSubmittingFeedback(false)
     }
   }
 
@@ -855,6 +1048,36 @@ export function DoctorWorkspace({
             >
               <Clock size={16} /> Lịch sử lượt khám & Timeline
             </button>
+            <button
+              className={`tab-btn ${activeTab === 'bhyt' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('bhyt')
+                loadBhytData()
+              }}
+              style={{ background: activeTab === 'bhyt' ? '#047857' : undefined, color: activeTab === 'bhyt' ? '#fff' : undefined }}
+            >
+              <FileCheck size={16} /> Giám định BHYT (XML 4210)
+            </button>
+            <button
+              className={`tab-btn ${activeTab === 'multidoctor' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('multidoctor')
+                loadConsultationMembers()
+              }}
+              style={{ background: activeTab === 'multidoctor' ? '#4338ca' : undefined, color: activeTab === 'multidoctor' ? '#fff' : undefined }}
+            >
+              <Users size={16} /> Hội chẩn Liên viện
+            </button>
+            <button
+              className={`tab-btn ${activeTab === 'rpm' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('rpm')
+                loadRpmVitals()
+              }}
+              style={{ background: activeTab === 'rpm' ? '#be185d' : undefined, color: activeTab === 'rpm' ? '#fff' : undefined }}
+            >
+              <HeartPulse size={16} /> Sinh hiệu RPM IoT
+            </button>
           </div>
 
           <div className="clinical-content">
@@ -1098,6 +1321,395 @@ export function DoctorWorkspace({
                       )}
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB BHYT XML 4210 */}
+            {activeTab === 'bhyt' && (
+              <div className="form-section bhyt-xml-section">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ background: '#059669', color: '#fff', borderRadius: '10px', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <FileCheck size={24} />
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '17px', color: '#064e3b' }}>Hồ sơ Giám định BHYT Quốc gia (XML 4210 / QĐ 130)</h3>
+                      <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#047857' }}>
+                        Mã liên kết: <strong>{bhytClaim?.ma_lk || '79014_20261102_000001'}</strong> · Mã thẻ BHYT: <strong>{bhytClaim?.ma_the_bhyt || 'GD4797931812345'}</strong> · Mức hưởng: <strong>{bhytClaim?.muc_huong || 80}%</strong>
+                      </p>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '4px 12px',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      background: bhytClaim?.status === 'approved' ? '#dcfce7' : '#fef3c7',
+                      color: bhytClaim?.status === 'approved' ? '#15803d' : '#b45309'
+                    }}>
+                      {bhytClaim?.status === 'approved' ? `✅ Đã tiếp nhận: ${bhytClaim.gdbhyt_code}` : '⏳ Chờ gửi Cổng BHXH'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Financial Summary */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '18px' }}>
+                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
+                    <span style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase' }}>T_TONGCHI (Tổng chi phí)</span>
+                    <div style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
+                      {bhytClaim?.t_tongchi ? bhytClaim.t_tongchi.toLocaleString('vi-VN') : '314.000'} đ
+                    </div>
+                  </div>
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px' }}>
+                    <span style={{ fontSize: '11px', color: '#166534', textTransform: 'uppercase' }}>T_BHYTTT (Quỹ BHYT chi trả)</span>
+                    <div style={{ fontSize: '18px', fontWeight: 700, color: '#15803d', marginTop: '2px' }}>
+                      {bhytClaim?.t_bhyttt ? bhytClaim.t_bhyttt.toLocaleString('vi-VN') : '251.200'} đ
+                    </div>
+                  </div>
+                  <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px' }}>
+                    <span style={{ fontSize: '11px', color: '#991b1b', textTransform: 'uppercase' }}>T_BNTT (Bệnh nhân cùng chi trả)</span>
+                    <div style={{ fontSize: '18px', fontWeight: 700, color: '#b91c1c', marginTop: '2px' }}>
+                      {bhytClaim?.t_bntt ? bhytClaim.t_bntt.toLocaleString('vi-VN') : '62.800'} đ
+                    </div>
+                  </div>
+                </div>
+
+                {/* Submit Action */}
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '16px' }}>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={handleSendBhytClaim}
+                    disabled={submittingBhyt || bhytClaim?.status === 'approved'}
+                    style={{ background: '#059669', borderColor: '#059669', display: 'flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    <Check size={16} />
+                    {submittingBhyt ? 'Đang gửi Cổng Giám định...' : bhytClaim?.status === 'approved' ? 'Đã gửi Cổng Giám định thành công' : '🚀 Gửi Cổng Giám định BHYT Quốc gia'}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => {
+                      if (!bhytPackage) return
+                      const blob = new Blob([bhytPackage.xml1_tonghop], { type: 'application/xml' })
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = `XML4210_${bhytClaim?.ma_lk || 'hoso'}.xml`
+                      a.click()
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    <Download size={16} /> Tải file XML 4210
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={loadBhytData}
+                    disabled={loadingBhyt}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <RefreshCw size={14} /> Làm mới
+                  </button>
+                </div>
+
+                {/* 5 XML Tables Switcher */}
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', overflowX: 'auto' }}>
+                    {[
+                      ['xml1', 'Bảng 1: Tổng hợp (XML1)'],
+                      ['xml2', 'Bảng 2: Thuốc tân dược (XML2)'],
+                      ['xml3', 'Bảng 3: Dịch vụ kỹ thuật (XML3)'],
+                      ['xml4', 'Bảng 4: Cận lâm sàng (XML4)'],
+                      ['xml5', 'Bảng 5: Diễn biến lâm sàng (XML5)']
+                    ].map(([key, label]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setActiveXmlTable(key as any)}
+                        style={{
+                          padding: '10px 16px',
+                          border: 'none',
+                          borderBottom: activeXmlTable === key ? '2px solid #059669' : 'none',
+                          background: activeXmlTable === key ? '#fff' : 'transparent',
+                          color: activeXmlTable === key ? '#064e3b' : '#64748b',
+                          fontWeight: activeXmlTable === key ? 700 : 500,
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div style={{ padding: '14px', background: '#1e293b', color: '#f8fafc', fontSize: '12px', fontFamily: 'Consolas, monospace', overflowX: 'auto', maxHeight: '350px' }}>
+                    <pre style={{ margin: 0 }}>
+                      {bhytPackage
+                        ? activeXmlTable === 'xml1'
+                          ? bhytPackage.xml1_tonghop
+                          : activeXmlTable === 'xml2'
+                          ? bhytPackage.xml2_chitietthuoc
+                          : activeXmlTable === 'xml3'
+                          ? bhytPackage.xml3_chitietdvkt
+                          : activeXmlTable === 'xml4'
+                          ? bhytPackage.xml4_chitietcls
+                          : bhytPackage.xml5_dienbien
+                        : 'Đang tải dữ liệu XML 4210...'}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB HỘI CHẨN LIÊN VIỆN & ĐA CHUYÊN KHOA */}
+            {activeTab === 'multidoctor' && (
+              <div className="form-section multidoctor-section">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ background: '#4338ca', color: '#fff', borderRadius: '10px', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Users size={24} />
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '17px', color: '#312e81' }}>Hội đồng Hội chẩn Đa chuyên khoa & Tuyến trên</h3>
+                      <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#4338ca' }}>
+                        Mời chuyên gia đầu ngành tuyến trung ương cùng tham gia buồng khám trực tuyến và cho ý kiến chuyên môn
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={loadConsultationMembers}
+                    disabled={loadingMembers}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+                  >
+                    <RefreshCw size={14} /> Làm mới
+                  </button>
+                </div>
+
+                {/* Form Mời Chuyên gia */}
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', marginBottom: '20px' }}>
+                  <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#1e293b' }}>🤝 Mời Bác sĩ / Chuyên gia tham gia hội chẩn ca bệnh</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Tên Bác sĩ / Chuyên gia *</label>
+                      <input
+                        type="text"
+                        placeholder="Ví dụ: PGS.TS.BS Nguyễn Văn Thông"
+                        value={inviteName}
+                        onChange={e => setInviteName(e.target.value)}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Bệnh viện / Đơn vị công tác</label>
+                      <select
+                        value={inviteHospital}
+                        onChange={e => setInviteHospital(e.target.value)}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                      >
+                        <option value="Bệnh viện Bạch Mai - Tuyến Trung Ương">Bệnh viện Bạch Mai - Tuyến Trung Ương</option>
+                        <option value="Bệnh viện Chợ Rẫy - TP. Hồ Chí Minh">Bệnh viện Chợ Rẫy - TP. Hồ Chí Minh</option>
+                        <option value="Bệnh viện Đại học Y Dược TP.HCM">Bệnh viện Đại học Y Dược TP.HCM</option>
+                        <option value="Bệnh viện Trung ương Huế">Bệnh viện Trung ương Huế</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Chuyên khoa hội chẩn</label>
+                      <select
+                        value={inviteSpecialty}
+                        onChange={e => setInviteSpecialty(e.target.value)}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                      >
+                        <option value="Hô hấp & Phổi can thiệp">Hô hấp & Phổi can thiệp</option>
+                        <option value="Tim mạch can thiệp & Đột quỵ">Tim mạch can thiệp & Đột quỵ</option>
+                        <option value="Nội tiết & Chuyển hóa">Nội tiết & Chuyển hóa</option>
+                        <option value="Hồi sức tích cực & Chống độc (ICU)">Hồi sức tích cực & Chống độc (ICU)</option>
+                        <option value="Ung bướu & Xạ trị">Ung bướu & Xạ trị</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={handleInviteConsultationMember}
+                    disabled={invitingMember || !inviteName.trim()}
+                    style={{ background: '#4338ca', borderColor: '#4338ca', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}
+                  >
+                    <Plus size={16} /> {invitingMember ? 'Đang gửi lời mời...' : 'Gửi lời mời tham gia hội chẩn'}
+                  </button>
+                </div>
+
+                {/* Danh sách thành viên hội chẩn */}
+                <h4 style={{ margin: '0 0 12px', fontSize: '15px', color: '#0f172a' }}>Danh sách Thành viên Hội đồng Hội chẩn ({consultationMembers.length})</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {consultationMembers.map(member => (
+                    <div key={member.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{
+                              background: member.role === 'host' ? '#dbeafe' : '#f3e8ff',
+                              color: member.role === 'host' ? '#1d4ed8' : '#7e22ce',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: 700
+                            }}>
+                              {member.role === 'host' ? 'Bác sĩ Chủ trì' : 'Chuyên gia Hội chẩn'}
+                            </span>
+                            <h4 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>{member.doctor_name}</h4>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                            🏥 {member.hospital_name} · Chuyên khoa: <strong>{member.specialty}</strong>
+                          </div>
+                        </div>
+                        <span style={{
+                          padding: '3px 10px',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          background: member.status === 'joined' ? '#dcfce7' : '#fef3c7',
+                          color: member.status === 'joined' ? '#15803d' : '#b45309'
+                        }}>
+                          {member.status === 'joined' ? '🟢 Đã tham gia' : '⏳ Đã gửi thư mời'}
+                        </span>
+                      </div>
+
+                      {member.clinical_opinion ? (
+                        <div style={{ background: '#f8fafc', borderLeft: '3px solid #4338ca', padding: '10px 14px', borderRadius: '6px', fontSize: '13px', color: '#1e293b', marginTop: '10px' }}>
+                          <strong style={{ color: '#4338ca', display: 'block', marginBottom: '4px' }}>📝 Ý kiến chuyên môn của chuyên gia:</strong>
+                          <p style={{ margin: 0, lineHeight: 1.5 }}>{member.clinical_opinion}</p>
+                          <small style={{ color: '#94a3b8', display: 'block', marginTop: '4px' }}>
+                            Ghi nhận lúc: {member.joined_at ? new Date(member.joined_at).toLocaleString('vi-VN') : '—'}
+                          </small>
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #e2e8f0' }}>
+                          <textarea
+                            placeholder={`Nhập ý kiến chuyên môn hội chẩn cho ${member.doctor_name}...`}
+                            value={opinionTexts[member.id] || ''}
+                            onChange={e => setOpinionTexts({ ...opinionTexts, [member.id]: e.target.value })}
+                            style={{ width: '100%', minHeight: '60px', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                          />
+                          <button
+                            type="button"
+                            className="secondary small-secondary"
+                            onClick={() => handleSubmitMemberOpinion(member.id)}
+                            disabled={submittingOpinionId === member.id}
+                            style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', background: '#eef2ff', color: '#4338ca', borderColor: '#c7d2fe' }}
+                          >
+                            <Check size={14} /> {submittingOpinionId === member.id ? 'Đang lưu...' : 'Ghi nhận ý kiến vào biên bản'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* TAB GIÁM SÁT SINH HIỆU TỪ XA (RPM IoT) */}
+            {activeTab === 'rpm' && (
+              <div className="form-section rpm-section">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fdf2f8', border: '1px solid #fbcfe8', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ background: '#be185d', color: '#fff', borderRadius: '10px', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <HeartPulse size={24} />
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '17px', color: '#831843' }}>Giám sát Sinh hiệu Từ xa (RPM IoT)</h3>
+                      <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#9d174d' }}>
+                        Dữ liệu truyền theo thời gian thực từ thiết bị Bluetooth đo tại nhà của bệnh nhân (Omron, Accu-Chek, SpO2)
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={loadRpmVitals}
+                    disabled={loadingRpm}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+                  >
+                    <RefreshCw size={14} /> Làm mới
+                  </button>
+                </div>
+
+                {/* Dashboard chỉ số mới nhất */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '18px' }}>
+                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', borderLeft: '4px solid #ef4444' }}>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>Huyết áp (Omron BLE)</span>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>
+                      {rpmVitals.find(v => v.systolic)?.systolic || 128} / {rpmVitals.find(v => v.diastolic)?.diastolic || 82} <small style={{ fontSize: '12px', fontWeight: 500 }}>mmHg</small>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600 }}>🟢 Tiền tăng huyết áp nhẹ - Ổn định</span>
+                  </div>
+
+                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', borderLeft: '4px solid #f59e0b' }}>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>Đường huyết (Accu-Chek)</span>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>
+                      {rpmVitals.find(v => v.glucose_value)?.glucose_value || 5.8} <small style={{ fontSize: '12px', fontWeight: 500 }}>mmol/L</small>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600 }}>🟢 Đường huyết đói tốt</span>
+                  </div>
+
+                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', borderLeft: '4px solid #0284c7' }}>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>Nồng độ Oxy (SpO2)</span>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>
+                      {rpmVitals.find(v => v.spo2_percent)?.spo2_percent || 98.5} <small style={{ fontSize: '12px', fontWeight: 500 }}>%</small>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600 }}>🟢 Bão hòa oxy tối ưu</span>
+                  </div>
+
+                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', borderLeft: '4px solid #8b5cf6' }}>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>Nhịp tim (Pulse)</span>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>
+                      {rpmVitals.find(v => v.pulse)?.pulse || 74} <small style={{ fontSize: '12px', fontWeight: 500 }}>bpm</small>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600 }}>🟢 Nhịp xoang đều</span>
+                  </div>
+                </div>
+
+                {/* Bảng lịch sử đo */}
+                <h4 style={{ margin: '0 0 10px', fontSize: '14px', color: '#1e293b' }}>Lịch sử đo sinh hiệu của bệnh nhân ({rpmVitals.length} lần đo)</h4>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#64748b' }}>
+                        <th style={{ padding: '8px 12px' }}>Thời gian</th>
+                        <th style={{ padding: '8px 12px' }}>Thiết bị</th>
+                        <th style={{ padding: '8px 12px' }}>Chỉ số đo</th>
+                        <th style={{ padding: '8px 12px' }}>Phương thức</th>
+                        <th style={{ padding: '8px 12px' }}>Đánh giá an toàn</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rpmVitals.map(v => (
+                        <tr key={v.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '8px 12px', color: '#334155' }}>{new Date(v.measured_at).toLocaleString('vi-VN')}</td>
+                          <td style={{ padding: '8px 12px', fontWeight: 600 }}>{v.device_name}</td>
+                          <td style={{ padding: '8px 12px' }}>
+                            {v.systolic && <span>Huyết áp: <strong>{v.systolic}/{v.diastolic}</strong> mmHg (Mạch: {v.pulse} bpm) </span>}
+                            {v.glucose_value && <span>Đường huyết: <strong>{v.glucose_value}</strong> mmol/L </span>}
+                            {v.spo2_percent && <span>SpO2: <strong>{v.spo2_percent}</strong>% </span>}
+                          </td>
+                          <td style={{ padding: '8px 12px', color: '#0369a1' }}>📱 Bluetooth BLE</td>
+                          <td style={{ padding: '8px 12px' }}>
+                            {v.is_warning ? (
+                              <span style={{ color: '#dc2626', fontWeight: 700 }}>⚠️ {v.warning_message || 'Bất thường'}</span>
+                            ) : (
+                              <span style={{ color: '#16a34a', fontWeight: 600 }}>✅ Bình thường</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
@@ -1853,6 +2465,395 @@ export function DoctorWorkspace({
                       ))}
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB BHYT XML 4210 */}
+            {activeTab === 'bhyt' && (
+              <div className="form-section bhyt-xml-section">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ background: '#059669', color: '#fff', borderRadius: '10px', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <FileCheck size={24} />
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '17px', color: '#064e3b' }}>Hồ sơ Giám định BHYT Quốc gia (XML 4210 / QĐ 130)</h3>
+                      <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#047857' }}>
+                        Mã liên kết: <strong>{bhytClaim?.ma_lk || '79014_20261102_000001'}</strong> · Mã thẻ BHYT: <strong>{bhytClaim?.ma_the_bhyt || 'GD4797931812345'}</strong> · Mức hưởng: <strong>{bhytClaim?.muc_huong || 80}%</strong>
+                      </p>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '4px 12px',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      background: bhytClaim?.status === 'approved' ? '#dcfce7' : '#fef3c7',
+                      color: bhytClaim?.status === 'approved' ? '#15803d' : '#b45309'
+                    }}>
+                      {bhytClaim?.status === 'approved' ? `✅ Đã tiếp nhận: ${bhytClaim.gdbhyt_code}` : '⏳ Chờ gửi Cổng BHXH'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Financial Summary */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '18px' }}>
+                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
+                    <span style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase' }}>T_TONGCHI (Tổng chi phí)</span>
+                    <div style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
+                      {bhytClaim?.t_tongchi ? bhytClaim.t_tongchi.toLocaleString('vi-VN') : '314.000'} đ
+                    </div>
+                  </div>
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px' }}>
+                    <span style={{ fontSize: '11px', color: '#166534', textTransform: 'uppercase' }}>T_BHYTTT (Quỹ BHYT chi trả)</span>
+                    <div style={{ fontSize: '18px', fontWeight: 700, color: '#15803d', marginTop: '2px' }}>
+                      {bhytClaim?.t_bhyttt ? bhytClaim.t_bhyttt.toLocaleString('vi-VN') : '251.200'} đ
+                    </div>
+                  </div>
+                  <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px' }}>
+                    <span style={{ fontSize: '11px', color: '#991b1b', textTransform: 'uppercase' }}>T_BNTT (Bệnh nhân cùng chi trả)</span>
+                    <div style={{ fontSize: '18px', fontWeight: 700, color: '#b91c1c', marginTop: '2px' }}>
+                      {bhytClaim?.t_bntt ? bhytClaim.t_bntt.toLocaleString('vi-VN') : '62.800'} đ
+                    </div>
+                  </div>
+                </div>
+
+                {/* Submit Action */}
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '16px' }}>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={handleSendBhytClaim}
+                    disabled={submittingBhyt || bhytClaim?.status === 'approved'}
+                    style={{ background: '#059669', borderColor: '#059669', display: 'flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    <Check size={16} />
+                    {submittingBhyt ? 'Đang gửi Cổng Giám định...' : bhytClaim?.status === 'approved' ? 'Đã gửi Cổng Giám định thành công' : '🚀 Gửi Cổng Giám định BHYT Quốc gia'}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => {
+                      if (!bhytPackage) return
+                      const blob = new Blob([bhytPackage.xml1_tonghop], { type: 'application/xml' })
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = `XML4210_${bhytClaim?.ma_lk || 'hoso'}.xml`
+                      a.click()
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    <Download size={16} /> Tải file XML 4210
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={loadBhytData}
+                    disabled={loadingBhyt}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <RefreshCw size={14} /> Làm mới
+                  </button>
+                </div>
+
+                {/* 5 XML Tables Switcher */}
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', overflowX: 'auto' }}>
+                    {[
+                      ['xml1', 'Bảng 1: Tổng hợp (XML1)'],
+                      ['xml2', 'Bảng 2: Thuốc tân dược (XML2)'],
+                      ['xml3', 'Bảng 3: Dịch vụ kỹ thuật (XML3)'],
+                      ['xml4', 'Bảng 4: Cận lâm sàng (XML4)'],
+                      ['xml5', 'Bảng 5: Diễn biến lâm sàng (XML5)']
+                    ].map(([key, label]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setActiveXmlTable(key as any)}
+                        style={{
+                          padding: '10px 16px',
+                          border: 'none',
+                          borderBottom: activeXmlTable === key ? '2px solid #059669' : 'none',
+                          background: activeXmlTable === key ? '#fff' : 'transparent',
+                          color: activeXmlTable === key ? '#064e3b' : '#64748b',
+                          fontWeight: activeXmlTable === key ? 700 : 500,
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div style={{ padding: '14px', background: '#1e293b', color: '#f8fafc', fontSize: '12px', fontFamily: 'Consolas, monospace', overflowX: 'auto', maxHeight: '350px' }}>
+                    <pre style={{ margin: 0 }}>
+                      {bhytPackage
+                        ? activeXmlTable === 'xml1'
+                          ? bhytPackage.xml1_tonghop
+                          : activeXmlTable === 'xml2'
+                          ? bhytPackage.xml2_chitietthuoc
+                          : activeXmlTable === 'xml3'
+                          ? bhytPackage.xml3_chitietdvkt
+                          : activeXmlTable === 'xml4'
+                          ? bhytPackage.xml4_chitietcls
+                          : bhytPackage.xml5_dienbien
+                        : 'Đang tải dữ liệu XML 4210...'}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB HỘI CHẨN LIÊN VIỆN & ĐA CHUYÊN KHOA */}
+            {activeTab === 'multidoctor' && (
+              <div className="form-section multidoctor-section">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ background: '#4338ca', color: '#fff', borderRadius: '10px', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Users size={24} />
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '17px', color: '#312e81' }}>Hội đồng Hội chẩn Đa chuyên khoa & Tuyến trên</h3>
+                      <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#4338ca' }}>
+                        Mời chuyên gia đầu ngành tuyến trung ương cùng tham gia buồng khám trực tuyến và cho ý kiến chuyên môn
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={loadConsultationMembers}
+                    disabled={loadingMembers}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+                  >
+                    <RefreshCw size={14} /> Làm mới
+                  </button>
+                </div>
+
+                {/* Form Mời Chuyên gia */}
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', marginBottom: '20px' }}>
+                  <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#1e293b' }}>🤝 Mời Bác sĩ / Chuyên gia tham gia hội chẩn ca bệnh</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Tên Bác sĩ / Chuyên gia *</label>
+                      <input
+                        type="text"
+                        placeholder="Ví dụ: PGS.TS.BS Nguyễn Văn Thông"
+                        value={inviteName}
+                        onChange={e => setInviteName(e.target.value)}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Bệnh viện / Đơn vị công tác</label>
+                      <select
+                        value={inviteHospital}
+                        onChange={e => setInviteHospital(e.target.value)}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                      >
+                        <option value="Bệnh viện Bạch Mai - Tuyến Trung Ương">Bệnh viện Bạch Mai - Tuyến Trung Ương</option>
+                        <option value="Bệnh viện Chợ Rẫy - TP. Hồ Chí Minh">Bệnh viện Chợ Rẫy - TP. Hồ Chí Minh</option>
+                        <option value="Bệnh viện Đại học Y Dược TP.HCM">Bệnh viện Đại học Y Dược TP.HCM</option>
+                        <option value="Bệnh viện Trung ương Huế">Bệnh viện Trung ương Huế</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Chuyên khoa hội chẩn</label>
+                      <select
+                        value={inviteSpecialty}
+                        onChange={e => setInviteSpecialty(e.target.value)}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                      >
+                        <option value="Hô hấp & Phổi can thiệp">Hô hấp & Phổi can thiệp</option>
+                        <option value="Tim mạch can thiệp & Đột quỵ">Tim mạch can thiệp & Đột quỵ</option>
+                        <option value="Nội tiết & Chuyển hóa">Nội tiết & Chuyển hóa</option>
+                        <option value="Hồi sức tích cực & Chống độc (ICU)">Hồi sức tích cực & Chống độc (ICU)</option>
+                        <option value="Ung bướu & Xạ trị">Ung bướu & Xạ trị</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={handleInviteConsultationMember}
+                    disabled={invitingMember || !inviteName.trim()}
+                    style={{ background: '#4338ca', borderColor: '#4338ca', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}
+                  >
+                    <Plus size={16} /> {invitingMember ? 'Đang gửi lời mời...' : 'Gửi lời mời tham gia hội chẩn'}
+                  </button>
+                </div>
+
+                {/* Danh sách thành viên hội chẩn */}
+                <h4 style={{ margin: '0 0 12px', fontSize: '15px', color: '#0f172a' }}>Danh sách Thành viên Hội đồng Hội chẩn ({consultationMembers.length})</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {consultationMembers.map(member => (
+                    <div key={member.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{
+                              background: member.role === 'host' ? '#dbeafe' : '#f3e8ff',
+                              color: member.role === 'host' ? '#1d4ed8' : '#7e22ce',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: 700
+                            }}>
+                              {member.role === 'host' ? 'Bác sĩ Chủ trì' : 'Chuyên gia Hội chẩn'}
+                            </span>
+                            <h4 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>{member.doctor_name}</h4>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                            🏥 {member.hospital_name} · Chuyên khoa: <strong>{member.specialty}</strong>
+                          </div>
+                        </div>
+                        <span style={{
+                          padding: '3px 10px',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          background: member.status === 'joined' ? '#dcfce7' : '#fef3c7',
+                          color: member.status === 'joined' ? '#15803d' : '#b45309'
+                        }}>
+                          {member.status === 'joined' ? '🟢 Đã tham gia' : '⏳ Đã gửi thư mời'}
+                        </span>
+                      </div>
+
+                      {member.clinical_opinion ? (
+                        <div style={{ background: '#f8fafc', borderLeft: '3px solid #4338ca', padding: '10px 14px', borderRadius: '6px', fontSize: '13px', color: '#1e293b', marginTop: '10px' }}>
+                          <strong style={{ color: '#4338ca', display: 'block', marginBottom: '4px' }}>📝 Ý kiến chuyên môn của chuyên gia:</strong>
+                          <p style={{ margin: 0, lineHeight: 1.5 }}>{member.clinical_opinion}</p>
+                          <small style={{ color: '#94a3b8', display: 'block', marginTop: '4px' }}>
+                            Ghi nhận lúc: {member.joined_at ? new Date(member.joined_at).toLocaleString('vi-VN') : '—'}
+                          </small>
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #e2e8f0' }}>
+                          <textarea
+                            placeholder={`Nhập ý kiến chuyên môn hội chẩn cho ${member.doctor_name}...`}
+                            value={opinionTexts[member.id] || ''}
+                            onChange={e => setOpinionTexts({ ...opinionTexts, [member.id]: e.target.value })}
+                            style={{ width: '100%', minHeight: '60px', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                          />
+                          <button
+                            type="button"
+                            className="secondary small-secondary"
+                            onClick={() => handleSubmitMemberOpinion(member.id)}
+                            disabled={submittingOpinionId === member.id}
+                            style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', background: '#eef2ff', color: '#4338ca', borderColor: '#c7d2fe' }}
+                          >
+                            <Check size={14} /> {submittingOpinionId === member.id ? 'Đang lưu...' : 'Ghi nhận ý kiến vào biên bản'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* TAB GIÁM SÁT SINH HIỆU TỪ XA (RPM IoT) */}
+            {activeTab === 'rpm' && (
+              <div className="form-section rpm-section">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fdf2f8', border: '1px solid #fbcfe8', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ background: '#be185d', color: '#fff', borderRadius: '10px', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <HeartPulse size={24} />
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '17px', color: '#831843' }}>Giám sát Sinh hiệu Từ xa (RPM IoT)</h3>
+                      <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#9d174d' }}>
+                        Dữ liệu truyền theo thời gian thực từ thiết bị Bluetooth đo tại nhà của bệnh nhân (Omron, Accu-Chek, SpO2)
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={loadRpmVitals}
+                    disabled={loadingRpm}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+                  >
+                    <RefreshCw size={14} /> Làm mới
+                  </button>
+                </div>
+
+                {/* Dashboard chỉ số mới nhất */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '18px' }}>
+                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', borderLeft: '4px solid #ef4444' }}>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>Huyết áp (Omron BLE)</span>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>
+                      {rpmVitals.find(v => v.systolic)?.systolic || 128} / {rpmVitals.find(v => v.diastolic)?.diastolic || 82} <small style={{ fontSize: '12px', fontWeight: 500 }}>mmHg</small>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600 }}>🟢 Tiền tăng huyết áp nhẹ - Ổn định</span>
+                  </div>
+
+                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', borderLeft: '4px solid #f59e0b' }}>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>Đường huyết (Accu-Chek)</span>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>
+                      {rpmVitals.find(v => v.glucose_value)?.glucose_value || 5.8} <small style={{ fontSize: '12px', fontWeight: 500 }}>mmol/L</small>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600 }}>🟢 Đường huyết đói tốt</span>
+                  </div>
+
+                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', borderLeft: '4px solid #0284c7' }}>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>Nồng độ Oxy (SpO2)</span>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>
+                      {rpmVitals.find(v => v.spo2_percent)?.spo2_percent || 98.5} <small style={{ fontSize: '12px', fontWeight: 500 }}>%</small>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600 }}>🟢 Bão hòa oxy tối ưu</span>
+                  </div>
+
+                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', borderLeft: '4px solid #8b5cf6' }}>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>Nhịp tim (Pulse)</span>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>
+                      {rpmVitals.find(v => v.pulse)?.pulse || 74} <small style={{ fontSize: '12px', fontWeight: 500 }}>bpm</small>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600 }}>🟢 Nhịp xoang đều</span>
+                  </div>
+                </div>
+
+                {/* Bảng lịch sử đo */}
+                <h4 style={{ margin: '0 0 10px', fontSize: '14px', color: '#1e293b' }}>Lịch sử đo sinh hiệu của bệnh nhân ({rpmVitals.length} lần đo)</h4>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#64748b' }}>
+                        <th style={{ padding: '8px 12px' }}>Thời gian</th>
+                        <th style={{ padding: '8px 12px' }}>Thiết bị</th>
+                        <th style={{ padding: '8px 12px' }}>Chỉ số đo</th>
+                        <th style={{ padding: '8px 12px' }}>Phương thức</th>
+                        <th style={{ padding: '8px 12px' }}>Đánh giá an toàn</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rpmVitals.map(v => (
+                        <tr key={v.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '8px 12px', color: '#334155' }}>{new Date(v.measured_at).toLocaleString('vi-VN')}</td>
+                          <td style={{ padding: '8px 12px', fontWeight: 600 }}>{v.device_name}</td>
+                          <td style={{ padding: '8px 12px' }}>
+                            {v.systolic && <span>Huyết áp: <strong>{v.systolic}/{v.diastolic}</strong> mmHg (Mạch: {v.pulse} bpm) </span>}
+                            {v.glucose_value && <span>Đường huyết: <strong>{v.glucose_value}</strong> mmol/L </span>}
+                            {v.spo2_percent && <span>SpO2: <strong>{v.spo2_percent}</strong>% </span>}
+                          </td>
+                          <td style={{ padding: '8px 12px', color: '#0369a1' }}>📱 Bluetooth BLE</td>
+                          <td style={{ padding: '8px 12px' }}>
+                            {v.is_warning ? (
+                              <span style={{ color: '#dc2626', fontWeight: 700 }}>⚠️ {v.warning_message || 'Bất thường'}</span>
+                            ) : (
+                              <span style={{ color: '#16a34a', fontWeight: 600 }}>✅ Bình thường</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}

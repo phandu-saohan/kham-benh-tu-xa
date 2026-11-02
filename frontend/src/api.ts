@@ -1246,6 +1246,260 @@ export async function shareLabResult(appointmentId: number, data: {
   )
 }
 
+// -------------------------------------------------------------
+// 1. Cổng Giám định BHYT Quốc gia (XML 4210 / QĐ 130)
+// -------------------------------------------------------------
+export interface BHYTClaimItem {
+  id: number
+  appointment_id: number
+  patient_id: number
+  ma_lk: string
+  ma_the_bhyt: string
+  ma_dkbd: string
+  muc_huong: number
+  ma_benh_chinh: string
+  ma_benh_kem?: string | null
+  t_tongchi: number
+  t_bntt: number
+  t_bhyttt: number
+  status: string
+  gdbhyt_code?: string | null
+  submitted_at?: string | null
+  created_at: string
+}
+
+export interface BHYTXML4210Package {
+  appointment_id: number
+  ma_lk: string
+  patient_name: string
+  ma_the_bhyt: string
+  muc_huong: number
+  xml1_tonghop: string
+  xml2_chitietthuoc: string
+  xml3_chitietdvkt: string
+  xml4_chitietcls: string
+  xml5_dienbien: string
+  summary_financials: {
+    t_tongchi: number
+    t_bhyttt: number
+    t_bntt: number
+    status: string
+    gdbhyt_code?: string | null
+  }
+}
+
+export async function getBHYTClaim(appointmentId: number) {
+  return request<BHYTClaimItem>(`/api/v1/bhyt/claims/${appointmentId}`)
+}
+
+export async function getBHYTXML4210(appointmentId: number) {
+  return request<BHYTXML4210Package>(`/api/v1/bhyt/xml4210/${appointmentId}`)
+}
+
+export async function submitBHYTClaim(appointmentId: number) {
+  return request<{
+    success: boolean
+    message: string
+    gdbhyt_code: string
+    status: string
+    t_bhyttt: number
+    t_bntt: number
+  }>(`/api/v1/bhyt/claims/${appointmentId}/submit`, { method: 'POST' })
+}
+
+export async function listBHYTClaims() {
+  return request<BHYTClaimItem[]>(`/api/v1/bhyt/claims`)
+}
+
+// -------------------------------------------------------------
+// 2. Hội chẩn Liên viện & Đa chuyên khoa (Multi-Doctor)
+// -------------------------------------------------------------
+export interface ConsultationMemberItem {
+  id: number
+  appointment_id: number
+  doctor_id?: number | null
+  doctor_name: string
+  hospital_name: string
+  specialty: string
+  role: string
+  status: string
+  clinical_opinion?: string | null
+  joined_at?: string | null
+  created_at: string
+}
+
+export async function getConsultationMembers(appointmentId: number) {
+  return request<ConsultationMemberItem[]>(`/api/v1/appointments/${appointmentId}/multi-doctor/members`)
+}
+
+export async function inviteConsultationMember(appointmentId: number, data: {
+  doctor_name: string
+  hospital_name?: string
+  specialty: string
+  role?: string
+}) {
+  return request<ConsultationMemberItem>(`/api/v1/appointments/${appointmentId}/multi-doctor/invite`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function submitConsultationOpinion(appointmentId: number, memberId: number, opinion: string) {
+  return request<{ success: boolean; message: string }>(
+    `/api/v1/appointments/${appointmentId}/multi-doctor/opinion?member_id=${memberId}`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ clinical_opinion: opinion })
+    }
+  )
+}
+
+// -------------------------------------------------------------
+// 3. Giám sát Sinh hiệu Từ xa (RPM IoT)
+// -------------------------------------------------------------
+export interface RPMVitalItem {
+  id: number
+  patient_id: number
+  device_type: string
+  device_name: string
+  connection_method: string
+  systolic?: number | null
+  diastolic?: number | null
+  pulse?: number | null
+  glucose_value?: number | null
+  glucose_context?: string | null
+  spo2_percent?: number | null
+  temperature_celsius?: number | null
+  weight_kg?: number | null
+  is_warning: boolean
+  warning_message?: string | null
+  measured_at: string
+  created_at: string
+}
+
+export async function recordRPMVitals(data: {
+  device_type: string
+  device_name?: string
+  connection_method?: string
+  systolic?: number
+  diastolic?: number
+  pulse?: number
+  glucose_value?: number
+  glucose_context?: string
+  spo2_percent?: number
+  temperature_celsius?: number
+  weight_kg?: number
+}) {
+  return request<RPMVitalItem>(`/api/v1/rpm/vitals`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function getPatientRPMVitals(patientId: number) {
+  return request<RPMVitalItem[]>(`/api/v1/rpm/vitals/${patientId}`)
+}
+
+// -------------------------------------------------------------
+// 4. Hồ sơ Sức khỏe Gia đình (Family Health Vault)
+// -------------------------------------------------------------
+export interface FamilyMemberItem {
+  id: number
+  owner_user_id: number
+  full_name: string
+  relationship: string
+  gender: string
+  date_of_birth: string
+  phone_number?: string | null
+  national_id?: string | null
+  bhyt_code?: string | null
+  blood_group?: string | null
+  allergies?: string | null
+  chronic_conditions?: string | null
+  created_at: string
+}
+
+export async function getFamilyMembers() {
+  return request<FamilyMemberItem[]>(`/api/v1/family-members`)
+}
+
+export async function createFamilyMember(data: Partial<FamilyMemberItem>) {
+  return request<FamilyMemberItem>(`/api/v1/family-members`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function updateFamilyMember(id: number, data: Partial<FamilyMemberItem>) {
+  return request<FamilyMemberItem>(`/api/v1/family-members/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function deleteFamilyMember(id: number) {
+  return request<{ success: boolean; message: string }>(`/api/v1/family-members/${id}`, {
+    method: 'DELETE'
+  })
+}
+
+// -------------------------------------------------------------
+// 5. AI PACS Hỗ trợ Chẩn đoán Hình ảnh
+// -------------------------------------------------------------
+export interface AIPACSConsultationItem {
+  id: number
+  appointment_id: number
+  dicom_study_id?: string | null
+  modality: string
+  body_part: string
+  ai_model_name: string
+  primary_finding: string
+  confidence_score: number
+  findings: Array<{
+    pathology: string
+    probability: number
+    severity: string
+    location: string
+  }>
+  heatmap_regions: Array<{
+    box_id: string
+    label: string
+    x: number
+    y: number
+    width: number
+    height: number
+    color: string
+    confidence: number
+  }>
+  doctor_concurrence?: string | null
+  doctor_feedback?: string | null
+  created_at: string
+}
+
+export async function analyzePACSDicom(data: {
+  appointment_id: number
+  dicom_study_id?: string
+  modality?: string
+  body_part?: string
+  image_url?: string
+}) {
+  return request<AIPACSConsultationItem>(`/api/v1/pacs/ai-analyze`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function submitPACSFeedback(consultationId: number, data: {
+  doctor_concurrence: string
+  doctor_feedback?: string
+}) {
+  return request<{ success: boolean; message: string }>(`/api/v1/pacs/ai-feedback/${consultationId}`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+
 
 
 
