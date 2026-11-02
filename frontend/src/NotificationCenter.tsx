@@ -6,6 +6,7 @@ import {
   markAllNotificationsRead,
   NotificationItem
 } from './api'
+import { Pagination } from './Pagination'
 
 interface NotificationCenterProps {
   onNavigate?: (actionUrl: string) => void
@@ -19,6 +20,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onNaviga
   const [loading, setLoading] = useState(false)
   const [filterCategory, setFilterCategory] = useState<string>('all')
   const [filterUnreadOnly, setFilterUnreadOnly] = useState(false)
+  const [notifPage, setNotifPage] = useState(1)
+  const [notifPageSize, setNotifPageSize] = useState(5)
   const [toastNotification, setToastNotification] = useState<NotificationItem | null>(null)
   
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -287,7 +290,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onNaviga
                 <p>Không có thông báo mới nào cần xử lý vào lúc này.</p>
               </div>
             ) : (
-              notifications.map((item) => {
+              notifications.slice((notifPage - 1) * notifPageSize, notifPage * notifPageSize).map((item) => {
                 const meta = getCategoryMeta(item.category)
                 return (
                   <div
@@ -336,6 +339,19 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onNaviga
               })
             )}
           </div>
+
+          {notifications.length > notifPageSize && (
+            <div style={{ padding: '0 12px', background: '#f8fafc', borderTop: '1px solid #f1f5f9' }}>
+              <Pagination
+                currentPage={notifPage}
+                totalItems={notifications.length}
+                pageSize={notifPageSize}
+                onPageChange={setNotifPage}
+                onPageSizeChange={setNotifPageSize}
+                pageSizeOptions={[5, 10]}
+              />
+            </div>
+          )}
 
           {/* FOOTER */}
           <div className="notif-panel-footer">

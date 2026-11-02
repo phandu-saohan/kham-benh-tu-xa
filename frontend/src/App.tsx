@@ -31,6 +31,7 @@ import { AdminDashboard } from './AdminDashboard'
 import { NotificationCenter } from './NotificationCenter'
 import { PatientProfilePage } from './PatientProfilePage'
 import { PatientRegisterPage } from './PatientRegisterPage'
+import { Pagination } from './Pagination'
 
 const money = (n: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n)
@@ -866,37 +867,34 @@ export default function App() {
   const isAdmin = user.role === 'admin'
   const upcoming = appointments.filter(a => ['scheduled', 'confirmed', 'in_progress'].includes(a.status))
 
-  // Danh mục điều hướng Desktop theo từng vai trò (Role-based Navigation)
+  // Danh mục điều hướng Desktop theo từng vai trò (Role-based Navigation - Đã loại bỏ hoàn toàn trùng lặp)
   const navItems = isPatient ? [
     ['overview', 'Tổng quan', HeartPulse],
     ['appointments', 'Lịch khám của tôi', CalendarDays],
     ['records', 'Hồ sơ bệnh án EMR', FileText],
-    ['lab', 'Kết quả Xét nghiệm LIS', FlaskConical],
-    ['pacs', 'Chẩn đoán hình ảnh PACS', ScanLine],
-    ['prescriptions', 'Đơn thuốc điện tử', Pill],
     ['insurance', 'Bảo hiểm Y tế (BHYT)', ShieldCheck],
     ['payments', 'Thanh toán VietQR', CreditCard],
     ['profile', 'Hồ sơ cá nhân & CCCD', UserRound]
   ] : isDoctor ? [
     ['appointments', 'Hàng đợi khám hôm nay', CalendarDays],
-    ['triage', 'Bàn Tiếp đón (Triage)', Activity],
+    ['triage', 'Bàn Tiếp đón & Sàng lọc', Activity],
     ['records', 'Tra cứu Bệnh án Toàn viện', FileText],
-    ['prescriptions', 'Đơn thuốc & Ký số SmartCA', Pill],
-    ['pacs', 'Chẩn đoán hình ảnh PACS', ScanLine],
-    ['lab', 'Kết quả Xét nghiệm LIS', FlaskConical],
     ['insurance', 'Giám định BHYT', ShieldCheck]
   ] : isNurse ? [
     ['triage', 'Bàn Sàng lọc & Triage Desk', Activity],
-    ['insurance', 'Giám định BHYT trực tuyến', ShieldCheck],
     ['appointments', 'Lịch hẹn cần điều phối', CalendarDays],
+    ['insurance', 'Giám định BHYT trực tuyến', ShieldCheck],
     ['records', 'Tra cứu Bệnh án', FileText]
   ] : [
-    ['admin', '⚙️ Quản trị Toàn viện & RBAC', Settings],
-    ['overview', 'Báo cáo & Tổng quan KPI', HeartPulse],
-    ['appointments', 'Giám sát Lịch khám Viện', CalendarDays],
-    ['triage', 'Bàn Sàng lọc Triage', Activity],
-    ['insurance', 'Quản lý Giám định BHYT', ShieldCheck],
-    ['payments', 'Đối soát Viện phí VietQR', CreditCard]
+    ['admin-settings', '⚙️ Cấu hình Hệ thống', Settings],
+    ['admin-overview', '📊 Báo cáo & KPI Viện', HeartPulse],
+    ['admin-users', '👥 Nhân sự & Cán bộ', UserRound],
+    ['admin-rbac', '🛡️ Ma trận Phân quyền', ShieldCheck],
+    ['admin-audit', '📜 Nhật ký Kiểm toán', FileText],
+    ['appointments', '📅 Giám sát Lịch khám', CalendarDays],
+    ['triage', '🏥 Bàn Tiếp đón Triage', Activity],
+    ['insurance', '🛡️ Giám định Thẻ BHYT', ShieldCheck],
+    ['payments', '💳 Đối soát Viện phí VietQR', CreditCard]
   ]
 
   // Danh mục điều hướng Mobile theo từng vai trò
@@ -910,17 +908,18 @@ export default function App() {
     ['appointments', 'Hàng đợi', CalendarDays],
     ['triage', 'Sàng lọc', Activity],
     ['records', 'Bệnh án', FileText],
-    ['prescriptions', 'Đơn thuốc', Pill]
+    ['insurance', 'BHYT', ShieldCheck]
   ] : isNurse ? [
     ['triage', 'Sàng lọc', Activity],
-    ['insurance', 'BHYT', ShieldCheck],
     ['appointments', 'Lịch hẹn', CalendarDays],
+    ['insurance', 'BHYT', ShieldCheck],
     ['records', 'Bệnh án', FileText]
   ] : [
-    ['admin', 'Quản trị', Settings],
-    ['overview', 'Báo cáo', HeartPulse],
-    ['appointments', 'Lịch khám', CalendarDays],
-    ['triage', 'Sàng lọc', Activity]
+    ['admin-settings', 'Cài đặt', Settings],
+    ['admin-overview', 'Báo cáo', HeartPulse],
+    ['admin-users', 'Nhân sự', UserRound],
+    ['admin-rbac', 'Phân quyền', ShieldCheck],
+    ['admin-audit', 'Kiểm toán', FileText]
   ]
 
   return (
@@ -1874,10 +1873,14 @@ export default function App() {
           </section>
         )}
 
-        {/* Tab: Trung tâm Quản trị & Cài đặt Hệ thống (Admin Dashboard) */}
-        {view === 'admin' && (
-          <section className="panel page-panel">
-            <AdminDashboard />
+        {/* Tab: Trung tâm Quản trị & Cài đặt Hệ thống (Admin Dashboard - Không trùng lặp nav bar) */}
+        {(view === 'admin' || view.startsWith('admin-')) && (
+          <section className="panel page-panel" style={{ padding: 0, border: 'none', background: 'transparent' }}>
+            <AdminDashboard
+              activeTab={view.startsWith('admin-') ? (view.replace('admin-', '') as any) : 'settings'}
+              onTabChange={(t) => setView(`admin-${t}`)}
+              hideInternalNav={true}
+            />
           </section>
         )}
 
@@ -2211,13 +2214,19 @@ function AppointmentList({
   onCancel,
   onDownloadPdf
 }: any) {
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
+
   if (!items.length) {
     return <Empty text="Chưa có lịch hẹn nào. Hãy đặt lịch mới để bắt đầu khám." />
   }
 
+  const paginated = items.slice((page - 1) * pageSize, page * pageSize)
+
   return (
-    <div className="appointment-list">
-      {items.map((a: Appointment) => {
+    <div>
+      <div className="appointment-list">
+        {paginated.map((a: Appointment) => {
         const docName = doctors.find((d: any) => d.id === a.doctor_id)?.full_name || `Bác sĩ #${a.doctor_id}`
         const statusMap: Record<string, string> = {
           scheduled: 'Chờ thanh toán',
@@ -2299,6 +2308,16 @@ function AppointmentList({
           </div>
         )
       })}
+      </div>
+
+      <Pagination
+        currentPage={page}
+        totalItems={items.length}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        pageSizeOptions={[5, 10, 20]}
+      />
     </div>
   )
 }

@@ -24,6 +24,7 @@ import {
   getTriageQueue,
   assessTriage
 } from './api'
+import { Pagination } from './Pagination'
 
 interface TriageDeskProps {
   onSelectPatientForDoctor?: (appointmentId: number) => void
@@ -34,6 +35,8 @@ export const TriageDesk: React.FC<TriageDeskProps> = ({ onSelectPatientForDoctor
   const [loading, setLoading] = useState(false)
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'dispatched' | 'urgent'>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [triagePage, setTriagePage] = useState(1)
+  const [triagePageSize, setTriagePageSize] = useState(6)
   const [selectedItem, setSelectedItem] = useState<TriageItem | null>(null)
   const [toastMessage, setToastMessage] = useState('')
 
@@ -220,7 +223,7 @@ export const TriageDesk: React.FC<TriageDeskProps> = ({ onSelectPatientForDoctor
             <p>Không có bệnh nhân nào trong hàng đợi phù hợp với bộ lọc hiện tại.</p>
           </div>
         ) : (
-          filteredQueue.map(item => {
+          filteredQueue.slice((triagePage - 1) * triagePageSize, triagePage * triagePageSize).map(item => {
             const isEmergency = item.triage_level === 'emergency'
             const isPriority = item.triage_level === 'priority'
 
@@ -322,6 +325,15 @@ export const TriageDesk: React.FC<TriageDeskProps> = ({ onSelectPatientForDoctor
           })
         )}
       </div>
+
+      <Pagination
+        currentPage={triagePage}
+        totalItems={filteredQueue.length}
+        pageSize={triagePageSize}
+        onPageChange={setTriagePage}
+        onPageSizeChange={setTriagePageSize}
+        pageSizeOptions={[6, 12, 24]}
+      />
 
       {/* Sàng lọc & Đo sinh hiệu Modal */}
       {selectedItem && (

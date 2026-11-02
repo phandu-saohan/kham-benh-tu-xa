@@ -41,16 +41,28 @@ import {
   updateAdminSettings,
   getPermissionsMatrix,
   updateUserRole,
-  deidentifyRecord
+  deidentifyRecord,
+  updatePermissionsMatrix,
+  resetPermissionsMatrix
 } from './api'
 import { NotificationCenter } from './NotificationCenter'
+import { Pagination } from './Pagination'
 
 interface AdminDashboardProps {
   onBack?: () => void
+  activeTab?: 'settings' | 'overview' | 'users' | 'rbac' | 'audit'
+  onTabChange?: (tab: 'settings' | 'overview' | 'users' | 'rbac' | 'audit') => void
+  hideInternalNav?: boolean
 }
 
-export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
-  const [activeTab, setActiveTab] = useState<'settings' | 'overview' | 'users' | 'rbac' | 'audit'>('settings')
+export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
+  const [activeTabInternal, setActiveTabInternal] = useState<'settings' | 'overview' | 'users' | 'rbac' | 'audit'>('settings')
+  const activeTab = props.activeTab || activeTabInternal
+  const setActiveTab = (tab: 'settings' | 'overview' | 'users' | 'rbac' | 'audit') => {
+    setActiveTabInternal(tab)
+    if (props.onTabChange) props.onTabChange(tab)
+  }
+
   const [loading, setLoading] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
@@ -58,15 +70,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
   // Overview data
   const [overview, setOverview] = useState<AdminOverviewData | null>(null)
 
-  // Audit logs data
+  // Audit logs data & Pagination
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([])
+  const [auditPage, setAuditPage] = useState(1)
+  const [auditPageSize, setAuditPageSize] = useState(10)
 
-  // Users data
+  // Users data & Pagination
   const [usersList, setUsersList] = useState<any[]>([])
   const [updatingUserId, setUpdatingUserId] = useState<number | null>(null)
+  const [usersPage, setUsersPage] = useState(1)
+  const [usersPageSize, setUsersPageSize] = useState(10)
 
-  // RBAC Matrix data
+  // RBAC Matrix data & Interactive Editor
   const [matrixData, setMatrixData] = useState<PermissionsMatrixData | null>(null)
+  const [editableRoles, setEditableRoles] = useState<Record<string, any>>({})
+  const [savingRbac, setSavingRbac] = useState(false)
+  const [rbacChanged, setRbacChanged] = useState(false)
 
   // Settings form states
   const [settingsForm, setSettingsForm] = useState<SystemSettingsData>({
@@ -132,6 +151,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
       } else if (activeTab === 'rbac') {
         const m = await getPermissionsMatrix()
         setMatrixData(m)
+        if (m && m.roles) {
+          setEditableRoles(JSON.parse(JSON.stringify(m.roles)))
+          setRbacChanged(false)
+        }
       } else if (activeTab === 'audit') {
         const a = await getAdminAuditLogs(100)
         setAuditLogs(a)
@@ -172,6 +195,64 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
       alert(e instanceof Error ? e.message : 'Không thể thay đổi trạng thái tài khoản')
     } finally {
       setUpdatingUserId(null)
+    }
+  }
+
+  const handleTogglePermission = (role: string, permCode: string) => {
+    setEditableRoles((prev) => {
+      const next = { ...prev }
+      const currentRole = next[role] || { permissions: [] }
+      const perms: string[] = [...(currentRole.permissions || [])]
+      const idx = perms.indexOf(permCode)
+      if (idx >= 0) {
+        perms.splice(idx, 1)
+      } else {
+        perms.push(permCode)
+      }
+      next[role] = { ...currentRole, permissions: perms }
+      return next
+    })
+    setRbacChanged(true)
+  }
+
+  const handleSaveRbac = async () => {
+    setSavingRbac(true)
+    try {
+      const payload: Record<string, string[]> = {}
+      for (const [r, obj] of Object.entries(editableRoles)) {
+        payload[r] = (obj as any).permissions || []
+      }
+      const res = await updatePermissionsMatrix(payload)
+      setMatrixData(res)
+      if (res && res.roles) {
+        setEditableRoles(JSON.parse(JSON.stringify(res.roles)))
+      }
+      setRbacChanged(false)
+      setToastMessage('✅ Đã lưu và áp dụng Ma trận Phân quyền mới thành công!')
+      setTimeout(() => setToastMessage(''), 4000)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Không thể lưu ma trận phân quyền')
+    } finally {
+      setSavingRbac(false)
+    }
+  }
+
+  const handleResetRbac = async () => {
+    if (!window.confirm('Bạn có chắc chắn muốn khôi phục Ma trận Phân quyền về giá trị mặc định của hệ thống?')) return
+    setSavingRbac(true)
+    try {
+      const res = await resetPermissionsMatrix()
+      setMatrixData(res)
+      if (res && res.roles) {
+        setEditableRoles(JSON.parse(JSON.stringify(res.roles)))
+      }
+      setRbacChanged(false)
+      setToastMessage('✅ Đã khôi phục Ma trận Phân quyền về mặc định thành công!')
+      setTimeout(() => setToastMessage(''), 4000)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Không thể khôi phục mặc định')
+    } finally {
+      setSavingRbac(false)
     }
   }
 
@@ -225,44 +306,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
         </div>
       </div>
 
-      {/* Main Tab Navigation */}
-      <div className="admin-nav-tabs">
-        <button
-          type="button"
-          className={`admin-tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
-          onClick={() => setActiveTab('settings')}
-        >
-          <Settings size={16} /> Cài đặt Tham số Hệ thống
-        </button>
-        <button
-          type="button"
-          className={`admin-tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
-          onClick={() => setActiveTab('overview')}
-        >
-          <BarChart3 size={16} /> Thống kê & Báo cáo
-        </button>
-        <button
-          type="button"
-          className={`admin-tab-btn ${activeTab === 'users' ? 'active' : ''}`}
-          onClick={() => setActiveTab('users')}
-        >
-          <Users size={16} /> Quản lý Nhân sự & Bác sĩ
-        </button>
-        <button
-          type="button"
-          className={`admin-tab-btn ${activeTab === 'rbac' ? 'active' : ''}`}
-          onClick={() => setActiveTab('rbac')}
-        >
-          <SlidersHorizontal size={16} /> Ma trận Phân quyền & RBAC
-        </button>
-        <button
-          type="button"
-          className={`admin-tab-btn ${activeTab === 'audit' ? 'active' : ''}`}
-          onClick={() => setActiveTab('audit')}
-        >
-          <ShieldCheck size={16} /> Nhật ký Kiểm toán Y tế (Audit)
-        </button>
-      </div>
+      {/* Main Tab Navigation (Ẩn khi thanh điều hướng bên ngoài Sidebar đã phụ trách để tránh trùng lặp) */}
+      {!props.hideInternalNav && (
+        <div className="admin-nav-tabs">
+          <button
+            type="button"
+            className={`admin-tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            <Settings size={16} /> Cài đặt Tham số Hệ thống
+          </button>
+          <button
+            type="button"
+            className={`admin-tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
+            onClick={() => setActiveTab('overview')}
+          >
+            <BarChart3 size={16} /> Thống kê & Báo cáo
+          </button>
+          <button
+            type="button"
+            className={`admin-tab-btn ${activeTab === 'users' ? 'active' : ''}`}
+            onClick={() => setActiveTab('users')}
+          >
+            <Users size={16} /> Quản lý Nhân sự & Bác sĩ
+          </button>
+          <button
+            type="button"
+            className={`admin-tab-btn ${activeTab === 'rbac' ? 'active' : ''}`}
+            onClick={() => setActiveTab('rbac')}
+          >
+            <SlidersHorizontal size={16} /> Ma trận Phân quyền & RBAC
+          </button>
+          <button
+            type="button"
+            className={`admin-tab-btn ${activeTab === 'audit' ? 'active' : ''}`}
+            onClick={() => setActiveTab('audit')}
+          >
+            <ShieldCheck size={16} /> Nhật ký Kiểm toán Y tế (Audit)
+          </button>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* TAB 1: CÀI ĐẶT THAM SỐ HỆ THỐNG (SETTINGS MODULE) */}
@@ -740,7 +823,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {usersList.map(u => (
+                  {usersList.slice((usersPage - 1) * usersPageSize, usersPage * usersPageSize).map(u => (
                     <tr key={u.id}>
                       <td>#{u.id}</td>
                       <td>
@@ -807,6 +890,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                 </tbody>
               </table>
             </div>
+
+            <Pagination
+              currentPage={usersPage}
+              totalItems={usersList.length}
+              pageSize={usersPageSize}
+              onPageChange={setUsersPage}
+              onPageSizeChange={setUsersPageSize}
+              pageSizeOptions={[5, 10, 20, 50]}
+            />
           </div>
         </div>
       )}
@@ -877,17 +969,45 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
 
           {/* Detailed Permissions Matrix Table */}
           <div className="users-table-card">
-            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <h4>Bảng Ma trận Phân quyền Chi tiết (System RBAC Matrix)</h4>
+                <h4>🛡️ Chỉnh sửa Ma trận Phân quyền Vai trò (System RBAC Matrix)</h4>
                 <p className="tiny muted">
-                  Quy định chi tiết các chức năng được phép truy cập theo nguyên tắc đặc quyền tối thiểu (Least Privilege)
+                  Bật/tắt trực tiếp quyền hạn cho từng vai trò trong hệ thống. Thay đổi có hiệu lực tức thì sau khi bấm Lưu.
                 </p>
               </div>
-              <span className="medical-verified-tag" style={{ background: '#dbeafe', color: '#1e40af', padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>
-                Chuẩn Bộ Y Tế & NĐ 13
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button
+                  type="button"
+                  className="btn-refresh-admin"
+                  onClick={handleResetRbac}
+                  disabled={savingRbac}
+                  style={{ fontSize: 12, padding: '7px 14px', color: '#64748b' }}
+                >
+                  <RotateCcw size={14} /> Khôi phục Mặc định
+                </button>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={handleSaveRbac}
+                  disabled={savingRbac || !rbacChanged}
+                  style={{
+                    fontSize: 12,
+                    padding: '7px 16px',
+                    background: rbacChanged ? '#0f766e' : '#94a3b8',
+                    cursor: rbacChanged ? 'pointer' : 'default'
+                  }}
+                >
+                  <Save size={14} /> {savingRbac ? 'Đang lưu...' : 'Lưu Thay đổi Ma trận'}
+                </button>
+              </div>
             </div>
+
+            {rbacChanged && (
+              <div style={{ background: '#fef3c7', color: '#92400e', padding: '10px 16px', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <AlertCircle size={16} /> Bạn có các quyền hạn vừa điều chỉnh chưa được lưu. Hãy bấm nút "Lưu Thay đổi Ma trận" để cập nhật cho toàn viện.
+              </div>
+            )}
 
             <div className="table-responsive">
               <table className="admin-data-table rbac-matrix-table">
@@ -895,9 +1015,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                   <tr>
                     <th style={{ width: '18%' }}>Phân hệ / Module</th>
                     <th style={{ width: '22%' }}>Chức năng / Quyền hạn</th>
-                    <th style={{ width: '30%' }}>Mô tả chi tiết tác vụ</th>
-                    <th style={{ width: '7%', textAlign: 'center' }}>Bệnh nhân</th>
-                    <th style={{ width: '7%', textAlign: 'center' }}>Bác sĩ</th>
+                    <th style={{ width: '28%' }}>Mô tả chi tiết tác vụ</th>
+                    <th style={{ width: '8%', textAlign: 'center' }}>Bệnh nhân</th>
+                    <th style={{ width: '8%', textAlign: 'center' }}>Bác sĩ</th>
                     <th style={{ width: '8%', textAlign: 'center' }}>Điều dưỡng</th>
                     <th style={{ width: '8%', textAlign: 'center' }}>Quản trị</th>
                   </tr>
@@ -905,7 +1025,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                 <tbody>
                   {matrixData && matrixData.permissions ? (
                     matrixData.permissions.map((p) => {
-                      const rolesObj = matrixData.roles || {}
+                      const rolesObj = editableRoles && Object.keys(editableRoles).length > 0 ? editableRoles : (matrixData.roles || {})
                       const patientHas = rolesObj.patient?.permissions?.includes(p.code)
                       const doctorHas = rolesObj.doctor?.permissions?.includes(p.code)
                       const nurseHas = rolesObj.nurse?.permissions?.includes(p.code)
@@ -926,32 +1046,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                             {p.description}
                           </td>
                           <td style={{ textAlign: 'center' }}>
-                            {patientHas ? (
-                              <span style={{ color: '#16a34a', fontWeight: 800, fontSize: 15 }} title="Được phép">✓</span>
-                            ) : (
-                              <span style={{ color: '#cbd5e1' }}>—</span>
-                            )}
+                            <button
+                              type="button"
+                              className={`rbac-perm-toggle ${patientHas ? 'enabled' : 'disabled'}`}
+                              onClick={() => handleTogglePermission('patient', p.code)}
+                              title={`Bấm để ${patientHas ? 'tước quyền' : 'cấp quyền'} [${p.name}] cho Bệnh nhân`}
+                            >
+                              {patientHas ? '✓' : '—'}
+                            </button>
                           </td>
                           <td style={{ textAlign: 'center' }}>
-                            {doctorHas ? (
-                              <span style={{ color: '#2563eb', fontWeight: 800, fontSize: 15 }} title="Được phép">✓</span>
-                            ) : (
-                              <span style={{ color: '#cbd5e1' }}>—</span>
-                            )}
+                            <button
+                              type="button"
+                              className={`rbac-perm-toggle ${doctorHas ? 'enabled' : 'disabled'}`}
+                              onClick={() => handleTogglePermission('doctor', p.code)}
+                              title={`Bấm để ${doctorHas ? 'tước quyền' : 'cấp quyền'} [${p.name}] cho Bác sĩ`}
+                            >
+                              {doctorHas ? '✓' : '—'}
+                            </button>
                           </td>
                           <td style={{ textAlign: 'center' }}>
-                            {nurseHas ? (
-                              <span style={{ color: '#9333ea', fontWeight: 800, fontSize: 15 }} title="Được phép">✓</span>
-                            ) : (
-                              <span style={{ color: '#cbd5e1' }}>—</span>
-                            )}
+                            <button
+                              type="button"
+                              className={`rbac-perm-toggle ${nurseHas ? 'enabled' : 'disabled'}`}
+                              onClick={() => handleTogglePermission('nurse', p.code)}
+                              title={`Bấm để ${nurseHas ? 'tước quyền' : 'cấp quyền'} [${p.name}] cho Điều dưỡng`}
+                            >
+                              {nurseHas ? '✓' : '—'}
+                            </button>
                           </td>
                           <td style={{ textAlign: 'center' }}>
-                            {adminHas ? (
-                              <span style={{ color: '#d97706', fontWeight: 800, fontSize: 15 }} title="Được phép">✓</span>
-                            ) : (
-                              <span style={{ color: '#cbd5e1' }}>—</span>
-                            )}
+                            <button
+                              type="button"
+                              className={`rbac-perm-toggle ${adminHas ? 'enabled' : 'disabled'}`}
+                              onClick={() => handleTogglePermission('admin', p.code)}
+                              title={`Bấm để ${adminHas ? 'tước quyền' : 'cấp quyền'} [${p.name}] cho Quản trị viên`}
+                            >
+                              {adminHas ? '✓' : '—'}
+                            </button>
                           </td>
                         </tr>
                       )
@@ -1001,7 +1133,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {auditLogs.map(log => (
+                  {auditLogs.slice((auditPage - 1) * auditPageSize, auditPage * auditPageSize).map(log => (
                     <tr key={log.id}>
                       <td className="tiny">{new Date(log.created_at).toLocaleString('vi-VN')}</td>
                       <td><b>{log.actor_name}</b></td>
@@ -1018,6 +1150,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                 </tbody>
               </table>
             </div>
+
+            <Pagination
+              currentPage={auditPage}
+              totalItems={auditLogs.length}
+              pageSize={auditPageSize}
+              onPageChange={setAuditPage}
+              onPageSizeChange={setAuditPageSize}
+              pageSizeOptions={[10, 25, 50, 100]}
+            />
           </div>
         </div>
       )}

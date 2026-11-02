@@ -7,6 +7,7 @@ import hmac
 import hashlib
 import time
 import re
+import copy
 from fastapi import FastAPI, Depends, HTTPException, Query, status, Response, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -2105,16 +2106,75 @@ ROLE_DEFINITIONS = {
     }
 }
 
+def get_effective_role_definitions(db: Session):
+    roles = copy.deepcopy(ROLE_DEFINITIONS)
+    custom_setting = db.query(SystemSetting).filter_by(key="custom_role_permissions").first()
+    if custom_setting and custom_setting.value:
+        try:
+            custom_perms = json.loads(custom_setting.value)
+            for role_name, perms in custom_perms.items():
+                if role_name in roles and isinstance(perms, list):
+                    roles[role_name]["permissions"] = perms
+        except Exception:
+            pass
+    return roles
+
 @app.get("/api/v1/auth/permissions-matrix")
-def get_permissions_matrix(user: User = Depends(get_current_user)):
+def get_permissions_matrix(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Trả về ma trận phân quyền chi tiết của toàn hệ thống và quyền của người dùng hiện tại"""
-    user_perms = ROLE_DEFINITIONS.get(user.role, {}).get("permissions", [])
+    roles = get_effective_role_definitions(db)
+    user_perms = roles.get(user.role, {}).get("permissions", [])
     return {
-        "roles": ROLE_DEFINITIONS,
+        "roles": roles,
         "permissions": SYSTEM_PERMISSIONS,
         "current_user_role": user.role,
         "current_user_permissions": user_perms
     }
+
+@app.put("/api/v1/admin/permissions-matrix")
+def update_permissions_matrix(
+    data: dict[str, list[str]],
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin"))
+):
+    """Cập nhật ma trận phân quyền cho các vai trò trong hệ thống"""
+    setting = db.query(SystemSetting).filter_by(key="custom_role_permissions").first()
+    if not setting:
+        setting = SystemSetting(
+            key="custom_role_permissions",
+            value=json.dumps(data, ensure_ascii=False),
+            description="Tùy chỉnh ma trận phân quyền các vai trò hệ thống"
+        )
+        db.add(setting)
+    else:
+        setting.value = json.dumps(data, ensure_ascii=False)
+    
+    db.add(AuditLog(
+        actor_user_id=user.id,
+        action="admin.update_rbac_matrix",
+        resource_type="system_rbac",
+        resource_id="matrix"
+    ))
+    db.commit()
+    return get_permissions_matrix(db, user)
+
+@app.post("/api/v1/admin/permissions-matrix/reset")
+def reset_permissions_matrix(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin"))
+):
+    """Khôi phục ma trận phân quyền về mặc định của hệ thống"""
+    setting = db.query(SystemSetting).filter_by(key="custom_role_permissions").first()
+    if setting:
+        db.delete(setting)
+        db.add(AuditLog(
+            actor_user_id=user.id,
+            action="admin.reset_rbac_matrix",
+            resource_type="system_rbac",
+            resource_id="default"
+        ))
+        db.commit()
+    return get_permissions_matrix(db, user)
 
 @app.get("/api/v1/admin/users")
 def get_admin_users(

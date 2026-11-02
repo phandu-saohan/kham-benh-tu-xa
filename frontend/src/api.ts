@@ -736,6 +736,19 @@ export async function getPermissionsMatrix() {
   return request<PermissionsMatrixData>('/api/v1/auth/permissions-matrix')
 }
 
+export async function updatePermissionsMatrix(matrix: Record<string, string[]>) {
+  return request<PermissionsMatrixData>('/api/v1/admin/permissions-matrix', {
+    method: 'PUT',
+    body: JSON.stringify(matrix)
+  })
+}
+
+export async function resetPermissionsMatrix() {
+  return request<PermissionsMatrixData>('/api/v1/admin/permissions-matrix/reset', {
+    method: 'POST'
+  })
+}
+
 export async function updateUserRole(
   userId: number,
   data: { role: string; is_active?: boolean; doctor_cchn?: string; bhyt_code?: string }
