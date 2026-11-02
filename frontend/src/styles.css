@@ -6298,3 +6298,75 @@ div[style*="z-index: 2000000000"],
   width: 0 !important;
   height: 0 !important;
 }
+
+
+/* ==================== FULL SCREEN MOBILE LOGIN & REGISTRATION ==================== */
+@media (max-width: 768px) {
+  .login-page,
+  .patient-portal-page,
+  .staff-portal-page,
+  .patient-register-page {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100vw !important;
+    min-width: 100vw !important;
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    background: #ffffff !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .login-card,
+  .patient-portal-card,
+  .staff-portal-card,
+  .patient-register-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    margin: 0 !important;
+    padding: calc(env(safe-area-inset-top, 0px) + 20px) 20px calc(env(safe-area-inset-bottom, 0px) + 24px) !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+  }
+
+  .patient-portal-card,
+  .staff-portal-card {
+    border-top: none !important;
+  }
+
+  .patient-register-container {
+    padding: 0 !important;
+    width: 100% !important;
+  }
+}
+
+/* ==================== PROFESSIONAL PROFILE LAYOUT & STATUS ==================== */
+.empty-field-hint {
+  color: #94a3b8;
+  font-style: italic;
+  font-size: 13px;
+}
+
+.bhyt-status-chip.inactive {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.profile-field input:focus,
+.profile-field select:focus,
+.profile-field textarea:focus {
+  border-color: #0f766e !important;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15) !important;
+  outline: none !important;
+}

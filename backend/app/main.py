@@ -59,6 +59,7 @@ from app.encryption import encrypt_sensitive_data, decrypt_sensitive_data
 from app.ai_scribe import generate_soap_notes
 from app.bhyt import verify_and_lookup_bhyt, calculate_bhyt_consultation_fee
 from app.firebase_auth import verify_firebase_id_token, process_firebase_login
+from app.supabase_storage import upload_file_to_supabase, check_supabase_health, get_supabase_public_url
 
 app = FastAPI(
     title="Telemedicine Platform API",
@@ -82,6 +83,11 @@ def health():
         "payment_provider": settings.PAYMENT_PROVIDER,
         "compliance": ["NghiDinh_13_ND_CP", "ThongTu_30_2023_TT_BYT", "SmartCA_PKI"]
     }
+
+@app.get("/api/v1/storage/status")
+def storage_status():
+    """Kiểm tra trạng thái kết nối máy chủ lưu trữ hồ sơ y tế Supabase Storage."""
+    return check_supabase_health()
 
 # ----------------- AUTHENTICATION -----------------
 
@@ -842,7 +848,15 @@ async def send_consultation_message(
             saved_path = os.path.join(UPLOAD_DIR, clean_name)
             with open(saved_path, "wb") as f:
                 f.write(file_bytes)
-            file_url = f"/uploads/{clean_name}"
+
+            # Lưu trữ đám mây Supabase Storage (Ưu tiên) kết hợp dự phòng cục bộ
+            supabase_content_type = "image/jpeg" if safe_ext in (".jpg", ".jpeg") else ("image/png" if safe_ext == ".png" else "application/octet-stream")
+            supabase_url = upload_file_to_supabase(
+                file_bytes=file_bytes,
+                destination_path=f"consultations/{appt.id}/{clean_name}",
+                content_type=supabase_content_type
+            )
+            file_url = supabase_url if supabase_url else f"/uploads/{clean_name}"
             if not file_name:
                 file_name = clean_name
         except Exception as e:
@@ -1284,16 +1298,16 @@ def get_my_patient_profile(
         "phone_number": user.phone_number,
         "email": user.email,
         "role": user.role,
-        "bhyt_code": user.bhyt_code or "GD4797931812345",
+        "bhyt_code": user.bhyt_code or "",
         "external_patient_id": user.external_patient_id or f"CC-{user.id:05d}",
-        "date_of_birth": user.date_of_birth or "1992-08-16",
+        "date_of_birth": user.date_of_birth or "",
         "gender": user.gender or "Nam",
-        "identity_card": user.identity_card or "079092014829",
-        "address": user.address or "124 Điện Biên Phủ, Phường Đa Kao, Quận 1, TP. Hồ Chí Minh",
-        "blood_type": user.blood_type or "O+",
-        "allergies": user.allergies or "Không ghi nhận dị ứng thuốc",
-        "emergency_contact_name": user.emergency_contact_name or "Nguyễn Thị Mai (Vợ)",
-        "emergency_contact_phone": user.emergency_contact_phone or "0988776655",
+        "identity_card": user.identity_card or "",
+        "address": user.address or "",
+        "blood_type": user.blood_type or "",
+        "allergies": user.allergies or "",
+        "emergency_contact_name": user.emergency_contact_name or "",
+        "emergency_contact_phone": user.emergency_contact_phone or "",
         "consent_agreed": bool(consent) if consent else True,
         "consent_agreed_at": consent.consented_at if consent else datetime.now(timezone.utc),
         "total_appointments": total_appts,
@@ -2084,16 +2098,16 @@ def seed_demo():
                 User(
                     email="patient@example.test",
                     phone_number="0912345678",
-                    full_name="Nguyễn Minh An (Demo)",
+                    full_name="Nguyễn Minh An",
                     role="patient",
                     bhyt_code="GD4797931812345",
                     password_hash=hash_password("ChangeMe123!"),
-                    external_patient_id="DEMO-P001"
+                    external_patient_id="PAT-001"
                 ),
                 User(
                     email="doctor@example.test",
                     phone_number="0987654321",
-                    full_name="BS.CKII Trần Minh (Demo)",
+                    full_name="BS.CKII Trần Minh",
                     role="doctor",
                     doctor_cchn="008912/BYT-CCHN",
                     department_id=dept_id,

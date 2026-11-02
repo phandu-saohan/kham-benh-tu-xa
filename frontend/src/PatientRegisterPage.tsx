@@ -38,31 +38,6 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // Nạp dữ liệu mẫu nhanh để test
-  function fillDemoData(type: 'existing' | 'new') {
-    setError('')
-    if (type === 'existing') {
-      setFullName('Nguyễn Thị Bích Hòa')
-      setPhoneNumber('0900000001')
-      setIdentityCard('080180012345')
-      setPassword('ChangeMe123!')
-      setConfirmPassword('ChangeMe123!')
-    } else {
-      const randDigits = Math.floor(100000 + Math.random() * 900000)
-      setFullName('Lê Hoàng Long')
-      setPhoneNumber(`0988${randDigits.toString().slice(0, 6)}`)
-      setIdentityCard(`079201${randDigits.toString().slice(0, 6)}`)
-      setDob('1994-06-15')
-      setGender('Nam')
-      setBhytCode(`GD479${randDigits.toString().slice(0, 6)}`)
-      setAddress('158 Điện Biên Phủ, Phường Đa Kao, Quận 1, TP. Hồ Chí Minh')
-      setPassword('MatKhau@2026')
-      setConfirmPassword('MatKhau@2026')
-    }
-    setHisChecked(false)
-    setHisCheckResult(null)
-  }
-
   // Xử lý kiểm tra HIS/EMR
   async function handleCheckHis() {
     if (!fullName.trim() || !phoneNumber.trim() || !identityCard.trim()) {
@@ -192,29 +167,6 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
               <span className="stepper-sub">Mật khẩu & Kích hoạt</span>
             </div>
           </div>
-        </div>
-
-        {/* Demo Fast Fill Row */}
-        <div className="demo-chip-bar">
-          <span className="demo-chip-label">
-            <Sparkles size={13} /> Dữ liệu mẫu:
-          </span>
-          <button
-            type="button"
-            className="demo-chip-btn"
-            onClick={() => fillDemoData('existing')}
-            title="Bệnh nhân đã có mã PID và bệnh án tại viện"
-          >
-            BN đã có hồ sơ HIS
-          </button>
-          <button
-            type="button"
-            className="demo-chip-btn"
-            onClick={() => fillDemoData('new')}
-            title="Bệnh nhân chưa từng khám, cần tạo PID mới"
-          >
-            Bệnh nhân mới
-          </button>
         </div>
 
         {/* Form Container */}

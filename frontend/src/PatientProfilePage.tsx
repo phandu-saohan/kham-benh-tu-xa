@@ -51,15 +51,15 @@ export function PatientProfilePage({
       setProfile(data)
       setFullName(data.full_name || '')
       setEmail(data.email || '')
-      setDateOfBirth(data.date_of_birth || '1992-08-16')
+      setDateOfBirth(data.date_of_birth || '')
       setGender(data.gender || 'Nam')
-      setIdentityCard(data.identity_card || '079092014829')
-      setAddress(data.address || '124 Điện Biên Phủ, Phường Đa Kao, Quận 1, TP. Hồ Chí Minh')
-      setBhytCode(data.bhyt_code || 'GD4797931812345')
+      setIdentityCard(data.identity_card || '')
+      setAddress(data.address || '')
+      setBhytCode(data.bhyt_code || '')
       setBloodType(data.blood_type || 'O+')
-      setAllergies(data.allergies || 'Không ghi nhận dị ứng thuốc')
-      setEmergencyName(data.emergency_contact_name || 'Nguyễn Thị Mai (Vợ)')
-      setEmergencyPhone(data.emergency_contact_phone || '0988776655')
+      setAllergies(data.allergies || '')
+      setEmergencyName(data.emergency_contact_name || '')
+      setEmergencyPhone(data.emergency_contact_phone || '')
     } catch (e: any) {
       setError(e.message || 'Không thể tải thông tin tài khoản')
     } finally {
@@ -212,8 +212,12 @@ export function PatientProfilePage({
             <CreditCard size={20} />
           </div>
           <div>
-            <strong style={{ color: '#059669' }}>Mức hưởng 80%</strong>
-            <small>BHYT: {profile?.bhyt_code?.slice(0, 4)}...{profile?.bhyt_code?.slice(-4)}</small>
+            <strong style={{ color: profile?.bhyt_code ? '#059669' : '#64748b' }}>
+              {profile?.bhyt_code ? 'BHYT Đúng tuyến' : 'Chưa liên kết'}
+            </strong>
+            <small>
+              {profile?.bhyt_code ? `Mã: ${profile.bhyt_code.slice(0, 4)}...${profile.bhyt_code.slice(-4)}` : 'Bấm để thêm thẻ'}
+            </small>
           </div>
         </div>
       </section>
@@ -316,7 +320,7 @@ export function PatientProfilePage({
                     onChange={(e) => setDateOfBirth(e.target.value)}
                   />
                 ) : (
-                  <div className="field-value-text">{profile?.date_of_birth || '16/08/1992'}</div>
+                  <div className="field-value-text">{profile?.date_of_birth || 'Chưa cập nhật'}</div>
                 )}
               </div>
 
@@ -385,19 +389,21 @@ export function PatientProfilePage({
                   <ShieldCheck size={24} />
                   <span>BẢO HIỂM Y TẾ VIỆT NAM</span>
                 </div>
-                <span className="bhyt-status-chip">Đang hoạt động</span>
+                <span className={`bhyt-status-chip ${profile?.bhyt_code ? 'active' : 'inactive'}`}>
+                  {profile?.bhyt_code ? 'Đang hoạt động' : 'Chưa liên kết thẻ'}
+                </span>
               </div>
               <div className="bhyt-card-code">
-                {profile?.bhyt_code || 'GD 4 79 79318 12345'}
+                {profile?.bhyt_code || 'Chưa liên kết thẻ BHYT'}
               </div>
               <div className="bhyt-card-footer">
                 <div>
                   <small>Chủ thẻ</small>
-                  <b>{profile?.full_name}</b>
+                  <b>{profile?.full_name || 'Bệnh nhân'}</b>
                 </div>
                 <div>
                   <small>Mức hưởng</small>
-                  <b>80% KCB Đúng tuyến</b>
+                  <b>{profile?.bhyt_code ? '80% KCB Đúng tuyến' : 'Chưa áp dụng'}</b>
                 </div>
                 <div>
                   <small>ĐK KCB Ban đầu</small>
@@ -415,9 +421,10 @@ export function PatientProfilePage({
                     value={bhytCode}
                     onChange={(e) => setBhytCode(e.target.value.toUpperCase())}
                     maxLength={15}
+                    placeholder="VD: GD4791234567890"
                   />
                 ) : (
-                  <div className="field-value-text">{profile?.bhyt_code}</div>
+                  <div className="field-value-text">{profile?.bhyt_code || 'Chưa cập nhật'}</div>
                 )}
               </div>
 
@@ -454,7 +461,7 @@ export function PatientProfilePage({
                   />
                 ) : (
                   <div className="field-value-box allergy-box">
-                    {profile?.allergies || 'Không ghi nhận dị ứng thuốc'}
+                    {profile?.allergies || 'Không ghi nhận dị ứng thuốc (hoặc chưa cập nhật)'}
                   </div>
                 )}
               </div>

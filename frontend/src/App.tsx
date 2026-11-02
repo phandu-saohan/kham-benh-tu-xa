@@ -108,7 +108,7 @@ export default function App() {
   // Danh sách bệnh nhân độc nhất cho Bác sĩ / Điều dưỡng tra cứu
   const uniquePatients = useMemo(() => {
     const map = new Map<number, { id: number; name: string; phone?: string; bhyt?: string; lastReason?: string }>()
-    map.set(1, { id: 1, name: 'Nguyễn Minh An (Demo)', phone: '0912345678', bhyt: 'GD4797931812345', lastReason: 'Khám tim mạch theo dõi' })
+    map.set(1, { id: 1, name: 'Nguyễn Minh An', phone: '0912345678', bhyt: 'GD4797931812345', lastReason: 'Khám tim mạch theo dõi' })
     appointments.forEach(a => {
       if (a.patient_id && !map.has(a.patient_id)) {
         map.set(a.patient_id, {
@@ -639,39 +639,6 @@ export default function App() {
               </div>
             )}
 
-            {/* Quick Demo Switcher cho Bệnh nhân */}
-            <div className="login-quick-demo">
-              <span className="quick-demo-title">
-                <Sparkles size={11} /> Thử nhanh BN:
-              </span>
-              <div className="quick-demo-buttons">
-                <button
-                  type="button"
-                  className="demo-pill-btn"
-                  onClick={() => {
-                    setPhone('0933413486')
-                    setOtpCode('888999')
-                    setError('')
-                  }}
-                  title="Số điện thoại bệnh nhân kiểm thử"
-                >
-                  <Phone size={11} /> 0933413486 (OTP 888999)
-                </button>
-                <button
-                  type="button"
-                  className="demo-pill-btn"
-                  onClick={() => {
-                    setPhone('0912345678')
-                    setOtpCode('123456')
-                    setError('')
-                  }}
-                  title="Bệnh nhân mẫu 0912345678"
-                >
-                  <Phone size={11} /> 0912345678
-                </button>
-              </div>
-            </div>
-
             {/* Dedicated Registration Banner */}
             <div className="login-register-card">
               <div className="reg-card-top">
@@ -816,51 +783,6 @@ export default function App() {
               <span>{error}</span>
             </div>
           )}
-
-          {/* Quick Staff Demo Switcher */}
-          <div className="login-quick-demo">
-            <span className="quick-demo-title">
-              <Sparkles size={11} /> Thử nhanh Cán bộ:
-            </span>
-            <div className="quick-demo-buttons">
-              <button
-                type="button"
-                className="demo-pill-btn"
-                onClick={() => {
-                  setEmail('doctor@example.test')
-                  setPassword('ChangeMe123!')
-                  setError('')
-                }}
-                title="Đăng nhập Bác sĩ chuyên khoa"
-              >
-                <Stethoscope size={11} /> 👨‍⚕️ Bác sĩ
-              </button>
-              <button
-                type="button"
-                className="demo-pill-btn"
-                onClick={() => {
-                  setEmail('nurse@example.test')
-                  setPassword('ChangeMe123!')
-                  setError('')
-                }}
-                title="Đăng nhập Điều dưỡng trưởng"
-              >
-                <Activity size={11} /> 👩‍⚕️ Điều dưỡng
-              </button>
-              <button
-                type="button"
-                className="demo-pill-btn"
-                onClick={() => {
-                  setEmail('admin@example.test')
-                  setPassword('ChangeMe123!')
-                  setError('')
-                }}
-                title="Đăng nhập Quản trị viên toàn viện"
-              >
-                <ShieldCheck size={11} /> ⚙️ Quản trị viên
-              </button>
-            </div>
-          </div>
 
           {/* Security Notice Card */}
           <div className="staff-security-card">
