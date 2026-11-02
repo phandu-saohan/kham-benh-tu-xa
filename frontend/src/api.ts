@@ -701,6 +701,42 @@ export async function getAdminUsers() {
   return request<any[]>('/api/v1/admin/users')
 }
 
+export interface PermissionItem {
+  code: string
+  name: string
+  module: string
+  description: string
+}
+
+export interface RoleDefinition {
+  role: string
+  name: string
+  badge_color: string
+  description: string
+  permissions: string[]
+}
+
+export interface PermissionsMatrixData {
+  roles: Record<string, RoleDefinition>
+  permissions: PermissionItem[]
+  current_user_role: string
+  current_user_permissions: string[]
+}
+
+export async function getPermissionsMatrix() {
+  return request<PermissionsMatrixData>('/api/v1/auth/permissions-matrix')
+}
+
+export async function updateUserRole(
+  userId: number,
+  data: { role: string; is_active?: boolean; doctor_cchn?: string; bhyt_code?: string }
+) {
+  return request<{ success: boolean; message: string; user: any }>(`/api/v1/admin/users/${userId}/role`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  })
+}
+
 export async function getAdminSettings() {
   return request<SystemSettingsData>('/api/v1/admin/settings')
 }

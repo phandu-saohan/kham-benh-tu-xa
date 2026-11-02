@@ -525,6 +525,26 @@ class PatientRegisterOut(BaseModel):
     his_action: str  # "linked_existing" | "created_new_his"
     message: str
 
+class UserRoleUpdateIn(BaseModel):
+    role: str
+    is_active: bool | None = None
+    doctor_cchn: str | None = None
+    bhyt_code: str | None = None
+
+class PermissionItem(BaseModel):
+    code: str
+    name: str
+    description: str
+    module: str
+
+class RoleDefinition(BaseModel):
+    role: str
+    name: str
+    badge_color: str
+    description: str
+    permissions: list[str]
+
+
 
 
 

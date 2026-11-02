@@ -6121,6 +6121,170 @@ input:checked + .slider:before {
 
 
 
+/* ==================== PHÂN TÁCH CỔNG ĐĂNG NHẬP: BỆNH NHÂN vs CÁN BỘ / QUẢN TRỊ ==================== */
+.portal-switch-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.portal-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  border-radius: 20px;
+  padding: 4px 10px;
+}
+
+.portal-indicator.patient {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.portal-indicator.staff {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.btn-switch-portal {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-switch-portal:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.staff-portal-page {
+  background: radial-gradient(circle at 10% 20%, #1e293b 0%, #0f172a 100%) !important;
+}
+
+.staff-portal-card {
+  border-top: 4px solid #2563eb !important;
+}
+
+.patient-portal-card {
+  border-top: 4px solid #0f766e !important;
+}
+
+.staff-badge {
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%) !important;
+  box-shadow: 0 6px 14px -3px rgba(37, 99, 235, 0.35) !important;
+}
+
+.staff-tag {
+  background: #dbeafe !important;
+  color: #1e40af !important;
+}
+
+.staff-security-card {
+  margin-top: 18px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.security-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.security-desc {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.portal-footer-switch {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #f1f5f9;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.portal-footer-switch span {
+  font-size: 11.5px;
+  color: #64748b;
+}
+
+.link-switch-portal {
+  background: transparent;
+  border: none;
+  color: #2563eb;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.link-switch-portal:hover {
+  background: #eff6ff;
+  text-decoration: underline;
+}
+
+.patient-portal-page .link-switch-portal {
+  color: #0f766e;
+}
+
+.patient-portal-page .link-switch-portal:hover {
+  background: #ecfdf5;
+}
+
+/* ==================== RBAC MATRIX STYLES ==================== */
+.admin-rbac-workspace {
+  margin-top: 10px;
+}
+
+.rbac-matrix-table th {
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  padding: 10px 12px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.rbac-matrix-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.rbac-matrix-table tr:hover td {
+  background: #f8fafc;
+}
+
 /* ==================== ẨN HOÀN TOÀN RECAPTCHA BADGE & OVERLAY ==================== */
 .grecaptcha-badge,
 div[style*="z-index: 2000000000"],

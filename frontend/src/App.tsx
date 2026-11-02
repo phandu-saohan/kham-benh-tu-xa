@@ -5,7 +5,7 @@ import {
   Plus, X, Phone, Lock, Stethoscope, AlertCircle, RefreshCw, QrCode,
   FileDown, ExternalLink, PenTool, Building2, Sparkles, CheckCircle2,
   HelpCircle, ShieldAlert, Undo2, Activity, Settings, ScanLine,
-  Mail, Eye, EyeOff, UserPlus
+  Mail, Eye, EyeOff, UserPlus, ChevronRight
 } from 'lucide-react'
 import {
   login, sendOtp, verifyOtp, loginWithFirebaseToken, getFirebaseConfig, request, cancelAppointment,
@@ -39,9 +39,14 @@ const dateText = (s: string) =>
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
   
-  // Auth state
+  // Auth state & Separate Login Portals
   const [authScreen, setAuthScreen] = useState<'login' | 'register'>('login')
-  const [authMode, setAuthMode] = useState<'otp' | 'password'>('otp')
+  const [loginPortal, setLoginPortal] = useState<'patient' | 'staff'>(() => {
+    if (typeof window !== 'undefined' && (window.location.hash.includes('admin') || window.location.hash.includes('staff'))) {
+      return 'staff'
+    }
+    return 'patient'
+  })
   const [phone, setPhone] = useState('')
   const [otpCode, setOtpCode] = useState('')
   const [otpSent, setOtpSent] = useState(false)
@@ -152,6 +157,7 @@ export default function App() {
       setAppointments(list)
       setDepartments(depts)
       if (current.role === 'patient') {
+        setView('overview')
         const [his, pacsData] = await Promise.all([
           request<any>('/api/v1/patients/me/his-summary').catch(() => null),
           getPacsDicomStudies().catch(() => null)
@@ -160,8 +166,11 @@ export default function App() {
         setImaging(pacsData)
         setDoctors(await request('/api/v1/doctors'))
       } else if (current.role === 'doctor') {
+        setView('appointments')
         const pacsData = await getPacsDicomStudies().catch(() => null)
         setImaging(pacsData)
+      } else if (current.role === 'nurse') {
+        setView('triage')
       } else if (current.role === 'admin') {
         setView('admin')
       }
@@ -182,6 +191,18 @@ export default function App() {
   }, [doctorId])
 
   useEffect(() => {
+    // Lắng nghe thay đổi URL hash để tự động mở cổng phù hợp (#staff, #admin, #patient)
+    const handleHash = () => {
+      const hash = window.location.hash.toLowerCase()
+      if (hash.includes('admin') || hash.includes('staff')) {
+        setLoginPortal('staff')
+      } else if (hash.includes('patient')) {
+        setLoginPortal('patient')
+      }
+    }
+    handleHash()
+    window.addEventListener('hashchange', handleHash)
+
     // Tải cấu hình Firebase động từ backend nếu đã thiết lập
     getFirebaseConfig()
       .then(cfg => {
@@ -203,6 +224,8 @@ export default function App() {
           localStorage.removeItem('tm_refresh_token')
         })
     }
+
+    return () => window.removeEventListener('hashchange', handleHash)
   }, [])
 
   // Đăng nhập bằng Email + Mật khẩu
@@ -480,53 +503,51 @@ export default function App() {
       )
     }
 
-    return (
-      <main className="login-page">
-        <div className="login-card">
-          {/* Header Brand Identity */}
-          <div className="login-header-brand">
-            <div className="login-logo-badge">
-              <HeartPulse size={24} className="heart-pulse-icon" />
+    // CỔNG 1: DÀNH RIÊNG CHO BỆNH NHÂN (PATIENT PORTAL)
+    if (loginPortal === 'patient') {
+      return (
+        <main className="login-page patient-portal-page">
+          <div className="login-card patient-portal-card">
+            {/* Top Portal Switcher Bar */}
+            <div className="portal-switch-header">
+              <span className="portal-indicator patient">
+                <HeartPulse size={13} /> Cổng Dịch vụ Bệnh nhân
+              </span>
+              <button
+                type="button"
+                className="btn-switch-portal"
+                onClick={() => { setLoginPortal('staff'); setError(''); }}
+                title="Chuyển sang Cổng Bác sĩ & Quản trị viện"
+              >
+                <Stethoscope size={13} />
+                <span>Cán bộ / Bác sĩ</span>
+                <ChevronRight size={13} />
+              </button>
             </div>
-            <div className="login-brand-meta">
-              <div className="login-brand-title">
-                <strong>CareConnect</strong>
-                <span className="medical-verified-tag">HIS / EMR</span>
+
+            {/* Header Brand Identity */}
+            <div className="login-header-brand">
+              <div className="login-logo-badge">
+                <HeartPulse size={24} className="heart-pulse-icon" />
               </div>
-              <span className="login-brand-desc">Cổng Khám chữa bệnh & Y tế số</span>
+              <div className="login-brand-meta">
+                <div className="login-brand-title">
+                  <strong>CareConnect Bệnh nhân</strong>
+                  <span className="medical-verified-tag">HIS / BHYT</span>
+                </div>
+                <span className="login-brand-desc">Cổng Khám Chữa Bệnh Từ Xa & Y Tế Số</span>
+              </div>
             </div>
-          </div>
 
-          {/* Heading */}
-          <div className="login-title-section">
-            <h1 className="login-title">Đăng nhập tài khoản</h1>
-            <p className="login-subtitle">
-              Khám bệnh từ xa · Kết nối bác sĩ chuyên khoa · Liên thông hồ sơ bệnh viện
-            </p>
-          </div>
+            {/* Heading */}
+            <div className="login-title-section">
+              <h1 className="login-title">Đăng nhập Bệnh nhân</h1>
+              <p className="login-subtitle">
+                Nhập số điện thoại di động để nhận mã OTP xác thực và vào phòng khám trực tuyến
+              </p>
+            </div>
 
-          {/* Segmented Role Switcher */}
-          <div className="login-segmented-switch">
-            <button
-              type="button"
-              className={`segment-btn ${authMode === 'otp' ? 'active' : ''}`}
-              onClick={() => { setAuthMode('otp'); setError(''); }}
-            >
-              <Phone size={14} />
-              <span>Bệnh nhân (OTP)</span>
-            </button>
-            <button
-              type="button"
-              className={`segment-btn ${authMode === 'password' ? 'active' : ''}`}
-              onClick={() => { setAuthMode('password'); setError(''); }}
-            >
-              <Stethoscope size={14} />
-              <span>Bác sĩ / Cán bộ</span>
-            </button>
-          </div>
-
-          {/* Forms */}
-          {authMode === 'otp' ? (
+            {/* Patient OTP Form */}
             <form onSubmit={handleVerifyOtp} className="modern-login-form">
               <div className="login-field-group">
                 <label className="login-label">
@@ -536,7 +557,7 @@ export default function App() {
                 <div className="login-input-with-action">
                   <input
                     type="tel"
-                    placeholder="Ví dụ: 0912345678"
+                    placeholder="Ví dụ: 0933413486"
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
                     className="login-input"
@@ -610,57 +631,184 @@ export default function App() {
                 </button>
               )}
             </form>
-          ) : (
-            <form onSubmit={handlePasswordLogin} className="modern-login-form">
-              <div className="login-field-group">
-                <label className="login-label">
-                  <Mail size={13} className="label-icon" />
-                  <span>Email hoặc tài khoản y tế</span>
-                </label>
-                <div className="login-input-wrap">
-                  <input
-                    type="email"
-                    placeholder="doctor@example.test"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    className="login-input"
-                    required
-                  />
-                </div>
-              </div>
 
-              <div className="login-field-group">
-                <label className="login-label">
-                  <Lock size={13} className="label-icon" />
-                  <span>Mật khẩu</span>
-                </label>
-                <div className="login-input-wrap password-wrap">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Nhập mật khẩu"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    className="login-input"
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="btn-password-toggle"
-                    onClick={() => setShowPassword(!showPassword)}
-                    tabIndex={-1}
-                    aria-label="Ẩn / Hiện mật khẩu"
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
+            {error && (
+              <div className="login-error-alert">
+                <AlertCircle size={15} />
+                <span>{error}</span>
               </div>
+            )}
 
-              <button className="btn-login-primary" type="submit">
-                <span>Đăng nhập Bác sĩ / Quản trị</span>
-                <ArrowRight size={16} />
+            {/* Quick Demo Switcher cho Bệnh nhân */}
+            <div className="login-quick-demo">
+              <span className="quick-demo-title">
+                <Sparkles size={11} /> Thử nhanh BN:
+              </span>
+              <div className="quick-demo-buttons">
+                <button
+                  type="button"
+                  className="demo-pill-btn"
+                  onClick={() => {
+                    setPhone('0933413486')
+                    setOtpCode('888999')
+                    setError('')
+                  }}
+                  title="Số điện thoại bệnh nhân kiểm thử"
+                >
+                  <Phone size={11} /> 0933413486 (OTP 888999)
+                </button>
+                <button
+                  type="button"
+                  className="demo-pill-btn"
+                  onClick={() => {
+                    setPhone('0912345678')
+                    setOtpCode('123456')
+                    setError('')
+                  }}
+                  title="Bệnh nhân mẫu 0912345678"
+                >
+                  <Phone size={11} /> 0912345678
+                </button>
+              </div>
+            </div>
+
+            {/* Dedicated Registration Banner */}
+            <div className="login-register-card">
+              <div className="reg-card-top">
+                <div className="reg-card-heading">
+                  <UserPlus size={15} className="reg-card-icon" />
+                  <span>Bệnh nhân chưa có tài khoản?</span>
+                </div>
+                <span className="reg-card-badge">Liên thông HIS</span>
+              </div>
+              <p className="reg-card-desc">
+                Đăng ký định danh CCCD/VNeID để tự động kết nối hồ sơ bệnh án, lịch sử khám và đơn thuốc từ bệnh viện.
+              </p>
+              <button
+                type="button"
+                className="btn-register-action"
+                onClick={() => { setAuthScreen('register'); setError(''); }}
+              >
+                <span>Đăng ký tài khoản Bệnh nhân mới</span>
+                <ArrowRight size={14} />
               </button>
-            </form>
-          )}
+            </div>
+
+            {/* Switch to Staff Portal */}
+            <div className="portal-footer-switch">
+              <span>Bạn là Bác sĩ, Điều dưỡng hoặc Quản trị viên?</span>
+              <button
+                type="button"
+                className="link-switch-portal"
+                onClick={() => { setLoginPortal('staff'); setError(''); }}
+              >
+                Đăng nhập Cổng Cán bộ Y tế & Quản trị Viện →
+              </button>
+            </div>
+
+            {/* Trust / Compliance footer */}
+            <div className="login-trust-footer">
+              <ShieldCheck size={12} />
+              <span>Bảo mật dữ liệu y tế theo Nghị định 13/2023/NĐ-CP & TT 30/2023/BYT</span>
+            </div>
+          </div>
+        </main>
+      )
+    }
+
+    // CỔNG 2: DÀNH RIÊNG CHO CÁN BỘ Y TẾ & QUẢN TRỊ VIỆN (STAFF & ADMIN PORTAL)
+    return (
+      <main className="login-page staff-portal-page">
+        <div className="login-card staff-portal-card">
+          {/* Top Portal Switcher Bar */}
+          <div className="portal-switch-header">
+            <span className="portal-indicator staff">
+              <ShieldCheck size={13} /> Cổng Cán bộ Y tế & Quản trị
+            </span>
+            <button
+              type="button"
+              className="btn-switch-portal"
+              onClick={() => { setLoginPortal('patient'); setError(''); }}
+              title="Quay lại Cổng Bệnh nhân"
+            >
+              <HeartPulse size={13} />
+              <span>Cổng Bệnh nhân</span>
+              <ChevronRight size={13} />
+            </button>
+          </div>
+
+          {/* Header Brand Identity */}
+          <div className="login-header-brand">
+            <div className="login-logo-badge staff-badge">
+              <Stethoscope size={24} className="heart-pulse-icon" />
+            </div>
+            <div className="login-brand-meta">
+              <div className="login-brand-title">
+                <strong>CareConnect Staff</strong>
+                <span className="medical-verified-tag staff-tag">Nội bộ Viện</span>
+              </div>
+              <span className="login-brand-desc">Hệ thống Điều hành Y tế & Buồng khám Trực tuyến</span>
+            </div>
+          </div>
+
+          {/* Heading */}
+          <div className="login-title-section">
+            <h1 className="login-title">Đăng nhập Cán bộ Y tế</h1>
+            <p className="login-subtitle">
+              Dành riêng cho Bác sĩ chuyên khoa, Điều dưỡng tiếp đón Triage và Quản trị viên
+            </p>
+          </div>
+
+          {/* Staff Form: Email + Password */}
+          <form onSubmit={handlePasswordLogin} className="modern-login-form">
+            <div className="login-field-group">
+              <label className="login-label">
+                <Mail size={13} className="label-icon" />
+                <span>Email cán bộ / Mã nhân viên</span>
+              </label>
+              <div className="login-input-wrap">
+                <input
+                  type="email"
+                  placeholder="doctor@example.test"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className="login-input"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="login-field-group">
+              <label className="login-label">
+                <Lock size={13} className="label-icon" />
+                <span>Mật khẩu</span>
+              </label>
+              <div className="login-input-wrap password-wrap">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Nhập mật khẩu"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="login-input"
+                  required
+                />
+                <button
+                  type="button"
+                  className="btn-password-toggle"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
+                  aria-label="Ẩn / Hiện mật khẩu"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <button className="btn-login-primary" type="submit" style={{ background: '#1e40af' }}>
+              <span>Đăng nhập Cán bộ Y tế</span>
+              <ArrowRight size={16} />
+            </button>
+          </form>
 
           {error && (
             <div className="login-error-alert">
@@ -669,80 +817,71 @@ export default function App() {
             </div>
           )}
 
-          {/* Quick Demo Switcher */}
+          {/* Quick Staff Demo Switcher */}
           <div className="login-quick-demo">
             <span className="quick-demo-title">
-              <Sparkles size={11} /> Thử nhanh:
+              <Sparkles size={11} /> Thử nhanh Cán bộ:
             </span>
             <div className="quick-demo-buttons">
               <button
                 type="button"
                 className="demo-pill-btn"
                 onClick={() => {
-                  setAuthMode('password')
                   setEmail('doctor@example.test')
                   setPassword('ChangeMe123!')
                   setError('')
                 }}
-                title="Đăng nhập tài khoản Bác sĩ mẫu"
+                title="Đăng nhập Bác sĩ chuyên khoa"
               >
-                <Stethoscope size={11} /> Bác sĩ
+                <Stethoscope size={11} /> 👨‍⚕️ Bác sĩ
               </button>
               <button
                 type="button"
                 className="demo-pill-btn"
                 onClick={() => {
-                  setAuthMode('password')
+                  setEmail('nurse@example.test')
+                  setPassword('ChangeMe123!')
+                  setError('')
+                }}
+                title="Đăng nhập Điều dưỡng trưởng"
+              >
+                <Activity size={11} /> 👩‍⚕️ Điều dưỡng
+              </button>
+              <button
+                type="button"
+                className="demo-pill-btn"
+                onClick={() => {
                   setEmail('admin@example.test')
                   setPassword('ChangeMe123!')
                   setError('')
                 }}
-                title="Đăng nhập tài khoản Quản trị viên"
+                title="Đăng nhập Quản trị viên toàn viện"
               >
-                <ShieldCheck size={11} /> Quản trị
-              </button>
-              <button
-                type="button"
-                className="demo-pill-btn"
-                onClick={() => {
-                  setAuthMode('otp')
-                  setPhone('0912345678')
-                  setOtpCode('')
-                  setError('')
-                }}
-                title="Đăng nhập tài khoản Bệnh nhân mẫu"
-              >
-                <Phone size={11} /> Bệnh nhân
+                <ShieldCheck size={11} /> ⚙️ Quản trị viên
               </button>
             </div>
           </div>
 
-          {/* Dedicated Registration Banner */}
-          <div className="login-register-card">
-            <div className="reg-card-top">
-              <div className="reg-card-heading">
-                <UserPlus size={15} className="reg-card-icon" />
-                <span>Bệnh nhân chưa có tài khoản?</span>
-              </div>
-              <span className="reg-card-badge">Liên thông HIS</span>
+          {/* Security Notice Card */}
+          <div className="staff-security-card">
+            <div className="security-card-header">
+              <ShieldCheck size={14} style={{ color: '#2563eb' }} />
+              <span>Xác thực Định danh Cán bộ & Bảo mật Y tế</span>
             </div>
-            <p className="reg-card-desc">
-              Đăng ký định danh CCCD/VNeID để tự động kết nối hồ sơ bệnh án, lịch sử khám và đơn thuốc từ bệnh viện.
+            <p className="security-desc">
+              Mọi phiên truy cập buồng khám, ký số SmartCA và hồ sơ bệnh án đều được kiểm toán và lưu vết tự động theo Nghị định 13/2023/NĐ-CP.
             </p>
+          </div>
+
+          {/* Switch back to Patient Portal */}
+          <div className="portal-footer-switch">
             <button
               type="button"
-              className="btn-register-action"
-              onClick={() => { setAuthScreen('register'); setError(''); }}
+              className="link-switch-portal"
+              onClick={() => { setLoginPortal('patient'); setError(''); }}
             >
-              <span>Đăng ký tài khoản Bệnh nhân mới</span>
-              <ArrowRight size={14} />
+              ← Quay lại Cổng Bệnh nhân
             </button>
-          </div>
-
-          {/* Trust / Compliance footer */}
-          <div className="login-trust-footer">
-            <ShieldCheck size={12} />
-            <span>Bảo mật dữ liệu y tế theo Nghị định 13/2023/NĐ-CP & TT 30/2023/BYT</span>
           </div>
         </div>
       </main>
@@ -777,7 +916,66 @@ export default function App() {
 
   const isPatient = user.role === 'patient'
   const isDoctor = user.role === 'doctor'
+  const isNurse = user.role === 'nurse'
+  const isAdmin = user.role === 'admin'
   const upcoming = appointments.filter(a => ['scheduled', 'confirmed', 'in_progress'].includes(a.status))
+
+  // Danh mục điều hướng Desktop theo từng vai trò (Role-based Navigation)
+  const navItems = isPatient ? [
+    ['overview', 'Tổng quan', HeartPulse],
+    ['appointments', 'Lịch khám của tôi', CalendarDays],
+    ['records', 'Hồ sơ bệnh án EMR', FileText],
+    ['lab', 'Kết quả Xét nghiệm LIS', FlaskConical],
+    ['pacs', 'Chẩn đoán hình ảnh PACS', ScanLine],
+    ['prescriptions', 'Đơn thuốc điện tử', Pill],
+    ['insurance', 'Bảo hiểm Y tế (BHYT)', ShieldCheck],
+    ['payments', 'Thanh toán VietQR', CreditCard],
+    ['profile', 'Hồ sơ cá nhân & CCCD', UserRound]
+  ] : isDoctor ? [
+    ['appointments', 'Hàng đợi khám hôm nay', CalendarDays],
+    ['triage', 'Bàn Tiếp đón (Triage)', Activity],
+    ['records', 'Tra cứu Bệnh án Toàn viện', FileText],
+    ['prescriptions', 'Đơn thuốc & Ký số SmartCA', Pill],
+    ['pacs', 'Chẩn đoán hình ảnh PACS', ScanLine],
+    ['lab', 'Kết quả Xét nghiệm LIS', FlaskConical],
+    ['insurance', 'Giám định BHYT', ShieldCheck]
+  ] : isNurse ? [
+    ['triage', 'Bàn Sàng lọc & Triage Desk', Activity],
+    ['insurance', 'Giám định BHYT trực tuyến', ShieldCheck],
+    ['appointments', 'Lịch hẹn cần điều phối', CalendarDays],
+    ['records', 'Tra cứu Bệnh án', FileText]
+  ] : [
+    ['admin', '⚙️ Quản trị Toàn viện & RBAC', Settings],
+    ['overview', 'Báo cáo & Tổng quan KPI', HeartPulse],
+    ['appointments', 'Giám sát Lịch khám Viện', CalendarDays],
+    ['triage', 'Bàn Sàng lọc Triage', Activity],
+    ['insurance', 'Quản lý Giám định BHYT', ShieldCheck],
+    ['payments', 'Đối soát Viện phí VietQR', CreditCard]
+  ]
+
+  // Danh mục điều hướng Mobile theo từng vai trò
+  const mobileNavItems = isPatient ? [
+    ['overview', 'Tổng quan', HeartPulse],
+    ['appointments', 'Lịch khám', CalendarDays],
+    ['records', 'Bệnh án', FileText],
+    ['insurance', 'Bảo hiểm', ShieldCheck],
+    ['profile', 'Hồ sơ', UserRound]
+  ] : isDoctor ? [
+    ['appointments', 'Hàng đợi', CalendarDays],
+    ['triage', 'Sàng lọc', Activity],
+    ['records', 'Bệnh án', FileText],
+    ['prescriptions', 'Đơn thuốc', Pill]
+  ] : isNurse ? [
+    ['triage', 'Sàng lọc', Activity],
+    ['insurance', 'BHYT', ShieldCheck],
+    ['appointments', 'Lịch hẹn', CalendarDays],
+    ['records', 'Bệnh án', FileText]
+  ] : [
+    ['admin', 'Quản trị', Settings],
+    ['overview', 'Báo cáo', HeartPulse],
+    ['appointments', 'Lịch khám', CalendarDays],
+    ['triage', 'Sàng lọc', Activity]
+  ]
 
   return (
     <div className="app-shell">
@@ -799,25 +997,21 @@ export default function App() {
           </div>
           <div>
             <b>{user.full_name}</b>
-            <small>{isPatient ? 'Bệnh nhân' : isDoctor ? `Bác sĩ (${user.doctor_cchn || 'CCHN'})` : user.role === 'nurse' ? 'Điều dưỡng trưởng' : 'Quản trị viên'}</small>
+            <small>
+              {isPatient
+                ? '🧑 Bệnh nhân'
+                : isDoctor
+                ? `👨‍⚕️ Bác sĩ (${user.doctor_cchn || 'CCHN'})`
+                : isNurse
+                ? '👩‍⚕️ Điều dưỡng tiếp đón'
+                : '⚙️ Quản trị viên'}
+            </small>
           </div>
         </div>
 
-        {/* Desktop Navigation (Thanh bên đầy đủ tính năng cho máy tính) */}
+        {/* Desktop Navigation (Cá nhân hóa theo phân quyền) */}
         <nav className="desktop-nav">
-          {[
-            ...(user.role === 'admin' ? [['admin', '⚙️ Quản trị & Cài đặt', Settings]] : []),
-            ['overview', 'Tổng quan', HeartPulse],
-            ['appointments', 'Lịch hẹn', CalendarDays],
-            ...(!isPatient ? [['triage', 'Bàn Sàng lọc (Triage)', Activity]] : []),
-            ['records', 'Hồ sơ bệnh án', FileText],
-            ['lab', 'Cận lâm sàng (Xét nghiệm)', FlaskConical],
-            ['pacs', 'Chẩn đoán hình ảnh PACS', ScanLine],
-            ['prescriptions', 'Đơn thuốc Quốc gia', Pill],
-            ['insurance', 'Bảo hiểm Y tế (BHYT)', ShieldCheck],
-            ['payments', 'Thanh toán VietQR', CreditCard],
-            ...(isPatient ? [['profile', 'Tài khoản bệnh nhân', UserRound]] : [])
-          ].map(([id, label, Icon]: any) => (
+          {navItems.map(([id, label, Icon]: any) => (
             <button
               key={id}
               className={`nav-item ${view === id ? 'selected' : ''}`}
@@ -829,14 +1023,9 @@ export default function App() {
           ))}
         </nav>
 
-        {/* Mobile Bottom Navigation Bar (Đúng 4 mục theo yêu cầu: Tổng quan, Lịch hẹn, Hồ sơ bệnh án, Bảo hiểm) */}
+        {/* Mobile Bottom Navigation Bar (Cá nhân hóa theo phân quyền) */}
         <nav className="mobile-bottom-nav">
-          {[
-            ['overview', 'Tổng quan', HeartPulse],
-            ['appointments', 'Lịch hẹn', CalendarDays],
-            ['records', 'Hồ sơ bệnh án', FileText],
-            ['insurance', 'Bảo hiểm', ShieldCheck]
-          ].map(([id, label, Icon]: any) => (
+          {mobileNavItems.map(([id, label, Icon]: any) => (
             <button
               key={id}
               className={`mobile-nav-item ${view === id ? 'selected' : ''}`}
@@ -870,15 +1059,19 @@ export default function App() {
             <h2>
               {isPatient
                 ? `Xin chào, ${user.full_name}`
-                : `Buồng làm việc: ${user.full_name}`}
+                : isDoctor
+                ? `👨‍⚕️ Buồng làm việc Bác sĩ: ${user.full_name}`
+                : isNurse
+                ? `👩‍⚕️ Bàn Tiếp đón Điều dưỡng: ${user.full_name}`
+                : `⚙️ Quản trị Toàn viện: ${user.full_name}`}
             </h2>
           </div>
           <div className="top-actions">
             <span className="status-dot" /> SmartCA & Cổng Đơn thuốc sẵn sàng
             <button
               className={`avatar small-avatar ${view === 'profile' ? 'selected' : ''}`}
-              title={`Hồ sơ tài khoản bệnh nhân: ${user.full_name}`}
-              onClick={() => setView('profile')}
+              title={`Hồ sơ tài khoản: ${user.full_name}`}
+              onClick={() => setView(isPatient ? 'profile' : 'overview')}
             >
               <UserRound size={17} />
             </button>
@@ -906,22 +1099,49 @@ export default function App() {
           <>
             <section className="welcome-card">
               <div>
-                <span className="pill-label">GIAI ĐOẠN 2: PHÁP LÝ & TÍCH HỢP BỆNH VIỆN</span>
+                <span className="pill-label">
+                  {isPatient
+                    ? 'CỔNG DỊCH VỤ BỆNH NHÂN'
+                    : isDoctor
+                    ? 'BUỒNG KHÁM BÁC SĨ CHUYÊN KHOA'
+                    : isNurse
+                    ? 'BÀN TIẾP ĐÓN & SÀNG LỌC ĐIỀU DƯỠNG'
+                    : 'TRUNG TÂM ĐIỀU HÀNH & QUẢN TRỊ VIỆN'}
+                </span>
                 <h1>
                   {isPatient
                     ? 'Chăm sóc sức khỏe toàn diện từ xa.'
-                    : 'Bắt đầu các ca tư vấn trực tuyến hôm nay.'}
+                    : isDoctor
+                    ? 'Hàng đợi khám & Buồng tư vấn hôm nay.'
+                    : isNurse
+                    ? 'Bàn Tiếp đón & Sàng lọc Điều dưỡng.'
+                    : 'Trung tâm Quản trị & Điều hành Toàn viện.'}
                 </h1>
                 <p>
                   {isPatient
                     ? 'Bệnh án ký số SmartCA, cấp mã Đơn thuốc quốc gia và ảnh chụp PACS/DICOM trực tuyến.'
-                    : 'Ký số từ xa VNPT SmartCA, tự động đẩy đơn thuốc lên Cổng donthuocquocgia.vn và xuất PDF.'}
+                    : isDoctor
+                    ? 'Ký số từ xa VNPT SmartCA, chẩn đoán ICD-10 và đồng bộ Cổng donthuocquocgia.vn.'
+                    : isNurse
+                    ? 'Đo chỉ số sinh tồn (vitals), kiểm tra thẻ BHYT trực tuyến và phân luồng người bệnh vào phòng bác sĩ.'
+                    : 'Quản trị nhân sự, ma trận phân quyền RBAC, kiểm toán dữ liệu y tế NĐ 13 và cấu hình toàn viện.'}
                 </p>
                 <button
                   className="white-button"
-                  onClick={() => (isPatient ? setShowBooking(true) : setView('appointments'))}
+                  onClick={() => {
+                    if (isPatient) setShowBooking(true)
+                    else if (isDoctor) setView('appointments')
+                    else if (isNurse) setView('triage')
+                    else setView('admin')
+                  }}
                 >
-                  {isPatient ? 'Đặt lịch khám ngay' : 'Xem buồng khám hôm nay'} <ArrowRight size={16} />
+                  {isPatient
+                    ? 'Đặt lịch khám ngay'
+                    : isDoctor
+                    ? 'Xem hàng đợi khám hôm nay'
+                    : isNurse
+                    ? 'Mở Bàn Sàng lọc Triage'
+                    : 'Mở Bảng điều khiển Quản trị'} <ArrowRight size={16} />
                 </button>
               </div>
               <div className="welcome-art">

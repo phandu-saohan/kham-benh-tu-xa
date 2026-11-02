@@ -36,7 +36,8 @@ from app.schemas import (
     TriageAssessmentIn, TriageAssessmentOut, TriageQueueItem,
     AdminOverviewOut, AuditLogOut, SystemSettingsOut, SystemSettingsUpdateIn,
     PatientProfileOut, PatientProfileUpdateIn,
-    PatientHisCheckIn, PatientHisCheckOut, PatientRegisterIn, PatientRegisterOut
+    PatientHisCheckIn, PatientHisCheckOut, PatientRegisterIn, PatientRegisterOut,
+    UserRoleUpdateIn
 )
 from app.adapters.sms_gateway import send_otp_message
 from app.security import (
@@ -1828,6 +1829,113 @@ def get_admin_audit_logs(
         ))
     return out
 
+# ----------------- HỆ THỐNG PHÂN QUYỀN VAI TRÒ (RBAC MATRIX) -----------------
+
+SYSTEM_PERMISSIONS = [
+    # Khám chữa bệnh & Buồng khám
+    {"code": "exam.view_queue", "name": "Hàng đợi khám bệnh", "module": "Khám chữa bệnh", "description": "Xem danh sách người bệnh chờ khám trong ca trực"},
+    {"code": "exam.workspace", "name": "Buồng khám Bác sĩ", "module": "Khám chữa bệnh", "description": "Truy cập buồng khám trực tuyến, gọi video WebRTC, hội chẩn"},
+    {"code": "exam.join_video", "name": "Vào phòng video", "module": "Khám chữa bệnh", "description": "Bệnh nhân tham gia phòng gọi khám với Bác sĩ"},
+    {"code": "exam.book", "name": "Đặt lịch khám", "module": "Khám chữa bệnh", "description": "Đăng ký lịch hẹn tư vấn và chuyên khoa từ xa"},
+
+    # Bệnh án điện tử EMR / HIS
+    {"code": "records.view_my", "name": "Xem bệnh án của tôi", "module": "Hồ sơ bệnh án", "description": "Tra cứu hồ sơ bệnh án cá nhân và lịch sử tái khám"},
+    {"code": "records.view_all", "name": "Tra cứu bệnh án toàn viện", "module": "Hồ sơ bệnh án", "description": "Bác sĩ tra cứu toàn bộ bệnh án và liên thông HIS của bệnh nhân"},
+    {"code": "records.write_emr", "name": "Ghi chép bệnh án & ICD-10", "module": "Hồ sơ bệnh án", "description": "Soạn chẩn đoán ICD-10, tóm tắt SOAP và kết luận y khoa"},
+
+    # Đơn thuốc Quốc gia & SmartCA
+    {"code": "rx.create", "name": "Kê đơn thuốc điện tử", "module": "Đơn thuốc & Ký số", "description": "Kê đơn thuốc theo danh mục hoạt chất chuẩn Bộ Y tế"},
+    {"code": "rx.sign_smartca", "name": "Ký số từ xa SmartCA", "module": "Đơn thuốc & Ký số", "description": "Ký số chứng thư số y tế VNPT SmartCA đạt chuẩn pháp lý"},
+    {"code": "rx.sync_national", "name": "Liên thông Cổng Quốc gia", "module": "Đơn thuốc & Ký số", "description": "Tự động đẩy đơn thuốc lên Cổng donthuocquocgia.vn"},
+    {"code": "rx.view_my", "name": "Xem đơn thuốc điện tử", "module": "Đơn thuốc & Ký số", "description": "Bệnh nhân tra cứu đơn thuốc và mã QR quốc gia"},
+
+    # Cận lâm sàng LIS & PACS
+    {"code": "paraclinical.view_my", "name": "Xem kết quả CLS cá nhân", "module": "Cận lâm sàng & PACS", "description": "Tra cứu kết quả xét nghiệm huyết học, sinh hóa và phim X-quang"},
+    {"code": "paraclinical.order_and_view", "name": "Chỉ định & Đọc phim PACS", "module": "Cận lâm sàng & PACS", "description": "Bác sĩ chỉ định CLS và xem ảnh DICOM qua PACS viewer"},
+
+    # Sàng lọc & Điều dưỡng Tiếp đón
+    {"code": "triage.access", "name": "Bàn tiếp đón Triage", "module": "Điều dưỡng & Sàng lọc", "description": "Tiếp nhận người bệnh, đo sinh hiệu (HA, mạch, SpO2, nhiệt độ)"},
+    {"code": "triage.dispatch", "name": "Phân luồng phòng khám", "module": "Điều dưỡng & Sàng lọc", "description": "Đánh giá mức độ ưu tiên và chuyển người bệnh vào buồng bác sĩ"},
+
+    # Bảo hiểm Y tế & Viện phí
+    {"code": "insurance.lookup", "name": "Giám định BHYT trực tuyến", "module": "Bảo hiểm & Viện phí", "description": "Tra cứu tính hợp lệ của thẻ BHYT và tỷ lệ thanh toán"},
+    {"code": "billing.pay_vietqr", "name": "Thanh toán viện phí VietQR", "module": "Bảo hiểm & Viện phí", "description": "Bệnh nhân quét mã VietQR Napas247 thanh toán tức thì"},
+
+    # Quản trị hệ thống & Kiểm toán
+    {"code": "admin.manage_users", "name": "Quản lý nhân sự & Phân quyền", "module": "Quản trị hệ thống", "description": "Thêm, sửa, đổi phân quyền và phân công phòng ban"},
+    {"code": "admin.system_settings", "name": "Cấu hình tham số toàn viện", "module": "Quản trị hệ thống", "description": "Thiết lập máy chủ WebRTC COTURN, VNPT SmartCA, VietQR, SMS"},
+    {"code": "admin.view_audit", "name": "Nhật ký kiểm toán NĐ 13", "module": "Quản trị hệ thống", "description": "Tra cứu nhật ký bảo mật dữ liệu y tế theo Nghị định 13/2023"},
+    {"code": "admin.view_analytics", "name": "Báo cáo thống kê toàn viện", "module": "Quản trị hệ thống", "description": "Thống kê KPI lượt khám, phân luồng và viện phí"}
+]
+
+ROLE_DEFINITIONS = {
+    "patient": {
+        "role": "patient",
+        "name": "Bệnh nhân",
+        "badge_color": "green",
+        "description": "Người bệnh sử dụng dịch vụ khám từ xa, tra cứu hồ sơ bệnh án, đơn thuốc và thanh toán viện phí",
+        "permissions": [
+            "exam.book",
+            "exam.join_video",
+            "records.view_my",
+            "rx.view_my",
+            "paraclinical.view_my",
+            "insurance.lookup",
+            "billing.pay_vietqr"
+        ]
+    },
+    "doctor": {
+        "role": "doctor",
+        "name": "Bác sĩ chuyên khoa",
+        "badge_color": "blue",
+        "description": "Thực hiện chẩn đoán lâm sàng từ xa, ghi chép EMR, ký số SmartCA và liên thông Cổng Đơn thuốc Quốc gia",
+        "permissions": [
+            "exam.view_queue",
+            "exam.workspace",
+            "records.view_all",
+            "records.write_emr",
+            "rx.create",
+            "rx.sign_smartca",
+            "rx.sync_national",
+            "paraclinical.order_and_view",
+            "insurance.lookup"
+        ]
+    },
+    "nurse": {
+        "role": "nurse",
+        "name": "Điều dưỡng tiếp đón",
+        "badge_color": "purple",
+        "description": "Bàn tiếp đón sàng lọc Triage, đo sinh hiệu, giám định thẻ BHYT trực tuyến và phân luồng người bệnh",
+        "permissions": [
+            "exam.view_queue",
+            "triage.access",
+            "triage.dispatch",
+            "insurance.lookup",
+            "records.view_all"
+        ]
+    },
+    "admin": {
+        "role": "admin",
+        "name": "Quản trị viên toàn viện",
+        "badge_color": "amber",
+        "description": "Toàn quyền quản trị nhân sự, ma trận phân quyền RBAC, kiểm toán an toàn thông tin và cấu hình hệ thống",
+        "permissions": [
+            p["code"] for p in SYSTEM_PERMISSIONS
+        ]
+    }
+}
+
+@app.get("/api/v1/auth/permissions-matrix")
+def get_permissions_matrix(user: User = Depends(get_current_user)):
+    """Trả về ma trận phân quyền chi tiết của toàn hệ thống và quyền của người dùng hiện tại"""
+    user_perms = ROLE_DEFINITIONS.get(user.role, {}).get("permissions", [])
+    return {
+        "roles": ROLE_DEFINITIONS,
+        "permissions": SYSTEM_PERMISSIONS,
+        "current_user_role": user.role,
+        "current_user_permissions": user_perms
+    }
+
 @app.get("/api/v1/admin/users")
 def get_admin_users(
     db: Session = Depends(get_db),
@@ -1848,6 +1956,60 @@ def get_admin_users(
         }
         for u in users
     ]
+
+@app.put("/api/v1/admin/users/{user_id}/role")
+def update_user_role(
+    user_id: int,
+    data: UserRoleUpdateIn,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_roles("admin"))
+):
+    target = db.get(User, user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
+
+    valid_roles = ["patient", "doctor", "nurse", "admin"]
+    if data.role not in valid_roles:
+        raise HTTPException(status_code=400, detail=f"Vai trò '{data.role}' không hợp lệ. Phải là một trong: {', '.join(valid_roles)}")
+
+    # Tránh tự tước quyền quản trị của chính mình nếu là admin duy nhất
+    if target.id == admin_user.id and data.role != "admin":
+        other_admins = db.query(User).filter(User.role == "admin", User.id != target.id, User.is_active == True).count()
+        if other_admins == 0:
+            raise HTTPException(status_code=400, detail="Không thể đổi vai trò của quản trị viên duy nhất còn lại trong hệ thống")
+
+    old_role = target.role
+    target.role = data.role
+    if data.is_active is not None:
+        target.is_active = data.is_active
+    if data.doctor_cchn is not None:
+        target.doctor_cchn = data.doctor_cchn
+    if data.bhyt_code is not None:
+        target.bhyt_code = data.bhyt_code
+
+    db.add(AuditLog(
+        actor_user_id=admin_user.id,
+        action="admin.update_user_role",
+        resource_type="user",
+        resource_id=str(target.id)
+    ))
+    db.commit()
+    db.refresh(target)
+
+    return {
+        "success": True,
+        "message": f"Đã cập nhật phân quyền người dùng #{target.id} từ '{old_role}' sang '{target.role}' thành công",
+        "user": {
+            "id": target.id,
+            "email": target.email,
+            "phone_number": target.phone_number,
+            "full_name": target.full_name,
+            "role": target.role,
+            "doctor_cchn": target.doctor_cchn,
+            "bhyt_code": target.bhyt_code,
+            "is_active": target.is_active
+        }
+    }
 
 @app.get("/api/v1/admin/settings", response_model=SystemSettingsOut)
 def get_admin_settings(db: Session = Depends(get_db), user: User = Depends(require_roles("admin"))):

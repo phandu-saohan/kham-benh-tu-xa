@@ -20,17 +20,26 @@ import {
   Stethoscope,
   Pill,
   Lock,
-  RefreshCw
+  RefreshCw,
+  Check,
+  X,
+  UserCheck,
+  SlidersHorizontal,
+  ChevronRight,
+  Shield
 } from 'lucide-react'
 import {
   AdminOverviewData,
   AuditLogItem,
   SystemSettingsData,
+  PermissionsMatrixData,
   getAdminOverview,
   getAdminAuditLogs,
   getAdminUsers,
   getAdminSettings,
-  updateAdminSettings
+  updateAdminSettings,
+  getPermissionsMatrix,
+  updateUserRole
 } from './api'
 
 interface AdminDashboardProps {
@@ -38,7 +47,7 @@ interface AdminDashboardProps {
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
-  const [activeTab, setActiveTab] = useState<'settings' | 'overview' | 'users' | 'audit'>('settings')
+  const [activeTab, setActiveTab] = useState<'settings' | 'overview' | 'users' | 'rbac' | 'audit'>('settings')
   const [loading, setLoading] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
@@ -51,6 +60,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
 
   // Users data
   const [usersList, setUsersList] = useState<any[]>([])
+  const [updatingUserId, setUpdatingUserId] = useState<number | null>(null)
+
+  // RBAC Matrix data
+  const [matrixData, setMatrixData] = useState<PermissionsMatrixData | null>(null)
 
   // Settings form states
   const [settingsForm, setSettingsForm] = useState<SystemSettingsData>({
@@ -94,6 +107,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
       } else if (activeTab === 'users') {
         const u = await getAdminUsers()
         setUsersList(u)
+      } else if (activeTab === 'rbac') {
+        const m = await getPermissionsMatrix()
+        setMatrixData(m)
       } else if (activeTab === 'audit') {
         const a = await getAdminAuditLogs(100)
         setAuditLogs(a)
@@ -102,6 +118,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
       console.error('Lỗi tải dữ liệu quản trị:', e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleUpdateRole = async (userId: number, newRole: string) => {
+    setUpdatingUserId(userId)
+    try {
+      const res = await updateUserRole(userId, { role: newRole })
+      setToastMessage(`✅ ${res.message}`)
+      setTimeout(() => setToastMessage(''), 4000)
+      const u = await getAdminUsers()
+      setUsersList(u)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Không thể cập nhật phân quyền')
+    } finally {
+      setUpdatingUserId(null)
+    }
+  }
+
+  const handleToggleUserStatus = async (userId: number, currentActive: boolean) => {
+    setUpdatingUserId(userId)
+    try {
+      const userObj = usersList.find(u => u.id === userId)
+      if (!userObj) return
+      const res = await updateUserRole(userId, { role: userObj.role, is_active: !currentActive })
+      setToastMessage(`✅ ${!currentActive ? 'Đã kích hoạt tài khoản' : 'Đã khóa tài khoản'} #${userId}`)
+      setTimeout(() => setToastMessage(''), 4000)
+      const u = await getAdminUsers()
+      setUsersList(u)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Không thể thay đổi trạng thái tài khoản')
+    } finally {
+      setUpdatingUserId(null)
     }
   }
 
@@ -174,6 +222,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
           onClick={() => setActiveTab('users')}
         >
           <Users size={16} /> Quản lý Nhân sự & Bác sĩ
+        </button>
+        <button
+          type="button"
+          className={`admin-tab-btn ${activeTab === 'rbac' ? 'active' : ''}`}
+          onClick={() => setActiveTab('rbac')}
+        >
+          <SlidersHorizontal size={16} /> Ma trận Phân quyền & RBAC
         </button>
         <button
           type="button"
@@ -563,13 +618,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 3: QUẢN LÝ NHÂN SỰ & BÁC SĨ */}
+      {/* TAB 3: QUẢN LÝ NHÂN SỰ & PHÂN QUYỀN (USERS & ROLES) */}
       {/* ========================================================================= */}
       {activeTab === 'users' && (
         <div className="admin-users-workspace">
           <div className="users-table-card">
-            <div className="card-header">
-              <h4>Danh sách Bác sĩ, Điều dưỡng & Người dùng ({usersList.length})</h4>
+            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h4>Danh sách Cán bộ Y tế & Người dùng ({usersList.length})</h4>
+                <p className="tiny muted">Quản lý định danh y tế, phân bổ vai trò bác sĩ, điều dưỡng và trạng thái tài khoản</p>
+              </div>
+              <button
+                type="button"
+                className="btn-refresh-admin"
+                onClick={() => setActiveTab('rbac')}
+                style={{ fontSize: '12px', padding: '6px 12px' }}
+              >
+                <SlidersHorizontal size={14} /> Xem Ma trận Quyền hạn (RBAC)
+              </button>
             </div>
 
             <div className="table-responsive">
@@ -578,18 +644,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                   <tr>
                     <th>ID</th>
                     <th>Họ và Tên</th>
-                    <th>Vai trò</th>
+                    <th>Vai trò hiện tại</th>
                     <th>Email / SĐT</th>
                     <th>Số CCHN Y tế</th>
                     <th>Mã thẻ BHYT</th>
                     <th>Trạng thái</th>
+                    <th>Đổi phân quyền</th>
                   </tr>
                 </thead>
                 <tbody>
                   {usersList.map(u => (
                     <tr key={u.id}>
                       <td>#{u.id}</td>
-                      <td><b>{u.full_name}</b></td>
+                      <td>
+                        <b>{u.full_name}</b>
+                        {u.role === 'admin' && <span style={{ marginLeft: 6, fontSize: 10, background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>ADMIN</span>}
+                      </td>
                       <td>
                         <span className={`role-badge ${u.role}`}>
                           {u.role === 'doctor' ? '👨‍⚕️ Bác sĩ' : u.role === 'nurse' ? '👩‍⚕️ Điều dưỡng' : u.role === 'admin' ? '⚙️ Quản trị' : '🧑 Bệnh nhân'}
@@ -602,9 +672,48 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                       <td>{u.doctor_cchn || '—'}</td>
                       <td>{u.bhyt_code ? <span className="tag-bhyt">{u.bhyt_code}</span> : '—'}</td>
                       <td>
-                        <span className={`status-dot ${u.is_active ? 'active' : 'inactive'}`}>
-                          {u.is_active ? '🟢 Hoạt động' : '🔴 Khóa'}
-                        </span>
+                        <button
+                          type="button"
+                          className={`status-toggle-btn ${u.is_active ? 'active' : 'inactive'}`}
+                          onClick={() => handleToggleUserStatus(u.id, u.is_active)}
+                          disabled={updatingUserId === u.id}
+                          title={u.is_active ? 'Bấm để khóa tài khoản' : 'Bấm để mở khóa'}
+                          style={{
+                            border: 'none',
+                            background: u.is_active ? '#ecfdf5' : '#fef2f2',
+                            color: u.is_active ? '#065f46' : '#991b1b',
+                            padding: '3px 8px',
+                            borderRadius: '12px',
+                            cursor: 'pointer',
+                            fontSize: '11px',
+                            fontWeight: 600
+                          }}
+                        >
+                          {u.is_active ? '🟢 Hoạt động' : '🔴 Bị khóa'}
+                        </button>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <select
+                            value={u.role}
+                            onChange={(e) => handleUpdateRole(u.id, e.target.value)}
+                            disabled={updatingUserId === u.id}
+                            style={{
+                              fontSize: 12,
+                              padding: '3px 8px',
+                              borderRadius: 6,
+                              border: '1px solid #cbd5e1',
+                              background: '#fff',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <option value="patient">🧑 Bệnh nhân</option>
+                            <option value="doctor">👨‍⚕️ Bác sĩ</option>
+                            <option value="nurse">👩‍⚕️ Điều dưỡng</option>
+                            <option value="admin">⚙️ Quản trị viên</option>
+                          </select>
+                          {updatingUserId === u.id && <RefreshCw size={13} className="spin" />}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -616,7 +725,173 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 4: NHẬT KÝ KIỂM TOÁN Y TẾ (AUDIT LOGS) */}
+      {/* TAB 4: MA TRẬN PHÂN QUYỀN HỆ THỐNG (RBAC PERMISSIONS MATRIX) */}
+      {/* ========================================================================= */}
+      {activeTab === 'rbac' && (
+        <div className="admin-rbac-workspace">
+          {/* Role Cards Overview */}
+          <div className="rbac-role-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 20 }}>
+            <div className="rbac-role-card" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontWeight: 700, color: '#166534', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  🧑 Bệnh nhân (Patient)
+                </span>
+                <span style={{ background: '#16a34a', color: '#fff', fontSize: 10, padding: '2px 6px', borderRadius: 10, fontWeight: 700 }}>
+                  7 Quyền
+                </span>
+              </div>
+              <p style={{ fontSize: 12, color: '#374151', margin: 0 }}>
+                Đặt lịch khám, vào buồng video, tra cứu bệnh án, xem đơn thuốc, tra cứu CLS / PACS & thanh toán VietQR.
+              </p>
+            </div>
+
+            <div className="rbac-role-card" style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontWeight: 700, color: '#1e40af', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  👨‍⚕️ Bác sĩ (Doctor)
+                </span>
+                <span style={{ background: '#2563eb', color: '#fff', fontSize: 10, padding: '2px 6px', borderRadius: 10, fontWeight: 700 }}>
+                  9 Quyền
+                </span>
+              </div>
+              <p style={{ fontSize: 12, color: '#374151', margin: 0 }}>
+                Buồng khám DoctorWorkspace, WebRTC, chẩn đoán ICD-10, ký số SmartCA, đẩy đơn thuốc quốc gia & đọc phim PACS.
+              </p>
+            </div>
+
+            <div className="rbac-role-card" style={{ background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: 10, padding: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontWeight: 700, color: '#6b21a8', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  👩‍⚕️ Điều dưỡng (Nurse)
+                </span>
+                <span style={{ background: '#9333ea', color: '#fff', fontSize: 10, padding: '2px 6px', borderRadius: 10, fontWeight: 700 }}>
+                  5 Quyền
+                </span>
+              </div>
+              <p style={{ fontSize: 12, color: '#374151', margin: 0 }}>
+                Bàn tiếp đón TriageDesk, đo chỉ số sinh tồn (vitals), giám định BHYT trực tuyến và phân luồng vào phòng bác sĩ.
+              </p>
+            </div>
+
+            <div className="rbac-role-card" style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontWeight: 700, color: '#92400e', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  ⚙️ Quản trị viên (Admin)
+                </span>
+                <span style={{ background: '#d97706', color: '#fff', fontSize: 10, padding: '2px 6px', borderRadius: 10, fontWeight: 700 }}>
+                  Toàn quyền
+                </span>
+              </div>
+              <p style={{ fontSize: 12, color: '#374151', margin: 0 }}>
+                Quản lý nhân sự, phân bổ vai trò RBAC, cấu hình WebRTC COTURN, cổng đơn thuốc, VietQR và kiểm toán NĐ 13.
+              </p>
+            </div>
+          </div>
+
+          {/* Detailed Permissions Matrix Table */}
+          <div className="users-table-card">
+            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h4>Bảng Ma trận Phân quyền Chi tiết (System RBAC Matrix)</h4>
+                <p className="tiny muted">
+                  Quy định chi tiết các chức năng được phép truy cập theo nguyên tắc đặc quyền tối thiểu (Least Privilege)
+                </p>
+              </div>
+              <span className="medical-verified-tag" style={{ background: '#dbeafe', color: '#1e40af', padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>
+                Chuẩn Bộ Y Tế & NĐ 13
+              </span>
+            </div>
+
+            <div className="table-responsive">
+              <table className="admin-data-table rbac-matrix-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '18%' }}>Phân hệ / Module</th>
+                    <th style={{ width: '22%' }}>Chức năng / Quyền hạn</th>
+                    <th style={{ width: '30%' }}>Mô tả chi tiết tác vụ</th>
+                    <th style={{ width: '7%', textAlign: 'center' }}>Bệnh nhân</th>
+                    <th style={{ width: '7%', textAlign: 'center' }}>Bác sĩ</th>
+                    <th style={{ width: '8%', textAlign: 'center' }}>Điều dưỡng</th>
+                    <th style={{ width: '8%', textAlign: 'center' }}>Quản trị</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {matrixData && matrixData.permissions ? (
+                    matrixData.permissions.map((p) => {
+                      const rolesObj = matrixData.roles || {}
+                      const patientHas = rolesObj.patient?.permissions?.includes(p.code)
+                      const doctorHas = rolesObj.doctor?.permissions?.includes(p.code)
+                      const nurseHas = rolesObj.nurse?.permissions?.includes(p.code)
+                      const adminHas = rolesObj.admin?.permissions?.includes(p.code)
+
+                      return (
+                        <tr key={p.code}>
+                          <td>
+                            <span style={{ fontWeight: 600, color: '#0f766e', fontSize: 12 }}>
+                              {p.module}
+                            </span>
+                          </td>
+                          <td>
+                            <b>{p.name}</b>
+                            <div><code style={{ fontSize: 10, color: '#64748b' }}>{p.code}</code></div>
+                          </td>
+                          <td style={{ fontSize: 12, color: '#475569' }}>
+                            {p.description}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            {patientHas ? (
+                              <span style={{ color: '#16a34a', fontWeight: 800, fontSize: 15 }} title="Được phép">✓</span>
+                            ) : (
+                              <span style={{ color: '#cbd5e1' }}>—</span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            {doctorHas ? (
+                              <span style={{ color: '#2563eb', fontWeight: 800, fontSize: 15 }} title="Được phép">✓</span>
+                            ) : (
+                              <span style={{ color: '#cbd5e1' }}>—</span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            {nurseHas ? (
+                              <span style={{ color: '#9333ea', fontWeight: 800, fontSize: 15 }} title="Được phép">✓</span>
+                            ) : (
+                              <span style={{ color: '#cbd5e1' }}>—</span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            {adminHas ? (
+                              <span style={{ color: '#d97706', fontWeight: 800, fontSize: 15 }} title="Được phép">✓</span>
+                            ) : (
+                              <span style={{ color: '#cbd5e1' }}>—</span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: 24, color: '#64748b' }}>
+                        Đang tải dữ liệu ma trận phân quyền...
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="overview-notice-card" style={{ marginTop: 20 }}>
+            <h4>🛡️ Tuân thủ Nguyên tắc Đặc quyền Tối thiểu (Principle of Least Privilege - PoLP)</h4>
+            <p className="tiny muted">
+              Mỗi vai trò trong hệ thống CareConnect chỉ được cấp quyền hạn tương ứng đúng với phạm vi chuyên môn được Bộ Y Tế và CSKCB giao phó. Mọi thao tác truy cập dữ liệu nhạy cảm của người bệnh đều được ghi nhận vào Nhật ký kiểm toán y tế (Audit Log) theo Nghị định 13/2023/NĐ-CP và không thể chỉnh sửa.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 5: NHẬT KÝ KIỂM TOÁN Y TẾ (AUDIT LOGS) */}
       {/* ========================================================================= */}
       {activeTab === 'audit' && (
         <div className="admin-audit-workspace">
