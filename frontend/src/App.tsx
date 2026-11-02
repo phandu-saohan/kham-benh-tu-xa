@@ -12,6 +12,7 @@ import {
   getConsentStatus, downloadMedicalRecordPdf, getPacsDicomStudies,
   checkBhyt, applyBhyt, getDepartments, getDoctorShifts,
   checkIncomingCall, declineIncomingCall,
+  checkTriageSymptoms, type TriageSymptomResult,
   getPatientLabResults, getPatientPacsStudies, getMyLabResults, getMyPacsStudies,
   type Appointment, type User, type Department, type DoctorShift,
   type BhytCheckOut, type IncomingCallData, type LabResultsData, type PACSStudiesData
@@ -92,6 +93,28 @@ export default function App() {
   const [doctorId, setDoctorId] = useState('')
   const [startsAt, setStartsAt] = useState('')
   const [reason, setReason] = useState('Tư vấn sức khỏe định kỳ')
+  const [triageLoading, setTriageLoading] = useState(false)
+  const [triageResult, setTriageResult] = useState<TriageSymptomResult | null>(null)
+
+  async function handleAiTriage() {
+    if (!reason.trim()) return
+    try {
+      setTriageLoading(true)
+      const res = await checkTriageSymptoms(reason)
+      setTriageResult(res)
+      if (res.recommended_department_code) {
+        const matchDept = departments.find(d => d.code === res.recommended_department_code || d.name.toLowerCase().includes(res.recommended_department_name.toLowerCase()))
+        if (matchDept) {
+          setSelectedDeptId(String(matchDept.id))
+        }
+      }
+      setToast(`✨ AI gợi ý: ${res.recommended_department_name} (${res.urgency_label})`)
+    } catch (err: any) {
+      console.error('Lỗi AI triage:', err)
+    } finally {
+      setTriageLoading(false)
+    }
+  }
   const [hisSummary, setHisSummary] = useState<any>(null)
   const [imaging, setImaging] = useState<any>(null)
   const [toast, setToast] = useState('')
@@ -1966,7 +1989,30 @@ export default function App() {
                 </label>
 
                 <label>
-                  Lý do khám / Triệu chứng ban đầu
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <span>Lý do khám / Triệu chứng ban đầu</span>
+                    <button
+                      type="button"
+                      onClick={handleAiTriage}
+                      disabled={triageLoading || !reason.trim()}
+                      style={{
+                        background: '#f0fdfa',
+                        color: '#0f766e',
+                        border: '1px solid #99f6e4',
+                        borderRadius: '6px',
+                        padding: '3px 8px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <Sparkles size={13} />
+                      {triageLoading ? 'AI đang phân tích...' : '🤖 AI Sàng lọc & Gợi ý Khoa'}
+                    </button>
+                  </div>
                   <textarea
                     value={reason}
                     onChange={e => setReason(e.target.value)}
@@ -1976,6 +2022,28 @@ export default function App() {
                     rows={3}
                   />
                 </label>
+
+                {triageResult && (
+                  <div style={{
+                    margin: '6px 0 10px',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: triageResult.emergency_alert ? '2px solid #ef4444' : '1px solid #99f6e4',
+                    background: triageResult.emergency_alert ? '#fef2f2' : '#f0fdfa',
+                    fontSize: '13px'
+                  }}>
+                    {triageResult.emergency_alert ? (
+                      <div style={{ color: '#b91c1c', fontWeight: 700, marginBottom: '4px' }}>
+                        🚨 {triageResult.emergency_alert}
+                      </div>
+                    ) : (
+                      <div style={{ color: '#0f766e', fontWeight: 700, marginBottom: '4px' }}>
+                        ✨ Gợi ý phân luồng AI: {triageResult.recommended_department_name} ({triageResult.urgency_label})
+                      </div>
+                    )}
+                    <p style={{ margin: 0, fontSize: '12px', color: '#334155' }}>{triageResult.explanation}</p>
+                  </div>
+                )}
 
                 <div className="notice booking-fee-notice">
                   Phí khám chuyên khoa: <strong>500.000 ₫</strong>. Có thể áp dụng giảm trừ thẻ BHYT trực tuyến sau khi tạo lịch.

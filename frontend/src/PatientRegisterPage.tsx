@@ -1,10 +1,10 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import {
   HeartPulse, ShieldCheck, UserRound, Phone, CreditCard, Lock,
   ArrowRight, CheckCircle2, AlertCircle, Building2, Eye, EyeOff,
-  Sparkles, Calendar, MapPin, Activity, ArrowLeft, Check, AlertTriangle
+  Sparkles, Calendar, MapPin, Activity, ArrowLeft, Check, AlertTriangle, Camera
 } from 'lucide-react'
-import { checkPatientHis, registerPatientAccount, type PatientHisCheckResponse, type User } from './api'
+import { checkPatientHis, registerPatientAccount, ocrMedicalDocument, type PatientHisCheckResponse, type User } from './api'
 
 interface PatientRegisterPageProps {
   onSuccess: (data: { access_token: string; refresh_token: string; user: User }) => void
@@ -16,6 +16,8 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
   const [fullName, setFullName] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [identityCard, setIdentityCard] = useState('')
+  const [ocrLoading, setOcrLoading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Trạng thái kiểm tra HIS
   const [checkingHis, setCheckingHis] = useState(false)
@@ -37,6 +39,42 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  async function handleOcrUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      setOcrLoading(true)
+      setError('')
+      const reader = new FileReader()
+      reader.onload = async () => {
+        try {
+          const base64 = reader.result as string
+          const res = await ocrMedicalDocument(base64, 'AUTO')
+          if (res.success && res.extracted_data) {
+            const d = res.extracted_data
+            if (d.full_name) setFullName(d.full_name)
+            if (d.cccd_number) setIdentityCard(d.cccd_number)
+            if (d.bhyt_code) setBhytCode(d.bhyt_code)
+            if (d.dob) setDob(d.dob)
+            if (d.gender) setGender(d.gender === 'female' ? 'Nữ' : 'Nam')
+            if (d.address) setAddress(d.address)
+          } else {
+            setError('Không nhận diện được rõ nét thông tin từ ảnh. Vui lòng chụp lại.')
+          }
+        } catch (err: any) {
+          setError(err.message || 'Lỗi quét AI OCR')
+        } finally {
+          setOcrLoading(false)
+          if (e.target) e.target.value = ''
+        }
+      }
+      reader.readAsDataURL(file)
+    } catch (err: any) {
+      setError(err.message || 'Lỗi đọc tệp ảnh')
+      setOcrLoading(false)
+    }
+  }
 
   // Xử lý kiểm tra HIS/EMR
   async function handleCheckHis() {
@@ -173,6 +211,40 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
         <form onSubmit={handleRegister} className="register-form">
           {/* Section 1: Basic Identifiers */}
           <div className="form-section">
+            <div style={{ marginBottom: '14px' }}>
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={handleOcrUpload}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={ocrLoading}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(15, 118, 110, 0.2)'
+                }}
+              >
+                <Camera size={16} />
+                {ocrLoading ? 'AI đang nhận diện thẻ...' : '📸 Quét CCCD / Thẻ BHYT bằng AI (Tự động điền)'}
+              </button>
+            </div>
+
             <div className="form-group">
               <label>
                 Họ và tên đầy đủ <span className="req">*</span>

@@ -26,7 +26,8 @@ import {
   UserCheck,
   SlidersHorizontal,
   ChevronRight,
-  Shield
+  Shield,
+  Sparkles
 } from 'lucide-react'
 import {
   AdminOverviewData,
@@ -39,7 +40,8 @@ import {
   getAdminSettings,
   updateAdminSettings,
   getPermissionsMatrix,
-  updateUserRole
+  updateUserRole,
+  deidentifyRecord
 } from './api'
 
 interface AdminDashboardProps {
@@ -83,12 +85,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
     firebase_api_key: '',
     firebase_auth_domain: '',
     firebase_app_id: '',
+    gemini_api_key: '',
     bank_id: 'MB',
     bank_account_no: '0988888888',
     bank_account_name: 'BENH VIEN CARECONNECT',
     default_max_patients_per_shift: 12,
     consultation_duration_minutes: 20
   })
+
+  // De-identification sandbox state (Nghị định 13/2023/NĐ-CP)
+  const [deidInput, setDeidInput] = useState('Bệnh nhân: NGUYỄN VĂN AN, sinh năm 1990. SĐT: 0933413486. Số CCCD: 079092014829. Địa chỉ: 123 Bến Nghé, Quận 1, TP.HCM. Mã BHYT: GD4797931812345. Chẩn đoán: Viêm phế quản cấp.')
+  const [deidOutput, setDeidOutput] = useState<any>(null)
+  const [deidLoading, setDeidLoading] = useState(false)
+
+  const handleDeidentify = async () => {
+    if (!deidInput.trim()) return
+    try {
+      setDeidLoading(true)
+      const res = await deidentifyRecord(deidInput)
+      setDeidOutput(res)
+    } catch (err: any) {
+      alert(err.message || 'Lỗi khử định danh')
+    } finally {
+      setDeidLoading(false)
+    }
+  }
 
   // Load data based on active tab
   useEffect(() => {
@@ -545,6 +566,68 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                   value={settingsForm.consultation_duration_minutes}
                   onChange={e => setSettingsForm({ ...settingsForm, consultation_duration_minutes: Number(e.target.value) })}
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Card 7: Bộ Trí tuệ Nhân tạo Y tế (CareConnect Medical AI Suite) & Khử định danh */}
+          <div className="settings-card">
+            <div className="card-header">
+              <Sparkles size={18} className="text-teal" />
+              <div>
+                <h4>Bộ Trí tuệ Nhân tạo Y tế (Medical AI Suite) & An toàn Dữ liệu (Nghị định 13)</h4>
+                <p className="tiny muted">Tích hợp mô hình AI Gemini 2.5 Flash kết hợp Bộ quy chuẩn Y khoa Bộ Y tế & BHXH</p>
+              </div>
+            </div>
+
+            <div className="settings-grid">
+              <div className="settings-field col-12">
+                <label>Google Gemini API Key (Tùy chọn nâng cao):</label>
+                <input
+                  type="password"
+                  placeholder="AIzaSy... (Nếu để trống, hệ thống tự động chạy Bộ quy tắc Y khoa Chuyên gia offline 100%)"
+                  value={settingsForm.gemini_api_key || ''}
+                  onChange={e => setSettingsForm({ ...settingsForm, gemini_api_key: e.target.value })}
+                />
+                <small className="tiny muted" style={{ display: 'block', marginTop: '4px' }}>
+                  Khóa API này cung cấp khả năng đa phương thức (Vision OCR đọc CCCD/BHYT, Ambient Scribe tóm tắt SOAP, phân tích ảnh X-quang PACS).
+                </small>
+              </div>
+
+              {/* De-identification Sandbox Tool */}
+              <div className="col-12" style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <strong style={{ fontSize: '13px', color: '#0f172a' }}>🛡️ Công cụ Thử nghiệm Khử định danh Y tế (De-identification Sandbox)</strong>
+                  <span style={{ fontSize: '11px', background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>
+                    Tuân thủ Nghị định 13/2023/NĐ-CP
+                  </span>
+                </div>
+                <p className="tiny muted" style={{ margin: '0 0 8px' }}>
+                  Bóc tách và che mờ tự động các trường thông tin nhận dạng cá nhân (PII: Họ tên, SĐT, Số CCCD, Mã BHYT, Địa chỉ chi tiết) trước khi chia sẻ dữ liệu hội chẩn hoặc nghiên cứu:
+                </p>
+                <textarea
+                  rows={3}
+                  value={deidInput}
+                  onChange={e => setDeidInput(e.target.value)}
+                  style={{ width: '100%', fontSize: '12px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '8px', boxSizing: 'border-box' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={handleDeidentify}
+                    disabled={deidLoading}
+                    style={{ background: '#0f766e', color: '#fff', border: 'none', borderRadius: '6px', padding: '6px 14px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    {deidLoading ? 'Đang khử định danh...' : '⚡ Khử định danh bằng AI'}
+                  </button>
+                </div>
+
+                {deidOutput && (
+                  <div style={{ background: '#fff', padding: '10px', borderRadius: '6px', border: '1px solid #99f6e4', fontSize: '12px' }}>
+                    <b style={{ color: '#0f766e' }}>Kết quả đã khử định danh an toàn (Đã ẩn {deidOutput.detected_pii_count} thông tin nhạy cảm: {deidOutput.pii_types_found.join(', ')}):</b>
+                    <pre style={{ margin: '6px 0 0', whiteSpace: 'pre-wrap', fontFamily: 'inherit', color: '#334155' }}>{deidOutput.sanitized_text}</pre>
+                  </div>
+                )}
               </div>
             </div>
           </div>

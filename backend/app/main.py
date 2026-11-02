@@ -37,7 +37,16 @@ from app.schemas import (
     AdminOverviewOut, AuditLogOut, SystemSettingsOut, SystemSettingsUpdateIn,
     PatientProfileOut, PatientProfileUpdateIn,
     PatientHisCheckIn, PatientHisCheckOut, PatientRegisterIn, PatientRegisterOut,
-    UserRoleUpdateIn
+    UserRoleUpdateIn,
+    TriageSymptomIn, TriageSymptomOut,
+    OcrDocumentIn, OcrDocumentOut,
+    Icd10SuggestIn, Icd10SuggestOut,
+    DrugSafetyCheckIn, DrugSafetyCheckOut,
+    PacsAnalysisIn, PacsAnalysisOut,
+    LabInterpretIn, LabInterpretOut,
+    PostConsultationPlanIn, PostConsultationPlanOut,
+    BhytAuditIn, BhytAuditOut,
+    DeidentifyIn, DeidentifyOut
 )
 from app.adapters.sms_gateway import send_otp_message
 from app.security import (
@@ -57,6 +66,17 @@ from app.pdf_generator import generate_medical_record_pdf
 from app.consent import get_consent_terms, CONSENT_VERSION
 from app.encryption import encrypt_sensitive_data, decrypt_sensitive_data
 from app.ai_scribe import generate_soap_notes
+from app.ai_engine import (
+    triage_symptom_check,
+    ocr_medical_document,
+    suggest_icd10_codes,
+    check_drug_safety,
+    analyze_pacs_study,
+    interpret_lab_results,
+    generate_followup_plan,
+    audit_bhyt_claim,
+    deidentify_medical_record,
+)
 from app.bhyt import verify_and_lookup_bhyt, calculate_bhyt_consultation_fee
 from app.firebase_auth import verify_firebase_id_token, process_firebase_login
 from app.supabase_storage import upload_file_to_supabase, check_supabase_health, get_supabase_public_url
@@ -1486,6 +1506,151 @@ def ai_ambient_scribe(
     )
     return result
 
+# --- BỘ CÔNG CỤ AI Y TẾ CHUYÊN SÂU ---
+
+@app.post("/api/v1/ai/triage-symptom-check", response_model=TriageSymptomOut)
+def ai_triage_symptom_check(
+    data: TriageSymptomIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    1. Sàng lọc triệu chứng thông minh & Phân luồng khẩn cấp (Emergency Triage / ESI).
+    """
+    return triage_symptom_check(
+        symptoms=data.symptoms,
+        patient_age=data.patient_age,
+        gender=data.gender,
+        db=db
+    )
+
+@app.post("/api/v1/ai/ocr-document", response_model=OcrDocumentOut)
+def ai_ocr_document(
+    data: OcrDocumentIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    2. OCR Trích xuất thông tin giấy tờ y tế (Thẻ BHYT, CCCD, Đơn thuốc cũ).
+    """
+    return ocr_medical_document(
+        image_base64=data.image_base64,
+        doc_type=data.doc_type,
+        db=db
+    )
+
+@app.post("/api/v1/ai/suggest-icd10", response_model=Icd10SuggestOut)
+def ai_suggest_icd10(
+    data: Icd10SuggestIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    3. Gợi ý mã bệnh ICD-10 và chẩn đoán phân biệt.
+    """
+    suggestions = suggest_icd10_codes(
+        symptoms=data.symptoms,
+        clinical_notes=data.clinical_notes,
+        db=db
+    )
+    return {"suggestions": suggestions}
+
+@app.post("/api/v1/ai/check-drug-safety", response_model=DrugSafetyCheckOut)
+def ai_check_drug_safety(
+    data: DrugSafetyCheckIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    4. Rà soát tương tác thuốc (Drug-Drug Interactions) và dị ứng bệnh nhân.
+    """
+    return check_drug_safety(
+        medicines=data.medicines,
+        patient_allergies=data.patient_allergies,
+        patient_age=data.patient_age,
+        db=db
+    )
+
+@app.post("/api/v1/ai/analyze-pacs-image", response_model=PacsAnalysisOut)
+def ai_analyze_pacs_image(
+    data: PacsAnalysisIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    5. Hỗ trợ chẩn đoán hình ảnh PACS / DICOM (Second Opinion & Heatmap tổn thương).
+    """
+    return analyze_pacs_study(
+        study_id=data.study_id,
+        modality=data.modality,
+        body_part=data.body_part,
+        image_url=data.image_url,
+        db=db
+    )
+
+@app.post("/api/v1/ai/interpret-lab-results", response_model=LabInterpretOut)
+def ai_interpret_lab_results(
+    data: LabInterpretIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    6. Phân tích & diễn giải kết quả xét nghiệm sinh hóa/huyết học cho người bệnh.
+    """
+    return interpret_lab_results(
+        lab_items=data.lab_items,
+        clinical_summary=data.clinical_summary,
+        db=db
+    )
+
+@app.post("/api/v1/ai/generate-followup-plan", response_model=PostConsultationPlanOut)
+def ai_generate_followup_plan(
+    data: PostConsultationPlanIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    7. Sinh lịch trình nhắc thuốc và kế hoạch chăm sóc theo dõi sau khám.
+    """
+    return generate_followup_plan(
+        diagnosis=data.diagnosis,
+        prescription_text=data.prescription_text,
+        doctor_notes=data.doctor_notes,
+        db=db
+    )
+
+@app.post("/api/v1/ai/audit-bhyt-claim", response_model=BhytAuditOut)
+def ai_audit_bhyt_claim(
+    data: BhytAuditIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    8. Thẩm định hồ sơ thanh toán BHYT chống xuất toán.
+    """
+    return audit_bhyt_claim(
+        icd10_code=data.icd10_code,
+        services_ordered=data.services_ordered,
+        medicines_ordered=data.medicines_ordered,
+        is_inpatient=data.is_inpatient,
+        db=db
+    )
+
+@app.post("/api/v1/ai/de-identify-record", response_model=DeidentifyOut)
+def ai_deidentify_record(
+    data: DeidentifyIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    9. Khử định danh dữ liệu y tế (Tuân thủ Nghị định 13/2023/NĐ-CP).
+    """
+    return deidentify_medical_record(
+        text=data.text,
+        mask_type=data.mask_type,
+        db=db
+    )
+
 @app.post("/api/v1/insurance/bhyt/check", response_model=BhytCheckOut)
 def check_bhyt_insurance(
     data: BhytCheckIn,
@@ -2044,6 +2209,7 @@ def get_admin_settings(db: Session = Depends(get_db), user: User = Depends(requi
         firebase_api_key=get_db_setting(db, "firebase_api_key", settings.FIREBASE_WEB_API_KEY),
         firebase_auth_domain=get_db_setting(db, "firebase_auth_domain", f"{settings.FIREBASE_PROJECT_ID}.firebaseapp.com" if settings.FIREBASE_PROJECT_ID else ""),
         firebase_app_id=get_db_setting(db, "firebase_app_id", ""),
+        gemini_api_key=get_db_setting(db, "gemini_api_key", os.getenv("GEMINI_API_KEY", "")),
         bank_id=get_db_setting(db, "bank_id", settings.BANK_ID),
         bank_account_no=get_db_setting(db, "bank_account_no", settings.BANK_ACCOUNT_NO),
         bank_account_name=get_db_setting(db, "bank_account_name", settings.BANK_ACCOUNT_NAME),

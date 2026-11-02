@@ -13,8 +13,11 @@ import {
   AlertCircle,
   HelpCircle,
   Layers,
-  Edit3
+  Edit3,
+  ShieldAlert,
+  ShieldCheck as ShieldSafe
 } from 'lucide-react'
+import { checkDrugSafety, type DrugSafetyResult } from './api'
 import {
   DrugInfo,
   PrescriptionItem,
@@ -73,6 +76,22 @@ export const PrescriptionBuilder: React.FC<PrescriptionBuilderProps> = ({
   const [instructions, setInstructions] = useState('')
   const [durationDays, setDurationDays] = useState<number | undefined>(undefined)
   const [note, setNote] = useState('')
+  const [safetyChecking, setSafetyChecking] = useState(false)
+  const [safetyResult, setSafetyResult] = useState<DrugSafetyResult | null>(null)
+
+  const handleCheckSafety = async () => {
+    const medNames = items.map(i => `${i.drugName} ${i.activeIngredient || ''}`.trim())
+    if (medNames.length === 0) return
+    try {
+      setSafetyChecking(true)
+      const res = await checkDrugSafety(medNames)
+      setSafetyResult(res)
+    } catch (err) {
+      console.error('Lỗi kiểm tra an toàn thuốc:', err)
+    } finally {
+      setSafetyChecking(false)
+    }
+  }
 
   // Filter drug catalog
   const filteredDrugs = VIETNAM_DRUG_CATALOG.filter(d =>
@@ -541,14 +560,81 @@ export const PrescriptionBuilder: React.FC<PrescriptionBuilderProps> = ({
 
           {/* Section 3: Prescribed Medications List */}
           <div className="prescribed-list-card">
-            <div className="list-heading">
+            <div className="list-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h4>
                 <Pill size={16} className="text-teal" /> Danh mục thuốc đã kê ({items.length} thuốc)
               </h4>
-              {items.length > 0 && (
-                <span className="badge-count-rx">Hợp lệ chuẩn TT 04/2022/TT-BYT</span>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {items.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleCheckSafety}
+                    disabled={safetyChecking}
+                    style={{
+                      background: '#f0fdf4',
+                      color: '#15803d',
+                      border: '1px solid #86efac',
+                      borderRadius: '6px',
+                      padding: '4px 10px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    <ShieldAlert size={14} />
+                    {safetyChecking ? 'Đang rà soát tương tác...' : '🛡️ AI Rà soát Tương tác Thuốc'}
+                  </button>
+                )}
+                {items.length > 0 && (
+                  <span className="badge-count-rx">Hợp lệ chuẩn TT 04/2022/TT-BYT</span>
+                )}
+              </div>
             </div>
+
+            {/* AI Drug Safety & Interaction Card */}
+            {safetyResult && (
+              <div style={{
+                margin: '10px 0 14px',
+                padding: '12px 14px',
+                borderRadius: '8px',
+                border: safetyResult.is_safe ? '1px solid #86efac' : (safetyResult.risk_level === 'DANGER' ? '1px solid #fca5a5' : '1px solid #fde047'),
+                background: safetyResult.is_safe ? '#f0fdf4' : (safetyResult.risk_level === 'DANGER' ? '#fef2f2' : '#fefce8')
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                  {safetyResult.is_safe ? (
+                    <ShieldSafe size={18} color="#16a34a" />
+                  ) : (
+                    <ShieldAlert size={18} color={safetyResult.risk_level === 'DANGER' ? '#dc2626' : '#d97706'} />
+                  )}
+                  <strong style={{
+                    color: safetyResult.is_safe ? '#166534' : (safetyResult.risk_level === 'DANGER' ? '#991b1b' : '#854d0e'),
+                    fontSize: '13px'
+                  }}>
+                    {safetyResult.is_safe ? 'AI Đánh giá An toàn Đơn thuốc: AN TOÀN' : `AI Cảnh báo An toàn Đơn thuốc: ${safetyResult.risk_level}`}
+                  </strong>
+                </div>
+                <p style={{ margin: '0 0 6px', fontSize: '13px', color: '#374151' }}>{safetyResult.summary}</p>
+                {safetyResult.interactions.length > 0 && (
+                  <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {safetyResult.interactions.map((inter, idx) => (
+                      <div key={idx} style={{ background: '#fff', padding: '8px 10px', borderRadius: '6px', fontSize: '12px', borderLeft: `3px solid ${inter.severity === 'DANGER' ? '#ef4444' : '#f59e0b'}` }}>
+                        <b style={{ color: inter.severity === 'DANGER' ? '#b91c1c' : '#b45309' }}>[{inter.severity}] {inter.pair}: {inter.title}</b>
+                        <p style={{ margin: '3px 0', color: '#4b5563' }}>{inter.description}</p>
+                        <i style={{ color: '#0f766e' }}>💡 Khuyến nghị: {inter.recommendation}</i>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {safetyResult.dosage_warnings.length > 0 && (
+                  <div style={{ marginTop: '6px', fontSize: '12px', color: '#b45309' }}>
+                    {safetyResult.dosage_warnings.map((dw, i) => <div key={i}>⚠️ {dw}</div>)}
+                  </div>
+                )}
+              </div>
+            )}
 
             {items.length === 0 ? (
               <div className="empty-rx-state">

@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   UserRound, ShieldCheck, Phone, Mail, CreditCard, Heart, AlertTriangle,
   Calendar, MapPin, Edit3, Save, X, CheckCircle2, Lock, FileText,
-  Activity, Bell, LogOut, Download, Sparkles, Building2, Eye, EyeOff
+  Activity, Bell, LogOut, Download, Sparkles, Building2, Eye, EyeOff, Camera
 } from 'lucide-react'
-import { getMyProfile, updateMyProfile, type PatientProfile, type User } from './api'
+import { getMyProfile, updateMyProfile, ocrMedicalDocument, type PatientProfile, type User } from './api'
 
 interface PatientProfilePageProps {
   currentUser: User
@@ -23,6 +23,8 @@ export function PatientProfilePage({
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [ocrLoading, setOcrLoading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [activeTab, setActiveTab] = useState<'info' | 'medical' | 'privacy'>('info')
@@ -64,6 +66,44 @@ export function PatientProfilePage({
       setError(e.message || 'Không thể tải thông tin tài khoản')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleOcrUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      setOcrLoading(true)
+      setError('')
+      const reader = new FileReader()
+      reader.onload = async () => {
+        try {
+          const base64 = reader.result as string
+          const res = await ocrMedicalDocument(base64, 'AUTO')
+          if (res.success && res.extracted_data) {
+            const d = res.extracted_data
+            if (d.full_name) setFullName(d.full_name)
+            if (d.cccd_number) setIdentityCard(d.cccd_number)
+            if (d.bhyt_code) setBhytCode(d.bhyt_code)
+            if (d.dob) setDateOfBirth(d.dob)
+            if (d.gender) setGender(d.gender === 'female' ? 'Nữ' : 'Nam')
+            if (d.address) setAddress(d.address)
+            setEditing(true)
+            setSuccess(`✨ AI đã nhận diện thành công ${res.doc_type_detected}! Vui lòng kiểm tra và ấn "Lưu cập nhật".`)
+          } else {
+            setError('Không trích xuất được thông tin rõ nét từ ảnh. Vui lòng thử lại.')
+          }
+        } catch (err: any) {
+          setError(err.message || 'Lỗi quét AI OCR')
+        } finally {
+          setOcrLoading(false)
+          if (e.target) e.target.value = ''
+        }
+      }
+      reader.readAsDataURL(file)
+    } catch (err: any) {
+      setError(err.message || 'Lỗi tải ảnh')
+      setOcrLoading(false)
     }
   }
 
@@ -160,6 +200,35 @@ export function PatientProfilePage({
         </div>
 
         <div className="profile-hero-actions">
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={handleOcrUpload}
+          />
+          <button
+            type="button"
+            className="btn-ai-ocr"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={ocrLoading}
+            style={{
+              background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)',
+              color: '#ffffff',
+              border: 'none',
+              padding: '9px 16px',
+              borderRadius: '8px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 6px rgba(15, 118, 110, 0.25)'
+            }}
+          >
+            <Camera size={15} />
+            {ocrLoading ? 'AI đang đọc thẻ...' : '📸 Quét CCCD / BHYT bằng AI'}
+          </button>
           {!editing ? (
             <button className="primary btn-edit-profile" onClick={() => setEditing(true)}>
               <Edit3 size={15} /> Chỉnh sửa hồ sơ

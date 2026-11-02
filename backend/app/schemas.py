@@ -419,6 +419,7 @@ class SystemSettingsOut(BaseModel):
     firebase_api_key: str | None = None
     firebase_auth_domain: str | None = None
     firebase_app_id: str | None = None
+    gemini_api_key: str | None = None
     bank_id: str
     bank_account_no: str
     bank_account_name: str
@@ -442,6 +443,7 @@ class SystemSettingsUpdateIn(BaseModel):
     firebase_api_key: str | None = None
     firebase_auth_domain: str | None = None
     firebase_app_id: str | None = None
+    gemini_api_key: str | None = None
     bank_id: str | None = None
     bank_account_no: str | None = None
     bank_account_name: str | None = None
@@ -543,6 +545,121 @@ class RoleDefinition(BaseModel):
     badge_color: str
     description: str
     permissions: list[str]
+
+# --- AI SUITE SCHEMAS ---
+
+class TriageSymptomIn(BaseModel):
+    symptoms: str
+    patient_age: int = 30
+    gender: str = "male"
+
+class TriageSymptomOut(BaseModel):
+    urgency_level: str
+    urgency_label: str
+    emergency_alert: str | None = None
+    recommended_department_code: str
+    recommended_department_name: str
+    explanation: str
+    suggested_questions: list[str]
+
+class OcrDocumentIn(BaseModel):
+    image_base64: str
+    doc_type: str = "AUTO"  # "AUTO", "CCCD", "BHYT", "PRESCRIPTION"
+
+class OcrDocumentOut(BaseModel):
+    success: bool
+    doc_type_detected: str
+    confidence: float
+    extracted_data: dict[str, Any]
+    raw_text: str | None = None
+    note: str | None = None
+
+class Icd10SuggestIn(BaseModel):
+    symptoms: str
+    clinical_notes: str | None = None
+
+class Icd10SuggestOut(BaseModel):
+    suggestions: list[dict[str, Any]]
+
+class DrugSafetyCheckIn(BaseModel):
+    medicines: list[str]
+    patient_allergies: str | None = None
+    patient_age: int | None = None
+
+class DrugSafetyCheckOut(BaseModel):
+    is_safe: bool
+    risk_level: str
+    summary: str
+    interactions: list[dict[str, Any]]
+    allergy_alerts: list[dict[str, Any]]
+    dosage_warnings: list[str]
+
+class PacsAnalysisIn(BaseModel):
+    study_id: str | None = None
+    modality: str = "CR"
+    body_part: str = "CHEST"
+    image_url: str | None = None
+
+class PacsAnalysisOut(BaseModel):
+    study_id: str
+    modality: str
+    body_part: str
+    abnormal: bool
+    abnormality_score: float
+    finding: str
+    impression: str
+    suggested_conditions: list[dict[str, Any]]
+    annotated_regions: list[dict[str, Any]]
+    recommendation: str
+    ai_model_version: str
+
+class LabInterpretIn(BaseModel):
+    lab_items: list[dict[str, Any]]
+    clinical_summary: str | None = None
+
+class LabInterpretOut(BaseModel):
+    overall_status: str
+    abnormal_count: int
+    patient_friendly_summary: str
+    lifestyle_advice: list[str]
+    items: list[dict[str, Any]]
+
+class PostConsultationPlanIn(BaseModel):
+    diagnosis: str
+    prescription_text: str
+    doctor_notes: str | None = None
+
+class PostConsultationPlanOut(BaseModel):
+    diagnosis: str
+    medication_schedule: list[dict[str, Any]]
+    monitoring_metrics: list[dict[str, Any]]
+    red_flags: list[str]
+    re_examination_days: int
+    advice: str
+
+class BhytAuditIn(BaseModel):
+    icd10_code: str
+    services_ordered: list[str] = Field(default_factory=list)
+    medicines_ordered: list[str] = Field(default_factory=list)
+    is_inpatient: bool = False
+
+class BhytAuditOut(BaseModel):
+    audit_passed: bool
+    risk_score: float
+    status_label: str
+    warnings: list[dict[str, Any]]
+    recommendations: list[str]
+
+class DeidentifyIn(BaseModel):
+    text: str
+    mask_type: str = "ANONYMIZE"
+
+class DeidentifyOut(BaseModel):
+    sanitized_text: str
+    detected_pii_count: int
+    pii_types_found: list[str]
+    compliance: str
+
 
 
 

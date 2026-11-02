@@ -690,6 +690,7 @@ export interface SystemSettingsData {
   firebase_api_key?: string
   firebase_auth_domain?: string
   firebase_app_id?: string
+  gemini_api_key?: string
   bank_id: string
   bank_account_no: string
   bank_account_name: string
@@ -939,6 +940,199 @@ export async function registerPatientAccount(data: PatientRegisterRequest): Prom
   }
   return result
 }
+
+// =========================================================================
+// AI CLINICAL & ADMINISTRATIVE SUITE (CARECONNECT AI)
+// =========================================================================
+
+export type TriageSymptomResult = {
+  urgency_level: 'EMERGENCY' | 'HIGH' | 'ROUTINE'
+  urgency_label: string
+  emergency_alert?: string | null
+  recommended_department_code: string
+  recommended_department_name: string
+  explanation: string
+  suggested_questions: string[]
+}
+
+export async function checkTriageSymptoms(symptoms: string, patientAge: number = 30, gender: string = 'male') {
+  return request<TriageSymptomResult>('/api/v1/ai/triage-symptom-check', {
+    method: 'POST',
+    body: JSON.stringify({ symptoms, patient_age: patientAge, gender })
+  })
+}
+
+export type OcrResult = {
+  success: boolean
+  doc_type_detected: string
+  confidence: number
+  extracted_data: {
+    full_name?: string
+    cccd_number?: string
+    bhyt_code?: string
+    dob?: string
+    gender?: string
+    address?: string
+    hospital_code?: string
+    exp_date?: string
+    diagnosis?: string
+    medicines?: string[]
+    [key: string]: any
+  }
+  raw_text?: string
+  note?: string
+}
+
+export async function ocrMedicalDocument(imageBase64: string, docType: string = 'AUTO') {
+  return request<OcrResult>('/api/v1/ai/ocr-document', {
+    method: 'POST',
+    body: JSON.stringify({ image_base64: imageBase64, doc_type: docType })
+  })
+}
+
+export type Icd10Suggestion = {
+  code: string
+  name: string
+  confidence: number
+  differential_diagnosis: string
+}
+
+export async function suggestIcd10(symptoms: string, clinicalNotes?: string) {
+  return request<{ suggestions: Icd10Suggestion[] }>('/api/v1/ai/suggest-icd10', {
+    method: 'POST',
+    body: JSON.stringify({ symptoms, clinical_notes: clinicalNotes })
+  })
+}
+
+export type DrugSafetyResult = {
+  is_safe: boolean
+  risk_level: 'SAFE' | 'WARNING' | 'DANGER'
+  summary: string
+  interactions: Array<{
+    pair: string
+    severity: string
+    title: string
+    description: string
+    recommendation: string
+  }>
+  allergy_alerts: Array<{
+    medicine: string
+    severity: string
+    reason: string
+  }>
+  dosage_warnings: string[]
+}
+
+export async function checkDrugSafety(medicines: string[], patientAllergies?: string, patientAge?: number) {
+  return request<DrugSafetyResult>('/api/v1/ai/check-drug-safety', {
+    method: 'POST',
+    body: JSON.stringify({ medicines, patient_allergies: patientAllergies, patient_age: patientAge })
+  })
+}
+
+export type PacsAnalysisResult = {
+  study_id: string
+  modality: string
+  body_part: string
+  abnormal: boolean
+  abnormality_score: number
+  finding: string
+  impression: string
+  suggested_conditions: Array<{ condition: string; probability: number }>
+  annotated_regions: Array<{ label: string; x: number; y: number; width: number; height: number; confidence: number; status: string }>
+  recommendation: string
+  ai_model_version: string
+}
+
+export async function analyzePacsImage(studyId?: string, modality: string = 'CR', bodyPart: string = 'CHEST', imageUrl?: string) {
+  return request<PacsAnalysisResult>('/api/v1/ai/analyze-pacs-image', {
+    method: 'POST',
+    body: JSON.stringify({ study_id: studyId, modality, body_part: bodyPart, image_url: imageUrl })
+  })
+}
+
+export type LabInterpretResult = {
+  overall_status: 'NORMAL' | 'ATTENTION' | 'ALERT'
+  abnormal_count: number
+  patient_friendly_summary: string
+  lifestyle_advice: string[]
+  items: Array<{
+    test_name: string
+    result: string
+    unit: string
+    reference_range: string
+    status: string
+    insight: string
+  }>
+}
+
+export async function interpretLabResults(labItems: any[], clinicalSummary?: string) {
+  return request<LabInterpretResult>('/api/v1/ai/interpret-lab-results', {
+    method: 'POST',
+    body: JSON.stringify({ lab_items: labItems, clinical_summary: clinicalSummary })
+  })
+}
+
+export type FollowupPlanResult = {
+  diagnosis: string
+  medication_schedule: Array<{
+    time_of_day: string
+    medicine: string
+    instruction: string
+    with_food: boolean
+  }>
+  monitoring_metrics: Array<{
+    metric: string
+    frequency: string
+    target_range: string
+  }>
+  red_flags: string[]
+  re_examination_days: number
+  advice: string
+}
+
+export async function generateFollowupPlan(diagnosis: string, prescriptionText: string, doctorNotes?: string) {
+  return request<FollowupPlanResult>('/api/v1/ai/generate-followup-plan', {
+    method: 'POST',
+    body: JSON.stringify({ diagnosis, prescription_text: prescriptionText, doctor_notes: doctorNotes })
+  })
+}
+
+export type BhytAuditResult = {
+  audit_passed: boolean
+  risk_score: number
+  status_label: string
+  warnings: Array<{
+    category: string
+    severity: string
+    description: string
+    regulation_reference: string
+    fix_suggestion: string
+  }>
+  recommendations: string[]
+}
+
+export async function auditBhytClaim(icd10Code: string, servicesOrdered: string[] = [], medicinesOrdered: string[] = [], isInpatient: boolean = false) {
+  return request<BhytAuditResult>('/api/v1/ai/audit-bhyt-claim', {
+    method: 'POST',
+    body: JSON.stringify({ icd10_code: icd10Code, services_ordered: servicesOrdered, medicines_ordered: medicinesOrdered, is_inpatient: isInpatient })
+  })
+}
+
+export type DeidentifyResult = {
+  sanitized_text: string
+  detected_pii_count: number
+  pii_types_found: string[]
+  compliance: string
+}
+
+export async function deidentifyRecord(text: string, maskType: string = 'ANONYMIZE') {
+  return request<DeidentifyResult>('/api/v1/ai/de-identify-record', {
+    method: 'POST',
+    body: JSON.stringify({ text, mask_type: maskType })
+  })
+}
+
 
 
 

@@ -11,6 +11,7 @@ import {
   completeConsultation, searchICD10, signDocumentSmartCA,
   syncNationalPrescription, downloadMedicalRecordPdf, getFhirBundle,
   generateAiScribeSoap, callPatient,
+  suggestIcd10, auditBhytClaim, analyzePacsImage, interpretLabResults,
   getAppointmentLabResults, getAppointmentPacsStudies,
   type LabResultsData, type PACSStudiesData, type PACSStudy
 } from './api'
@@ -83,6 +84,88 @@ export function DoctorWorkspace({
   const [error, setError] = useState('')
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [callingPatient, setCallingPatient] = useState(false)
+
+  // AI Suite States
+  const [icdSuggestions, setIcdSuggestions] = useState<any[]>([])
+  const [loadingIcdAi, setLoadingIcdAi] = useState(false)
+  const [bhytAuditResult, setBhytAuditResult] = useState<any>(null)
+  const [auditingBhyt, setAuditingBhyt] = useState(false)
+  const [pacsAiResult, setPacsAiResult] = useState<any>(null)
+  const [analyzingPacs, setAnalyzingPacs] = useState(false)
+  const [selectedStudy, setSelectedStudy] = useState<any>(null)
+  const [labAiResult, setLabAiResult] = useState<any>(null)
+  const [interpretingLab, setInterpretingLab] = useState(false)
+
+  async function handleSuggestIcd() {
+    const q = `${symptoms} ${clinicalNotes} ${diagnosis}`.trim()
+    if (!q) {
+      setError('Vui lòng nhập triệu chứng hoặc diễn biến lâm sàng trước khi nhờ AI gợi ý ICD-10.')
+      return
+    }
+    try {
+      setLoadingIcdAi(true)
+      const res = await suggestIcd10(q)
+      setIcdSuggestions(res.suggestions || [])
+      setToast(`✨ AI đã tìm thấy ${res.suggestions?.length || 0} mã bệnh ICD-10 phù hợp`)
+    } catch (err: any) {
+      setError(err.message || 'Lỗi gợi ý ICD-10 AI')
+    } finally {
+      setLoadingIcdAi(false)
+    }
+  }
+
+  async function handleAuditBhyt() {
+    if (!icd10Code) {
+      setError('Vui lòng chọn Mã bệnh ICD-10 trước khi thẩm định BHYT.')
+      return
+    }
+    try {
+      setAuditingBhyt(true)
+      const medList = prescription ? prescription.split('\n').filter(Boolean) : []
+      const res = await auditBhytClaim(icd10Code, [], medList)
+      setBhytAuditResult(res)
+    } catch (err: any) {
+      setError(err.message || 'Lỗi thẩm định BHYT')
+    } finally {
+      setAuditingBhyt(false)
+    }
+  }
+
+  async function handleAnalyzePacs() {
+    try {
+      setAnalyzingPacs(true)
+      const res = await analyzePacsImage(selectedStudy?.id, selectedStudy?.modality || 'CR', selectedStudy?.body_part || 'CHEST')
+      setPacsAiResult(res)
+      setToast('🤖 Đã hoàn tất phân tích hình ảnh AI (Second Opinion)')
+    } catch (err: any) {
+      setError(err.message || 'Lỗi phân tích PACS AI')
+    } finally {
+      setAnalyzingPacs(false)
+    }
+  }
+
+  async function handleInterpretLab() {
+    if (!labData?.reports || labData.reports.length === 0) {
+      setError('Chưa có phiếu kết quả xét nghiệm để phân tích.')
+      return
+    }
+    try {
+      setInterpretingLab(true)
+      const allItems: any[] = []
+      labData.reports.forEach((rep: any) => {
+        if (rep.items && Array.isArray(rep.items)) {
+          allItems.push(...rep.items)
+        }
+      })
+      const res = await interpretLabResults(allItems)
+      setLabAiResult(res)
+      setToast('💡 Đã diễn giải chỉ số xét nghiệm bằng AI')
+    } catch (err: any) {
+      setError(err.message || 'Lỗi diễn giải xét nghiệm AI')
+    } finally {
+      setInterpretingLab(false)
+    }
+  }
 
   // Gọi chuông đến điện thoại bệnh nhân
   async function handleCallPatient() {
@@ -758,7 +841,61 @@ export function DoctorWorkspace({
 
                 {/* Tra cứu và gán mã ICD-10 */}
                 <div className="field-group icd-group">
-                  <label>3. Chẩn đoán sơ bộ & Mã bệnh ICD-10 (Bộ Y tế)</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <label style={{ margin: 0 }}>3. Chẩn đoán sơ bộ & Mã bệnh ICD-10 (Bộ Y tế)</label>
+                    <button
+                      type="button"
+                      onClick={handleSuggestIcd}
+                      disabled={loadingIcdAi || isLocked}
+                      style={{
+                        background: '#f0fdfa',
+                        color: '#0f766e',
+                        border: '1px solid #99f6e4',
+                        borderRadius: '6px',
+                        padding: '3px 10px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <Sparkles size={13} />
+                      {loadingIcdAi ? 'AI đang phân tích...' : '✨ AI Gợi ý ICD-10'}
+                    </button>
+                  </div>
+
+                  {icdSuggestions.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', margin: '4px 0 10px' }}>
+                      {icdSuggestions.map((s, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setIcd10Code(s.code)
+                            setIcd10Name(s.name)
+                            if (!diagnosis) setDiagnosis(s.name)
+                            setToast(`Đã chọn mã [${s.code}] ${s.name}`)
+                          }}
+                          style={{
+                            background: '#ecfdf5',
+                            border: '1px solid #a7f3d0',
+                            color: '#065f46',
+                            borderRadius: '6px',
+                            padding: '4px 10px',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            textAlign: 'left'
+                          }}
+                          title={s.differential_diagnosis}
+                        >
+                          <b>[{s.code}]</b> {s.name} ({Math.round(s.confidence * 100)}%)
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="icd-input-box">
                     <input
                       type="text"
@@ -846,6 +983,64 @@ export function DoctorWorkspace({
                     onChange={e => setPlan(e.target.value)}
                     disabled={isLocked}
                   />
+                </div>
+
+                {/* AI BHYT Pre-Audit Section */}
+                <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={handleAuditBhyt}
+                      disabled={auditingBhyt || !icd10Code}
+                      style={{
+                        background: '#eff6ff',
+                        color: '#1d4ed8',
+                        border: '1px solid #bfdbfe',
+                        borderRadius: '6px',
+                        padding: '6px 14px',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <ShieldCheck size={16} />
+                      {auditingBhyt ? 'AI đang thẩm định hồ sơ BHYT...' : '📋 AI Thẩm định Hồ sơ BHYT (Chống xuất toán)'}
+                    </button>
+                  </div>
+
+                  {bhytAuditResult && (
+                    <div style={{
+                      marginTop: '10px',
+                      padding: '12px 14px',
+                      borderRadius: '8px',
+                      border: bhytAuditResult.audit_passed ? '1px solid #86efac' : '1px solid #fca5a5',
+                      background: bhytAuditResult.audit_passed ? '#f0fdf4' : '#fef2f2'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <b style={{ color: bhytAuditResult.audit_passed ? '#15803d' : '#b91c1c' }}>
+                          {bhytAuditResult.status_label} (Chỉ số rủi ro: {bhytAuditResult.risk_score}/100)
+                        </b>
+                      </div>
+                      {bhytAuditResult.warnings.length === 0 ? (
+                        <p style={{ margin: 0, fontSize: '13px', color: '#166534' }}>
+                          ✅ Hồ sơ lâm sàng và đơn thuốc hoàn toàn tương thích với danh mục chi trả BHYT theo quy định Bộ Y tế.
+                        </p>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {bhytAuditResult.warnings.map((w: any, i: number) => (
+                            <div key={i} style={{ background: '#fff', padding: '8px 10px', borderRadius: '6px', fontSize: '12px' }}>
+                              <strong style={{ color: '#dc2626' }}>[{w.category}] {w.description}</strong>
+                              <div style={{ color: '#4b5563', margin: '3px 0' }}>Căn cứ: {w.regulation_reference}</div>
+                              <div style={{ color: '#0f766e', fontWeight: 500 }}>💡 Hướng khắc phục: {w.fix_suggestion}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1052,18 +1247,78 @@ export function DoctorWorkspace({
                       Bệnh nhân: <strong>{patientData?.full_name || 'Bệnh nhân'}</strong> · Mã BN: <code>{patientData?.external_patient_id || `VN-P00${appointment.patient_id}`}</code> · Tổng: <strong>{labData?.reports?.length || 0} phiếu</strong>
                     </p>
                   </div>
-                  {labData && labData.abnormal_indicators_count > 0 && (
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <button
                       type="button"
-                      className="primary small-primary"
-                      onClick={handleExtractAbnormalToNotes}
-                      style={{ background: '#f59e0b', borderColor: '#d97706', display: 'flex', alignItems: 'center', gap: '6px' }}
-                      title="Tự động sao chép các chỉ số bất thường vào Phiếu khám lâm sàng"
+                      onClick={handleInterpretLab}
+                      disabled={interpretingLab}
+                      style={{
+                        background: '#eff6ff',
+                        color: '#1d4ed8',
+                        border: '1px solid #bfdbfe',
+                        borderRadius: '6px',
+                        padding: '6px 12px',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
                     >
-                      <Sparkles size={14} /> ⚡ Trích xuất {labData.abnormal_indicators_count} chỉ số bất thường
+                      <Sparkles size={14} />
+                      {interpretingLab ? 'AI đang phân tích...' : '💡 AI Diễn giải Chỉ số'}
                     </button>
-                  )}
+                    {labData && labData.abnormal_indicators_count > 0 && (
+                      <button
+                        type="button"
+                        className="primary small-primary"
+                        onClick={handleExtractAbnormalToNotes}
+                        style={{ background: '#f59e0b', borderColor: '#d97706', display: 'flex', alignItems: 'center', gap: '6px' }}
+                        title="Tự động sao chép các chỉ số bất thường vào Phiếu khám lâm sàng"
+                      >
+                        <Sparkles size={14} /> ⚡ Trích xuất {labData.abnormal_indicators_count} chỉ số bất thường
+                      </button>
+                    )}
+                  </div>
                 </div>
+
+                {/* AI Lab Results Interpreter Card */}
+                {labAiResult && (
+                  <div style={{
+                    background: '#f8fafc',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    padding: '14px',
+                    marginBottom: '16px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                      <Sparkles size={18} color="#0284c7" />
+                      <strong style={{ color: '#0f172a' }}>AI Diễn giải Kết quả Xét nghiệm</strong>
+                      <span style={{
+                        background: labAiResult.overall_status === 'NORMAL' ? '#dcfce7' : '#fef3c7',
+                        color: labAiResult.overall_status === 'NORMAL' ? '#15803d' : '#b45309',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        fontWeight: 700
+                      }}>
+                        {labAiResult.overall_status === 'NORMAL' ? 'Bình thường' : `Có ${labAiResult.abnormal_count} chỉ số cần lưu ý`}
+                      </span>
+                    </div>
+                    <p style={{ margin: '0 0 8px', fontSize: '13px', color: '#334155' }}>
+                      {labAiResult.patient_friendly_summary}
+                    </p>
+                    {labAiResult.lifestyle_advice && labAiResult.lifestyle_advice.length > 0 && (
+                      <div style={{ fontSize: '12px', color: '#047857', background: '#ecfdf5', padding: '8px 12px', borderRadius: '6px' }}>
+                        <b>Lời khuyên chuyên môn:</b>
+                        <ul style={{ margin: '4px 0 0', paddingLeft: '18px' }}>
+                          {labAiResult.lifestyle_advice.map((adv: string, i: number) => <li key={i}>{adv}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Filter chips */}
                 <div className="filter-chips-bar" style={{ display: 'flex', gap: '8px', margin: '14px 0', overflowX: 'auto', paddingBottom: '4px' }}>
@@ -1279,6 +1534,19 @@ export function DoctorWorkspace({
                             <button
                               type="button"
                               className="secondary small-secondary"
+                              onClick={() => {
+                                setSelectedStudy(study)
+                                handleAnalyzePacs()
+                              }}
+                              disabled={analyzingPacs}
+                              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', background: '#f0fdf4', color: '#166534', borderColor: '#86efac' }}
+                              title="Chạy mô hình AI phát hiện tổn thương phổi và cấu trúc xương"
+                            >
+                              <Sparkles size={14} color="#16a34a" /> {analyzingPacs ? 'AI đang phân tích phim...' : '🤖 AI Phân tích hình ảnh (Second Opinion)'}
+                            </button>
+                            <button
+                              type="button"
+                              className="secondary small-secondary"
                               onClick={() => handleApplyImagingImpression(study)}
                               style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
                               title="Tự động đưa kết luận này vào ô chẩn đoán lâm sàng"
@@ -1294,6 +1562,53 @@ export function DoctorWorkspace({
                               <ExternalLink size={14} /> Mở phim DICOM (OHIF Viewer)
                             </button>
                           </div>
+
+                          {/* AI PACS Second Opinion Panel */}
+                          {pacsAiResult && selectedStudy?.study_id === study.study_id && (
+                            <div style={{
+                              marginTop: '12px',
+                              padding: '12px 14px',
+                              background: '#f8fafc',
+                              border: '1px solid #bae6fd',
+                              borderRadius: '8px',
+                              fontSize: '13px'
+                            }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#0369a1', fontWeight: 700 }}>
+                                  <Sparkles size={16} /> Báo cáo Tham khảo AI (Second Opinion - {pacsAiResult.ai_model_version})
+                                </div>
+                                <span style={{
+                                  background: pacsAiResult.abnormal ? '#fee2e2' : '#dcfce7',
+                                  color: pacsAiResult.abnormal ? '#dc2626' : '#16a34a',
+                                  padding: '2px 8px',
+                                  borderRadius: '12px',
+                                  fontSize: '11px',
+                                  fontWeight: 700
+                                }}>
+                                  {pacsAiResult.abnormal ? `Nghi ngờ tổn thương (${Math.round(pacsAiResult.abnormality_score * 100)}%)` : 'Bình thường'}
+                                </span>
+                              </div>
+                              <p style={{ margin: '0 0 6px', color: '#334155', whiteSpace: 'pre-line' }}>{pacsAiResult.finding}</p>
+                              <div style={{ background: '#fff', padding: '8px 10px', borderRadius: '6px', borderLeft: '3px solid #0284c7', margin: '6px 0' }}>
+                                <b style={{ color: '#0284c7' }}>Kết luận AI:</b> {pacsAiResult.impression}
+                              </div>
+                              {pacsAiResult.annotated_regions && pacsAiResult.annotated_regions.length > 0 && (
+                                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>
+                                  <b>Vùng giải phẫu được AI rà soát:</b>
+                                  <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                                    {pacsAiResult.annotated_regions.map((reg: any, i: number) => (
+                                      <span key={i} style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>
+                                        📍 {reg.label} (Độ tin cậy: {Math.round(reg.confidence * 100)}%)
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#047857' }}>
+                                💡 <strong>Khuyến nghị:</strong> {pacsAiResult.recommendation}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       ))}
                   </div>
