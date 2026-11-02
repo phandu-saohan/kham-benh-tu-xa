@@ -60,7 +60,18 @@ pytest -q
 
 ## Tích hợp HIS/EMR thật
 - Mặc định `HIS_ADAPTER=mock`. Mock trả dữ liệu giả, không lấy dữ liệu bệnh nhân thật.
-- Khi có tài liệu API: triển khai adapter mới trong `backend/app/adapters/his/`, định nghĩa timeout, retry, idempotency, mapping mã bệnh nhân, logging đã khử dữ liệu nhạy cảm.
+- **Mock HIS Server (nội bộ, dùng để test tính năng):** xem `mock_his/README.md`.
+  ```bash
+  docker compose up --build -d mock-his   # http://localhost:8100/docs
+  ```
+  Rồi đặt trong `.env`:
+  ```env
+  HIS_ADAPTER=http
+  HIS_BASE_URL=http://mock-his:8100        # ngoài docker: http://localhost:8100
+  HIS_API_KEY=his-dev-key-change-me
+  ```
+  Adapter `HttpHISAdapter` sẽ đẩy lần khám/hồ sơ/đơn thuốc/FHIR bundle ra Mock HIS; server có sẵn 3 bệnh nhân synthetic seed (`HIS-2024-0001`...) và admin xem tất cả event qua `GET /admin/events`.
+- Khi có tài liệu API bệnh viện: triển khai adapter mới trong `backend/app/adapters/his/`, định nghĩa timeout, retry, idempotency, mapping mã bệnh nhân, logging đã khử dữ liệu nhạy cảm.
 - Không kết nối trực tiếp database HIS nếu chưa được phê duyệt. Ưu tiên API chính thức/FHIR.
 - Xác minh ánh xạ mã bệnh nhân và mã lần khám trước khi ghi dữ liệu.
 - Các endpoint tích hợp hiện chỉ là adapter boundary; chưa đồng bộ hoặc ghi hồ sơ vào HIS thật.

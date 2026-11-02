@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json as _json
 from fastapi.testclient import TestClient
 from app.main import app
 from app.security import hash_password
@@ -7,18 +8,28 @@ from app.db import SessionLocal
 
 client = TestClient(app)
 
+def _auth_headers(c, email="patient@example.test"):
+    r = c.post("/api/v1/auth/login", json={"email": email, "password": "ChangeMe123!"})
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
 def test_coturn_ice_servers_endpoint():
+    with TestClient(app) as c:
+        headers = _auth_headers(c)
+        res = c.get("/api/v1/telehealth/ice-servers", headers=headers)
+        assert res.status_code == 200
+        data = res.json()
+        assert "iceServers" in data
+        assert len(data["iceServers"]) >= 3
+        # Check that TURN and TURNS URLs with credentials exist
+        turn_server = next((s for s in data["iceServers"] if s.get("username")), None)
+        assert turn_server is not None
+        assert turn_server["credential"] is not None
+        assert any("turns:" in u for u in turn_server["urls"])
+        assert data["ttl"] == 600
+
+def test_coturn_ice_servers_requires_auth():
     res = client.get("/api/v1/telehealth/ice-servers")
-    assert res.status_code == 200
-    data = res.json()
-    assert "iceServers" in data
-    assert len(data["iceServers"]) >= 3
-    # Check that TURN and TURNS URLs with credentials exist
-    turn_server = next((s for s in data["iceServers"] if s.get("username")), None)
-    assert turn_server is not None
-    assert turn_server["credential"] is not None
-    assert any("turns:" in u for u in turn_server["urls"])
-    assert data["ttl"] == 86400
+    assert res.status_code == 401
 
 def test_payment_webhook_auto_reconciliation():
     db = SessionLocal()
@@ -46,7 +57,10 @@ def test_payment_webhook_auto_reconciliation():
         "gateway": "vietqr_pro",
         "status": "PAID"
     }
-    res = client.post("/api/v1/payments/webhook", json=webhook_payload)
+    from conftest import sign_webhook_payload
+    raw = _json.dumps(webhook_payload).encode("utf-8")
+    res = client.post("/api/v1/payments/webhook", content=raw,
+                      headers={"Content-Type": "application/json", "X-Signature": sign_webhook_payload(raw)})
     assert res.status_code == 200
     res_data = res.json()
     assert res_data["success"] is True
@@ -59,6 +73,12 @@ def test_payment_webhook_auto_reconciliation():
     assert updated.status == "confirmed"
     assert updated.paid_at is not None
     db.close()
+
+def test_payment_webhook_rejects_bad_signature():
+    webhook_payload = {"content": "TM999999", "amount": 300000, "gateway": "vietqr_pro"}
+    res = client.post("/api/v1/payments/webhook", json=webhook_payload,
+                      headers={"X-Signature": "deadbeef"})
+    assert res.status_code == 401
 
 def test_triage_desk_workflow():
     db = SessionLocal()

@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone
+import hashlib
+import secrets
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
@@ -17,13 +19,17 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, password_hash: str) -> bool:
     return pwd_context.verify(password, password_hash)
 
+def hash_refresh_token(refresh_token: str) -> str:
+    """Chỉ lưu hash (SHA-256) của refresh token trong DB. Token gốc không bao giờ nằm trong DB."""
+    return hashlib.sha256(refresh_token.encode("utf-8")).hexdigest()
+
 def create_access_token(user: User) -> str:
     expires = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     return jwt.encode({"sub": str(user.id), "role": user.role, "type": "access", "exp": expires}, settings.SECRET_KEY, algorithm="HS256")
 
 def create_refresh_token(user: User) -> str:
     expires = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    return jwt.encode({"sub": str(user.id), "role": user.role, "type": "refresh", "exp": expires}, settings.SECRET_KEY, algorithm="HS256")
+    return jwt.encode({"sub": str(user.id), "type": "refresh", "exp": expires, "jti": secrets.token_hex(8)}, settings.SECRET_KEY, algorithm="HS256")
 
 def decode_token(token: str) -> dict:
     return jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])

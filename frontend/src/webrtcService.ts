@@ -6,7 +6,7 @@
  * Canvas/Oscillator Fallback if hardware is missing, and WebSocket Signaling.
  */
 
-import { getApiBaseUrl } from './api'
+import { getApiBaseUrl, getToken } from './api'
 
 export interface WebRTCState {
   localStream: MediaStream | null
@@ -70,7 +70,10 @@ export class TelemedicineWebRTCService {
   public async fetchProductionIceServers(): Promise<RTCConfiguration> {
     try {
       const baseUrl = getApiBaseUrl()
-      const res = await fetch(`${baseUrl}/api/v1/telehealth/ice-servers`)
+      const token = getToken()
+      const res = await fetch(`${baseUrl}/api/v1/telehealth/ice-servers`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      })
       if (res.ok) {
         const data = await res.json()
         if (data.iceServers && data.iceServers.length > 0) {
@@ -319,11 +322,13 @@ export class TelemedicineWebRTCService {
 
   private getWebSocketUrl(): string {
     if (typeof window === 'undefined') return ''
+    const token = getToken()
+    const withAuth = (url: string) => token ? `${url}?token=${encodeURIComponent(token)}` : url
     const apiBase = getApiBaseUrl()
     if (apiBase.startsWith('http://') || apiBase.startsWith('https://')) {
       const parsed = new URL(apiBase)
       const wsProto = parsed.protocol === 'https:' ? 'wss:' : 'ws:'
-      return `${wsProto}//${parsed.host}/api/v1/ws/${this.appointmentId}`
+      return withAuth(`${wsProto}//${parsed.host}/api/v1/ws/${this.appointmentId}`)
     }
     const isHttps = window.location.protocol === 'https:'
     const wsProto = isHttps ? 'wss:' : 'ws:'
@@ -331,7 +336,7 @@ export class TelemedicineWebRTCService {
     if (import.meta.env.DEV) {
       host = `${window.location.hostname}:8000`
     }
-    return `${wsProto}//${host}/api/v1/ws/${this.appointmentId}`
+    return withAuth(`${wsProto}//${host}/api/v1/ws/${this.appointmentId}`)
   }
 
   private connectWebSocket() {

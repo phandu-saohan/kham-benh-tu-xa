@@ -1,8 +1,17 @@
 import os
+import hashlib
+import hmac
 import pytest
 from app.db import Base, engine, SessionLocal
 from app.models import User, Department, DoctorShift, Appointment, ClinicalRecord, PrescriptionRef, Payment, PatientConsent, OtpCode
 from app.security import hash_password
+from app.config import settings
+
+
+def sign_webhook_payload(json_bytes: bytes, secret: str = "") -> str:
+    """Giả lập header X-Signature của cổng thanh toán (HMAC-SHA256 trên raw body)."""
+    key = (secret or settings.PAYMENT_WEBHOOK_SECRET).encode("utf-8")
+    return hmac.new(key, json_bytes, hashlib.sha256).hexdigest()
 
 @pytest.fixture(autouse=True)
 def clean_database():

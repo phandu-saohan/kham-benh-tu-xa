@@ -16,6 +16,8 @@ import {
   type ConsultationMessage,
   getConsultationMessages,
   sendConsultationMessage,
+  objectUrlForMedia,
+  downloadAuthedFile,
   type User
 } from './api'
 import { webrtcService } from './webrtcService'
@@ -36,9 +38,26 @@ export function ConsultationChat({
   const [isSending, setIsSending] = useState(false)
   const [previewMedia, setPreviewMedia] = useState<{ url: string; name: string } | null>(null)
   const [uploadError, setUploadError] = useState('')
+  // file_url backend bây giờ cần Authorization — ánh xạ tới blob URL để <img>/<a> hiển thị
+  const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({})
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Resolve media đã xác thực cho mọi tin nhắn có file
+  useEffect(() => {
+    let cancelled = false
+    const withFile = messages.filter(m => m.file_url && !mediaUrls[m.file_url])
+    withFile.forEach(m => {
+      objectUrlForMedia(m.file_url!)
+        .then(objectUrl => {
+          if (!cancelled) setMediaUrls(prev => ({ ...prev, [m.file_url!]: objectUrl }))
+        })
+        .catch(() => {})
+    })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages])
 
   // 1. Tải danh sách tin nhắn ban đầu
   useEffect(() => {
@@ -216,11 +235,11 @@ export function ConsultationChat({
                     {msg.file_url && (
                       <div
                         className="chat-image-preview-wrapper"
-                        onClick={() => setPreviewMedia({ url: msg.file_url!, name: msg.file_name || 'Ảnh đính kèm' })}
+                        onClick={() => setPreviewMedia({ url: mediaUrls[msg.file_url!] || msg.file_url!, name: msg.file_name || 'Ảnh đính kèm' })}
                         title="Bấm để xem ảnh lớn"
                       >
                         <img
-                          src={msg.file_url}
+                          src={mediaUrls[msg.file_url!] || msg.file_url}
                           alt={msg.file_name || 'Ảnh bệnh án'}
                           className="chat-image-preview"
                           loading="lazy"
@@ -244,16 +263,14 @@ export function ConsultationChat({
                         <span className="file-size">{formatFileSize(msg.file_size)}</span>
                       </div>
                       {msg.file_url && (
-                        <a
-                          href={msg.file_url}
-                          target="_blank"
-                          rel="noreferrer"
+                        <button
+                          type="button"
                           className="file-download-link"
                           title="Tải về tệp"
-                          download={msg.file_name}
+                          onClick={() => downloadAuthedFile(msg.file_url!, msg.file_name || 'download')}
                         >
                           <Download size={16} />
-                        </a>
+                        </button>
                       )}
                     </div>
                   </div>

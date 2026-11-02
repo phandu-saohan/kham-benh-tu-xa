@@ -50,6 +50,16 @@ services:
       - ./infra/livekit.yaml:/etc/livekit.yaml:ro
     restart: unless-stopped
 
+  mock-his:
+    build: ./mock_his
+    environment:
+      HIS_API_KEY: ${HIS_API_KEY:-his-dev-key-change-me}
+    ports:
+      - "8100:8100"
+    volumes:
+      - hisdata:/data
+    restart: unless-stopped
+
   api:
     build: ./backend
     env_file: .env
@@ -62,6 +72,9 @@ services:
       COTURN_HOST: ${COTURN_HOST:-72.61.123.73}
       SMS_PROVIDER: ${SMS_PROVIDER:-mock}
       PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-vietqr-webhook-secret-key-2026}
+      HIS_ADAPTER: ${HIS_ADAPTER:-mock}
+      HIS_BASE_URL: ${HIS_BASE_URL:-http://mock-his:8100}
+      HIS_API_KEY: ${HIS_API_KEY:-his-dev-key-change-me}
     ports:
       - "8000:8000"
     depends_on:
@@ -87,3 +100,4 @@ services:
 volumes:
   pgdata:
   redisdata:
+  hisdata:
