@@ -685,6 +685,31 @@ class NotificationCreateIn(BaseModel):
 class UnreadCountOut(BaseModel):
     unread_count: int
 
+class AppointmentEventOut(BaseModel):
+    id: int
+    appointment_id: int
+    action: str
+    from_status: Optional[str] = None
+    to_status: Optional[str] = None
+    actor_id: Optional[int] = None
+    actor_name: Optional[str] = None
+    actor_role: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+class ShareLabResultIn(BaseModel):
+    report_id: str
+    report_name: str
+    category_name: str
+    conclusion: Optional[str] = None
+    summary_text: Optional[str] = None
+
+class ShareLabResultOut(BaseModel):
+    success: bool
+    message: str
+    message_id: Optional[int] = None
+    notification_id: Optional[int] = None
+
 
 
 

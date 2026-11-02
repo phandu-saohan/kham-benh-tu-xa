@@ -3,7 +3,7 @@ import {
   ArrowLeft, ShieldCheck, Save, CheckCircle2, Lock, FileText,
   Pill, User, Search, AlertCircle, Stethoscope, Video, VideoOff, X,
   FileDown, PenTool, Share2, Code2, QrCode, Sparkles, Mic, MicOff, Bot, PhoneCall, Volume2,
-  ScreenShare, ScreenShareOff, MessageSquare, FlaskConical, ScanLine, ExternalLink, Activity
+  ScreenShare, ScreenShareOff, MessageSquare, FlaskConical, ScanLine, ExternalLink, Activity, Clock
 } from 'lucide-react'
 import {
   type Appointment, type User as CurrentUser, type ICD10Item,
@@ -13,6 +13,8 @@ import {
   generateAiScribeSoap, callPatient,
   suggestIcd10, auditBhytClaim, analyzePacsImage, interpretLabResults,
   getAppointmentLabResults, getAppointmentPacsStudies,
+  shareLabResult, getAppointmentHistory, getPatientConsultationHistory,
+  type ConsultationHistoryItem, type AppointmentEventItem,
   type LabResultsData, type PACSStudiesData, type PACSStudy
 } from './api'
 import { webrtcService, type WebRTCState } from './webrtcService'
@@ -32,7 +34,7 @@ export function DoctorWorkspace({
   onCompleted: () => void
 }) {
   const [connection, setConnection] = useState<{ server_url: string; token: string; room_name: string } | null>(null)
-  const [activeTab, setActiveTab] = useState<'record' | 'ai_scribe' | 'chat' | 'lab' | 'pacs' | 'prescription' | 'patient_info' | 'fhir'>('record')
+  const [activeTab, setActiveTab] = useState<'record' | 'ai_scribe' | 'chat' | 'lab' | 'pacs' | 'prescription' | 'patient_info' | 'fhir' | 'history'>('record')
   const [unreadChatCount, setUnreadChatCount] = useState(0)
 
   // Cận lâm sàng & PACS cho từng bệnh nhân
@@ -42,6 +44,12 @@ export function DoctorWorkspace({
   const [loadingPacs, setLoadingPacs] = useState(false)
   const [labCategoryFilter, setLabCategoryFilter] = useState<string>('all')
   const [pacsModalityFilter, setPacsModalityFilter] = useState<string>('all')
+  const [sharingLabId, setSharingLabId] = useState<string | null>(null)
+
+  // Lịch sử lượt khám & Tiến trình ca khám
+  const [consultationHistory, setConsultationHistory] = useState<ConsultationHistoryItem[]>([])
+  const [appointmentEvents, setAppointmentEvents] = useState<AppointmentEventItem[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
   
   // WebRTC P2P Video & Audio Engine
   const [rtcState, setRtcState] = useState<WebRTCState>(webrtcService.getState())
@@ -165,6 +173,44 @@ export function DoctorWorkspace({
       setError(err.message || 'Lỗi diễn giải xét nghiệm AI')
     } finally {
       setInterpretingLab(false)
+    }
+  }
+
+  async function loadHistory() {
+    try {
+      setLoadingHistory(true)
+      const [events, history] = await Promise.all([
+        getAppointmentHistory(appointment.id),
+        getPatientConsultationHistory(appointment.patient_id)
+      ])
+      setAppointmentEvents(events)
+      setConsultationHistory(history)
+    } catch (err: any) {
+      console.error('Lỗi tải lịch sử khám:', err)
+      setError('Không thể tải lịch sử lượt khám: ' + (err.message || 'Lỗi mạng'))
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
+
+  async function handleShareLab(report: any) {
+    try {
+      setSharingLabId(report.report_id)
+      const summaryText = report.indicators
+        ? report.indicators.map((ind: any) => `${ind.name}: ${ind.value} ${ind.unit || ''} (${ind.flag === 'HIGH' ? 'Tăng cao' : ind.flag === 'LOW' ? 'Giảm' : 'Bình thường'})`).join('; ')
+        : ''
+      const res = await shareLabResult(appointment.id, {
+        report_id: report.report_id,
+        report_name: report.title,
+        category_name: report.category_name,
+        conclusion: report.conclusion,
+        summary_text: summaryText
+      })
+      setToast(`✅ ${res.message}`)
+    } catch (err: any) {
+      setError(err.message || 'Lỗi khi chia sẻ kết quả xét nghiệm')
+    } finally {
+      setSharingLabId(null)
     }
   }
 
@@ -800,6 +846,15 @@ export function DoctorWorkspace({
             >
               <Code2 size={16} /> Chuẩn HL7 FHIR
             </button>
+            <button
+              className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('history')
+                loadHistory()
+              }}
+            >
+              <Clock size={16} /> Lịch sử lượt khám & Timeline
+            </button>
           </div>
 
           <div className="clinical-content">
@@ -1424,11 +1479,35 @@ export function DoctorWorkspace({
                             </table>
                           </div>
 
-                          {report.conclusion && (
-                            <div style={{ marginTop: '12px', padding: '10px 12px', background: '#f8fafc', borderRadius: '6px', borderLeft: '3px solid #0f766e', fontSize: '12px' }}>
-                              <strong style={{ color: '#0f766e' }}>Kết luận của Khoa Xét nghiệm:</strong> {report.conclusion}
-                            </div>
-                          )}
+                          <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                            {report.conclusion ? (
+                              <div style={{ flex: 1, padding: '8px 12px', background: '#f8fafc', borderRadius: '6px', borderLeft: '3px solid #0f766e', fontSize: '12px' }}>
+                                <strong style={{ color: '#0f766e' }}>Kết luận Khoa Xét nghiệm:</strong> {report.conclusion}
+                              </div>
+                            ) : <div style={{ flex: 1 }} />}
+                            <button
+                              type="button"
+                              onClick={() => handleShareLab(report)}
+                              disabled={sharingLabId === report.report_id}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '8px 14px',
+                                background: '#0f766e',
+                                color: '#fff',
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                border: 'none',
+                                whiteSpace: 'nowrap',
+                                opacity: sharingLabId === report.report_id ? 0.7 : 1
+                              }}
+                            >
+                              <Share2 size={14} /> {sharingLabId === report.report_id ? 'Đang chia sẻ...' : 'Chia sẻ kết quả cho bệnh nhân'}
+                            </button>
+                          </div>
                         </div>
                       ))}
                   </div>
@@ -1628,6 +1707,153 @@ export function DoctorWorkspace({
                   </div>
                 </div>
                 <pre className="fhir-code-view">{fhirJson || 'Đang tải cấu trúc dữ liệu FHIR R4...'}</pre>
+              </div>
+            )}
+
+            {activeTab === 'history' && (
+              <div className="history-workspace" style={{ display: 'grid', gap: '20px' }}>
+                {/* 1. Timeline mốc sự kiện của ca khám hiện tại */}
+                <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0f766e' }}>
+                      <Clock size={20} />
+                      <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>
+                        Timeline Tiến trình Ca khám Hiện tại (#{appointment.id})
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={loadHistory}
+                      disabled={loadingHistory}
+                      style={{ background: '#f1f5f9', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', color: '#475569' }}
+                    >
+                      {loadingHistory ? 'Đang cập nhật...' : '🔄 Làm mới'}
+                    </button>
+                  </div>
+
+                  {loadingHistory && <p className="muted">Đang tải lịch sử tiến trình...</p>}
+
+                  {appointmentEvents.length === 0 && !loadingHistory && (
+                    <p className="muted" style={{ fontSize: '13px', fontStyle: 'italic' }}>
+                      Chưa có sự kiện nào được ghi nhận cho ca khám này. Mọi thao tác đặt lịch, triage, gọi video, kê đơn và ký số sẽ tự động lưu vết tại đây.
+                    </p>
+                  )}
+
+                  {appointmentEvents.length > 0 && (
+                    <div className="timeline-container" style={{ position: 'relative', paddingLeft: '24px', borderLeft: '2px solid #e2e8f0', display: 'grid', gap: '16px', margin: '10px 0' }}>
+                      {appointmentEvents.map((ev) => (
+                        <div key={ev.id} style={{ position: 'relative' }}>
+                          <span style={{
+                            position: 'absolute',
+                            left: '-31px',
+                            top: '2px',
+                            width: '12px',
+                            height: '12px',
+                            borderRadius: '50%',
+                            background: ev.action === 'complete' ? '#16a34a' : ev.action === 'digital_sign' ? '#8b5cf6' : ev.action === 'cancel' ? '#dc2626' : '#0f766e',
+                            border: '2px solid #fff',
+                            boxShadow: '0 0 0 2px #cbd5e1'
+                          }} />
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                            <strong style={{ color: '#0f172a' }}>
+                              {ev.action === 'create' && '📝 Đăng ký Lịch khám'}
+                              {ev.action === 'triage' && '🩺 Sàng lọc Phân luồng Triage'}
+                              {ev.action === 'start_consultation' && '📹 Bắt đầu Buồng khám Trực tuyến'}
+                              {ev.action === 'clinical_record' && '📋 Lưu Phiếu khám Lâm sàng'}
+                              {ev.action === 'prescribe' && '💊 Kê Đơn thuốc Điện tử'}
+                              {ev.action === 'digital_sign' && '🔏 Ký số Y tế SmartCA PKI'}
+                              {ev.action === 'share_lab' && '📤 Chia sẻ Kết quả Cận lâm sàng'}
+                              {ev.action === 'complete' && '✅ Hoàn tất Ca khám & Khóa Bệnh án'}
+                              {ev.action === 'cancel' && '❌ Hủy Lịch khám'}
+                              {!['create', 'triage', 'start_consultation', 'clinical_record', 'prescribe', 'digital_sign', 'share_lab', 'complete', 'cancel'].includes(ev.action) && ev.action}
+                            </strong>
+                            <span style={{ color: '#64748b', fontSize: '11px' }}>
+                              {ev.created_at ? new Date(ev.created_at).toLocaleString('vi-VN') : ''}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#334155', marginTop: '4px' }}>
+                            {ev.notes || 'Thực hiện thành công'}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                            Thực hiện bởi: <strong>{ev.actor_name || 'Hệ thống'}</strong> ({ev.actor_role || 'System'})
+                            {ev.to_status && <span style={{ marginLeft: '8px', background: '#f1f5f9', padding: '1px 6px', borderRadius: '4px' }}>Trạng thái: {ev.to_status}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Lịch sử tất cả các lượt khám trước đây của bệnh nhân */}
+                <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0f766e', marginBottom: '16px' }}>
+                    <Activity size={20} />
+                    <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>
+                      Lịch sử Tất cả Lượt khám của Bệnh nhân ({consultationHistory.length} ca)
+                    </h3>
+                  </div>
+
+                  {consultationHistory.length === 0 && !loadingHistory && (
+                    <p className="muted" style={{ fontSize: '13px' }}>Chưa ghi nhận ca khám cũ nào khác của bệnh nhân này.</p>
+                  )}
+
+                  {consultationHistory.length > 0 && (
+                    <div style={{ display: 'grid', gap: '12px' }}>
+                      {consultationHistory.map((h) => (
+                        <div key={h.appointment_id} style={{
+                          border: h.appointment_id === appointment.id ? '2px solid #0f766e' : '1px solid #e2e8f0',
+                          borderRadius: '10px',
+                          padding: '14px',
+                          background: h.appointment_id === appointment.id ? '#f0fdfa' : '#fff'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <strong style={{ color: '#0f172a', fontSize: '14px' }}>Ca khám #{h.appointment_id}</strong>
+                                {h.appointment_id === appointment.id && (
+                                  <span style={{ background: '#0f766e', color: '#fff', fontSize: '10px', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                                    Đang mở
+                                  </span>
+                                )}
+                                <span style={{
+                                  background: h.status === 'completed' ? '#dcfce7' : h.status === 'in_progress' ? '#e0f2fe' : h.status === 'cancelled' ? '#fee2e2' : '#fef3c7',
+                                  color: h.status === 'completed' ? '#16a34a' : h.status === 'in_progress' ? '#0284c7' : h.status === 'cancelled' ? '#dc2626' : '#d97706',
+                                  fontSize: '11px',
+                                  padding: '2px 8px',
+                                  borderRadius: '12px',
+                                  fontWeight: 700
+                                }}>
+                                  {h.status === 'completed' ? 'Hoàn tất' : h.status === 'in_progress' ? 'Đang khám' : h.status === 'cancelled' ? 'Đã hủy' : 'Đã xếp lịch'}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: '12px', color: '#475569', marginTop: '4px' }}>
+                                📅 Thời gian: {h.starts_at ? new Date(h.starts_at).toLocaleString('vi-VN') : '—'} · Bác sĩ: <strong>{h.doctor_name}</strong>
+                              </div>
+                            </div>
+                            <div style={{ textAlign: 'right', fontSize: '11px', color: '#64748b' }}>
+                              <div>Ghi nhận: <strong>{h.events_count} mốc sự kiện</strong></div>
+                              {h.is_signed && <div style={{ color: '#16a34a', fontWeight: 600 }}>🔏 Đã ký số SmartCA</div>}
+                            </div>
+                          </div>
+
+                          <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #e2e8f0', fontSize: '12px', color: '#334155' }}>
+                            <div><strong>Lý do khám:</strong> {h.reason}</div>
+                            {h.diagnosis && (
+                              <div style={{ marginTop: '2px' }}>
+                                <strong>Chẩn đoán:</strong> {h.diagnosis} {h.icd10_code ? `(${h.icd10_code})` : ''}
+                              </div>
+                            )}
+                            {h.national_code && (
+                              <div style={{ marginTop: '2px', color: '#0369a1' }}>
+                                <strong>Mã đơn thuốc QG:</strong> <code>{h.national_code}</code>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

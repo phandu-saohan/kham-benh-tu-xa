@@ -226,5 +226,20 @@ class Notification(Base):
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+class AppointmentEvent(Base):
+    __tablename__ = "appointment_events"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    appointment_id: Mapped[int] = mapped_column(ForeignKey("appointments.id"), index=True)
+    action: Mapped[str] = mapped_column(String(100))  # "create", "pay", "triage", "start_consultation", "prescribe", "sign", "complete", "cancel", "share_lab"
+    from_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    to_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    actor_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    actor_role: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    meta_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 
 

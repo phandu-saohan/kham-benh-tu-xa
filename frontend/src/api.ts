@@ -1192,6 +1192,60 @@ export async function createNotification(data: Partial<NotificationItem>) {
   })
 }
 
+export interface AppointmentEventItem {
+  id: number
+  appointment_id: number
+  action: string
+  from_status?: string | null
+  to_status?: string | null
+  actor_id?: number | null
+  actor_name?: string | null
+  actor_role?: string | null
+  notes?: string | null
+  created_at?: string | null
+}
+
+export interface ConsultationHistoryItem {
+  appointment_id: number
+  starts_at?: string | null
+  status: string
+  reason: string
+  doctor_id: number
+  doctor_name: string
+  diagnosis?: string | null
+  icd10_code?: string | null
+  is_signed: boolean
+  signer_name?: string | null
+  prescription_status?: string | null
+  national_code?: string | null
+  events_count: number
+  events: AppointmentEventItem[]
+}
+
+export async function getAppointmentHistory(appointmentId: number) {
+  return request<AppointmentEventItem[]>(`/api/v1/appointments/${appointmentId}/history`)
+}
+
+export async function getPatientConsultationHistory(patientId: number) {
+  return request<ConsultationHistoryItem[]>(`/api/v1/patients/${patientId}/consultation-history`)
+}
+
+export async function shareLabResult(appointmentId: number, data: {
+  report_id: string
+  report_name: string
+  category_name: string
+  conclusion?: string
+  summary_text?: string
+}) {
+  return request<{ success: boolean; message: string; message_id?: number; notification_id?: number }>(
+    `/api/v1/appointments/${appointmentId}/share-lab-result`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }
+  )
+}
+
 
 
 

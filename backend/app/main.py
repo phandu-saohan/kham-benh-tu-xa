@@ -22,7 +22,7 @@ from app.db import get_db, Base, engine
 from app.models import (
     User, Appointment, TelehealthSession, ClinicalRecord, PrescriptionRef,
     Payment, AuditLog, OtpCode, PatientConsent, Department, DoctorShift,
-    ConsultationMessage, SystemSetting, Notification
+    ConsultationMessage, SystemSetting, Notification, AppointmentEvent
 )
 from app.schemas import (
     LoginIn, TokenOut, OtpSendIn, OtpSendOut, OtpVerifyIn, FirebaseVerifyIn, RefreshTokenIn,
@@ -49,7 +49,8 @@ from app.schemas import (
     PostConsultationPlanIn, PostConsultationPlanOut,
     BhytAuditIn, BhytAuditOut,
     DeidentifyIn, DeidentifyOut,
-    NotificationOut, NotificationCreateIn, UnreadCountOut
+    NotificationOut, NotificationCreateIn, UnreadCountOut,
+    AppointmentEventOut, ShareLabResultIn, ShareLabResultOut
 )
 from app.adapters.sms_gateway import send_otp_message
 from app.security import (
@@ -526,8 +527,34 @@ def check_appointment_access(appt: Appointment, user: User):
         raise HTTPException(status_code=403, detail="Không có quyền truy cập lịch khám này")
     if user.role == "doctor" and appt.doctor_id != user.id:
         raise HTTPException(status_code=403, detail="Không có quyền truy cập lịch khám này")
-    if user.role not in ("patient", "doctor", "admin"):
+    if user.role not in ("patient", "doctor", "admin", "nurse"):
         raise HTTPException(status_code=403, detail="Không có quyền truy cập")
+
+def record_appointment_event(
+    db: Session,
+    appointment_id: int,
+    action: str,
+    from_status: str | None = None,
+    to_status: str | None = None,
+    actor: User | None = None,
+    notes: str | None = None,
+    meta: dict | None = None
+) -> AppointmentEvent:
+    ev = AppointmentEvent(
+        appointment_id=appointment_id,
+        action=action,
+        from_status=from_status,
+        to_status=to_status,
+        actor_id=actor.id if actor else None,
+        actor_name=actor.full_name if actor else None,
+        actor_role=actor.role if actor else None,
+        notes=notes,
+        meta_json=json.dumps(meta, ensure_ascii=False) if meta else None
+    )
+    db.add(ev)
+    db.commit()
+    db.refresh(ev)
+    return ev
 
 @app.post("/api/v1/appointments", response_model=AppointmentOut)
 def create_appointment(data: AppointmentCreate, db: Session = Depends(get_db), user: User = Depends(require_roles("patient"))):
@@ -579,6 +606,15 @@ def create_appointment(data: AppointmentCreate, db: Session = Depends(get_db), u
     )
     db.add(payment)
     db.add(AuditLog(actor_user_id=user.id, action="appointment.create", resource_type="appointment", resource_id=str(appt.id)))
+    record_appointment_event(
+        db=db,
+        appointment_id=appt.id,
+        action="create",
+        from_status=None,
+        to_status="scheduled",
+        actor=user,
+        notes=f"Đăng ký lịch khám trực tuyến với Bác sĩ {doctor.full_name}. Lý do: {data.reason}"
+    )
     db.commit()
     return appt
 
@@ -613,7 +649,17 @@ def cancel_appointment(appointment_id: int, db: Session = Depends(get_db), user:
         payment.refund_status = "refunded"
         appt.refund_amount = appt.fee_amount
     
+    from_st = appt.status
     appt.status = "cancelled"
+    record_appointment_event(
+        db=db,
+        appointment_id=appt.id,
+        action="cancel",
+        from_status=from_st,
+        to_status="cancelled",
+        actor=user,
+        notes=f"Hủy lịch khám bởi {user.role} ({user.full_name})"
+    )
     db.add(AuditLog(actor_user_id=user.id, action="appointment.cancel_and_refund", resource_type="appointment", resource_id=str(appt.id)))
     db.commit()
     db.refresh(appt)
@@ -660,7 +706,17 @@ def join_token(appointment_id: int, request: Request, db: Session = Depends(get_
         session.status = "in_progress"
         session.started_at = datetime.now(timezone.utc)
         if appt.status != "completed":
+            from_st = appt.status
             appt.status = "in_progress"
+            record_appointment_event(
+                db=db,
+                appointment_id=appt.id,
+                action="start_consultation",
+                from_status=from_st,
+                to_status="in_progress",
+                actor=user,
+                notes=f"Bắt đầu ca khám trực tuyến (LiveKit Room: {session.room_name}, người tham gia: {user.role} {user.full_name})"
+            )
         db.commit()
         
     return {
@@ -1032,7 +1088,17 @@ def complete_consultation(
     check_appointment_access(appt, user)
     
     now = datetime.now(timezone.utc)
+    from_st = appt.status
     appt.status = "completed"
+    record_appointment_event(
+        db=db,
+        appointment_id=appt.id,
+        action="complete",
+        from_status=from_st,
+        to_status="completed",
+        actor=user,
+        notes=f"Bác sĩ {user.full_name} hoàn tất ca khám và khóa bệnh án điện tử."
+    )
     
     record = db.query(ClinicalRecord).filter_by(appointment_id=appt.id).first()
     if record:
@@ -1105,6 +1171,13 @@ def sign_consultation(
     record.signer_cchn = sig_result["signer_cchn"]
     record.cert_serial = sig_result["cert_serial"]
     record.is_locked = True
+    record_appointment_event(
+        db=db,
+        appointment_id=appt.id,
+        action="digital_sign",
+        actor=user,
+        notes=f"Bác sĩ {user.full_name} đã ký số SmartCA (Số chứng thư: {sig_result['cert_serial']}, CCHN: {sig_result['signer_cchn']})."
+    )
     
     db.add(AuditLog(actor_user_id=user.id, action="medical_record.smartca_signed", resource_type="clinical_record", resource_id=str(record.id)))
     db.commit()
@@ -1291,6 +1364,129 @@ def get_appointment_pacs_studies(appointment_id: int, db: Session = Depends(get_
     check_appointment_access(appt, user)
     patient = db.get(User, appt.patient_id)
     return get_patient_pacs_studies(appt.patient_id, patient.full_name if patient else None)
+
+@app.get("/api/v1/appointments/{appointment_id}/history", response_model=list[AppointmentEventOut])
+def get_appointment_history(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Truy xuất toàn bộ lịch sử các mốc sự kiện/trạng thái của lượt khám"""
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
+    check_appointment_access(appt, user)
+    events = db.query(AppointmentEvent).filter_by(appointment_id=appt.id).order_by(AppointmentEvent.created_at.asc()).all()
+    return events
+
+@app.get("/api/v1/patients/{patient_id}/consultation-history")
+def get_patient_consultation_history(
+    patient_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Bác sĩ hoặc chính bệnh nhân truy xuất danh sách toàn bộ các lượt khám trong quá khứ"""
+    if user.role not in ["doctor", "nurse", "admin"] and user.id != patient_id:
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập lịch sử khám của bệnh nhân này")
+    
+    appts = db.query(Appointment).filter(Appointment.patient_id == patient_id).order_by(Appointment.starts_at.desc()).all()
+    history = []
+    for a in appts:
+        record = db.query(ClinicalRecord).filter_by(appointment_id=a.id).first()
+        rx = db.query(PrescriptionRef).filter_by(appointment_id=a.id).first()
+        doc = db.get(User, a.doctor_id)
+        events = db.query(AppointmentEvent).filter_by(appointment_id=a.id).order_by(AppointmentEvent.created_at.asc()).all()
+        history.append({
+            "appointment_id": a.id,
+            "starts_at": a.starts_at.isoformat() if hasattr(a.starts_at, 'isoformat') else str(a.starts_at),
+            "status": a.status,
+            "reason": a.reason,
+            "doctor_id": a.doctor_id,
+            "doctor_name": doc.full_name if doc else "Bác sĩ",
+            "diagnosis": record.diagnosis if record else None,
+            "icd10_code": record.icd10_code if record else None,
+            "is_signed": bool(record and record.digital_signature),
+            "signer_name": record.signer_name if record else None,
+            "prescription_status": rx.status if rx else None,
+            "national_code": rx.national_code if rx else None,
+            "events_count": len(events),
+            "events": [
+                {
+                    "id": ev.id,
+                    "action": ev.action,
+                    "from_status": ev.from_status,
+                    "to_status": ev.to_status,
+                    "actor_name": ev.actor_name,
+                    "actor_role": ev.actor_role,
+                    "notes": ev.notes,
+                    "created_at": ev.created_at.isoformat() if hasattr(ev.created_at, 'isoformat') else str(ev.created_at)
+                } for ev in events
+            ]
+        })
+    return history
+
+@app.post("/api/v1/appointments/{appointment_id}/share-lab-result", response_model=ShareLabResultOut)
+def share_lab_result_with_patient(
+    appointment_id: int,
+    data: ShareLabResultIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("doctor"))
+):
+    """
+    Bác sĩ chia sẻ kết quả xét nghiệm cho Bệnh nhân:
+    1. Gửi tin nhắn kết quả vào buồng chat ca khám (ConsultationMessage)
+    2. Gửi thông báo trực tiếp (Notification) cho tài khoản Bệnh nhân
+    3. Ghi log lịch sử ca khám (AppointmentEvent: share_lab)
+    """
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
+    check_appointment_access(appt, user)
+    
+    # 1. Tạo tin nhắn vào phòng chat ca khám
+    chat_content = f"📋 [KẾT QUẢ XÉT NGHIỆM ĐƯỢC BÁC SĨ CHIA SẺ]\n• Phiếu: {data.report_name} ({data.category_name})\n• Kết luận: {data.conclusion or 'Bình thường'}\n"
+    if data.summary_text:
+        chat_content += f"• Chi tiết: {data.summary_text}\n"
+    chat_content += "Bác sĩ đã đính kèm kết quả vào hồ sơ bệnh án của bạn."
+
+    msg = ConsultationMessage(
+        appointment_id=appt.id,
+        sender_id=user.id,
+        sender_role="doctor",
+        sender_name=user.full_name,
+        message_type="file",
+        content=chat_content
+    )
+    db.add(msg)
+    
+    # 2. Tạo thông báo cho bệnh nhân
+    notif = Notification(
+        user_id=appt.patient_id,
+        target_role="patient",
+        title=f"Bác sĩ chia sẻ kết quả xét nghiệm: {data.report_name}",
+        message=f"Bác sĩ {user.full_name} đã chia sẻ kết quả xét nghiệm {data.category_name} ({data.report_name}). Kết luận: {data.conclusion or 'Chỉ số ổn định'}.",
+        category="paraclinical",
+        priority="high",
+        action_url=f"/records?tab=lab&appointment_id={appt.id}"
+    )
+    db.add(notif)
+    
+    # 3. Ghi log sự kiện
+    record_appointment_event(
+        db=db,
+        appointment_id=appt.id,
+        action="share_lab",
+        actor=user,
+        notes=f"Bác sĩ {user.full_name} đã chia sẻ phiếu xét nghiệm '{data.report_name}' cho người bệnh."
+    )
+    
+    db.commit()
+    return {
+        "success": True,
+        "message": f"Đã chia sẻ phiếu xét nghiệm '{data.report_name}' cho bệnh nhân thành công.",
+        "message_id": msg.id,
+        "notification_id": notif.id
+    }
 
 @app.get("/api/v1/patients/me/records")
 def patient_records(db: Session = Depends(get_db), user: User = Depends(require_roles("patient"))):
@@ -1951,6 +2147,15 @@ def assess_and_dispatch_triage(
         resource_type="appointment",
         resource_id=str(appt.id)
     ))
+    record_appointment_event(
+        db=db,
+        appointment_id=appt.id,
+        action="triage",
+        from_status=appt.status,
+        to_status=appt.status,
+        actor=user,
+        notes=f"Điều dưỡng {user.full_name} hoàn tất sàng lọc Triage ({data.triage_level.upper()}). {vitals_summary}"
+    )
     db.commit()
     
     return TriageAssessmentOut(
