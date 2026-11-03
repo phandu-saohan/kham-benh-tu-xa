@@ -847,6 +847,7 @@ class ConsultationOpinionIn(BaseModel):
 # 3. Giám sát Sinh hiệu Từ xa (RPM IoT)
 # -------------------------------------------------------------
 class RPMVitalLogIn(BaseModel):
+    patient_id: Optional[int] = None
     device_type: str  # blood_pressure, blood_glucose, spo2, heart_rate, temperature, weight
     device_name: str = "Omron Bluetooth Smart Monitor"
     connection_method: str = "bluetooth_ble"  # bluetooth_ble, manual

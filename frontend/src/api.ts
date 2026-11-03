@@ -1388,7 +1388,38 @@ export interface RPMVitalItem {
   created_at: string
 }
 
+export interface RPMDevice {
+  name: string
+  category: string
+  device_type: string
+  fda_clearance: string
+  connectivity: string
+  price_vnd: number
+  price_str: string
+  origin: string
+  accuracy: string
+  highlight: string
+}
+
+export interface RPMPackage {
+  id: string
+  name: string
+  subtitle: string
+  badge: string
+  badge_color: string
+  total_price_vnd: number
+  total_price_str: string
+  target_patients: string
+  clinical_benefits: string[]
+  devices: RPMDevice[]
+}
+
+export async function getRPMPackages() {
+  return request<RPMPackage[]>(`/api/v1/rpm/packages`)
+}
+
 export async function recordRPMVitals(data: {
+  patient_id?: number
   device_type: string
   device_name?: string
   connection_method?: string
