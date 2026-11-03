@@ -6,7 +6,7 @@ import {
   FileDown, ExternalLink, PenTool, Building2, Sparkles, CheckCircle2,
   HelpCircle, ShieldAlert, Undo2, Activity, Settings, ScanLine,
   Mail, Eye, EyeOff, UserPlus, ChevronRight, Users, FileCheck, Check, Trash2, Download,
-  BarChart3
+  BarChart3, Cpu
 } from 'lucide-react'
 import {
   login, sendOtp, verifyOtp, loginWithFirebaseToken, getFirebaseConfig, request, cancelAppointment,
@@ -40,6 +40,7 @@ import { DoctorDashboard } from './DoctorDashboard'
 import { PatientDashboard } from './PatientDashboard'
 import { NurseDashboard } from './NurseDashboard'
 import { RPMDeviceCenter } from './RPMDeviceCenter'
+import { SmartDevicesHub } from './SmartDevicesHub'
 import { Pagination } from './Pagination'
 
 const money = (n: number) =>
@@ -343,7 +344,7 @@ export default function App() {
     if (view === 'family') {
       loadFamily()
     }
-    if (view === 'vitals') {
+    if (view === 'vitals' || view === 'devices') {
       loadVitals()
     }
     if (view === 'insurance') {
@@ -1065,6 +1066,7 @@ export default function App() {
     ['overview', 'Tổng quan', HeartPulse],
     ['appointments', 'Lịch khám của tôi', CalendarDays],
     ['family', 'Hồ sơ Gia đình', Users],
+    ['devices', 'Kết nối thiết bị', Cpu],
     ['vitals', 'Sinh hiệu RPM IoT', Activity],
     ['records', 'Hồ sơ bệnh án EMR', FileText],
     ['insurance', 'Bảo hiểm Y tế & XML 4210', ShieldCheck],
@@ -1099,6 +1101,7 @@ export default function App() {
   const mobileNavItems = isPatient ? [
     ['overview', 'Tổng quan', HeartPulse],
     ['appointments', 'Lịch khám', CalendarDays],
+    ['devices', 'Thiết bị', Cpu],
     ['family', 'Gia đình', Users],
     ['vitals', 'Sinh hiệu', Activity],
     ['profile', 'Hồ sơ', UserRound]
@@ -2044,6 +2047,17 @@ export default function App() {
               </div>
             )}
           </section>
+        )}
+
+                {/* VIEW: KẾT NỐI THIẾT BỊ Y TẾ THÔNG MINH (STANDALONE SCREEN) */}
+        {view === 'devices' && (
+          <SmartDevicesHub
+            user={user}
+            vitalsLogs={rpmVitals}
+            onRefreshVitals={loadVitals}
+            onNavigate={(v) => setView(v)}
+            embedded={false}
+          />
         )}
 
         {/* VIEW: GIÁM SÁT SINH HIỆU TỪ XA (RPM IoT & FDA Device Center) */}

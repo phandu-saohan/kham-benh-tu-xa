@@ -31,8 +31,10 @@ import {
   Clock,
   ArrowRight,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  Cpu
 } from 'lucide-react'
+import { SmartDevicesHub } from './SmartDevicesHub'
 import {
   getMyProfile,
   updateMyProfile,
@@ -62,7 +64,7 @@ export function PatientProfilePage({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [activeTab, setActiveTab] = useState<'info' | 'medical' | 'history' | 'privacy'>('info')
+  const [activeTab, setActiveTab] = useState<'info' | 'medical' | 'devices' | 'history' | 'privacy'>('info')
 
   // Edit form state
   const [fullName, setFullName] = useState('')
@@ -410,6 +412,13 @@ export function PatientProfilePage({
           <span>Y tế & BHYT</span>
         </button>
         <button
+          className={`segment-btn ${activeTab === 'devices' ? 'active' : ''}`}
+          onClick={() => setActiveTab('devices')}
+        >
+          <Cpu size={15} />
+          <span>Kết nối thiết bị</span>
+        </button>
+        <button
           className={`segment-btn ${activeTab === 'history' ? 'active' : ''}`}
           onClick={() => setActiveTab('history')}
         >
@@ -688,6 +697,30 @@ export function PatientProfilePage({
       )}
 
       {/* Tab 3: Lịch sử Khám & Đơn thuốc */}
+      {/* Tab: Kết nối thiết bị Y tế Thông minh */}
+      {activeTab === 'devices' && (
+        <section className="panel profile-section-panel">
+          <div className="panel-heading">
+            <div>
+              <h3>Thiết Bị Đo Y Tế Đã Ghép Đôi & Đồng Bộ</h3>
+              <p>Quản lý các máy đo sinh hiệu cá nhân liên kết với tài khoản y bạ điện tử của bạn</p>
+            </div>
+            {onNavigate && (
+              <button className="btn-book-action" onClick={() => onNavigate('vitals')}>
+                Trung tâm Sinh hiệu FDA <ArrowRight size={14} />
+              </button>
+            )}
+          </div>
+
+          <SmartDevicesHub
+            user={currentUser}
+            vitalsLogs={[]}
+            onNavigate={onNavigate}
+            embedded={true}
+          />
+        </section>
+      )}
+
       {activeTab === 'history' && (
         <section className="panel profile-section-panel">
           <div className="panel-heading">
