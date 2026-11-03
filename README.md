@@ -1,111 +1,102 @@
-# Telemedicine V1.0
+# CareConnect Telemedicine V1.2
+### Nền tảng Bệnh viện Số & Khám chữa bệnh Từ xa Đạt chuẩn Quốc gia
 
-Nền tảng khám bệnh từ xa: React + TypeScript + Vite, FastAPI, PostgreSQL, Redis, LiveKit self-hosted.
-HIS/EMR và PACS/DICOM dùng mock adapter mặc định. Không giả định API của bệnh viện.
+> 📖 **Xem tài liệu hướng dẫn sử dụng và danh mục tính năng chi tiết tại:** [HUONG_DAN_SU_DUNG.md](./HUONG_DAN_SU_DUNG.md)
 
-## Thành phần
-- `frontend/`: dashboard bệnh nhân/bác sĩ, lịch hẹn, trang phòng video LiveKit, xem kết quả lâm sàng demo.
-- `backend/`: FastAPI, JWT auth demo, appointments, telehealth sessions, patient records, billing, HIS/PACS adapters.
-- `database/`: Alembic migration.
-- `docs/openapi.yaml`: API contract mẫu.
-- `tests/`: API smoke tests.
-- `infra/`: LiveKit config.
-- `docker-compose.yml`: chạy các dịch vụ cốt lõi.
+CareConnect Telemedicine V1.2 là hệ thống khám bệnh từ xa hoàn chỉnh, kết hợp giao diện Web Responsive và ứng dụng Native Mobile Android (`vn.careconnect.telemedicine.patient`), bao gồm đầy đủ các phân hệ cho **Bệnh nhân**, **Bác sĩ**, **Điều dưỡng tiếp đón (Triage)** và **Ban Quản trị Bệnh viện**.
 
-## Yêu cầu
-Docker Desktop + Docker Compose plugin. Để chạy test local không dùng Docker: Python 3.11+, Node.js 20+.
+---
 
-## Chạy nhanh
-1. Sao chép `.env.example` thành `.env`.
-2. Thay tất cả secret mặc định trước khi dùng ngoài máy phát triển.
-3. Chạy:
-   ```bash
-   docker compose up --build -d
-   docker compose ps
-   ```
-4. Backend API: http://localhost:8000/docs
-5. Frontend: http://localhost:5173
-6. Health: http://localhost:8000/health
+## 🌟 CÁC PHÂN HỆ VÀ TÍNH NĂNG NỔI BẬT
 
-Tài khoản demo (chỉ dành cho local/dev):
-- Bệnh nhân: `patient@example.test` / `ChangeMe123!`
-- Bác sĩ: `doctor@example.test` / `ChangeMe123!`
+### 1. Phân hệ Bệnh nhân (Patient Portal & Mobile App)
+- **Định danh điện tử VNeID Mức 2 & Xác thực OTP Firebase:** Tuân thủ Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân.
+- **Thẻ BHYT Điện tử Chuẩn BHXH Việt Nam:** Tra cứu thông tin thẻ, mức hưởng (80%, 95%, 100%), tự động giảm trừ chi phí khám trực tiếp.
+- **Đặt lịch khám chuyên khoa trực tuyến:** Chọn chuyên khoa, chọn bác sĩ, khung giờ khám và nhận phòng khám video tức thì.
+- **Phòng khám Video HD (LiveKit WebRTC):** Hội chẩn trực tuyến 2 chiều với bác sĩ, kết nối riêng tư, độ trễ cực thấp.
+- **Module Kết nối Thiết bị Y tế Thông minh (Smart Devices Hub):**
+  - Đồng bộ số đo sinh hiệu qua **Bluetooth Low Energy (SIG GATT)** từ các thiết bị đạt chuẩn FDA/CE:
+    - *Omron HEM-7361T Smart BP Monitor* (Huyết áp & Nhịp tim)
+    - *Roche Accu-Chek Instant BLE* (Đường huyết mao mạch)
+    - *Wellue FS20F Bluetooth Pulse Oximeter* (SpO2 & Nhịp mạch)
+    - *Braun ThermoScan 7 Infrared Ear* (Nhiệt độ cơ thể)
+    - *Tanita BC-401 Body Composition Scale* (Cân nặng, BMI, Chỉ số cơ thể)
+  - **Cảm biến quang học Camera PPG (Optical Bio-Sensor):** Đo nhịp tim và ước tính SpO2 trực tiếp bằng camera và đèn flash điện thoại/máy tính.
+  - Hỗ trợ nhập số đo thủ công và tự động tính toán chỉ số BMI, MAP.
+- **Hồ sơ Sức khỏe Gia đình (Family Health Vault):** Quản lý y bạ người thân (con nhỏ, cha mẹ, vợ chồng), lưu trữ mã BHYT, tiền sử dị ứng, bệnh nền và tính năng **"Đặt lịch khám ngay"** cho từng thành viên.
+- **Thanh toán Viện phí VietQR:** Tạo mã QR động chuẩn Napas 247, tự động kiểm tra số dư và kích hoạt ca khám.
 
-Seed demo được chạy khi backend khởi động nếu `SEED_DEMO=true`. Không bật seed demo trong production.
+### 2. Phân hệ Bác sĩ (Doctor Consultation Workspace)
+- **Hàng đợi khám bệnh thông minh:** Quản lý bệnh nhân theo thời gian hẹn và mức độ ưu tiên từ bàn điều dưỡng.
+- **Buồng làm việc Video Call tích hợp EMR:** Bác sĩ vừa khám vừa theo dõi dữ liệu sinh hiệu từ thiết bị của bệnh nhân theo thời gian thực.
+- **Hồ sơ Bệnh án Điện tử (EMR - Chuẩn SOAP):** Ghi nhận triệu chứng, chẩn đoán xác định kèm mã quốc tế **ICD-10**.
+- **Kê đơn thuốc điện tử & Ký số SmartCA:** Cấp mã đơn thuốc quốc gia, ký số điện tử hợp chuẩn Bộ Y Tế và xuất file PDF.
+- **Xem Cận lâm sàng & Ảnh Y khoa DICOM PACS:** Đọc kết quả xét nghiệm và ảnh X-quang, CT, MRI ngay trong phòng khám.
 
-## Chạy migrations
-Trong Docker:
+### 3. Phân hệ Điều dưỡng (Nurse Triage Desk)
+- **Bàn Tiếp đón & Phân luồng Bệnh nhân:** Tiếp nhận ca khám, kiểm tra thẻ BHYT và tình trạng viện phí.
+- **Sàng lọc Sinh hiệu Sơ bộ:** Tiếp nhận hoặc đo chỉ số sinh tồn ban đầu, chấm điểm nguy cơ phân loại (Triage).
+- **Điều phối Buồng khám:** Chuyển bệnh nhân vào buồng khám của bác sĩ chuyên khoa tương ứng.
+
+### 4. Phân hệ Quản trị Bệnh viện & Giám định (Admin Dashboard)
+- **Báo cáo thống kê toàn viện:** Lượt khám, doanh thu, thời gian chờ, tỷ lệ hài lòng theo thời gian thực.
+- **Giám định BHYT & Trích xuất XML 4210:** Tạo và xuất các bảng dữ liệu XML 4210 / XML 130 phục vụ thanh quyết toán bảo hiểm y tế điện tử.
+- **Đối soát Viện phí:** Kiểm soát giao dịch VietQR, hoàn tiền và đối soát kế toán.
+- **Quản lý danh mục:** Quản lý tài khoản bác sĩ, điều dưỡng, chuyên khoa, phòng khám, bảng giá dịch vụ và kho thuốc.
+
+---
+
+## 🔑 TÀI KHOẢN MẪU TRẢI NGHIỆM
+
+Đăng nhập trên Web hoặc Mobile App với mật khẩu mặc định: `ChangeMe123!`
+
+| Vai trò | Email đăng nhập | Mật khẩu | Phân hệ trải nghiệm |
+| :--- | :--- | :--- | :--- |
+| **Bệnh nhân** | `patient@example.test` | `ChangeMe123!` | Đặt lịch khám, kết nối thiết bị BLE, đo PPG, xem BHYT, thanh toán VietQR |
+| **Bác sĩ** | `doctor@example.test` | `ChangeMe123!` | Buồng khám Video HD, xem sinh hiệu EMR, kê đơn ký số SmartCA, PACS |
+| **Điều dưỡng** | `nurse@example.test` | `ChangeMe123!` | Bàn tiếp đón, chấm điểm sàng lọc Triage, phân buồng bác sĩ |
+| **Quản trị viên** | `admin@example.test` | `ChangeMe123!` | Quản trị toàn viện, xuất XML 4210 BHYT, đối soát VietQR |
+
+---
+
+## 🚀 ĐỊA CHỈ TRUY CẬP
+
+- **Web Production:** [https://app-bypass-back-end-circuit-7mgyyh-664221-72-61-123-73.sslip.io](https://app-bypass-back-end-circuit-7mgyyh-664221-72-61-123-73.sslip.io)
+- **API Swagger Documentation:** `https://app-bypass-back-end-circuit-7mgyyh-664221-72-61-123-73.sslip.io/docs`
+- **Android App:** Package `vn.careconnect.telemedicine.patient` (Trải nghiệm trực tiếp qua Android Device Hub).
+
+---
+
+## 💻 HƯỚNG DẪN KHỞI CHẠY (LOCAL & DOCKER)
+
+### Chạy bằng Docker Compose:
 ```bash
-docker compose exec api alembic upgrade head
+docker compose up --build -d
+docker compose ps
 ```
-Migration đầu tiên được áp dụng tự động khi backend khởi động. Nếu thay đổi schema, tạo migration mới bằng:
-```bash
-docker compose exec api alembic revision --autogenerate -m "describe change"
-docker compose exec api alembic upgrade head
-```
+- Frontend: http://localhost:5173
+- Backend API Docs: http://localhost:8000/docs
+- Health check: http://localhost:8000/health
 
-## Test
+### Chạy Local Development:
 ```bash
-docker compose exec api pytest -q
-```
-Hoặc chạy backend local:
-```bash
+# 1. Backend
 cd backend
 python -m venv .venv
-# Windows: .venv\Scripts\activate
-# Linux/macOS: source .venv/bin/activate
+source .venv/bin/activate # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-pytest -q
+uvicorn app.main:app --reload --port 8000
+
+# 2. Frontend
+cd frontend
+npm install
+npm run dev
 ```
 
-## Tích hợp HIS/EMR thật
-- Mặc định `HIS_ADAPTER=mock`. Mock trả dữ liệu giả, không lấy dữ liệu bệnh nhân thật.
-- **Mock HIS Server (nội bộ, dùng để test tính năng):** xem `mock_his/README.md`.
-  ```bash
-  docker compose up --build -d mock-his   # http://localhost:8100/docs
-  ```
-  Rồi đặt trong `.env`:
-  ```env
-  HIS_ADAPTER=http
-  HIS_BASE_URL=http://mock-his:8100        # ngoài docker: http://localhost:8100
-  HIS_API_KEY=his-dev-key-change-me
-  ```
-  Adapter `HttpHISAdapter` sẽ đẩy lần khám/hồ sơ/đơn thuốc/FHIR bundle ra Mock HIS; server có sẵn 3 bệnh nhân synthetic seed (`HIS-2024-0001`...) và admin xem tất cả event qua `GET /admin/events`.
-- Khi có tài liệu API bệnh viện: triển khai adapter mới trong `backend/app/adapters/his/`, định nghĩa timeout, retry, idempotency, mapping mã bệnh nhân, logging đã khử dữ liệu nhạy cảm.
-- Không kết nối trực tiếp database HIS nếu chưa được phê duyệt. Ưu tiên API chính thức/FHIR.
-- Xác minh ánh xạ mã bệnh nhân và mã lần khám trước khi ghi dữ liệu.
-- Các endpoint tích hợp hiện chỉ là adapter boundary; chưa đồng bộ hoặc ghi hồ sơ vào HIS thật.
-
-## Tích hợp PACS/DICOM
-- Mặc định `PACS_ADAPTER=mock`.
-- Với PACS hỗ trợ DICOMweb, cấu hình QIDO-RS để tìm study và WADO-RS để truy xuất ảnh; yêu cầu PACS/Orthanc/OHIF cụ thể trước khi viết adapter production.
-- Không đưa URL/token PACS nhạy cảm ra frontend. Backend cần kiểm tra quyền và cấp URL/token ngắn hạn nếu kiến trúc PACS cho phép.
-- Demo hiện hiển thị metadata mock, không hiển thị ảnh DICOM chẩn đoán thực tế.
-
-## LiveKit
-- LiveKit local dùng cấu hình `infra/livekit.yaml`; frontend xin token từ backend.
-- Cấu hình domain public, TLS, UDP port range, TURN/TLS, firewall và load balancing trước khi triển khai private cloud.
-- Không mở LiveKit Admin API ra Internet.
-- Video call trong bản scaffold cần được kiểm thử trên trình duyệt và mạng thực tế; chưa bao gồm ghi hình.
-
-## Lưu ý triển khai production
-1. Thay `SECRET_KEY`, mật khẩu database, LiveKit API secret và mọi credential.
-2. Dùng TLS ở reverse proxy; không dùng HTTP cho bệnh nhân thật.
-3. Thêm SSO/MFA, RBAC chi tiết theo quan hệ điều trị, consent, audit append-only, rate limiting và quản lý secrets.
-4. Đánh giá pháp lý, an toàn thông tin và quy trình telehealth của bệnh viện.
-5. Bổ sung quy trình ký số, ký đơn thuốc, đối soát thanh toán và hoàn tiền theo hệ thống được bệnh viện phê duyệt.
-6. Kiểm thử tải với 50/100/150 phiên đồng thời, kiểm tra băng thông, CPU, packet loss, TURN và phục hồi sự cố.
-7. Không dùng dữ liệu thật trong môi trường demo/test.
-
-## Cấu trúc
-```text
-telemedicine-v1/
-  backend/
-  frontend/
-  database/
-  docs/
-  infra/
-  tests/
-  docker-compose.yml
-  .env.example
+### Build Android App:
+```bash
+cd frontend
+npm run build:mobile
+cd android
+.\gradlew.bat installDebug # Cài đặt trực tiếp lên điện thoại hoặc Android Emulator
 ```
