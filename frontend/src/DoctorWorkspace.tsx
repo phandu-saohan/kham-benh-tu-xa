@@ -558,6 +558,29 @@ export function DoctorWorkspace({
     setActiveTab('record')
   }
 
+  // Đưa toàn bộ chỉ số sinh hiệu thực tế vào Phiếu khám EMR
+  function handleApplyRpmToRecord() {
+    if (!rpmVitals || rpmVitals.length === 0) {
+      setToast('Chưa có chỉ số sinh hiệu đo được từ bệnh nhân này.')
+      setTimeout(() => setToast(''), 3000)
+      return
+    }
+    const latest = rpmVitals[0]
+    const parts: string[] = []
+    if (latest.systolic && latest.diastolic) parts.push(`HA: ${latest.systolic}/${latest.diastolic} mmHg`)
+    if (latest.pulse) parts.push(`Mạch: ${latest.pulse} bpm`)
+    if (latest.spo2_percent) parts.push(`SpO2: ${latest.spo2_percent}%`)
+    if (latest.glucose_value) parts.push(`Đường huyết: ${latest.glucose_value} mmol/L`)
+    if (latest.temperature_celsius) parts.push(`Nhiệt độ: ${latest.temperature_celsius}°C`)
+    if (latest.weight_kg) parts.push(`Cân nặng: ${latest.weight_kg} kg`)
+
+    const text = `[SINH HIỆU THỰC TẾ (RPM IoT)]: ` + parts.join(' · ')
+    setClinicalNotes(prev => prev ? `${prev}\n\n${text}` : text)
+    setToast('⚡ Đã đưa toàn bộ chỉ số sinh hiệu thời gian thực vào Bệnh án EMR!')
+    setTimeout(() => setToast(''), 3500)
+    setActiveTab('record')
+  }
+
   // 3. Tra cứu ICD-10 khi gõ
   useEffect(() => {
     searchICD10(icdSearchQuery).then(setIcdOptions).catch(console.error)
@@ -1653,15 +1676,25 @@ export function DoctorWorkspace({
                       </p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={loadRpmVitals}
-                    disabled={loadingRpm}
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
-                  >
-                    <RefreshCw size={14} /> Làm mới
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={handleApplyRpmToRecord}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', background: '#be185d' }}
+                    >
+                      <FileCheck size={14} /> Đưa Sinh Hiệu Vào Bệnh Án
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={loadRpmVitals}
+                      disabled={loadingRpm}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+                    >
+                      <RefreshCw size={14} /> Làm mới
+                    </button>
+                  </div>
                 </div>
 
                 {/* Dashboard chỉ số mới nhất */}
@@ -2813,15 +2846,25 @@ export function DoctorWorkspace({
                       </p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={loadRpmVitals}
-                    disabled={loadingRpm}
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
-                  >
-                    <RefreshCw size={14} /> Làm mới
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={handleApplyRpmToRecord}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', background: '#be185d' }}
+                    >
+                      <FileCheck size={14} /> Đưa Sinh Hiệu Vào Bệnh Án
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={loadRpmVitals}
+                      disabled={loadingRpm}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+                    >
+                      <RefreshCw size={14} /> Làm mới
+                    </button>
+                  </div>
                 </div>
 
                 {/* Dashboard chỉ số mới nhất */}
