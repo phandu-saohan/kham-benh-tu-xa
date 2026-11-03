@@ -62,6 +62,17 @@ class AppointmentOut(BaseModel):
     refund_amount: int = 0
     refund_reason: str | None = None
     cancelled_at: datetime | None = None
+    triage_status: str | None = None
+    triage_level: str | None = None
+    pulse: int | None = None
+    blood_pressure: str | None = None
+    temperature: float | None = None
+    spo2: int | None = None
+    weight: float | None = None
+    height: float | None = None
+    triage_notes: str | None = None
+    waiting_room_entered_at: datetime | None = None
+    waiting_room_called_at: datetime | None = None
     model_config = ConfigDict(from_attributes=True)
 
 class ClinicalRecordIn(BaseModel):
@@ -347,6 +358,7 @@ class TriageAssessmentIn(BaseModel):
     triage_level: str = "normal"      # normal, priority, emergency
     triage_notes: str | None = None
     dispatch_to_doctor: bool = True   # Tự động đẩy vào hàng đợi khám của Bác sĩ
+    send_to_waiting_room: bool = True # Đưa bệnh nhân vào phòng chờ ảo để Bác sĩ chủ động gọi
 
 class TriageAssessmentOut(BaseModel):
     success: bool
@@ -376,7 +388,28 @@ class TriageQueueItem(BaseModel):
     weight: float | None = None
     height: float | None = None
     triage_notes: str | None = None
+    waiting_room_entered_at: datetime | None = None
     model_config = ConfigDict(from_attributes=True)
+
+class WaitingRoomStatusOut(BaseModel):
+    appointment_id: int
+    status: str
+    triage_status: str
+    queue_number: int | None = None
+    patients_ahead: int = 0
+    estimated_wait_minutes: int = 5
+    doctor_id: int
+    doctor_name: str
+    doctor_title: str | None = None
+    department_name: str | None = None
+    patient_name: str | None = None
+    vitals: dict | None = None
+    triage_notes: str | None = None
+    entered_waiting_at: datetime | None = None
+    is_called: bool = False
+    called_at: datetime | None = None
+    room_name: str | None = None
+    message: str
 
 # --- ADMIN DASHBOARD & SYSTEM SETTINGS SCHEMAS ---
 

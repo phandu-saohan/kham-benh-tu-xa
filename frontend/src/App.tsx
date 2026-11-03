@@ -25,6 +25,7 @@ import {
 } from './firebase'
 import type { ConfirmationResult } from 'firebase/auth'
 import { VideoRoom } from './VideoRoom'
+import { PatientWaitingRoom } from './PatientWaitingRoom'
 import { DoctorWorkspace } from './DoctorWorkspace'
 import { VietQRModal } from './VietQRModal'
 import { ConsentModal } from './ConsentModal'
@@ -1018,8 +1019,20 @@ export default function App() {
     )
   }
 
-  // 3. Màn hình Phòng gọi video Bệnh nhân
+  // 3. Màn hình Phòng gọi video Bệnh nhân hoặc Phòng chờ ảo
   if (activeAppointment && user.role === 'patient') {
+    if (activeAppointment.status === 'waiting') {
+      return (
+        <PatientWaitingRoom
+          appointment={activeAppointment}
+          user={user}
+          onBack={() => setActiveAppointment(null)}
+          onEnterConsultation={(appt) => {
+            setActiveAppointment(appt)
+          }}
+        />
+      )
+    }
     return (
       <VideoRoom
         appointment={activeAppointment}

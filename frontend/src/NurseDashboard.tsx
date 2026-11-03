@@ -48,7 +48,7 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
 }) => {
   const [queue, setQueue] = useState<TriageItem[]>([])
   const [loading, setLoading] = useState(false)
-  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'dispatched' | 'urgent'>('all')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'waiting_room' | 'dispatched' | 'urgent'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [triagePage, setTriagePage] = useState(1)
   const [triagePageSize, setTriagePageSize] = useState(6)
@@ -147,6 +147,7 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
   }, [temperature, spo2, pulse, isLowSpo2, isHighTemp, isHighPulse])
 
   const pendingCount = queue.filter(q => q.triage_status === 'pending').length
+  const waitingCount = queue.filter(q => q.triage_status === 'waiting_room' || q.status === 'waiting').length
   const dispatchedCount = queue.filter(q => q.triage_status === 'dispatched').length
   const urgentCount = queue.filter(q => q.triage_level === 'emergency' || q.triage_level === 'priority').length
 
@@ -180,7 +181,7 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
       }
 
       await assessTriage(selectedItem.appointment_id, assessment)
-      setToastMessage(`✓ Đã hoàn tất sàng lọc cho bệnh nhân ${selectedItem.patient_name} và chuyển vào phòng khám!`)
+      setToastMessage(`✓ Đã lưu sinh hiệu & chuyển bệnh nhân ${selectedItem.patient_name} vào Phòng chờ Bác sĩ!`)
       setTimeout(() => setToastMessage(''), 4000)
 
       setSelectedItem(null)
@@ -528,6 +529,12 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
                 Chờ đo ({pendingCount})
               </button>
               <button
+                className={`nurse-tab-chip ${filterStatus === 'waiting_room' ? 'active' : ''}`}
+                onClick={() => setFilterStatus('waiting_room')}
+              >
+                ⏳ Phòng chờ ({waitingCount})
+              </button>
+              <button
                 className={`nurse-tab-chip ${filterStatus === 'urgent' ? 'active' : ''}`}
                 onClick={() => setFilterStatus('urgent')}
               >
@@ -557,6 +564,7 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
               {queue
                 .filter(item => {
                   if (filterStatus === 'pending') return item.triage_status === 'pending'
+                  if (filterStatus === 'waiting_room') return item.triage_status === 'waiting_room' || item.status === 'waiting'
                   if (filterStatus === 'dispatched') return item.triage_status === 'dispatched'
                   if (filterStatus === 'urgent') return item.triage_level === 'emergency' || item.triage_level === 'priority'
                   return true
@@ -597,7 +605,9 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
                           <Building2 size={12} /> {item.department_name || (item as any).department || 'Khoa Nội'}
                         </span>
                         <span className={`card-status-indicator ${item.triage_status}`}>
-                          {item.triage_status === 'pending' ? '⏳ Chờ đo sinh hiệu' : '✓ Đã vào buồng BS'}
+                          {item.triage_status === 'pending' && '⏳ Chờ đo sinh hiệu'}
+                          {(item.triage_status === 'waiting_room' || item.status === 'waiting') && '🕒 Đang ở phòng chờ'}
+                          {item.triage_status === 'dispatched' && '✓ Đã vào phòng BS'}
                         </span>
                       </div>
                     </div>
@@ -788,7 +798,7 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
                   disabled={isSubmitting}
                 >
                   <Send size={16} />
-                  {isSubmitting ? 'Đang chuyển hồ sơ...' : 'Lưu Sinh Hiệu & Chuyển Bác Sĩ'}
+                  {isSubmitting ? 'Đang chuyển hồ sơ...' : 'Lưu Sinh Hiệu & Đưa Vào Phòng Chờ'}
                 </button>
               </div>
             </form>

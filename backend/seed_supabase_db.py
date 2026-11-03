@@ -12,10 +12,12 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 from app.db import SessionLocal
-from app.main import seed_demo
+from app.main import seed_demo, auto_migrate_schema
 from app.models import User, Department, DoctorShift
 
 def run():
+    print("Running auto_migrate_schema against Supabase Postgres...")
+    auto_migrate_schema()
     print("Running seed_demo against Supabase Postgres...")
     seed_demo()
     db = SessionLocal()

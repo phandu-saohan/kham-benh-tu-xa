@@ -96,6 +96,8 @@ class Appointment(Base):
     triage_notes: Mapped[str | None] = mapped_column(Text, nullable=True)      # Nhận định sơ bộ điều dưỡng
     triaged_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     triaged_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    waiting_room_entered_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    waiting_room_called_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
     
     paid_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
     refund_amount: Mapped[int] = mapped_column(Integer, default=0)

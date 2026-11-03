@@ -82,6 +82,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
   })
 
   // Status breakdown
+  const inWaitingRoomAppts = myAppointments.filter(a => a.status === 'waiting')
   const waitingAppts = myAppointments.filter(a => ['scheduled', 'confirmed'].includes(a.status))
   const inProgressAppts = myAppointments.filter(a => a.status === 'in_progress')
   const completedAppts = myAppointments.filter(a => a.status === 'completed')
@@ -173,7 +174,21 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
 
       {/* 2. Key Clinical Metrics Strip */}
       <section className="doctor-metrics-grid">
-        <div className="clinical-metric-card wait" onClick={() => setFilterStatus('scheduled')}>
+        <div className="clinical-metric-card wait" onClick={() => { setFilterStatus('waiting'); setCurrentPage(1); }} style={{ borderLeft: '4px solid #d97706' }}>
+          <div className="metric-icon-box" style={{ background: '#fef3c7', color: '#d97706' }}>
+            <Clock size={22} />
+          </div>
+          <div className="metric-data">
+            <span className="metric-title">Đang ở Phòng Chờ</span>
+            <div className="metric-val-row">
+              <strong>{inWaitingRoomAppts.length}</strong>
+              <span className="badge-micro warning">Đã đo sinh hiệu</span>
+            </div>
+            <small>Bác sĩ chủ động mời vào</small>
+          </div>
+        </div>
+
+        <div className="clinical-metric-card wait" onClick={() => { setFilterStatus('scheduled'); setCurrentPage(1); }}>
           <div className="metric-icon-box" style={{ background: '#fef3c7', color: '#d97706' }}>
             <Clock size={22} />
           </div>
@@ -253,6 +268,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
               className="select-status"
             >
               <option value="all">Tất cả trạng thái</option>
+              <option value="waiting">⏳ Đang ở phòng chờ (Đã đo sinh hiệu)</option>
               <option value="scheduled">Chờ khám (Scheduled)</option>
               <option value="confirmed">Đã tiếp nhận (Confirmed)</option>
               <option value="in_progress">Đang khám (In Progress)</option>
@@ -332,6 +348,13 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                         <div className="queue-symptom-text" title={appt.reason}>
                           {appt.reason || 'Khám tổng quát định kỳ'}
                         </div>
+                        {(appt.blood_pressure || appt.pulse) && (
+                          <div style={{ fontSize: '11px', color: '#059669', fontWeight: 600, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span>✓ HA: {appt.blood_pressure || '-'}</span>
+                            <span>• Mạch: {appt.pulse || '-'} l/p</span>
+                            {appt.spo2 ? <span>• SpO2: {appt.spo2}%</span> : null}
+                          </div>
+                        )}
                       </td>
                       <td>
                         {appt.bhyt_code ? (
@@ -344,6 +367,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                       </td>
                       <td>
                         <span className={`status-pill ${appt.status}`}>
+                          {appt.status === 'waiting' && '⏳ Đang ở phòng chờ'}
                           {appt.status === 'scheduled' && 'Chờ tiếp nhận'}
                           {appt.status === 'confirmed' && 'Đã sẵn sàng'}
                           {appt.status === 'in_progress' && 'Đang hội chẩn'}
@@ -353,7 +377,19 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <div className="queue-actions-group">
-                          {appt.status !== 'completed' ? (
+                          {appt.status === 'waiting' ? (
+                            <button
+                              className="btn-open-workspace"
+                              onClick={() => {
+                                if (onCallPatient) onCallPatient(appt);
+                                onOpenWorkspace(appt);
+                              }}
+                              title="Mời bệnh nhân từ phòng chờ vào phòng khám"
+                              style={{ background: '#059669', color: '#ffffff' }}
+                            >
+                              <Video size={14} /> Mời vào khám
+                            </button>
+                          ) : appt.status !== 'completed' ? (
                             <button
                               className="btn-open-workspace"
                               onClick={() => onOpenWorkspace(appt)}

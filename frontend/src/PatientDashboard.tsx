@@ -48,7 +48,7 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({
 }) => {
   // Find next upcoming appointment
   const upcomingAppointments = appointments.filter(a =>
-    ['scheduled', 'confirmed', 'in_progress'].includes(a.status)
+    ['scheduled', 'confirmed', 'waiting', 'in_progress'].includes(a.status)
   )
   const nextAppt = upcomingAppointments[0]
 
@@ -157,9 +157,19 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({
             <button
               className="btn-join-telehealth"
               onClick={() => onJoin(nextAppt)}
+              style={nextAppt.status === 'waiting' ? { background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' } : undefined}
             >
-              <Video size={18} />
-              Vào phòng khám Video ngay
+              {nextAppt.status === 'waiting' ? (
+                <>
+                  <Clock size={18} />
+                  Vào phòng chờ trực tuyến
+                </>
+              ) : (
+                <>
+                  <Video size={18} />
+                  Vào phòng khám Video ngay
+                </>
+              )}
             </button>
             {onPay && nextAppt.status === 'scheduled' && (
               <button className="btn-pay-vietqr" onClick={() => onPay(nextAppt)}>
@@ -371,7 +381,7 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({
                   <div className="visit-title-row">
                     <h4>{(appt as any).department_name || (appt as any).department || 'Khám Chuyên khoa Nội'}</h4>
                     <span className={`status-pill ${appt.status}`}>
-                      {appt.status === 'completed' ? '✓ Đã hoàn tất' : appt.status === 'in_progress' ? 'Đang khám' : 'Đã lên lịch'}
+                      {appt.status === 'completed' ? '✓ Đã hoàn tất' : appt.status === 'waiting' ? '⏳ Đang ở phòng chờ' : appt.status === 'in_progress' ? 'Đang khám' : 'Đã lên lịch'}
                     </span>
                   </div>
                   <p className="visit-doctor-line">
@@ -391,12 +401,14 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({
                       <Download size={14} /> Tải tóm tắt EMR
                     </button>
                   )}
-                  {['scheduled', 'confirmed', 'in_progress'].includes(appt.status) && (
+                  {['scheduled', 'confirmed', 'waiting', 'in_progress'].includes(appt.status) && (
                     <button
                       className="btn-join-telehealth-mini"
                       onClick={() => onJoin(appt)}
+                      style={appt.status === 'waiting' ? { background: '#d97706' } : undefined}
                     >
-                      <Video size={14} /> Vào phòng khám
+                      {appt.status === 'waiting' ? <Clock size={14} /> : <Video size={14} />}
+                      {appt.status === 'waiting' ? 'Vào phòng chờ' : 'Vào phòng khám'}
                     </button>
                   )}
                 </div>

@@ -57,6 +57,17 @@ export type Appointment = {
   bhyt_rate?: number
   bhyt_discount?: number
   patient_pay_amount?: number
+  triage_status?: string
+  triage_level?: string
+  pulse?: number
+  blood_pressure?: string
+  temperature?: number
+  spo2?: number
+  weight?: number
+  height?: number
+  triage_notes?: string
+  waiting_room_entered_at?: string
+  waiting_room_called_at?: string
 }
 
 export type ICD10Item = {
@@ -607,7 +618,7 @@ export interface TriageItem {
   starts_at: string
   reason: string
   status: string
-  triage_status: 'pending' | 'assessed' | 'dispatched'
+  triage_status: 'pending' | 'assessed' | 'dispatched' | 'waiting_room'
   triage_level: 'normal' | 'priority' | 'emergency'
   pulse?: number
   blood_pressure?: string
@@ -1563,4 +1574,43 @@ export async function identifyPatientByCCCD(identityCard: string, phoneNumber?: 
       phone_number: phoneNumber
     })
   })
+}
+
+// --- BƯỚC PHÒNG CHỜ ẢO (VIRTUAL WAITING ROOM) ---
+
+export interface WaitingRoomStatus {
+  appointment_id: number
+  status: string
+  triage_status: string
+  queue_number?: number
+  patients_ahead: number
+  estimated_wait_minutes: number
+  doctor_id: number
+  doctor_name: string
+  doctor_title?: string
+  department_name?: string
+  patient_name?: string
+  vitals?: {
+    blood_pressure?: string
+    pulse?: number
+    temperature?: number
+    spo2?: number
+    weight?: number
+    height?: number
+    triage_level?: string
+  }
+  triage_notes?: string
+  entered_waiting_at?: string
+  is_called: boolean
+  called_at?: string
+  room_name?: string
+  message: string
+}
+
+export async function getWaitingRoomStatus(appointmentId: number): Promise<WaitingRoomStatus> {
+  return request<WaitingRoomStatus>(`/api/v1/appointments/${appointmentId}/waiting-status`)
+}
+
+export async function sendToWaitingRoom(appointmentId: number): Promise<{ success: boolean; message: string }> {
+  return request(`/api/v1/triage/${appointmentId}/send-to-waiting-room`, { method: 'POST' })
 }

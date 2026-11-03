@@ -36,7 +36,7 @@ from app.schemas import (
     DepartmentOut, DoctorShiftOut, AppointmentCancelIn, AppointmentCancelOut,
     ConsultationMessageIn, ConsultationMessageOut,
     IceServersOut, IceServerConfig, PaymentWebhookOut,
-    TriageAssessmentIn, TriageAssessmentOut, TriageQueueItem,
+    TriageAssessmentIn, TriageAssessmentOut, TriageQueueItem, WaitingRoomStatusOut,
     AdminOverviewOut, AuditLogOut, SystemSettingsOut, SystemSettingsUpdateIn,
     PatientProfileOut, PatientProfileUpdateIn,
     PatientHisCheckIn, PatientHisCheckOut, PatientRegisterIn, PatientRegisterOut,
@@ -970,10 +970,22 @@ def call_patient(
     
     now = datetime.now(timezone.utc)
     session.called_at = now
+    old_status = appt.status
+    appt.waiting_room_called_at = now
     if appt.status != "completed":
         appt.status = "in_progress"
+        appt.triage_status = "dispatched"
     
     db.add(AuditLog(actor_user_id=user.id, action="telehealth.call_patient", resource_type="appointment", resource_id=str(appt.id)))
+    record_appointment_event(
+        db=db,
+        appointment_id=appt.id,
+        action="called_from_waiting_room",
+        from_status=old_status,
+        to_status="in_progress",
+        actor=user,
+        notes=f"Bác sĩ {user.full_name} mời bệnh nhân từ phòng chờ vào khám."
+    )
     db.commit()
     
     patient = db.get(User, appt.patient_id)
@@ -2269,7 +2281,7 @@ def get_triage_queue(db: Session = Depends(get_db), user: User = Depends(require
     Ưu tiên hiển thị ca Cấp cứu (Emergency) -> Ưu tiên (Priority) -> Thường (Normal).
     """
     appts = db.query(Appointment).filter(
-        Appointment.status.in_(["scheduled", "confirmed", "in_progress"])
+        Appointment.status.in_(["scheduled", "confirmed", "waiting", "in_progress"])
     ).all()
     
     # Sắp xếp ưu tiên: emergency (0) -> priority (1) -> normal (2)
@@ -2302,7 +2314,8 @@ def get_triage_queue(db: Session = Depends(get_db), user: User = Depends(require
             spo2=a.spo2,
             weight=a.weight,
             height=a.height,
-            triage_notes=a.triage_notes
+            triage_notes=a.triage_notes,
+            waiting_room_entered_at=a.waiting_room_entered_at
         ))
     return results
 
@@ -2315,7 +2328,7 @@ def assess_and_dispatch_triage(
 ):
     """
     Điều dưỡng ghi nhận chỉ số sinh hiệu (Mạch, HA, Thân nhiệt, SpO2),
-    xác định mức độ ưu tiên và điều phối chuyển bệnh nhân vào buồng Bác sĩ.
+    xác định mức độ ưu tiên và chuyển bệnh nhân vào PHÒNG CHỜ ẢO để Bác sĩ chủ động gọi khi sẵn sàng.
     """
     appt = db.get(Appointment, appointment_id)
     if not appt:
@@ -2333,12 +2346,15 @@ def assess_and_dispatch_triage(
     appt.triaged_by = user.id
     appt.triaged_at = now
     
-    if data.dispatch_to_doctor:
-        appt.triage_status = "dispatched"
-        if appt.status == "scheduled":
-            appt.status = "confirmed"
+    old_status = appt.status
+    if data.send_to_waiting_room or data.dispatch_to_doctor:
+        appt.triage_status = "waiting_room"
+        appt.status = "waiting"
+        appt.waiting_room_entered_at = now
+        triage_msg = f"Đã lưu sinh hiệu và chuyển bệnh nhân #{appt.id} vào Phòng chờ ảo Bác sĩ."
     else:
         appt.triage_status = "assessed"
+        triage_msg = f"Đã ghi nhận sinh hiệu bệnh nhân #{appt.id}."
         
     # Tự động đồng bộ các chỉ số sinh tồn vào hồ sơ lâm sàng (Clinical Notes)
     record = db.query(ClinicalRecord).filter_by(appointment_id=appt.id).first()
@@ -2360,19 +2376,31 @@ def assess_and_dispatch_triage(
         
     db.add(AuditLog(
         actor_user_id=user.id,
-        action="triage.assessed_and_dispatched",
+        action="triage.enter_waiting_room",
         resource_type="appointment",
         resource_id=str(appt.id)
     ))
     record_appointment_event(
         db=db,
         appointment_id=appt.id,
-        action="triage",
-        from_status=appt.status,
+        action="enter_waiting_room",
+        from_status=old_status,
         to_status=appt.status,
         actor=user,
-        notes=f"Điều dưỡng {user.full_name} hoàn tất sàng lọc Triage ({data.triage_level.upper()}). {vitals_summary}"
+        notes=f"Điều dưỡng {user.full_name} hoàn tất đo sinh hiệu và chuyển vào Phòng chờ. {vitals_summary}"
     )
+
+    # Thông báo cho Bác sĩ biết có bệnh nhân mới đã sẵn sàng trong phòng chờ
+    patient_obj = db.get(User, appt.patient_id)
+    p_name = patient_obj.full_name if patient_obj else f"Bệnh nhân #{appt.id}"
+    db.add(Notification(
+        target_role="doctor",
+        title="⏳ Bệnh nhân mới vào Phòng chờ",
+        message=f"Bệnh nhân {p_name} đã đo sinh hiệu ({data.blood_pressure or 'HA ổn định'}, Mạch: {data.pulse or '-'}) và đang ở phòng chờ. Bác sĩ hãy chủ động mời vào khám khi sẵn sàng.",
+        category="appointment",
+        priority="normal",
+        action_url="/workspace"
+    ))
     db.commit()
     
     return TriageAssessmentOut(
@@ -2380,7 +2408,94 @@ def assess_and_dispatch_triage(
         appointment_id=appt.id,
         triage_status=appt.triage_status,
         triage_level=appt.triage_level,
-        message=f"Đã hoàn thành sàng lọc và chuyển bệnh nhân #{appt.id} vào hàng đợi Bác sĩ thành công."
+        message=triage_msg
+    )
+
+@app.post("/api/v1/triage/{appointment_id}/send-to-waiting-room")
+def send_to_waiting_room_endpoint(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("nurse", "doctor", "admin"))
+):
+    """Chuyển bệnh nhân vào phòng chờ ảo sau khi đã tiếp nhận / đo sinh hiệu"""
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
+    now = datetime.now(timezone.utc)
+    old_status = appt.status
+    appt.status = "waiting"
+    appt.triage_status = "waiting_room"
+    appt.waiting_room_entered_at = now
+    record_appointment_event(
+        db=db,
+        appointment_id=appt.id,
+        action="enter_waiting_room",
+        from_status=old_status,
+        to_status="waiting",
+        actor=user,
+        notes=f"Điều dưỡng {user.full_name} đưa bệnh nhân vào phòng chờ ảo."
+    )
+    db.commit()
+    return {"success": True, "appointment_id": appt.id, "status": "waiting", "message": "Bệnh nhân đã ở phòng chờ ảo."}
+
+@app.get("/api/v1/appointments/{appointment_id}/waiting-status", response_model=WaitingRoomStatusOut)
+def get_waiting_room_status(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Lấy trạng thái hàng đợi phòng chờ cho Bệnh nhân / Bác sĩ"""
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
+    check_appointment_access(appt, user)
+    doctor = db.get(User, appt.doctor_id)
+    patient = db.get(User, appt.patient_id)
+    dept = db.get(Department, appt.department_id) if appt.department_id else None
+    session = db.query(TelehealthSession).filter_by(appointment_id=appt.id).first()
+
+    # Tính số bệnh nhân đang chờ phía trước của cùng bác sĩ
+    patients_ahead = 0
+    if appt.status == "waiting":
+        q_ahead = db.query(Appointment).filter(
+            Appointment.doctor_id == appt.doctor_id,
+            Appointment.status == "waiting",
+            Appointment.id < appt.id
+        )
+        patients_ahead = q_ahead.count()
+
+    is_called = bool(session and session.status == "calling") or appt.status == "in_progress"
+    room_name = session.room_name if session else f"careconnect-appt-{appt.id}"
+
+    vitals = {
+        "blood_pressure": appt.blood_pressure,
+        "pulse": appt.pulse,
+        "temperature": appt.temperature,
+        "spo2": appt.spo2,
+        "weight": appt.weight,
+        "height": appt.height,
+        "triage_level": appt.triage_level
+    }
+
+    return WaitingRoomStatusOut(
+        appointment_id=appt.id,
+        status=appt.status,
+        triage_status=appt.triage_status or "pending",
+        queue_number=patients_ahead + 1 if appt.status == "waiting" else 1,
+        patients_ahead=patients_ahead,
+        estimated_wait_minutes=max(3, patients_ahead * 8),
+        doctor_id=appt.doctor_id,
+        doctor_name=doctor.full_name if doctor else "Bác sĩ phụ trách",
+        doctor_title="Bác sĩ Chuyên khoa",
+        department_name=dept.name if dept else "Khám chuyên khoa",
+        patient_name=patient.full_name if patient else "Bệnh nhân",
+        vitals=vitals,
+        triage_notes=appt.triage_notes,
+        entered_waiting_at=appt.waiting_room_entered_at,
+        is_called=is_called,
+        called_at=appt.waiting_room_called_at,
+        room_name=room_name,
+        message="Đang ở phòng chờ, bác sĩ sẽ mời vào khám khi sẵn sàng." if appt.status == "waiting" else "Ca khám đang diễn ra."
     )
 
 # ----------------- ADMIN DASHBOARD & SYSTEM SETTINGS -----------------
@@ -3740,6 +3855,8 @@ def seed_demo():
 
 def auto_migrate_schema():
     """Tự động thêm các cột mới nếu chạy trên database cũ mà không làm mất dữ liệu"""
+    is_postgres = "postgres" in str(engine.url)
+    dt_type = "TIMESTAMP WITH TIME ZONE" if is_postgres else "DATETIME"
     triage_columns = [
         ("triage_status", "VARCHAR(30) DEFAULT 'pending'"),
         ("triage_level", "VARCHAR(20) DEFAULT 'normal'"),
@@ -3751,7 +3868,9 @@ def auto_migrate_schema():
         ("height", "FLOAT"),
         ("triage_notes", "TEXT"),
         ("triaged_by", "INTEGER"),
-        ("triaged_at", "DATETIME"),
+        ("triaged_at", dt_type),
+        ("waiting_room_entered_at", dt_type),
+        ("waiting_room_called_at", dt_type),
         ("family_member_id", "INTEGER")
     ]
     user_columns = [
@@ -3770,13 +3889,19 @@ def auto_migrate_schema():
                 conn.execute(text(f"ALTER TABLE appointments ADD COLUMN {col_name} {col_type}"))
                 conn.commit()
             except Exception:
-                pass
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
         for col_name, col_type in user_columns:
             try:
                 conn.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}"))
                 conn.commit()
             except Exception:
-                pass
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
 
 def ensure_system_initialized():
     """Khởi tạo cấu trúc danh mục và tài khoản quản trị cán bộ ban đầu nếu database trống"""
