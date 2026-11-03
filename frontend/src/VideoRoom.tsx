@@ -147,7 +147,7 @@ export function VideoRoom({
         </button>
 
         <div className="mobile-doctor-header-info">
-          <b>Buồng khám trực tuyến #{appointment.id}</b>
+          <b>Phòng khám trực tuyến #{appointment.id}</b>
           <div className="call-status-row">
             <span className={`live-pulse-dot ${rtcState.remoteStream ? 'online' : 'connecting'}`} />
             <span className="timer-badge">

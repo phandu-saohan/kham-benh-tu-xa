@@ -934,7 +934,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                 </span>
               </div>
               <p style={{ fontSize: 12, color: '#374151', margin: 0 }}>
-                Buồng khám DoctorWorkspace, WebRTC, chẩn đoán ICD-10, ký số SmartCA, đẩy đơn thuốc quốc gia & đọc phim PACS.
+                Phòng khám DoctorWorkspace, WebRTC, chẩn đoán ICD-10, ký số SmartCA, đẩy đơn thuốc quốc gia & đọc phim PACS.
               </p>
             </div>
 

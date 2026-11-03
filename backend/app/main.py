@@ -541,7 +541,7 @@ def identify_patient_by_cccd(
             "total_visits": 1,
             "last_visit": None,
             "visit_history": [],
-            "message": f"Tìm thấy hồ sơ bệnh nhân trên hệ thống HIS bệnh viện (PID: {his_patient.get('pid')}) qua CCCD/VNeID. Có thể tiếp nhận vào buồng khám ngay."
+            "message": f"Tìm thấy hồ sơ bệnh nhân trên hệ thống HIS bệnh viện (PID: {his_patient.get('pid')}) qua CCCD/VNeID. Có thể tiếp nhận vào phòng khám ngay."
         }
 
     # 3. Bệnh nhân hoàn toàn mới
@@ -951,7 +951,7 @@ def call_patient(
     user: User = Depends(require_roles("doctor"))
 ):
     """
-    Bác sĩ bấm 'Gọi bệnh nhân vào buồng khám'.
+    Bác sĩ bấm 'Gọi bệnh nhân vào phòng khám'.
     Hệ thống phát tín hiệu gọi đến điện thoại của bệnh nhân.
     """
     appt = db.get(Appointment, appointment_id)
@@ -1564,7 +1564,7 @@ def get_patient_pacs_studies_endpoint(patient_id: int, db: Session = Depends(get
 
 @app.get("/api/v1/appointments/{appointment_id}/lab-results")
 def get_appointment_lab_results(appointment_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    """Bác sĩ trong buồng khám lấy kết quả cận lâm sàng của bệnh nhân trong ca khám"""
+    """Bác sĩ trong phòng khám lấy kết quả cận lâm sàng của bệnh nhân trong ca khám"""
     appt = db.get(Appointment, appointment_id)
     if not appt:
         raise HTTPException(status_code=404, detail="Ca khám không tồn tại")
@@ -1574,7 +1574,7 @@ def get_appointment_lab_results(appointment_id: int, db: Session = Depends(get_d
 
 @app.get("/api/v1/appointments/{appointment_id}/pacs-studies")
 def get_appointment_pacs_studies(appointment_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    """Bác sĩ trong buồng khám lấy phim chụp PACS/DICOM của bệnh nhân trong ca khám"""
+    """Bác sĩ trong phòng khám lấy phim chụp PACS/DICOM của bệnh nhân trong ca khám"""
     appt = db.get(Appointment, appointment_id)
     if not appt:
         raise HTTPException(status_code=404, detail="Ca khám không tồn tại")
@@ -2436,9 +2436,9 @@ def get_admin_audit_logs(
 # ----------------- HỆ THỐNG PHÂN QUYỀN VAI TRÒ (RBAC MATRIX) -----------------
 
 SYSTEM_PERMISSIONS = [
-    # Khám chữa bệnh & Buồng khám
+    # Khám chữa bệnh & Phòng khám
     {"code": "exam.view_queue", "name": "Hàng đợi khám bệnh", "module": "Khám chữa bệnh", "description": "Xem danh sách người bệnh chờ khám trong ca trực"},
-    {"code": "exam.workspace", "name": "Buồng khám Bác sĩ", "module": "Khám chữa bệnh", "description": "Truy cập buồng khám trực tuyến, gọi video WebRTC, hội chẩn"},
+    {"code": "exam.workspace", "name": "Phòng khám Bác sĩ", "module": "Khám chữa bệnh", "description": "Truy cập phòng khám trực tuyến, gọi video WebRTC, hội chẩn"},
     {"code": "exam.join_video", "name": "Vào phòng video", "module": "Khám chữa bệnh", "description": "Bệnh nhân tham gia phòng gọi khám với Bác sĩ"},
     {"code": "exam.book", "name": "Đặt lịch khám", "module": "Khám chữa bệnh", "description": "Đăng ký lịch hẹn tư vấn và chuyên khoa từ xa"},
 
@@ -3177,7 +3177,7 @@ def invite_consultation_member(
         notes=f"Bác sĩ {user.full_name} đã mời chuyên gia '{data.doctor_name}' ({data.specialty} - {data.hospital_name}) tham gia hội chẩn ca bệnh."
     )
     
-    # Gửi tin nhắn vào buồng khám
+    # Gửi tin nhắn vào phòng khám
     msg = ConsultationMessage(
         appointment_id=appt.id,
         sender_id=user.id,

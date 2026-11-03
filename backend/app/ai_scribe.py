@@ -1,7 +1,7 @@
 """
 AI Ambient Scribe & Clinical Summary Engine (SOAP Notes Generator).
 Tự động chuyển đổi hội thoại bác sĩ - bệnh nhân thành biên bản khám tóm tắt chuẩn SOAP
-và gợi ý mã ICD-10 phục vụ bác sĩ duyệt nhanh trong buồng khám ảo.
+và gợi ý mã ICD-10 phục vụ bác sĩ duyệt nhanh trong phòng khám ảo.
 """
 
 from typing import Dict, Any

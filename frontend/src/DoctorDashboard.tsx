@@ -124,7 +124,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
           </div>
           <h1>{doctor.full_name || 'Bác sĩ chuyên khoa'}</h1>
           <p className="doctor-hero-sub">
-            {todayStr} • Buồng khám trực tuyến Telemedicine & Bệnh án điện tử EMR đạt chuẩn Bộ Y tế.
+            {todayStr} • Phòng khám trực tuyến Telemedicine & Bệnh án điện tử EMR đạt chuẩn Bộ Y tế.
           </p>
 
           <div className="doctor-quick-actions">
@@ -235,7 +235,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
         <div className="panel-heading">
           <div>
             <h3>Hàng Đợi Khám & Điều Phối Bệnh Nhân Hôm Nay</h3>
-            <p>Chọn bệnh nhân để mở Buồng khám đa năng, kê đơn BHYT, đọc phim PACS và ký số</p>
+            <p>Chọn bệnh nhân để mở Phòng khám đa năng, kê đơn BHYT, đọc phim PACS và ký số</p>
           </div>
           <div className="queue-filter-controls">
             <div className="search-input-wrap">
@@ -357,9 +357,9 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                             <button
                               className="btn-open-workspace"
                               onClick={() => onOpenWorkspace(appt)}
-                              title="Mở Buồng khám Bác sĩ"
+                              title="Mở Phòng khám Bác sĩ"
                             >
-                              <Stethoscope size={14} /> Mở buồng khám
+                              <Stethoscope size={14} /> Mở phòng khám
                             </button>
                           ) : (
                             <button

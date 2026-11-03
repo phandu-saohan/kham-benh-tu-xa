@@ -907,7 +907,7 @@ export default function App() {
                 <strong>CareConnect Staff</strong>
                 <span className="medical-verified-tag staff-tag">Nội bộ Viện</span>
               </div>
-              <span className="login-brand-desc">Hệ thống Điều hành Y tế & Buồng khám Trực tuyến</span>
+              <span className="login-brand-desc">Hệ thống Điều hành Y tế & Phòng khám Trực tuyến</span>
             </div>
           </div>
 
@@ -984,7 +984,7 @@ export default function App() {
               <span>Xác thực Định danh Cán bộ & Bảo mật Y tế</span>
             </div>
             <p className="security-desc">
-              Mọi phiên truy cập buồng khám, ký số SmartCA và hồ sơ bệnh án đều được kiểm toán và lưu vết tự động theo Nghị định 13/2023/NĐ-CP.
+              Mọi phiên truy cập phòng khám, ký số SmartCA và hồ sơ bệnh án đều được kiểm toán và lưu vết tự động theo Nghị định 13/2023/NĐ-CP.
             </p>
           </div>
 
@@ -1003,7 +1003,7 @@ export default function App() {
     )
   }
 
-  // 2. Màn hình Buồng khám Bác sĩ (Split-view Doctor Workspace)
+  // 2. Màn hình Phòng khám Bác sĩ (Split-view Doctor Workspace)
   if (activeAppointment && user.role === 'doctor') {
     return (
       <DoctorWorkspace
@@ -1294,7 +1294,7 @@ export default function App() {
               <div className="panel-heading">
                 <div>
                   <h3>Danh sách lịch hẹn</h3>
-                  <p>Khởi động buồng khám hoặc thanh toán VietQR</p>
+                  <p>Khởi động phòng khám hoặc thanh toán VietQR</p>
                 </div>
                 {isPatient && (
                   <button className="primary" onClick={() => setShowBooking(true)}>
@@ -2760,7 +2760,7 @@ function AppointmentList({
               {!['completed', 'cancelled'].includes(a.status) && (
                 <button className="small-primary" onClick={() => onJoin(a)}>
                   {isDoctor ? <Stethoscope size={15} /> : <Video size={15} />}
-                  {isDoctor ? 'Vào buồng khám' : 'Vào khám'}
+                  {isDoctor ? 'Vào phòng khám' : 'Vào khám'}
                 </button>
               )}
 

@@ -114,7 +114,7 @@ export const TriageDesk: React.FC<TriageDeskProps> = ({ onSelectPatientForDoctor
       await assessTriage(selectedItem.appointment_id, payload)
       setToastMessage(
         dispatchNow
-          ? `⚡ Đã điều phối bệnh nhân ${selectedItem.patient_name} vào buồng khám của ${selectedItem.doctor_name}!`
+          ? `⚡ Đã điều phối bệnh nhân ${selectedItem.patient_name} vào phòng khám của ${selectedItem.doctor_name}!`
           : `✅ Đã lưu chỉ số sinh hiệu cho bệnh nhân ${selectedItem.patient_name}.`
       )
       setTimeout(() => setToastMessage(''), 4000)

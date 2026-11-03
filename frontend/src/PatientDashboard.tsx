@@ -396,7 +396,7 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({
                       className="btn-join-telehealth-mini"
                       onClick={() => onJoin(appt)}
                     >
-                      <Video size={14} /> Vào buồng khám
+                      <Video size={14} /> Vào phòng khám
                     </button>
                   )}
                 </div>

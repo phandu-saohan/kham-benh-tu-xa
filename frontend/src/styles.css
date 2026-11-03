@@ -99,7 +99,7 @@
   margin-top: 3px;
 }
 
-/* ==================== BUỒNG KHÁM BÁC SĨ (SPLIT-VIEW) ==================== */
+/* ==================== PHÒNG KHÁM BÁC SĨ (SPLIT-VIEW) ==================== */
 .workspace-container {
   display: flex;
   flex-direction: column;

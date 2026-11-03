@@ -420,7 +420,7 @@ export function DoctorWorkspace({
     }
   }
 
-  // Tự động gọi chuông một lần khi bác sĩ vào buồng khám nếu ca khám chưa hoàn tất
+  // Tự động gọi chuông một lần khi bác sĩ vào phòng khám nếu ca khám chưa hoàn tất
   useEffect(() => {
     if (appointment.status !== 'completed' && appointment.status !== 'cancelled') {
       callPatient(appointment.id).catch(() => {})
@@ -759,7 +759,7 @@ export function DoctorWorkspace({
           </button>
           <div className="consult-title">
             <div className="badge-consult">
-              <Stethoscope size={16} /> Buồng khám số hóa #{appointment.id}
+              <Stethoscope size={16} /> Phòng khám số hóa #{appointment.id}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <h2>{patientData?.full_name || 'Bệnh nhân'}</h2>
@@ -873,7 +873,7 @@ export function DoctorWorkspace({
           <div className="doctor-video-stage">
             <div className="room-secure-indicator">
               <span className={`live-dot ${rtcState.remoteStream ? 'online' : 'connecting'}`} />
-              Buồng khám #{appointment.id} · WebRTC P2P {rtcState.remoteStream ? '(Bệnh nhân đang kết nối)' : '(Đang chờ bệnh nhân)'}
+              Phòng khám #{appointment.id} · WebRTC P2P {rtcState.remoteStream ? '(Bệnh nhân đang kết nối)' : '(Đang chờ bệnh nhân)'}
             </div>
 
             {/* Remote Patient Video */}
@@ -898,7 +898,7 @@ export function DoctorWorkspace({
                 <div className="pulse-spinner">
                   <Video size={44} color="#0d9488" className="spin-slow" />
                 </div>
-                <h3>Đang chờ bệnh nhân kết nối vào buồng khám...</h3>
+                <h3>Đang chờ bệnh nhân kết nối vào phòng khám...</h3>
                 <p>Hệ thống truyền tải âm thanh & video độ trễ cực thấp (WebRTC P2P).</p>
                 <div className="audio-live-pill">
                   <Volume2 size={15} /> Kênh âm thanh y tế chất lượng cao đã sẵn sàng
@@ -1501,7 +1501,7 @@ export function DoctorWorkspace({
                     <div>
                       <h3 style={{ margin: 0, fontSize: '17px', color: '#312e81' }}>Hội đồng Hội chẩn Đa chuyên khoa & Tuyến trên</h3>
                       <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#4338ca' }}>
-                        Mời chuyên gia đầu ngành tuyến trung ương cùng tham gia buồng khám trực tuyến và cho ý kiến chuyên môn
+                        Mời chuyên gia đầu ngành tuyến trung ương cùng tham gia phòng khám trực tuyến và cho ý kiến chuyên môn
                       </p>
                     </div>
                   </div>
@@ -2410,7 +2410,7 @@ export function DoctorWorkspace({
                             <strong style={{ color: '#0f172a' }}>
                               {ev.action === 'create' && '📝 Đăng ký Lịch khám'}
                               {ev.action === 'triage' && '🩺 Sàng lọc Phân luồng Triage'}
-                              {ev.action === 'start_consultation' && '📹 Bắt đầu Buồng khám Trực tuyến'}
+                              {ev.action === 'start_consultation' && '📹 Bắt đầu Phòng khám Trực tuyến'}
                               {ev.action === 'clinical_record' && '📋 Lưu Phiếu khám Lâm sàng'}
                               {ev.action === 'prescribe' && '💊 Kê Đơn thuốc Điện tử'}
                               {ev.action === 'digital_sign' && '🔏 Ký số Y tế SmartCA PKI'}
@@ -2661,7 +2661,7 @@ export function DoctorWorkspace({
                     <div>
                       <h3 style={{ margin: 0, fontSize: '17px', color: '#312e81' }}>Hội đồng Hội chẩn Đa chuyên khoa & Tuyến trên</h3>
                       <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#4338ca' }}>
-                        Mời chuyên gia đầu ngành tuyến trung ương cùng tham gia buồng khám trực tuyến và cho ý kiến chuyên môn
+                        Mời chuyên gia đầu ngành tuyến trung ương cùng tham gia phòng khám trực tuyến và cho ý kiến chuyên môn
                       </p>
                     </div>
                   </div>

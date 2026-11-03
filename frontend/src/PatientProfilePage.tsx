@@ -707,7 +707,7 @@ export function PatientProfilePage({
               </div>
               <div className="tile-text">
                 <b>Quản lý Lịch khám của tôi</b>
-                <p>Xem danh sách ca khám, giờ hẹn, buồng khám trực tuyến và thanh toán</p>
+                <p>Xem danh sách ca khám, giờ hẹn, phòng khám trực tuyến và thanh toán</p>
               </div>
               <ChevronRight size={18} color="#94a3b8" />
             </div>

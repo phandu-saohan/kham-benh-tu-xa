@@ -180,7 +180,7 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
       }
 
       await assessTriage(selectedItem.appointment_id, assessment)
-      setToastMessage(`✓ Đã hoàn tất sàng lọc cho bệnh nhân ${selectedItem.patient_name} và chuyển vào buồng khám!`)
+      setToastMessage(`✓ Đã hoàn tất sàng lọc cho bệnh nhân ${selectedItem.patient_name} và chuyển vào phòng khám!`)
       setTimeout(() => setToastMessage(''), 4000)
 
       setSelectedItem(null)
