@@ -927,43 +927,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
         </div>
       )}
 
-      {/* Hero Header (Chế độ màn hình độc lập) */}
-      {!embedded && (
-        <div className="devices-page-hero">
-          <div className="devices-hero-text">
-            <div className="devices-hero-tags">
-              <span className="badge-device-iot">
-                <Cpu size={13} /> IoT Medical Telemetry
-              </span>
-              <span className="badge-device-fda">
-                <ShieldCheck size={13} /> FDA / CE Cleared
-              </span>
-              <span className="badge-device-ble">
-                <Bluetooth size={13} /> Bluetooth SIG GATT
-              </span>
-            </div>
-            <h2>Trung Tâm Kết Nối Thiết Bị Y Tế Thông Minh</h2>
-            <p>
-              Hệ thống đồng bộ dữ liệu sinh hiệu thời gian thực từ các thiết bị y tế cá nhân chuẩn FDA/CE 
-              trực tiếp vào Hồ sơ Bệnh án Điện tử (EMR) của Bác sĩ điều trị.
-            </p>
-          </div>
-
-          <div className="devices-hero-stats">
-            <div className="hero-stat-box">
-              <span className="stat-label">Thiết bị đang kết nối</span>
-              <b className="stat-number">{connectedDevices.length} thiết bị</b>
-            </div>
-            <div className="hero-stat-box">
-              <span className="stat-label">Chuẩn kết nối</span>
-              <b className="stat-status-text" style={{ color: isWebBluetoothSupported() ? '#10b981' : '#0ea5e9' }}>
-                {isWebBluetoothSupported() ? '✓ Web Bluetooth SIG' : '⚡ Tự động đồng bộ'}
-              </b>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Thẻ chính Quản lý thiết bị */}
       <section className="smart-devices-hub-card">
         {/* Header & Thanh công cụ hành động */}
