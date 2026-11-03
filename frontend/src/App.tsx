@@ -34,6 +34,9 @@ import { AdminDashboard } from './AdminDashboard'
 import { NotificationCenter } from './NotificationCenter'
 import { PatientProfilePage } from './PatientProfilePage'
 import { PatientRegisterPage } from './PatientRegisterPage'
+import { DoctorDashboard } from './DoctorDashboard'
+import { PatientDashboard } from './PatientDashboard'
+import { NurseDashboard } from './NurseDashboard'
 import { Pagination } from './Pagination'
 
 const money = (n: number) =>
@@ -356,11 +359,11 @@ export default function App() {
         setImaging(pacsData)
         setDoctors(await request('/api/v1/doctors'))
       } else if (current.role === 'doctor') {
-        setView('appointments')
+        setView('overview')
         const pacsData = await getPacsDicomStudies().catch(() => null)
         setImaging(pacsData)
       } else if (current.role === 'nurse') {
-        setView('triage')
+        setView('overview')
       } else if (current.role === 'admin') {
         setView('admin')
       }
@@ -1043,12 +1046,13 @@ export default function App() {
     ['payments', 'Thanh toán VietQR', CreditCard],
     ['profile', 'Hồ sơ cá nhân & CCCD', UserRound]
   ] : isDoctor ? [
+    ['overview', 'Bàn làm việc Bác sĩ (Command Center)', Activity],
     ['appointments', 'Hàng đợi khám hôm nay', CalendarDays],
-    ['triage', 'Bàn Tiếp đón & Sàng lọc', Activity],
+    ['triage', 'Bàn Tiếp đón & Sàng lọc', Stethoscope],
     ['records', 'Tra cứu Bệnh án Toàn viện', FileText],
     ['insurance', 'Giám định BHYT & XML 4210', ShieldCheck]
   ] : isNurse ? [
-    ['triage', 'Bàn Sàng lọc & Triage Desk', Activity],
+    ['overview', 'Bàn Tiếp đón & Điều phối Triage', Activity],
     ['appointments', 'Lịch hẹn cần điều phối', CalendarDays],
     ['insurance', 'Giám định BHYT & XML 4210', ShieldCheck],
     ['records', 'Tra cứu Bệnh án', FileText]
@@ -1074,12 +1078,12 @@ export default function App() {
     ['insurance', 'BHYT', ShieldCheck],
     ['profile', 'Hồ sơ', UserRound]
   ] : isDoctor ? [
+    ['overview', 'Dashboard', Activity],
     ['appointments', 'Hàng đợi', CalendarDays],
-    ['triage', 'Sàng lọc', Activity],
-    ['records', 'Bệnh án', FileText],
-    ['insurance', 'BHYT', ShieldCheck]
+    ['triage', 'Sàng lọc', Stethoscope],
+    ['records', 'Bệnh án', FileText]
   ] : isNurse ? [
-    ['triage', 'Sàng lọc', Activity],
+    ['overview', 'Tiếp đón', Activity],
     ['appointments', 'Lịch hẹn', CalendarDays],
     ['insurance', 'BHYT', ShieldCheck],
     ['records', 'Bệnh án', FileText]
@@ -1218,300 +1222,97 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab: Tổng quan */}
+        {/* Tab: Tổng quan - Dashboard chuyên nghiệp theo từng vai trò */}
         {view === 'overview' && (
           <>
-            <section className="welcome-card">
-              <div>
-                <span className="pill-label">
-                  {isPatient
-                    ? 'CỔNG DỊCH VỤ BỆNH NHÂN'
-                    : isDoctor
-                    ? 'BUỒNG KHÁM BÁC SĨ CHUYÊN KHOA'
-                    : isNurse
-                    ? 'BÀN TIẾP ĐÓN & SÀNG LỌC ĐIỀU DƯỠNG'
-                    : 'TRUNG TÂM ĐIỀU HÀNH & QUẢN TRỊ VIỆN'}
-                </span>
-                <h1>
-                  {isPatient
-                    ? 'Chăm sóc sức khỏe toàn diện từ xa.'
-                    : isDoctor
-                    ? 'Hàng đợi khám & Buồng tư vấn hôm nay.'
-                    : isNurse
-                    ? 'Bàn Tiếp đón & Sàng lọc Điều dưỡng.'
-                    : 'Trung tâm Quản trị & Điều hành Toàn viện.'}
-                </h1>
-                <p>
-                  {isPatient
-                    ? 'Bệnh án ký số SmartCA, cấp mã Đơn thuốc quốc gia và ảnh chụp PACS/DICOM trực tuyến.'
-                    : isDoctor
-                    ? 'Ký số từ xa VNPT SmartCA, chẩn đoán ICD-10 và đồng bộ Cổng donthuocquocgia.vn.'
-                    : isNurse
-                    ? 'Đo chỉ số sinh tồn (vitals), kiểm tra thẻ BHYT trực tuyến và phân luồng người bệnh vào phòng bác sĩ.'
-                    : 'Quản trị nhân sự, ma trận phân quyền RBAC, kiểm toán dữ liệu y tế NĐ 13 và cấu hình toàn viện.'}
-                </p>
-                <button
-                  className="white-button"
-                  onClick={() => {
-                    if (isPatient) setShowBooking(true)
-                    else if (isDoctor) setView('appointments')
-                    else if (isNurse) setView('triage')
-                    else setView('admin')
-                  }}
-                >
-                  {isPatient
-                    ? 'Đặt lịch khám ngay'
-                    : isDoctor
-                    ? 'Xem hàng đợi khám hôm nay'
-                    : isNurse
-                    ? 'Mở Bàn Sàng lọc Triage'
-                    : 'Mở Bảng điều khiển Quản trị'} <ArrowRight size={16} />
-                </button>
-              </div>
-              <div className="welcome-art">
-                <div className="art-circle">
-                  <HeartPulse size={70} />
-                </div>
-                <div className="art-bubble bubble-one">
-                  <Video />
-                </div>
-                <div className="art-bubble bubble-two">
-                  <CalendarDays />
-                </div>
-              </div>
-            </section>
-
-            {/* Quick Menu Nhanh trên Layout Tổng Quan */}
-            <section className="overview-quick-menu-card">
-              <div className="quick-menu-header">
-                <div>
-                  <h3>Tiện ích & Dịch vụ nhanh</h3>
-                  <p>Truy cập tức thì chuyên khoa, cận lâm sàng, PACS & viện phí</p>
-                </div>
-                <span className="quick-menu-tag">Chạm mở nhanh</span>
-              </div>
-              <div className="quick-menu-grid">
-                {/* 1. Đặt lịch khám mới */}
-                <button
-                  className="quick-menu-item"
-                  onClick={() => (isPatient ? setShowBooking(true) : setView('appointments'))}
-                  title={isPatient ? 'Đặt lịch khám trực tuyến' : 'Xem danh sách buồng khám'}
-                >
-                  <div className="quick-menu-icon" style={{ backgroundColor: '#f0fdfa', color: '#0f766e' }}>
-                    <CalendarDays size={22} />
-                  </div>
-                  <span className="quick-menu-title">{isPatient ? 'Đặt lịch khám' : 'Buồng khám'}</span>
-                  <small className="quick-menu-sub">{isPatient ? 'Chọn BS & giờ' : 'Hôm nay'}</small>
-                </button>
-
-                {/* 2. Cận lâm sàng (Xét nghiệm) */}
-                <button
-                  className="quick-menu-item"
-                  onClick={() => setView('lab')}
-                  title="Kết quả xét nghiệm máu, sinh hóa, nước tiểu"
-                >
-                  <div className="quick-menu-icon" style={{ backgroundColor: '#f0f9ff', color: '#0284c7' }}>
-                    <FlaskConical size={22} />
-                  </div>
-                  <span className="quick-menu-title">Cận lâm sàng</span>
-                  <small className="quick-menu-sub">Xét nghiệm & Máu</small>
-                </button>
-
-                {/* 3. Chẩn đoán hình ảnh PACS */}
-                <button
-                  className="quick-menu-item"
-                  onClick={() => setView('pacs')}
-                  title="Kho phim X-Quang, Siêu âm, CT Scanner DICOM"
-                >
-                  <div className="quick-menu-icon" style={{ backgroundColor: '#faf5ff', color: '#9333ea' }}>
-                    <ScanLine size={22} />
-                  </div>
-                  <span className="quick-menu-title">Phim PACS</span>
-                  <small className="quick-menu-sub">X-Quang, CT, MRI</small>
-                </button>
-
-                {/* 4. Đơn thuốc Quốc gia */}
-                <button
-                  className="quick-menu-item"
-                  onClick={() => setView('prescriptions')}
-                  title="Tra cứu đơn thuốc điện tử quốc gia"
-                >
-                  <div className="quick-menu-icon" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>
-                    <Pill size={22} />
-                  </div>
-                  <span className="quick-menu-title">Đơn thuốc</span>
-                  <small className="quick-menu-sub">Mã đơn & QR</small>
-                </button>
-
-                {/* 5. Bảo hiểm Y tế */}
-                <button
-                  className="quick-menu-item"
-                  onClick={() => setView('insurance')}>
-                  <div className="quick-menu-icon" style={{ backgroundColor: '#fffbeb', color: '#d97706' }}>
-                    <ShieldCheck size={22} />
-                  </div>
-                  <span className="quick-menu-title">Bảo hiểm Y tế</span>
-                  <small className="quick-menu-sub">Tra cứu BHYT</small>
-                </button>
-
-                {/* 6. Thanh toán VietQR */}
-                <button
-                  className="quick-menu-item"
-                  onClick={() => setView('payments')}
-                  title="Thanh toán viện phí & dịch vụ trực tuyến"
-                >
-                  <div className="quick-menu-icon" style={{ backgroundColor: '#fff1f2', color: '#e11d48' }}>
-                    <CreditCard size={22} />
-                  </div>
-                  <span className="quick-menu-title">Thanh toán</span>
-                  <small className="quick-menu-sub">VietQR chuẩn 24/7</small>
-                </button>
-
-                {/* 7. Hồ sơ bệnh án */}
-                <button
-                  className="quick-menu-item"
-                  onClick={() => setView('records')}
-                  title="Bệnh án điện tử & Ký số SmartCA"
-                >
-                  <div className="quick-menu-icon" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}>
-                    <FileText size={22} />
-                  </div>
-                  <span className="quick-menu-title">Bệnh án điện tử</span>
-                  <small className="quick-menu-sub">Ký số SmartCA</small>
-                </button>
-
-                {/* 8. Sàng lọc Triage hoặc Tư vấn video */}
-                {!isPatient ? (
-                  <button
-                    className="quick-menu-item"
-                    onClick={() => setView('triage')}
-                    title="Bàn sàng lọc điều phối bệnh nhân"
-                  >
-                    <div className="quick-menu-icon" style={{ backgroundColor: '#fef2f2', color: '#dc2626' }}>
-                      <Activity size={22} />
-                    </div>
-                    <span className="quick-menu-title">Bàn Triage</span>
-                    <small className="quick-menu-sub">Phân luồng khám</small>
-                  </button>
-                ) : (
-                  <button
-                    className="quick-menu-item"
-                    onClick={() => setView('appointments')}
-                    title="Tham gia buồng tư vấn video trực tuyến"
-                  >
-                    <div className="quick-menu-icon" style={{ backgroundColor: '#f5f3ff', color: '#6366f1' }}>
-                      <Video size={22} />
-                    </div>
-                    <span className="quick-menu-title">Tư vấn Video</span>
-                    <small className="quick-menu-sub">Vào phòng khám</small>
-                  </button>
-                )}
-              </div>
-            </section>
-
-            <section className="stats-grid">
-              <Stat icon={<CalendarDays />} label="Tổng lịch hẹn" value={appointments.length} hint="Tất cả hồ sơ" />
-              <Stat icon={<Clock />} label="Sắp diễn ra" value={upcoming.length} hint="Cần tiếp nhận" />
-              <Stat
-                icon={<FileText />}
-                label="Đã hoàn tất"
-                value={appointments.filter(a => a.status === 'completed').length}
-                hint="Đã ký số SmartCA"
+            {isPatient && (
+              <PatientDashboard
+                user={user}
+                appointments={appointments}
+                doctors={doctors}
+                vitalsLogs={rpmVitals}
+                onBook={() => setShowBooking(true)}
+                onJoin={(appt) => {
+                  if (user?.role === 'doctor') setActiveAppointment(appt)
+                  else handleJoinConsultation(appt)
+                }}
+                onNavigate={(v) => setView(v)}
+                onPay={(appt) => setQrAppointment(appt)}
+                onDownloadPdf={(id) => handleDownloadPdf(id)}
               />
-              <Stat icon={<ShieldCheck />} label="Pháp lý Y tế" value="Đạt chuẩn" hint="NĐ 13 & SmartCA" />
-            </section>
+            )}
 
-            <section className="content-grid">
-              <div className="panel">
-                <div className="panel-heading">
-                  <div>
-                    <h3>Lịch khám gần nhất</h3>
-                    <p>Theo dõi và tham gia buồng khám trực tuyến</p>
-                  </div>
-                  {isPatient && (
-                    <button className="text-button" onClick={() => setShowBooking(true)}>
-                      + Đặt lịch khám
-                    </button>
-                  )}
-                </div>
-                <AppointmentList
-                  items={appointments.slice(0, 5)}
-                  doctors={doctors}
-                  isDoctor={isDoctor}
-                  onJoin={handleJoinConsultation}
-                  onPay={setQrAppointment}
-                  onCancel={handleCancelAppointment}
-                  onDownloadPdf={handleDownloadPdf}
-                />
-              </div>
+            {isDoctor && (
+              <DoctorDashboard
+                doctor={user}
+                appointments={appointments}
+                departments={departments}
+                onOpenWorkspace={(appt) => setActiveAppointment(appt)}
+                onNavigate={(v) => setView(v)}
+                onCallPatient={(appt) => setActiveAppointment(appt)}
+              />
+            )}
 
-              <div className="panel side-panel">
-                <div className="panel-heading">
-                  <div>
-                    <h3>Truy cập nhanh</h3>
-                    <p>Hệ sinh thái bệnh viện</p>
-                  </div>
-                </div>
-                <Quick
-                  label="Chữ ký số Bác sĩ (SmartCA)"
-                  sub="Ký số bệnh án & đơn thuốc"
-                  icon={<PenTool />}
-                  onClick={() => setView('records')}
+            {isNurse && (
+              <NurseDashboard
+                nurse={user}
+                onNavigate={(v) => setView(v)}
+                onSelectPatientForDoctor={(id) => {
+                  const targetAppt = appointments.find(a => a.id === id)
+                  if (targetAppt) {
+                    setToast(`Đã điều phối bệnh nhân #${id} vào buồng bác sĩ`)
+                  }
+                }}
+              />
+            )}
+
+            {isAdmin && (
+              <section className="panel page-panel" style={{ padding: 0, border: 'none', background: 'transparent' }}>
+                <AdminDashboard
+                  activeTab="overview"
+                  onTabChange={(t) => setView(`admin-${t}`)}
+                  hideInternalNav={true}
                 />
-                <Quick
-                  label="Cận lâm sàng (Xét nghiệm)"
-                  sub="Sinh hóa máu, huyết học, nước tiểu"
-                  icon={<FlaskConical />}
-                  onClick={() => setView('lab')}
-                />
-                <Quick
-                  label="Chẩn đoán hình ảnh PACS"
-                  sub="Bộ đọc phim X-Quang, CT, MRI"
-                  icon={<ScanLine />}
-                  onClick={() => setView('pacs')}
-                />
-                <Quick
-                  label="Đơn thuốc Quốc gia"
-                  sub="donthuocquocgia.vn & Mã QR"
-                  icon={<Pill />}
-                  onClick={() => setView('prescriptions')}
-                />
-                <div className="mock-banner">
-                  <ShieldCheck size={18} />
-                  <span>
-                    <b>Tuân thủ Pháp lý Y tế</b>
-                    <small>Nghị định 13/2023/NĐ-CP & TT 30/2023</small>
-                  </span>
-                </div>
-              </div>
-            </section>
+              </section>
+            )}
           </>
         )}
 
         {/* Tab: Lịch hẹn */}
         {view === 'appointments' && (
-          <section className="panel page-panel">
-            <div className="panel-heading">
-              <div>
-                <h3>Danh sách lịch hẹn</h3>
-                <p>Khởi động buồng khám hoặc thanh toán VietQR</p>
-              </div>
-              {isPatient && (
-                <button className="primary" onClick={() => setShowBooking(true)}>
-                  <Plus size={16} /> Đặt lịch khám mới
-                </button>
-              )}
-            </div>
-            <AppointmentList
-              items={appointments}
-              doctors={doctors}
-              isDoctor={isDoctor}
-              onJoin={handleJoinConsultation}
-              onPay={setQrAppointment}
-              onCancel={handleCancelAppointment}
-              onDownloadPdf={handleDownloadPdf}
+          isDoctor ? (
+            <DoctorDashboard
+              doctor={user}
+              appointments={appointments}
+              departments={departments}
+              onOpenWorkspace={(appt) => setActiveAppointment(appt)}
+              onNavigate={(v) => setView(v)}
+              onCallPatient={(appt) => setActiveAppointment(appt)}
             />
-          </section>
+          ) : (
+            <section className="panel page-panel">
+              <div className="panel-heading">
+                <div>
+                  <h3>Danh sách lịch hẹn</h3>
+                  <p>Khởi động buồng khám hoặc thanh toán VietQR</p>
+                </div>
+                {isPatient && (
+                  <button className="primary" onClick={() => setShowBooking(true)}>
+                    <Plus size={16} /> Đặt lịch khám mới
+                  </button>
+                )}
+              </div>
+              <AppointmentList
+                items={appointments}
+                doctors={doctors}
+                isDoctor={isDoctor}
+                onJoin={handleJoinConsultation}
+                onPay={setQrAppointment}
+                onCancel={handleCancelAppointment}
+                onDownloadPdf={handleDownloadPdf}
+              />
+            </section>
+          )
         )}
 
         {/* Tab: Hồ sơ bệnh án */}
@@ -2564,9 +2365,22 @@ export default function App() {
 
         {/* Tab: Bàn Sàng lọc & Điều phối Điều dưỡng (Triage Desk) */}
         {view === 'triage' && (
-          <section className="panel page-panel">
-            <TriageDesk />
-          </section>
+          isNurse ? (
+            <NurseDashboard
+              nurse={user}
+              onNavigate={(v) => setView(v)}
+              onSelectPatientForDoctor={(id) => {
+                const targetAppt = appointments.find(a => a.id === id)
+                if (targetAppt) {
+                  setToast(`Đã điều phối bệnh nhân #${id} vào buồng bác sĩ`)
+                }
+              }}
+            />
+          ) : (
+            <section className="panel page-panel">
+              <TriageDesk />
+            </section>
+          )
         )}
 
         {/* Tab: Trang Tài khoản Bệnh nhân (Patient Profile Page) */}
