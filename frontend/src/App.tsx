@@ -1234,6 +1234,7 @@ export default function App() {
                 onNavigate={(v) => setView(v)}
                 onPay={(appt) => setQrAppointment(appt)}
                 onDownloadPdf={(id) => handleDownloadPdf(id)}
+                onRefreshVitals={loadVitals}
               />
             )}
 
