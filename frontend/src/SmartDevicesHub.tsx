@@ -86,8 +86,6 @@ import {
 
 import { cameraPpgService, PPGMeasurementResult, PPGFrameData } from './cameraPpgService'
 
-
-
 export interface VitalMetricInfo {
 
   name: string
@@ -103,8 +101,6 @@ export interface VitalMetricInfo {
   icon?: any
 
 }
-
-
 
 export interface ConnectedDeviceInfo {
 
@@ -144,8 +140,6 @@ export interface ConnectedDeviceInfo {
 
 }
 
-
-
 interface SmartDevicesHubProps {
 
   user: any
@@ -159,8 +153,6 @@ interface SmartDevicesHubProps {
   embedded?: boolean
 
 }
-
-
 
 // Danh mục tất cả thiết bị y tế chuẩn FDA/CE tương thích hệ thống CareConnect
 
@@ -620,8 +612,6 @@ const DEFAULT_ALL_DEVICES: ConnectedDeviceInfo[] = [
 
 ]
 
-
-
 export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
   user,
@@ -637,8 +627,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 }) => {
 
   const latestVital = vitalsLogs[0] || null
-
-
 
   // Khởi tạo danh sách thiết bị từ LocalStorage hoặc danh sách mặc định
 
@@ -692,8 +680,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
   })
 
-
-
   // Lưu thiết bị vào LocalStorage khi có thay đổi trạng thái
 
   const saveDevicesState = (updatedList: ConnectedDeviceInfo[]) => {
@@ -725,8 +711,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
     }
 
   }
-
-
 
   // Cập nhật số đo gần nhất từ vitalsLogs
 
@@ -818,13 +802,9 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
   }, [latestVital])
 
-
-
   const [connectingDeviceId, setConnectingDeviceId] = useState<string | null>(null)
 
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'info' | 'error'; text: string } | null>(null)
-
-
 
   // Modal: Kết nối thiết bị mới
 
@@ -835,8 +815,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
   const [searchCatalogQuery, setSearchCatalogQuery] = useState<string>('')
 
   const [discoveredBleDevices, setDiscoveredBleDevices] = useState<any[]>([])
-
-
 
   // Modal: Camera Optical PPG
 
@@ -855,8 +833,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
   const waveformPoints = useRef<number[]>([])
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
-
-
 
   // Modal: Nhập số đo thủ công
 
@@ -880,8 +856,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
   const [isSavingManual, setIsSavingManual] = useState<boolean>(false)
 
-
-
   useEffect(() => {
 
     if (toastMessage) {
@@ -894,27 +868,19 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
   }, [toastMessage])
 
-
-
   const showToast = (type: 'success' | 'info' | 'error', text: string) => {
 
     setToastMessage({ type, text })
 
   }
 
-
-
   // ⭐ ĐIỀU KIỆN LỌC CHÍNH: CHỈ HIỂN THỊ CÁC THIẾT BỊ ĐÃ KẾT NỐI
 
   const connectedDevices = devices.filter(d => d.status === 'connected')
 
-
-
   // Danh mục thiết bị có thể ghép nối mới (chưa kết nối)
 
   const availableToPairDevices = devices.filter(d => d.status !== 'connected')
-
-
 
   // Ghép nối thiết bị mới
 
@@ -950,8 +916,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
   }
 
-
-
   // Ngắt kết nối thiết bị
 
   const handleDisconnectDevice = (deviceToUnpair: ConnectedDeviceInfo, e: React.MouseEvent) => {
@@ -961,8 +925,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
     const confirm = window.confirm(`Bạn có chắc muốn ngắt kết nối thiết bị "${deviceToUnpair.name}" khỏi tài khoản?`)
 
     if (!confirm) return
-
-
 
     const updated = devices.map(d => {
 
@@ -990,8 +952,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
   }
 
-
-
   // Quét thiết bị Bluetooth thực tế xung quanh
 
   const handleStartBleScan = async () => {
@@ -999,8 +959,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
     setIsScanningBle(true)
 
     setDiscoveredBleDevices([])
-
-
 
     if (isWebBluetoothSupported()) {
 
@@ -1027,8 +985,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
           optionalServices: ['battery_service', 'device_information']
 
         })
-
-
 
         if (bleDevice) {
 
@@ -1154,8 +1110,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
   }
 
-
-
   // Thực hiện đồng bộ / lấy số đo từ thiết bị đã kết nối
 
   const handleMeasureDevice = async (device: ConnectedDeviceInfo) => {
@@ -1163,8 +1117,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
     setConnectingDeviceId(device.id)
 
     showToast('info', `Đang đọc số đo từ ${device.name}...`)
-
-
 
     try {
 
@@ -1190,8 +1142,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
         }
 
-
-
         await recordRPMVitals({
 
           patient_id: user?.id,
@@ -1209,8 +1159,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
           pulse: res.pulse
 
         })
-
-
 
         const updated = devices.map(d =>
 
@@ -1258,8 +1206,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
         }
 
-
-
         await recordRPMVitals({
 
           patient_id: user?.id,
@@ -1273,8 +1219,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
           glucose_value: res.glucose
 
         })
-
-
 
         const updated = devices.map(d =>
 
@@ -1322,8 +1266,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
         }
 
-
-
         await recordRPMVitals({
 
           patient_id: user?.id,
@@ -1339,8 +1281,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
           pulse: res.pulse
 
         })
-
-
 
         const updated = devices.map(d =>
 
@@ -1388,8 +1328,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
         }
 
-
-
         await recordRPMVitals({
 
           patient_id: user?.id,
@@ -1403,8 +1341,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
           temperature_celsius: res.temperature
 
         })
-
-
 
         const updated = devices.map(d =>
 
@@ -1436,8 +1372,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
         const res = { deviceName: 'Tanita BC-401 Smart Scale', weight: weightVal, bmi: Number((weightVal / (1.68 * 1.68)).toFixed(1)) }
 
-
-
         await recordRPMVitals({
 
           patient_id: user?.id,
@@ -1451,8 +1385,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
           weight_kg: res.weight
 
         })
-
-
 
         const updated = devices.map(d =>
 
@@ -1484,8 +1416,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
       }
 
-
-
       if (onRefreshVitals) onRefreshVitals()
 
     } catch (err: any) {
@@ -1502,8 +1432,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
   }
 
-
-
   // Vẽ biểu đồ xung PPG
 
   const drawWaveform = () => {
@@ -1516,13 +1444,9 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
     if (!ctx) return
 
-
-
     ctx.fillStyle = '#0f172a'
 
     ctx.fillRect(0, 0, cvs.width, cvs.height)
-
-
 
     ctx.strokeStyle = '#1e293b'
 
@@ -1551,8 +1475,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
       ctx.stroke()
 
     }
-
-
 
     const pts = waveformPoints.current
 
@@ -1584,8 +1506,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
   }
 
-
-
   const handleOpenOpticalCamera = () => {
 
     setShowCameraModal(true)
@@ -1604,8 +1524,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
   }
 
-
-
   const handleStartCameraScan = async () => {
 
     setIsCameraActive(true)
@@ -1619,8 +1537,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
     setCameraStatusText('Đang truy cập camera & bật đèn flash trợ sáng...')
 
     waveformPoints.current = []
-
-
 
     cameraPpgService.onFrame = (frame: PPGFrameData) => {
 
@@ -1637,8 +1553,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
       drawWaveform()
 
     }
-
-
 
     cameraPpgService.onProgress = (percent: number, bpm: number | null) => {
 
@@ -1662,8 +1576,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
     }
 
-
-
     cameraPpgService.onComplete = async (res: PPGMeasurementResult) => {
 
       setCameraResult(res)
@@ -1671,8 +1583,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
       setIsCameraActive(false)
 
       setCameraStatusText('Đo hoàn tất thành công!')
-
-
 
       await recordRPMVitals({
 
@@ -1689,8 +1599,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
         spo2_percent: res.spo2
 
       })
-
-
 
       const updated = devices.map(d =>
 
@@ -1714,15 +1622,11 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
       saveDevicesState(updated)
 
-
-
       if (onRefreshVitals) onRefreshVitals()
 
       showToast('success', `Đo PPG thành công: Nhịp tim ${res.pulse} bpm, SpO2 ~${res.spo2}%`)
 
     }
-
-
 
     cameraPpgService.onError = (err: Error) => {
 
@@ -1733,8 +1637,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
       showToast('error', `Lỗi đo camera: ${err.message || 'Thất bại'}`)
 
     }
-
-
 
     try {
 
@@ -1752,8 +1654,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
   }
 
-
-
   const handleStopCameraScan = () => {
 
     cameraPpgService.stop()
@@ -1763,8 +1663,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
     setShowCameraModal(false)
 
   }
-
-
 
   // Nhập số đo thủ công
 
@@ -1802,8 +1700,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
       })
 
-
-
       setShowManualModal(false)
 
       showToast('success', 'Đã lưu chỉ số sinh hiệu vào Bệnh án điện tử thành công!')
@@ -1823,8 +1719,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
     }
 
   }
-
-
 
   return (
 
@@ -1853,8 +1747,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
         </div>
 
       )}
-
-
 
       {/* Thẻ chính Quản lý thiết bị */}
 
@@ -1896,8 +1788,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
           </div>
 
-
-
           <div className="hub-header-actions">
 
             {/* ⭐ NÚT KẾT NỐI THIẾT BỊ MỚI (CHỦ ĐỀ CHÍNH THEO YÊU CẦU) */}
@@ -1922,35 +1812,23 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
             </button>
 
-
-
             <button className="btn-action-ghost" onClick={() => setShowManualModal(true)}>
 
               <Sliders size={14} /> Nhập số đo
 
             </button>
 
-            <button className="btn-action-primary" onClick={handleOpenOpticalCamera}>
+            <button className="btn-action-ghost" onClick={handleOpenOpticalCamera}>
 
               <Camera size={14} /> Đo Camera PPG
 
             </button>
 
-            {onNavigate && (
-
-              <button className="btn-action-ghost" onClick={() => onNavigate('vitals')}>
-
-                Gói FDA & Monitor ICU <ArrowRight size={14} />
-
-              </button>
-
-            )}
+            
 
           </div>
 
         </div>
-
-
 
         {/* ⭐ DANH SÁCH CHỈ HIỂN THỊ CÁC THIẾT BỊ ĐÃ KẾT NỐI (CONNECTED DEVICES LIST) */}
 
@@ -2006,8 +1884,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
               const isConnecting = connectingDeviceId === device.id
 
-
-
               return (
 
                 <div key={device.id} className="compact-device-card">
@@ -2060,8 +1936,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
                     </div>
 
-
-
                     <button
 
                       className="btn-unpair-compact"
@@ -2077,8 +1951,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
                     </button>
 
                   </div>
-
-
 
                   {/* Chỉ số thiết bị đo lường (Compact Chips) */}
 
@@ -2106,8 +1978,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
                   </div>
 
-
-
                   {/* Hàng số đo & nút thao tác đồng bộ */}
 
                   <div className="compact-reading-action-bar">
@@ -2121,8 +1991,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
                       <span className="compact-sync-time">• {device.lastSync || 'Chưa đồng bộ'}</span>
 
                     </div>
-
-
 
                     <div className="compact-action-group">
 
@@ -2178,8 +2046,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
       </section>
 
-
-
       {/* ⭐ MODAL: KẾT NỐI / GHÉP ĐÔI THIẾT BỊ MỚI (PAIR NEW MEDICAL DEVICE) */}
 
       {showPairNewModal && (
@@ -2209,8 +2075,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
               </button>
 
             </div>
-
-
 
             <div className="modal-body-content pair-modal-body">
 
@@ -2268,8 +2132,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
               </div>
 
-
-
               {/* Danh sách thiết bị BLE vừa tìm thấy nếu có */}
 
               {discoveredBleDevices.length > 0 && (
@@ -2326,8 +2188,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
               )}
 
-
-
               {/* Tìm kiếm danh mục thiết bị hỗ trợ */}
 
               <div className="catalog-header-line">
@@ -2354,8 +2214,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
               </div>
 
-
-
               {/* Danh sách các thiết bị có thể ghép đôi */}
 
               <div className="catalog-devices-scroll">
@@ -2373,8 +2231,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
                   .map(device => {
 
                     const DevIcon = device.icon
-
-
 
                     return (
 
@@ -2416,8 +2272,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
                         </div>
 
-
-
                         <button
 
                           className="btn-pair-device-action"
@@ -2435,8 +2289,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
                     )
 
                   })}
-
-
 
                 {availableToPairDevices.length === 0 && (
 
@@ -2456,8 +2308,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
             </div>
 
-
-
             <div className="modal-footer pair-modal-footer">
 
               <button className="btn-cancel-modal" onClick={() => setShowPairNewModal(false)}>
@@ -2473,8 +2323,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
         </div>
 
       )}
-
-
 
       {/* MODAL: ĐO CAMERA QUANG HỌC (OPTICAL PPG) */}
 
@@ -2502,8 +2350,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
             </div>
 
-
-
             <div className="modal-body-content">
 
               <div className="camera-instructions">
@@ -2517,8 +2363,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
                 </p>
 
               </div>
-
-
 
               {/* Waveform View */}
 
@@ -2537,8 +2381,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
                 />
 
               </div>
-
-
 
               {/* Progress and Realtime BPM */}
 
@@ -2566,8 +2408,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
               </div>
 
-
-
               {cameraCurrentBpm > 0 && (
 
                 <div className="camera-current-reading">
@@ -2581,8 +2421,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
                 </div>
 
               )}
-
-
 
               {cameraResult && (
 
@@ -2626,8 +2464,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
             </div>
 
-
-
             <div className="modal-footer">
 
               {!isCameraActive ? (
@@ -2662,8 +2498,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
       )}
 
-
-
       {/* MODAL: NHẬP SỐ ĐO THỦ CÔNG */}
 
       {showManualModal && (
@@ -2689,8 +2523,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
               </button>
 
             </div>
-
-
 
             <form onSubmit={handleSaveManualVitals}>
 
@@ -2726,8 +2558,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
                   </div>
 
-
-
                   <div className="form-group">
 
                     <label>Huyết áp Tâm trương (DIA)</label>
@@ -2755,8 +2585,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
                     </div>
 
                   </div>
-
-
 
                   <div className="form-group">
 
@@ -2786,8 +2614,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
                   </div>
 
-
-
                   <div className="form-group">
 
                     <label>Nồng độ SpO2</label>
@@ -2815,8 +2641,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
                     </div>
 
                   </div>
-
-
 
                   <div className="form-group">
 
@@ -2848,8 +2672,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
                   </div>
 
-
-
                   <div className="form-group">
 
                     <label>Thân nhiệt (°C)</label>
@@ -2880,8 +2702,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
                   </div>
 
-
-
                   <div className="form-group">
 
                     <label>Cân nặng</label>
@@ -2911,8 +2731,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
                     </div>
 
                   </div>
-
-
 
                   <div className="form-group">
 
@@ -2945,8 +2763,6 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
                 </div>
 
               </div>
-
-
 
               <div className="modal-footer">
 

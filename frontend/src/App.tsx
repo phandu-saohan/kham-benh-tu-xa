@@ -1180,7 +1180,7 @@ export default function App() {
       {/* Main Content */}
       <main className="main-content">
         {/* Topbar: Ẩn hoàn toàn trên Dashboard Bệnh nhân (do Patient Dashboard đã có Header nhận diện riêng, loại bỏ phần thừa) */}
-        {!(isPatient && (view === 'overview' || view === 'devices')) && (
+        {!isPatient && (
           <header className="topbar">
             <div>
               <p className="eyebrow">HỆ THỐNG Y TẾ TỪ XA CHUẨN QUỐC GIA</p>
@@ -2039,7 +2039,7 @@ export default function App() {
                         }}
                         style={{ flex: 1, fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                       >
-                        <CalendarDays size={14} /> Đặt lịch khám cho {member.full_name.split(' ').slice(-1)[0]}
+                        <CalendarDays size={14} /> Đặt lịch khám ngay
                       </button>
                     </div>
                   </div>
@@ -2065,7 +2065,7 @@ export default function App() {
           <RPMDeviceCenter
             currentUser={user}
             patientId={user?.role === 'patient' ? user.id : (selectedPatientId || 1)}
-            onBack={() => setView('overview')}
+            onBack={isPatient ? undefined : () => setView('overview')}
           />
         )}
 
@@ -2646,7 +2646,8 @@ function AppointmentList({
           confirmed: 'Đã xác nhận',
           in_progress: 'Đang khám',
           completed: 'Đã hoàn tất',
-          cancelled: 'Đã hủy'
+          cancelled: 'Đã hủy',
+          waiting: 'Chờ khám'
         }
 
         return (
