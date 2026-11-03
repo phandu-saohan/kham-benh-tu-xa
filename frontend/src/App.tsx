@@ -5,7 +5,8 @@ import {
   Plus, X, Phone, Lock, Stethoscope, AlertCircle, RefreshCw, QrCode,
   FileDown, ExternalLink, PenTool, Building2, Sparkles, CheckCircle2,
   HelpCircle, ShieldAlert, Undo2, Activity, Settings, ScanLine,
-  Mail, Eye, EyeOff, UserPlus, ChevronRight, Users, FileCheck, Check, Trash2, Download
+  Mail, Eye, EyeOff, UserPlus, ChevronRight, Users, FileCheck, Check, Trash2, Download,
+  BarChart3
 } from 'lucide-react'
 import {
   login, sendOtp, verifyOtp, loginWithFirebaseToken, getFirebaseConfig, request, cancelAppointment,
@@ -1049,7 +1050,7 @@ export default function App() {
   const isAdmin = user.role === 'admin'
   const upcoming = appointments.filter(a => ['scheduled', 'confirmed', 'in_progress'].includes(a.status))
 
-  // Danh mục điều hướng Desktop theo từng vai trò (Role-based Navigation - Đã loại bỏ hoàn toàn trùng lặp)
+  // Danh mục điều hướng Desktop theo từng vai trò (Role-based Navigation - Chuẩn hóa UI/UX)
   const navItems = isPatient ? [
     ['overview', 'Tổng quan', HeartPulse],
     ['appointments', 'Lịch khám của tôi', CalendarDays],
@@ -1060,7 +1061,7 @@ export default function App() {
     ['payments', 'Thanh toán VietQR', CreditCard],
     ['profile', 'Hồ sơ cá nhân & CCCD', UserRound]
   ] : isDoctor ? [
-    ['overview', 'Bàn làm việc Bác sĩ (Command Center)', Activity],
+    ['overview', 'Bàn làm việc Bác sĩ', Activity],
     ['appointments', 'Hàng đợi khám hôm nay', CalendarDays],
     ['vitals', 'Thiết bị Sinh hiệu FDA', Activity],
     ['triage', 'Bàn Tiếp đón & Sàng lọc', Stethoscope],
@@ -1073,28 +1074,26 @@ export default function App() {
     ['insurance', 'Giám định BHYT & XML 4210', ShieldCheck],
     ['records', 'Tra cứu Bệnh án', FileText]
   ] : [
-    ['admin-settings', '⚙️ Cấu hình Hệ thống', Settings],
-    ['admin-overview', '📊 Báo cáo & KPI Viện', HeartPulse],
-    ['admin-users', '👥 Nhân sự & Cán bộ', UserRound],
-    ['admin-rbac', '🛡️ Ma trận Phân quyền', ShieldCheck],
-    ['admin-audit', '📜 Nhật ký Kiểm toán', FileText],
-    ['appointments', '📅 Giám sát Lịch khám', CalendarDays],
-    ['triage', '🏥 Bàn Tiếp đón Triage', Activity],
-    ['insurance', '🛡️ Giám định BHYT & XML 4210', ShieldCheck],
-    ['payments', '💳 Đối soát Viện phí VietQR', CreditCard]
+    ['admin-settings', 'Cấu hình Hệ thống', Settings],
+    ['admin-overview', 'Báo cáo & KPI Viện', BarChart3],
+    ['admin-users', 'Nhân sự & Cán bộ', Users],
+    ['admin-rbac', 'Ma trận Phân quyền', ShieldCheck],
+    ['admin-audit', 'Nhật ký Kiểm toán', FileText],
+    ['appointments', 'Giám sát Lịch khám', CalendarDays],
+    ['triage', 'Bàn Tiếp đón Triage', Stethoscope],
+    ['insurance', 'Giám định BHYT & XML 4210', ShieldCheck],
+    ['payments', 'Đối soát Viện phí VietQR', CreditCard]
   ]
 
-  // Danh mục điều hướng Mobile theo từng vai trò
+  // Danh mục điều hướng Mobile theo từng vai trò (Bottom Navigation Bar)
   const mobileNavItems = isPatient ? [
     ['overview', 'Tổng quan', HeartPulse],
     ['appointments', 'Lịch khám', CalendarDays],
     ['family', 'Gia đình', Users],
     ['vitals', 'Sinh hiệu', Activity],
-    ['records', 'Bệnh án', FileText],
-    ['insurance', 'BHYT', ShieldCheck],
     ['profile', 'Hồ sơ', UserRound]
   ] : isDoctor ? [
-    ['overview', 'Dashboard', Activity],
+    ['overview', 'Khám bệnh', Activity],
     ['appointments', 'Hàng đợi', CalendarDays],
     ['triage', 'Sàng lọc', Stethoscope],
     ['records', 'Bệnh án', FileText]
@@ -1104,22 +1103,21 @@ export default function App() {
     ['insurance', 'BHYT', ShieldCheck],
     ['records', 'Bệnh án', FileText]
   ] : [
+    ['admin-overview', 'Báo cáo', BarChart3],
     ['admin-settings', 'Cài đặt', Settings],
-    ['admin-overview', 'Báo cáo', HeartPulse],
-    ['admin-users', 'Nhân sự', UserRound],
-    ['admin-rbac', 'Phân quyền', ShieldCheck],
-    ['admin-audit', 'Kiểm toán', FileText]
+    ['admin-users', 'Nhân sự', Users],
+    ['admin-rbac', 'Phân quyền', ShieldCheck]
   ]
 
   return (
     <div className="app-shell">
-      {/* Sidebar */}
+      {/* Sidebar Desktop - Clean & Modern */}
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark small">
-            <HeartPulse size={21} />
+            <HeartPulse size={20} />
           </div>
-          <div>
+          <div className="brand-text">
             <b>CareConnect</b>
             <small>Telemedicine V1.2</small>
           </div>
@@ -1127,23 +1125,23 @@ export default function App() {
 
         <div className="profile">
           <div className="avatar">
-            <UserRound />
+            <UserRound size={18} />
           </div>
-          <div>
+          <div className="profile-info">
             <b>{user.full_name}</b>
             <small>
               {isPatient
-                ? '🧑 Bệnh nhân'
+                ? 'Bệnh nhân'
                 : isDoctor
-                ? `👨‍⚕️ Bác sĩ (${user.doctor_cchn || 'CCHN'})`
+                ? `Bác sĩ (${user.doctor_cchn || 'CCHN'})`
                 : isNurse
-                ? '👩‍⚕️ Điều dưỡng tiếp đón'
-                : '⚙️ Quản trị viên'}
+                ? 'Điều dưỡng tiếp đón'
+                : 'Quản trị viên'}
             </small>
           </div>
         </div>
 
-        {/* Desktop Navigation (Cá nhân hóa theo phân quyền) */}
+        {/* Desktop Navigation */}
         <nav className="desktop-nav">
           {navItems.map(([id, label, Icon]: any) => (
             <button
@@ -1152,35 +1150,16 @@ export default function App() {
               onClick={() => setView(id)}
             >
               <Icon size={18} />
-              {label}
-            </button>
-          ))}
-        </nav>
-
-        {/* Mobile Bottom Navigation Bar (Cá nhân hóa theo phân quyền) */}
-        <nav className="mobile-bottom-nav">
-          {mobileNavItems.map(([id, label, Icon]: any) => (
-            <button
-              key={id}
-              className={`mobile-nav-item ${view === id ? 'selected' : ''}`}
-              onClick={() => setView(id)}
-            >
-              <Icon size={21} />
               <span>{label}</span>
             </button>
           ))}
         </nav>
 
+        {/* Sidebar Bottom - Sleek Logout Only */}
         <div className="sidebar-bottom">
-          <div className="secure-note">
-            <ShieldCheck size={17} />
-            <span>
-              Nghị định 13/2023/NĐ-CP<br />
-              <small>Mã hóa dữ liệu & SmartCA</small>
-            </span>
-          </div>
-          <button className="nav-item" onClick={logout}>
-            <LogOut size={18} /> Đăng xuất
+          <button className="nav-item logout-btn" onClick={logout} title="Đăng xuất khỏi hệ thống">
+            <LogOut size={18} />
+            <span>Đăng xuất</span>
           </button>
         </div>
       </aside>
@@ -2557,6 +2536,20 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Mobile Bottom Navigation Bar (Chỉ hiển thị trên thiết bị di động < 768px) */}
+      <nav className="mobile-bottom-nav">
+        {mobileNavItems.map(([id, label, Icon]: any) => (
+          <button
+            key={id}
+            className={`mobile-nav-item ${view === id ? 'selected' : ''}`}
+            onClick={() => setView(id)}
+          >
+            <Icon size={20} />
+            <span>{label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   )
 }
