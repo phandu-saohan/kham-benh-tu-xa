@@ -1004,110 +1004,83 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
               const isConnecting = connectingDeviceId === device.id
 
               return (
-                <div key={device.id} className="connected-device-card">
-                  {/* Top Bar: Icon, Tên, Hãng, Pin & Trạng thái */}
-                  <div className="card-top-row">
-                    <div className="device-identity-group">
+                <div key={device.id} className="compact-device-card">
+                  {/* Top Header: Icon, Tên, Hãng, Pin & Xóa */}
+                  <div className="card-compact-head">
+                    <div className="compact-dev-identity">
                       <div
-                        className="device-avatar-box"
+                        className="compact-avatar-box"
                         style={{ background: `${device.accentColor}18`, color: device.accentColor }}
                       >
-                        <Icon size={24} />
+                        <Icon size={20} />
                       </div>
-                      <div className="device-title-block">
-                        <div className="device-name-row">
-                          <h4 className="device-title">{device.name}</h4>
-                          <span className="live-connected-pill">
-                            <span className="status-dot connected" />
-                            <span>Đã kết nối</span>
+                      <div className="compact-title-wrap">
+                        <div className="compact-title-line">
+                          <h4 className="compact-device-name">{device.name}</h4>
+                          <span className="compact-connected-tag">
+                            <span className="status-dot connected" /> Đã kết nối
                           </span>
                         </div>
-                        <div className="device-brand-meta">
+                        <div className="compact-sub-line">
                           <span>{device.brand}</span>
                           {device.regulatoryApproval && (
-                            <span className="fda-pill">
-                              <ShieldCheck size={11} /> {device.regulatoryApproval}
-                            </span>
+                            <span className="compact-fda-tag">{device.regulatoryApproval}</span>
                           )}
                         </div>
                       </div>
                     </div>
 
                     <button
-                      className="btn-unpair-device"
+                      className="btn-unpair-compact"
                       onClick={(e) => handleDisconnectDevice(device, e)}
                       title="Ngắt kết nối thiết bị này"
                     >
-                      <Trash2 size={15} />
+                      <Trash2 size={14} />
                     </button>
                   </div>
 
-                  {/* ⭐ KHU VỰC HIỂN THỊ CHI TIẾT: THIẾT BỊ NÀY ĐO CHỈ SỐ GÌ */}
-                  <div className="device-metrics-block">
-                    <div className="metrics-block-header">
-                      <Activity size={14} className="text-teal" />
-                      <span className="metrics-header-title">Thiết bị đo các chỉ số sinh hiệu:</span>
-                    </div>
-
-                    <div className="metrics-tags-grid">
-                      {device.measuredMetrics.map((metric, idx) => (
-                        <div key={idx} className="metric-tag-card">
-                          <div className="metric-tag-top">
-                            <span className="metric-code-badge">{metric.code}</span>
-                            <span className="metric-name">{metric.name}</span>
-                          </div>
-                          <div className="metric-tag-bottom">
-                            <span className="metric-unit">Đơn vị: <b>{metric.unit}</b></span>
-                            <span className="metric-range">Chuẩn: <i>{metric.normalRange}</i></span>
-                          </div>
-                          <p className="metric-desc">{metric.description}</p>
-                        </div>
+                  {/* Chỉ số thiết bị đo lường (Compact Chips) */}
+                  <div className="compact-metrics-section">
+                    <span className="compact-metrics-label">Chỉ số đo:</span>
+                    <div className="compact-chips-list">
+                      {device.measuredMetrics.map((m, idx) => (
+                        <span key={idx} className="compact-chip" title={`${m.name}: Chuẩn ${m.normalRange}`}>
+                          <b className="chip-code">{m.code}</b>
+                          <span className="chip-name">{m.name.split('(')[0].trim()}</span>
+                          <span className="chip-unit">[{m.unit}]</span>
+                        </span>
                       ))}
                     </div>
-
-                    {/* Ứng dụng theo dõi lâm sàng */}
-                    <div className="clinical-use-hint">
-                      <Info size={13} className="hint-icon" />
-                      <span><b>Ứng dụng y khoa:</b> {device.clinicalUse}</span>
-                    </div>
                   </div>
 
-                  {/* Kết quả số đo gần nhất & Thông tin đồng bộ */}
-                  <div className="card-reading-summary">
-                    <div className="reading-label-group">
-                      <span className="reading-label">Số đo gần nhất:</span>
-                      <strong className="reading-value">{device.lastReading || 'Chưa ghi nhận'}</strong>
+                  {/* Hàng số đo & nút thao tác đồng bộ */}
+                  <div className="compact-reading-action-bar">
+                    <div className="compact-reading-info">
+                      <span className="compact-reading-title">Số đo gần nhất:</span>
+                      <strong className="compact-reading-val">{device.lastReading || 'Chưa ghi nhận'}</strong>
+                      <span className="compact-sync-time">• {device.lastSync || 'Chưa đồng bộ'}</span>
                     </div>
 
-                    <div className="reading-meta-group">
+                    <div className="compact-action-group">
                       {device.battery !== undefined && (
-                        <span className="battery-pill">
-                          <Battery size={13} /> Pin {device.battery}%
+                        <span className="compact-battery-pill">
+                          <Battery size={12} /> {device.battery}%
                         </span>
                       )}
-                      <span className="sync-pill">
-                        <Radio size={12} /> {device.lastSync || 'Chưa đồng bộ'}
-                      </span>
+                      <button
+                        className="btn-sync-compact"
+                        onClick={() => handleMeasureDevice(device)}
+                        disabled={isConnecting}
+                        title="Đồng bộ chỉ số đo vào Bệnh án EMR"
+                      >
+                        {isConnecting ? (
+                          <RefreshCw size={13} className="spin" />
+                        ) : (
+                          <Zap size={13} />
+                        )}
+                        <span>{isConnecting ? 'Đang đọc...' : 'Đồng bộ'}</span>
+                      </button>
                     </div>
-                  </div>
-
-                  {/* Nút thao tác lấy số đo */}
-                  <div className="card-action-footer">
-                    <button
-                      className="btn-sync-measurement"
-                      onClick={() => handleMeasureDevice(device)}
-                      disabled={isConnecting}
-                    >
-                      {isConnecting ? (
-                        <>
-                          <RefreshCw size={15} className="spin" /> Đang nhận dữ liệu từ cảm biến...
-                        </>
-                      ) : (
-                        <>
-                          <Zap size={15} /> Đồng bộ số đo ngay
-                        </>
-                      )}
-                    </button>
                   </div>
                 </div>
               )
