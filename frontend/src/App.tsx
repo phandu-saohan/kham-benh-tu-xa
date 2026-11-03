@@ -282,6 +282,13 @@ export default function App() {
   const [hisSummary, setHisSummary] = useState<any>(null)
   const [imaging, setImaging] = useState<any>(null)
   const [toast, setToast] = useState('')
+  // Tự động đóng toast thông báo sau 4 giây
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(''), 4000)
+      return () => clearTimeout(timer)
+    }
+  }, [toast])
 
   // Cận lâm sàng & PACS cho từng bệnh nhân
   const [selectedPatientId, setSelectedPatientId] = useState<number>(1)
@@ -431,6 +438,7 @@ export default function App() {
     try {
       const u = await login(email, password)
       setUser(u)
+      setToast('')
       await loadDashboard(u)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Đăng nhập thất bại')
@@ -494,11 +502,13 @@ export default function App() {
         const idToken = await verifyFirebaseOtp(confirmationResult, otpCode.trim())
         const u = await loginWithFirebaseToken(idToken, patientFullName)
         setUser(u)
+        setToast('')
         await loadDashboard(u)
       } else {
         // Fallback qua backend OTP thông thường / mock
         const u = await verifyOtp(phone, otpCode, patientFullName)
         setUser(u)
+        setToast('')
         await loadDashboard(u)
       }
     } catch (e: any) {
@@ -1166,43 +1176,46 @@ export default function App() {
 
       {/* Main Content */}
       <main className="main-content">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">HỆ THỐNG Y TẾ TỪ XA CHUẨN QUỐC GIA</p>
-            <h2>
-              {isPatient
-                ? `Xin chào, ${user.full_name}`
-                : isDoctor
-                ? `👨‍⚕️ Buồng làm việc Bác sĩ: ${user.full_name}`
-                : isNurse
-                ? `👩‍⚕️ Bàn Tiếp đón Điều dưỡng: ${user.full_name}`
-                : `⚙️ Quản trị Toàn viện: ${user.full_name}`}
-            </h2>
-          </div>
-          <div className="top-actions">
-            <NotificationCenter
-              userRole={user.role}
-              onNavigate={(url) => {
-                if (url.includes('appointments') || url.includes('booking')) setView('appointments')
-                else if (url.includes('prescriptions')) setView('prescriptions')
-                else if (url.includes('paraclinical') || url.includes('labs')) setView('paraclinical')
-                else if (url.includes('profile')) setView('profile')
-                else if (url.includes('admin')) setView('admin')
-              }}
-            />
-            <span className="status-dot" /> SmartCA & Cổng Đơn thuốc sẵn sàng
-            <button
-              className={`avatar small-avatar ${view === 'profile' ? 'selected' : ''}`}
-              title={`Hồ sơ tài khoản: ${user.full_name}`}
-              onClick={() => setView(isPatient ? 'profile' : 'overview')}
-            >
-              <UserRound size={17} />
-            </button>
-            <button className="mobile-logout-btn" onClick={logout} title="Đăng xuất tài khoản">
-              <LogOut size={16} />
-            </button>
-          </div>
-        </header>
+        {/* Topbar: Ẩn hoàn toàn trên Dashboard Bệnh nhân (do Patient Dashboard đã có Header nhận diện riêng, loại bỏ phần thừa) */}
+        {!(isPatient && view === 'overview') && (
+          <header className="topbar">
+            <div>
+              <p className="eyebrow">HỆ THỐNG Y TẾ TỪ XA CHUẨN QUỐC GIA</p>
+              <h2>
+                {isPatient
+                  ? `Xin chào, ${user.full_name}`
+                  : isDoctor
+                  ? `👨‍⚕️ Buồng làm việc Bác sĩ: ${user.full_name}`
+                  : isNurse
+                  ? `👩‍⚕️ Bàn Tiếp đón Điều dưỡng: ${user.full_name}`
+                  : `⚙️ Quản trị Toàn viện: ${user.full_name}`}
+              </h2>
+            </div>
+            <div className="top-actions">
+              <NotificationCenter
+                userRole={user.role}
+                onNavigate={(url) => {
+                  if (url.includes('appointments') || url.includes('booking')) setView('appointments')
+                  else if (url.includes('prescriptions')) setView('prescriptions')
+                  else if (url.includes('paraclinical') || url.includes('labs')) setView('paraclinical')
+                  else if (url.includes('profile')) setView('profile')
+                  else if (url.includes('admin')) setView('admin')
+                }}
+              />
+              <span className="status-dot" /> SmartCA & Cổng Đơn thuốc sẵn sàng
+              <button
+                className={`avatar small-avatar ${view === 'profile' ? 'selected' : ''}`}
+                title={`Hồ sơ tài khoản: ${user.full_name}`}
+                onClick={() => setView(isPatient ? 'profile' : 'overview')}
+              >
+                <UserRound size={17} />
+              </button>
+              <button className="mobile-logout-btn" onClick={logout} title="Đăng xuất tài khoản">
+                <LogOut size={16} />
+              </button>
+            </div>
+          </header>
+        )}
 
         {error && (
           <div className="alert error">
@@ -1210,7 +1223,7 @@ export default function App() {
             <button onClick={() => setError('')}><X size={16} /></button>
           </div>
         )}
-        {toast && (
+        {toast && !(isPatient && view === 'overview') && (
           <div className="alert success">
             {toast}
             <button onClick={() => setToast('')}><X size={16} /></button>

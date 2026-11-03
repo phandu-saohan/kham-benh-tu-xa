@@ -19405,6 +19405,24 @@ button {
   gap: 10px;
   flex-shrink: 0;
 }
+.portal-header-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.portal-notif-btn-wrapper {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+.portal-notif-btn-wrapper .notif-bell-btn {
+  color: #ffffff !important;
+}
 .btn-portal-primary {
   display: inline-flex;
   align-items: center;

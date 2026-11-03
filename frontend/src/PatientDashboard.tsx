@@ -47,6 +47,7 @@ import {
   simulateDeviceReading
 } from './bluetoothService'
 import { cameraPpgService, PPGMeasurementResult, PPGFrameData } from './cameraPpgService'
+import { NotificationCenter } from './NotificationCenter'
 
 interface PatientDashboardProps {
   user: any
@@ -590,9 +591,24 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({
         </div>
 
         <div className="portal-header-actions">
-          <button className="btn-portal-primary" onClick={onBook}>
-            <Plus size={16} /> Đặt lịch khám ngay
-          </button>
+          <div className="portal-header-actions-row">
+            <div className="portal-notif-btn-wrapper">
+              <NotificationCenter
+                userRole={user.role}
+                onNavigate={(url) => {
+                  if (url.includes('appointments') || url.includes('booking')) onNavigate('appointments')
+                  else if (url.includes('prescriptions')) onNavigate('prescriptions')
+                  else if (url.includes('paraclinical') || url.includes('labs') || url.includes('lab')) onNavigate('lab')
+                  else if (url.includes('profile')) onNavigate('profile')
+                  else if (url.includes('records')) onNavigate('records')
+                  else if (url.includes('vitals')) onNavigate('vitals')
+                }}
+              />
+            </div>
+            <button className="btn-portal-primary" onClick={onBook}>
+              <Plus size={16} /> Đặt lịch khám ngay
+            </button>
+          </div>
           <button className="btn-portal-secondary" onClick={() => onNavigate('records')}>
             <FileText size={15} /> Bệnh án của tôi
           </button>
