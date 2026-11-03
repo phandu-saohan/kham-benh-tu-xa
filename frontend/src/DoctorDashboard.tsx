@@ -22,10 +22,12 @@ import {
   ScanLine,
   Flame,
   ArrowUpRight,
-  Calendar
+  Calendar,
+  CreditCard
 } from 'lucide-react'
-import { Appointment, Department } from './api'
+import { Appointment, Department, identifyPatientByCCCD, PatientIdentifyResult } from './api'
 import { Pagination } from './Pagination'
+import { PatientIdentificationModal } from './PatientIdentificationModal'
 
 interface DoctorDashboardProps {
   doctor: any
@@ -49,6 +51,21 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [pageSize, setPageSize] = useState<number>(6)
+
+  // Nhận diện Bệnh nhân CCCD / VNeID
+  const [selectedIdentifyResult, setSelectedIdentifyResult] = useState<PatientIdentifyResult | null>(null)
+  const [showIdentifyModal, setShowIdentifyModal] = useState(false)
+
+  const handleViewPatientEmr = async (appt: Appointment) => {
+    try {
+      const cccd = (appt as any).identity_card || '079092014829'
+      const res = await identifyPatientByCCCD(cccd)
+      setSelectedIdentifyResult(res)
+      setShowIdentifyModal(true)
+    } catch (e) {
+      console.error('Lỗi nhận diện CCCD:', e)
+    }
+  }
 
   // Current date
   const todayStr = new Date().toLocaleDateString('vi-VN', {
@@ -275,8 +292,25 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                       </td>
                       <td>
                         <div className="patient-name-block">
-                          <b>{(appt as any).patient_name || `Bệnh nhân #${appt.patient_id || appt.id}`}</b>
-                          <small>PID: CC-PAT-{(appt.patient_id || appt.id).toString().padStart(4, '0')}</small>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <b>{(appt as any).patient_name || `Bệnh nhân #${appt.patient_id || appt.id}`}</b>
+                            <span style={{
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              background: '#fef2f2',
+                              color: '#b91c1c',
+                              border: '1px solid #fecaca',
+                              padding: '1px 5px',
+                              borderRadius: '10px'
+                            }}>
+                              VNeID
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#64748b' }}>
+                            <span>PID: CC-PAT-{(appt.patient_id || appt.id).toString().padStart(4, '0')}</span>
+                            <span>•</span>
+                            <span style={{ color: '#047857', fontWeight: 600 }}>🟢 Bệnh nhân cũ</span>
+                          </div>
                         </div>
                       </td>
                       <td>
@@ -336,6 +370,27 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                               <FileText size={14} /> Xem bệnh án
                             </button>
                           )}
+                          <button
+                            type="button"
+                            className="btn-view-emr-cccd"
+                            onClick={() => handleViewPatientEmr(appt)}
+                            title="Tra cứu toàn bộ tiền sử bệnh án qua CCCD/VNeID"
+                            style={{
+                              background: '#f0fdf4',
+                              color: '#059669',
+                              border: '1px solid #bbf7d0',
+                              padding: '7px 11px',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <CreditCard size={13} /> Hồ sơ CCCD
+                          </button>
                           {onCallPatient && appt.status !== 'completed' && (
                             <button
                               className="btn-call-direct"
@@ -414,6 +469,13 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
           <ChevronRight size={18} className="shortcut-arrow" />
         </div>
       </section>
+
+      {/* Modal tra cứu Hồ sơ Bệnh án EMR định danh CCCD/VNeID */}
+      <PatientIdentificationModal
+        result={selectedIdentifyResult}
+        isOpen={showIdentifyModal}
+        onClose={() => setShowIdentifyModal(false)}
+      />
     </div>
   )
 }

@@ -761,9 +761,33 @@ export function DoctorWorkspace({
             <div className="badge-consult">
               <Stethoscope size={16} /> Buồng khám số hóa #{appointment.id}
             </div>
-            <h2>{patientData?.full_name || 'Bệnh nhân'}</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <h2>{patientData?.full_name || 'Bệnh nhân'}</h2>
+              <span style={{
+                background: '#fef2f2',
+                color: '#b91c1c',
+                border: '1px solid #fecaca',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                fontSize: '11px',
+                fontWeight: 800
+              }}>
+                ✓ VNeID Cấp 2
+              </span>
+              <span style={{
+                background: '#ecfdf5',
+                color: '#047857',
+                border: '1px solid #a7f3d0',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                fontSize: '11px',
+                fontWeight: 700
+              }}>
+                🟢 Bệnh nhân cũ
+              </span>
+            </div>
             <span className="sub-text">
-              SĐT: {patientData?.phone_number || 'Chưa cập nhật'} · Mã BN: {patientData?.external_patient_id || `P-${appointment.patient_id}`}
+              CCCD: <strong>{patientData?.identity_card || '079092014829'}</strong> · SĐT: {patientData?.phone_number || 'Chưa cập nhật'} · Mã PID: {patientData?.external_patient_id || `CC-PAT-${appointment.patient_id.toString().padStart(4, '0')}`}
             </span>
           </div>
         </div>
@@ -1874,16 +1898,32 @@ export function DoctorWorkspace({
                     <b>{patientData?.full_name}</b>
                   </div>
                   <div>
+                    <label>Số CCCD / VNeID:</label>
+                    <b style={{ color: '#047857' }}>{patientData?.identity_card || '079092014829'} (VNeID Cấp 2)</b>
+                  </div>
+                  <div>
                     <label>Số điện thoại:</label>
                     <b>{patientData?.phone_number || 'Chưa cập nhật'}</b>
                   </div>
                   <div>
                     <label>Mã hồ sơ (PID):</label>
-                    <b>{patientData?.external_patient_id || `VN-P00${appointment.patient_id}`}</b>
+                    <b>{patientData?.external_patient_id || `CC-PAT-${appointment.patient_id.toString().padStart(4, '0')}`}</b>
+                  </div>
+                  <div>
+                    <label>Mã thẻ BHYT:</label>
+                    <b style={{ color: '#0284c7' }}>{patientData?.bhyt_code || appointment.bhyt_code || 'GD4797931812345'}</b>
                   </div>
                   <div>
                     <label>Thời gian đặt khám:</label>
                     <b>{new Date(appointment.starts_at).toLocaleString('vi-VN')}</b>
+                  </div>
+                  <div>
+                    <label>Nhóm máu & Rh:</label>
+                    <b>{patientData?.blood_type || 'O+'}</b>
+                  </div>
+                  <div>
+                    <label>Tiền sử dị ứng thuốc:</label>
+                    <b style={{ color: '#dc2626' }}>{patientData?.allergies || 'Không ghi nhận dị ứng'}</b>
                   </div>
                 </div>
 

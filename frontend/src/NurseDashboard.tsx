@@ -20,10 +20,20 @@ import {
   CalendarDays,
   ChevronRight,
   Sparkles,
-  Phone
+  Phone,
+  CreditCard,
+  FileText
 } from 'lucide-react'
-import { TriageItem, TriageAssessmentData, getTriageQueue, assessTriage } from './api'
+import {
+  TriageItem,
+  TriageAssessmentData,
+  getTriageQueue,
+  assessTriage,
+  identifyPatientByCCCD,
+  PatientIdentifyResult
+} from './api'
 import { Pagination } from './Pagination'
+import { PatientIdentificationModal } from './PatientIdentificationModal'
 
 interface NurseDashboardProps {
   nurse: any
@@ -59,6 +69,51 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
   // BHYT Quick verification
   const [bhytQuery, setBhytQuery] = useState('')
   const [bhytResult, setBhytResult] = useState<any>(null)
+
+  // Nhận diện Bệnh nhân CCCD / VNeID Đề án 06
+  const [cccdSearch, setCccdSearch] = useState('')
+  const [identifying, setIdentifying] = useState(false)
+  const [identifiedPatient, setIdentifiedPatient] = useState<PatientIdentifyResult | null>(null)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
+
+  const handleIdentifyPatient = async (targetCccd?: string) => {
+    const code = (targetCccd || cccdSearch).trim()
+    if (!code) {
+      setToastMessage('Vui lòng nhập 12 số CCCD hoặc quét mã QR VNeID')
+      return
+    }
+    setIdentifying(true)
+    try {
+      const res = await identifyPatientByCCCD(code)
+      setIdentifiedPatient(res)
+      setToastMessage(res.message)
+    } catch (e) {
+      setToastMessage(e instanceof Error ? e.message : 'Lỗi nhận diện CCCD/VNeID')
+    } finally {
+      setIdentifying(false)
+    }
+  }
+
+  const handleApplyIdentifiedPatient = (patient: PatientIdentifyResult) => {
+    const foundInQueue = queue.find(q =>
+      (patient.patient_id && q.patient_id === patient.patient_id) ||
+      (patient.full_name && q.patient_name.toLowerCase() === patient.full_name.toLowerCase())
+    )
+    if (foundInQueue) {
+      handleSelectItem(foundInQueue)
+      setToastMessage(`Đã chọn bệnh nhân ${patient.full_name} trong hàng đợi tiếp đón`)
+    } else {
+      const allergyNote = patient.allergies ? `[Dị ứng: ${patient.allergies}]` : ''
+      const chronicNote = patient.chronic_conditions && patient.chronic_conditions.length > 0
+        ? `[Bệnh nền: ${patient.chronic_conditions.map(c => c.display).join(', ')}]`
+        : ''
+      const priorVisitsNote = patient.total_visits > 0
+        ? `[Bệnh nhân cũ: ${patient.total_visits} lần khám trước]`
+        : '[Bệnh nhân mới]'
+      setTriageNotes(`${priorVisitsNote} ${allergyNote} ${chronicNote}`.trim())
+      setToastMessage(`Đã nạp tiền sử bệnh án của ${patient.full_name} vào phiếu tiếp đón`)
+    }
+  }
 
   const loadQueue = async () => {
     setLoading(true)
@@ -215,6 +270,240 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
           <span>{toastMessage}</span>
         </div>
       )}
+
+      {/* 1.5. Nhận diện Bệnh nhân đã có hồ sơ bằng CCCD / VNeID (Đề án 06) */}
+      <section className="panel cccd-identification-panel" style={{
+        background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #e0f2fe 100%)',
+        border: '2px solid #059669',
+        borderRadius: '16px',
+        padding: '20px',
+        boxShadow: '0 4px 16px rgba(5, 150, 105, 0.12)'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span style={{
+                background: '#047857',
+                color: '#ffffff',
+                fontSize: '11px',
+                fontWeight: 800,
+                padding: '3px 8px',
+                borderRadius: '6px',
+                letterSpacing: '0.5px'
+              }}>
+                ĐỀ ÁN 06/CP
+              </span>
+              <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: '#064e3b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ShieldCheck size={20} color="#059669" /> Nhận diện Bệnh nhân bằng CCCD / VNeID
+              </h3>
+            </div>
+            <p style={{ margin: 0, fontSize: '13px', color: '#047857' }}>
+              Quét mã QR trên CCCD gắn chip hoặc nhập số định danh 12 số để tự động nhận diện Bệnh nhân cũ & truy xuất hồ sơ EMR
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '12px', color: '#065f46', fontWeight: 600, alignSelf: 'center' }}>Thử nhanh:</span>
+            <button
+              type="button"
+              className="quick-chip-btn"
+              style={{ background: '#ffffff', border: '1px solid #10b981', color: '#047857', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+              onClick={() => {
+                setCccdSearch('079092014829')
+                handleIdentifyPatient('079092014829')
+              }}
+            >
+              Nguyễn Minh An (079092014829)
+            </button>
+            <button
+              type="button"
+              className="quick-chip-btn"
+              style={{ background: '#ffffff', border: '1px solid #10b981', color: '#047857', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+              onClick={() => {
+                setCccdSearch('080180012345')
+                handleIdentifyPatient('080180012345')
+              }}
+            >
+              Nguyễn Thị Bích Hòa (080180012345)
+            </button>
+          </div>
+        </div>
+
+        {/* Input & Search bar */}
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{
+            flex: 1,
+            minWidth: '280px',
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            background: '#ffffff',
+            borderRadius: '10px',
+            border: '1px solid #cbd5e1',
+            padding: '2px 12px'
+          }}>
+            <CreditCard size={18} color="#059669" style={{ marginRight: '8px' }} />
+            <input
+              type="text"
+              placeholder="Nhập 12 số CCCD hoặc chuỗi quét mã QR VNeID..."
+              value={cccdSearch}
+              onChange={e => setCccdSearch(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleIdentifyPatient() }}
+              style={{
+                width: '100%',
+                border: 'none',
+                outline: 'none',
+                padding: '10px 0',
+                fontSize: '14px',
+                fontFamily: 'inherit'
+              }}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => handleIdentifyPatient()}
+            disabled={identifying}
+            style={{
+              background: '#047857',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '10px',
+              padding: '10px 20px',
+              fontWeight: 700,
+              fontSize: '14px',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 8px rgba(4, 120, 87, 0.3)'
+            }}
+          >
+            {identifying ? <RefreshCw size={16} className="animate-spin" /> : <Search size={16} />}
+            {identifying ? 'Đang nhận diện...' : 'Nhận diện Bệnh nhân'}
+          </button>
+        </div>
+
+        {/* Identification Result Box */}
+        {identifiedPatient && (
+          <div style={{
+            marginTop: '16px',
+            background: '#ffffff',
+            borderRadius: '12px',
+            border: `2px solid ${identifiedPatient.patient_type === 'existing_with_history' ? '#10b981' : '#0284c7'}`,
+            padding: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    padding: '3px 10px',
+                    borderRadius: '20px',
+                    background: identifiedPatient.patient_type === 'existing_with_history' ? '#dcfce7' : '#e0f2fe',
+                    color: identifiedPatient.patient_type === 'existing_with_history' ? '#15803d' : '#0369a1'
+                  }}>
+                    {identifiedPatient.patient_type === 'existing_with_history' && `🟢 BỆNH NHÂN CŨ (ĐÃ CÓ ${identifiedPatient.total_visits} LƯỢT KHÁM EMR)`}
+                    {identifiedPatient.patient_type === 'existing_no_history' && '🟢 BỆNH NHÂN ĐÃ CÓ TÀI KHOẢN (CHƯA KHÁM)'}
+                    {identifiedPatient.patient_type === 'his_only' && '🔵 BỆNH NHÂN ĐÃ CÓ HỒ SƠ HIS BỆNH VIỆN'}
+                    {identifiedPatient.patient_type === 'new' && '⚪ BỆNH NHÂN MỚI (CHƯA CÓ HỒ SƠ TẠI VIỆN)'}
+                  </span>
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    background: '#fef2f2',
+                    color: '#b91c1c',
+                    border: '1px solid #fecaca'
+                  }}>
+                    ✓ VNeID Mức 2
+                  </span>
+                </div>
+
+                <h4 style={{ margin: '8px 0 2px 0', fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
+                  {identifiedPatient.full_name || 'Họ và tên chưa xác định'}
+                </h4>
+                <div style={{ fontSize: '13px', color: '#475569', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <span><b>PID:</b> {identifiedPatient.pid || 'Mới'}</span>
+                  <span>•</span>
+                  <span><b>CCCD:</b> {identifiedPatient.identity_card}</span>
+                  <span>•</span>
+                  <span><b>Ngày sinh:</b> {identifiedPatient.date_of_birth} ({identifiedPatient.gender})</span>
+                  <span>•</span>
+                  <span><b>Thẻ BHYT:</b> <strong style={{ color: '#059669' }}>{identifiedPatient.bhyt_code || 'Chưa có'}</strong></span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  style={{
+                    background: '#047857',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px 14px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  onClick={() => handleApplyIdentifiedPatient(identifiedPatient)}
+                >
+                  <CheckCircle2 size={15} /> Điền vào Bàn tiếp đón
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    background: '#ffffff',
+                    color: '#0284c7',
+                    border: '1px solid #0284c7',
+                    borderRadius: '8px',
+                    padding: '8px 14px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  onClick={() => setShowHistoryModal(true)}
+                >
+                  <FileText size={15} /> Xem hồ sơ EMR ({identifiedPatient.total_visits})
+                </button>
+              </div>
+            </div>
+
+            {/* Quick warnings: Allergies and Chronic conditions */}
+            {(identifiedPatient.allergies || (identifiedPatient.chronic_conditions && identifiedPatient.chronic_conditions.length > 0)) && (
+              <div style={{
+                background: '#fffbeb',
+                border: '1px solid #fef3c7',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                fontSize: '12px',
+                color: '#92400e',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                flexWrap: 'wrap'
+              }}>
+                <AlertTriangle size={15} color="#d97706" />
+                <span><b>Tiền sử dị ứng:</b> {identifiedPatient.allergies || 'Không'}</span>
+                {identifiedPatient.chronic_conditions && identifiedPatient.chronic_conditions.length > 0 && (
+                  <span>• <b>Bệnh mạn tính:</b> {identifiedPatient.chronic_conditions.map(c => `${c.code} (${c.display})`).join(', ')}</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
 
       {/* 2. Main Two-Column Triage Desk Workspace */}
       <div className="nurse-workspace-grid">
@@ -506,6 +795,14 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
           )}
         </section>
       </div>
+
+      {/* Modal chi tiết Hồ sơ Bệnh án EMR định danh CCCD/VNeID */}
+      <PatientIdentificationModal
+        result={identifiedPatient}
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        onSelectForTriage={handleApplyIdentifiedPatient}
+      />
     </div>
   )
 }

@@ -4,7 +4,7 @@ import sys
 sys.stdout.reconfigure(encoding="utf-8")
 
 # Point DATABASE_URL to Supabase Postgres telemedicine db
-os.environ["DATABASE_URL"] = "postgresql+psycopg2://postgres:tobklteb61gqvbz0adpsyurqmkun1tir@72.61.123.73:5432/telemedicine"
+os.environ["DATABASE_URL"] = "postgresql+psycopg://postgres:tobklteb61gqvbz0adpsyurqmkun1tir@72.61.123.73:5432/telemedicine"
 os.environ["APP_ENV"] = "development"
 os.environ["SEED_DEMO"] = "true"
 

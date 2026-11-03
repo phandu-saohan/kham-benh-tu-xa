@@ -1507,3 +1507,60 @@ export async function submitPACSFeedback(consultationId: number, data: {
 
 
 
+
+
+// --- NHẬN DIỆN BỆNH NHÂN ĐÃ CÓ HỒ SƠ KHÁM BỆNH BẰNG CCCD / VNeID (ĐỀ ÁN 06) ---
+
+export interface PreviousVisitSummary {
+  appointment_id: number
+  date: string
+  doctor_name: string
+  department_name: string
+  status: string
+  reason: string
+  diagnosis?: string
+  icd10_code?: string
+  has_prescription: boolean
+  has_pacs: boolean
+  has_lab: boolean
+}
+
+export interface PatientIdentifyResult {
+  found: boolean
+  patient_type: 'existing_with_history' | 'existing_no_history' | 'his_only' | 'new'
+  patient_id?: number
+  pid?: string
+  full_name?: string
+  date_of_birth?: string
+  gender?: string
+  identity_card?: string
+  vneid_level: number
+  is_vneid_verified: boolean
+  phone_number?: string
+  bhyt_code?: string
+  address?: string
+  blood_type?: string
+  allergies?: string
+  chronic_conditions: { code: string; display: string }[]
+  total_visits: number
+  last_visit?: {
+    date: string
+    doctor_name: string
+    department_name: string
+    diagnosis_icd10?: string
+    diagnosis_text?: string
+    prescription_count: number
+  }
+  visit_history: PreviousVisitSummary[]
+  message: string
+}
+
+export async function identifyPatientByCCCD(identityCard: string, phoneNumber?: string) {
+  return request<PatientIdentifyResult>('/api/v1/patients/identify-by-cccd', {
+    method: 'POST',
+    body: JSON.stringify({
+      identity_card: identityCard,
+      phone_number: phoneNumber
+    })
+  })
+}

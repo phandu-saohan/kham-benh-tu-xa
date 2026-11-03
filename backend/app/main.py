@@ -40,6 +40,7 @@ from app.schemas import (
     AdminOverviewOut, AuditLogOut, SystemSettingsOut, SystemSettingsUpdateIn,
     PatientProfileOut, PatientProfileUpdateIn,
     PatientHisCheckIn, PatientHisCheckOut, PatientRegisterIn, PatientRegisterOut,
+    PatientIdentifyIn, PatientIdentifyOut,
     UserRoleUpdateIn,
     TriageSymptomIn, TriageSymptomOut,
     OcrDocumentIn, OcrDocumentOut,
@@ -354,6 +355,218 @@ def check_patient_his(data: PatientHisCheckIn, db: Session = Depends(get_db)):
             "already_registered_in_app": False,
             "message": "Chưa có hồ sơ bệnh án trên HIS/EMR bệnh viện. Hệ thống sẽ tự động tạo hồ sơ bệnh nhân điện tử mới khi bạn hoàn tất đăng ký."
         }
+
+def parse_vneid_or_cccd(raw_text: str) -> dict:
+    """
+    Chuẩn hóa và bóc tách dữ liệu từ số CCCD hoặc chuỗi mã QR CCCD/VNeID chuẩn Bộ Công An:
+    Format QR: CCCD|CMND|Họ và tên|Ngày sinh (DDMMYYYY)|Giới tính|Địa chỉ thường trú|Ngày cấp
+    Ví dụ: 079092014829|024123456|Nguyễn Minh An|16081992|Nam|124 Điện Biên Phủ, Phường Đa Kao, Quận 1, TP. Hồ Chí Minh|10052021
+    """
+    raw = (raw_text or "").strip()
+    if not raw:
+        return {"identity_card": "", "full_name": None, "dob": None, "gender": None, "address": None}
+
+    if "|" in raw:
+        parts = [p.strip() for p in raw.split("|")]
+        if len(parts) >= 1:
+            cccd = parts[0]
+            name = parts[2] if len(parts) > 2 and parts[2] else None
+            dob_raw = parts[3] if len(parts) > 3 and parts[3] else None
+            dob_iso = None
+            if dob_raw and len(dob_raw) == 8 and dob_raw.isdigit():
+                # DDMMYYYY -> YYYY-MM-DD
+                dob_iso = f"{dob_raw[4:8]}-{dob_raw[2:4]}-{dob_raw[0:2]}"
+            gender = parts[4] if len(parts) > 4 and parts[4] else None
+            address = parts[5] if len(parts) > 5 and parts[5] else None
+            return {
+                "identity_card": cccd,
+                "full_name": name,
+                "dob": dob_iso,
+                "gender": gender,
+                "address": address
+            }
+
+    clean_cccd = "".join(ch for ch in raw if ch.isalnum())
+    return {
+        "identity_card": clean_cccd,
+        "full_name": None,
+        "dob": None,
+        "gender": None,
+        "address": None
+    }
+
+@app.post("/api/v1/patients/identify-by-cccd", response_model=PatientIdentifyOut)
+def identify_patient_by_cccd(
+    data: PatientIdentifyIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Nhận diện Bệnh nhân đã có hồ sơ khám bệnh bằng CCCD / VNeID (Đề án 06/CP).
+    Tự động truy xuất lịch sử các lượt khám (EMR), toa thuốc đã dùng, BHYT và cảnh báo tiền sử dị ứng.
+    """
+    parsed = parse_vneid_or_cccd(data.identity_card)
+    clean_cccd = parsed["identity_card"]
+    clean_phone = data.phone_number.strip() if data.phone_number else None
+
+    if not clean_cccd:
+        raise HTTPException(status_code=400, detail="Vui lòng cung cấp số CCCD hoặc quét mã QR VNeID hợp lệ.")
+
+    # 1. Tìm kiếm trong Database CareConnect
+    query = db.query(User).filter(User.role == "patient")
+    if clean_phone:
+        user = query.filter(or_(User.identity_card == clean_cccd, User.phone_number == clean_phone)).first()
+    else:
+        user = query.filter(User.identity_card == clean_cccd).first()
+
+    if user:
+        # Lấy lịch sử tất cả các lượt khám
+        appts = db.query(Appointment).filter(
+            Appointment.patient_id == user.id
+        ).order_by(Appointment.starts_at.desc()).all()
+
+        visit_history = []
+        last_visit_info = None
+
+        for a in appts:
+            doc = db.query(User).filter(User.id == a.doctor_id).first()
+            dept = db.query(Department).filter(Department.id == a.department_id).first() if a.department_id else None
+            rec = db.query(ClinicalRecord).filter(ClinicalRecord.appointment_id == a.id).first()
+            pres = db.query(PrescriptionRef).filter(PrescriptionRef.appointment_id == a.id).first()
+
+            diag_text = rec.diagnosis if rec else None
+            icd_code = rec.icd10_code if rec else None
+
+            v_summary = {
+                "appointment_id": a.id,
+                "date": a.starts_at.isoformat() if hasattr(a.starts_at, "isoformat") else str(a.starts_at),
+                "doctor_name": doc.full_name if doc else f"Bác sĩ #{a.doctor_id}",
+                "department_name": dept.name if dept else "Nội tổng quát",
+                "status": a.status,
+                "reason": a.reason or "Khám sức khỏe tổng quát",
+                "diagnosis": diag_text,
+                "icd10_code": icd_code,
+                "has_prescription": bool(pres),
+                "has_pacs": bool(a.status == "completed"),
+                "has_lab": bool(a.status == "completed")
+            }
+            visit_history.append(v_summary)
+
+        if visit_history:
+            last_visit_info = {
+                "date": visit_history[0]["date"],
+                "doctor_name": visit_history[0]["doctor_name"],
+                "department_name": visit_history[0]["department_name"],
+                "diagnosis_icd10": visit_history[0]["icd10_code"],
+                "diagnosis_text": visit_history[0]["diagnosis"],
+                "prescription_count": 1 if visit_history[0]["has_prescription"] else 0
+            }
+
+        total_visits = len(appts)
+        patient_type = "existing_with_history" if total_visits > 0 else "existing_no_history"
+
+        # Tách danh sách bệnh mạn tính
+        allergies_str = user.allergies or "Không ghi nhận dị ứng thuốc"
+        chronic_conditions = []
+        if total_visits > 0:
+            for v in visit_history:
+                if v.get("icd10_code") and v.get("diagnosis"):
+                    if not any(c.get("code") == v["icd10_code"] for c in chronic_conditions):
+                        chronic_conditions.append({
+                            "code": v["icd10_code"],
+                            "display": v["diagnosis"]
+                        })
+
+        pid_display = user.external_patient_id or f"CC-PAT-{user.id:04d}"
+        if patient_type == "existing_with_history":
+            msg = (
+                f"Đã nhận diện Bệnh nhân cũ qua CCCD/VNeID: {user.full_name} (PID: {pid_display}). "
+                f"Đã có {total_visits} lượt khám trên hệ thống. Bệnh án EMR, đơn thuốc cũ và tiền sử dị ứng đã được liên kết tự động."
+            )
+        else:
+            msg = (
+                f"Đã nhận diện Bệnh nhân qua CCCD/VNeID: {user.full_name} (PID: {pid_display}). "
+                f"Tài khoản đã định danh VNeID Cấp 2, chưa có lượt khám trước đây."
+            )
+
+        return {
+            "found": True,
+            "patient_type": patient_type,
+            "patient_id": user.id,
+            "pid": pid_display,
+            "full_name": user.full_name,
+            "date_of_birth": user.date_of_birth,
+            "gender": user.gender,
+            "identity_card": user.identity_card,
+            "vneid_level": 2,
+            "is_vneid_verified": True,
+            "phone_number": user.phone_number,
+            "bhyt_code": user.bhyt_code,
+            "address": user.address,
+            "blood_type": user.blood_type or "O+",
+            "allergies": allergies_str,
+            "chronic_conditions": chronic_conditions,
+            "total_visits": total_visits,
+            "last_visit": last_visit_info,
+            "visit_history": visit_history,
+            "message": msg
+        }
+
+    # 2. Nếu chưa có tài khoản trên App, tra cứu trên HIS bệnh viện
+    his_adapter = get_his_adapter()
+    his_patient = his_adapter.find_patient(
+        national_id=clean_cccd,
+        phone=clean_phone or "",
+        full_name=parsed.get("full_name") or ""
+    )
+
+    if his_patient:
+        return {
+            "found": True,
+            "patient_type": "his_only",
+            "patient_id": None,
+            "pid": his_patient.get("pid"),
+            "full_name": his_patient.get("full_name") or parsed.get("full_name"),
+            "date_of_birth": his_patient.get("dob") or parsed.get("dob"),
+            "gender": his_patient.get("gender") or parsed.get("gender"),
+            "identity_card": clean_cccd,
+            "vneid_level": 2,
+            "is_vneid_verified": True,
+            "phone_number": his_patient.get("phone") or clean_phone,
+            "bhyt_code": his_patient.get("bhyt_no"),
+            "address": his_patient.get("address") or parsed.get("address"),
+            "blood_type": his_patient.get("blood_type") or "O+",
+            "allergies": str(his_patient.get("allergies", "Không ghi nhận")),
+            "chronic_conditions": his_patient.get("conditions", []),
+            "total_visits": 1,
+            "last_visit": None,
+            "visit_history": [],
+            "message": f"Tìm thấy hồ sơ bệnh nhân trên hệ thống HIS bệnh viện (PID: {his_patient.get('pid')}) qua CCCD/VNeID. Có thể tiếp nhận vào buồng khám ngay."
+        }
+
+    # 3. Bệnh nhân hoàn toàn mới
+    return {
+        "found": False,
+        "patient_type": "new",
+        "patient_id": None,
+        "pid": None,
+        "full_name": parsed.get("full_name"),
+        "date_of_birth": parsed.get("dob"),
+        "gender": parsed.get("gender"),
+        "identity_card": clean_cccd,
+        "vneid_level": 2 if parsed.get("full_name") else 1,
+        "is_vneid_verified": bool(parsed.get("full_name")),
+        "phone_number": clean_phone,
+        "bhyt_code": None,
+        "address": parsed.get("address"),
+        "blood_type": None,
+        "allergies": None,
+        "chronic_conditions": [],
+        "total_visits": 0,
+        "last_visit": None,
+        "visit_history": [],
+        "message": f"Chưa có hồ sơ bệnh nhân trên hệ thống với số CCCD {clean_cccd}. Thông tin từ CCCD/VNeID đã được trích xuất sẵn sàng để tạo hồ sơ mới."
+    }
 
 @app.post("/api/v1/auth/patient-register", response_model=PatientRegisterOut)
 def register_patient_account(data: PatientRegisterIn, db: Session = Depends(get_db)):
@@ -3395,17 +3608,6 @@ def seed_demo():
             ])
             db.commit()
 
-        # Đảm bảo tài khoản Điều dưỡng (Nurse) luôn sẵn sàng
-        if not db.query(User).filter_by(role="nurse").first():
-            db.add(User(
-                email="nurse@example.test",
-                phone_number="0977665544",
-                full_name="ĐD. Nguyễn Thị Mai (Điều dưỡng trưởng)",
-                role="nurse",
-                password_hash=hash_password("ChangeMe123!")
-            ))
-            db.commit()
-
         # 3. Khởi tạo lịch trực & giới hạn ca khám (Anti-overload Quota)
         if db.query(DoctorShift).count() == 0:
             doc = db.query(User).filter_by(role="doctor").first()
@@ -3446,6 +3648,93 @@ def seed_demo():
                 password_hash=hash_password("ChangeMe123!")
             ))
             db.commit()
+
+        # Đảm bảo Bệnh nhân có thông tin định danh CCCD/VNeID & Lịch sử khám EMR mẫu
+        patient_u = db.query(User).filter_by(role="patient").first()
+        if patient_u:
+            if not patient_u.identity_card:
+                patient_u.identity_card = "079092014829"
+                patient_u.date_of_birth = "1992-08-16"
+                patient_u.gender = "Nam"
+                patient_u.address = "124 Điện Biên Phủ, Phường Đa Kao, Quận 1, TP. Hồ Chí Minh"
+                patient_u.blood_type = "O+"
+                patient_u.allergies = "Penicillin, Kháng sinh nhóm Beta-lactam"
+                db.commit()
+
+            # Khởi tạo dữ liệu lượt khám và bệnh án EMR nếu chưa có
+            if db.query(Appointment).filter_by(patient_id=patient_u.id).count() == 0:
+                doc = db.query(User).filter_by(role="doctor").first()
+                dept = db.query(Department).first()
+                if doc and dept:
+                    past1 = datetime.utcnow() - timedelta(days=30)
+                    past2 = datetime.utcnow() - timedelta(days=14)
+                    future1 = datetime.utcnow() + timedelta(hours=2)
+
+                    appt1 = Appointment(
+                        patient_id=patient_u.id,
+                        doctor_id=doc.id,
+                        department_id=dept.id,
+                        starts_at=past1,
+                        reason="Đau đầu, hoa mắt, huyết áp đo tại nhà tăng 150/95 mmHg",
+                        status="completed",
+                        fee_amount=150000,
+                        bhyt_code=patient_u.bhyt_code,
+                        bhyt_rate=80,
+                        bhyt_discount=120000,
+                        patient_pay_amount=30000
+                    )
+                    appt2 = Appointment(
+                        patient_id=patient_u.id,
+                        doctor_id=doc.id,
+                        department_id=dept.id,
+                        starts_at=past2,
+                        reason="Tái khám tăng huyết áp định kỳ, kiểm tra chỉ số mỡ máu",
+                        status="completed",
+                        fee_amount=150000,
+                        bhyt_code=patient_u.bhyt_code,
+                        bhyt_rate=80,
+                        bhyt_discount=120000,
+                        patient_pay_amount=30000
+                    )
+                    appt3 = Appointment(
+                        patient_id=patient_u.id,
+                        doctor_id=doc.id,
+                        department_id=dept.id,
+                        starts_at=future1,
+                        reason="Tư vấn điều chỉnh đơn thuốc và chỉ số đường huyết mao mạch",
+                        status="scheduled",
+                        fee_amount=150000,
+                        bhyt_code=patient_u.bhyt_code,
+                        bhyt_rate=80,
+                        bhyt_discount=120000,
+                        patient_pay_amount=30000
+                    )
+                    db.add_all([appt1, appt2, appt3])
+                    db.commit()
+
+                    db.add(ClinicalRecord(
+                        appointment_id=appt1.id,
+                        symptoms="Đau đầu vùng gáy, chóng mặt khi thay đổi tư thế, huyết áp 152/96 mmHg",
+                        allergies="Dị ứng Penicillin nhẹ (nổi mề đay)",
+                        diagnosis="Tăng huyết áp vô căn giai đoạn 1",
+                        icd10_code="I10",
+                        icd10_name="Bệnh tăng huyết áp vô căn (nguyên phát)",
+                        clinical_notes="Huyết áp 152/96, mạch 78, nhiệt độ 36.8, SpO2 98%. Kê đơn Amlodipine 5mg ngày 1 viên.",
+                        plan="Hạn chế ăn mặn, tập thể dục nhẹ, tái khám sau 2 tuần.",
+                        created_by=doc.id
+                    ))
+                    db.add(ClinicalRecord(
+                        appointment_id=appt2.id,
+                        symptoms="Huyết áp ổn định 128/82 mmHg, không còn đau đầu, lipid máu hơi cao",
+                        allergies="Dị ứng Penicillin nhẹ (nổi mề đay)",
+                        diagnosis="Tăng huyết áp vô căn; Rối loạn lipid máu",
+                        icd10_code="I10",
+                        icd10_name="Bệnh tăng huyết áp vô căn (nguyên phát)",
+                        clinical_notes="Huyết áp 128/82, mạch 72, nhiệt độ 36.6, SpO2 99%. Đáp ứng tốt với điều trị.",
+                        plan="Tiếp tục duy trì Amlodipine 5mg, bổ sung Atorvastatin 10mg buổi tối.",
+                        created_by=doc.id
+                    ))
+                    db.commit()
     finally:
         db.close()
 

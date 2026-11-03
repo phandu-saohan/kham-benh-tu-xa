@@ -505,6 +505,45 @@ class PatientHisCheckOut(BaseModel):
     already_registered_in_app: bool = False
     message: str
 
+class PatientIdentifyIn(BaseModel):
+    identity_card: str = Field(description="Số CCCD 12 số hoặc chuỗi quét mã QR VNeID/CCCD gắn chip")
+    phone_number: str | None = Field(default=None, description="Số điện thoại tùy chọn")
+
+class PreviousVisitSummary(BaseModel):
+    appointment_id: int
+    date: str
+    doctor_name: str
+    department_name: str
+    status: str
+    reason: str
+    diagnosis: str | None = None
+    icd10_code: str | None = None
+    has_prescription: bool = False
+    has_pacs: bool = False
+    has_lab: bool = False
+
+class PatientIdentifyOut(BaseModel):
+    found: bool
+    patient_type: str  # "existing_with_history" | "existing_no_history" | "his_only" | "new"
+    patient_id: int | None = None
+    pid: str | None = None
+    full_name: str | None = None
+    date_of_birth: str | None = None
+    gender: str | None = None
+    identity_card: str | None = None
+    vneid_level: int = 2
+    is_vneid_verified: bool = True
+    phone_number: str | None = None
+    bhyt_code: str | None = None
+    address: str | None = None
+    blood_type: str | None = None
+    allergies: str | None = None
+    chronic_conditions: list[dict] = Field(default_factory=list)
+    total_visits: int = 0
+    last_visit: dict | None = None
+    visit_history: list[PreviousVisitSummary] = Field(default_factory=list)
+    message: str
+
 class PatientRegisterIn(BaseModel):
     full_name: str = Field(min_length=1)
     phone_number: str = Field(min_length=9)
