@@ -65,12 +65,30 @@ class DoctorShift(Base):
     booked_count: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
+class NurseShift(Base):
+    __tablename__ = "nurse_shifts"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    nurse_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    department_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id"), nullable=True)
+    shift_date: Mapped[str] = mapped_column(String(20), index=True) # YYYY-MM-DD
+    shift_type: Mapped[str] = mapped_column(String(30)) # morning (07:00-11:30), afternoon (13:00-17:00), night (17:00-22:00)
+    desk_name: Mapped[str] = mapped_column(String(100), default="Bàn Tiếp đón Triage 01")
+    start_time: Mapped[str] = mapped_column(String(10), default="07:00")
+    end_time: Mapped[str] = mapped_column(String(10), default="11:30")
+    max_patients: Mapped[int] = mapped_column(Integer, default=30)
+    attended_count: Mapped[int] = mapped_column(Integer, default=0)
+    handover_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
 class Appointment(Base):
     __tablename__ = "appointments"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     patient_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     doctor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     shift_id: Mapped[int | None] = mapped_column(ForeignKey("doctor_shifts.id"), nullable=True)
+    nurse_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    nurse_shift_id: Mapped[int | None] = mapped_column(ForeignKey("nurse_shifts.id"), nullable=True)
     department_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id"), nullable=True)
     starts_at: Mapped[object] = mapped_column(DateTime(timezone=True), index=True)
     reason: Mapped[str] = mapped_column(String(500))

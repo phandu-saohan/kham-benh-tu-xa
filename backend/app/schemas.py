@@ -73,6 +73,12 @@ class AppointmentOut(BaseModel):
     triage_notes: str | None = None
     waiting_room_entered_at: datetime | None = None
     waiting_room_called_at: datetime | None = None
+    nurse_id: int | None = None
+    nurse_name: str | None = None
+    nurse_shift_id: int | None = None
+    doctor_name: str | None = None
+    patient_name: str | None = None
+    department_name: str | None = None
     model_config = ConfigDict(from_attributes=True)
 
 class ClinicalRecordIn(BaseModel):
@@ -286,6 +292,46 @@ class DoctorShiftOut(BaseModel):
     booked_count: int
     available_slots: int
     is_overloaded: bool
+
+class NurseShiftIn(BaseModel):
+    nurse_id: int
+    department_id: Optional[int] = None
+    shift_date: str  # YYYY-MM-DD
+    shift_type: str = "morning"  # morning, afternoon, night
+    desk_name: str = "Bàn Tiếp đón Triage 01"
+    start_time: str = "07:00"
+    end_time: str = "11:30"
+    max_patients: int = 30
+    handover_notes: Optional[str] = None
+    is_active: bool = True
+
+class NurseShiftOut(BaseModel):
+    id: int
+    nurse_id: int
+    nurse_name: Optional[str] = None
+    department_id: Optional[int] = None
+    department_name: Optional[str] = None
+    shift_date: str
+    shift_type: str
+    desk_name: str
+    start_time: str
+    end_time: str
+    max_patients: int
+    attended_count: int
+    handover_notes: Optional[str] = None
+    is_active: bool
+    created_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class NurseShiftUpdateIn(BaseModel):
+    desk_name: Optional[str] = None
+    max_patients: Optional[int] = None
+    handover_notes: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class AssignNurseIn(BaseModel):
+    nurse_id: int
+    nurse_shift_id: Optional[int] = None
 
 class AppointmentCancelIn(BaseModel):
     reason: str

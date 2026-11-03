@@ -68,6 +68,90 @@ export type Appointment = {
   triage_notes?: string
   waiting_room_entered_at?: string
   waiting_room_called_at?: string
+  nurse_id?: number
+  nurse_name?: string
+  nurse_shift_id?: number
+  doctor_name?: string
+  patient_name?: string
+  department_name?: string
+}
+
+export interface NurseItem {
+  id: number
+  full_name: string
+  email: string
+  phone_number?: string
+  role: string
+}
+
+export interface NurseShiftItem {
+  id: number
+  nurse_id: number
+  nurse_name?: string
+  department_id?: number
+  department_name?: string
+  shift_date: string
+  shift_type: 'morning' | 'afternoon' | 'night' | string
+  desk_name: string
+  start_time: string
+  end_time: string
+  max_patients: number
+  attended_count: number
+  handover_notes?: string
+  is_active: boolean
+  created_at?: string
+}
+
+export async function getNurses() {
+  return request<NurseItem[]>('/api/v1/nurses')
+}
+
+export async function getNurseShifts(params?: { nurse_id?: number; shift_date?: string; department_id?: number }) {
+  const query = new URLSearchParams()
+  if (params?.nurse_id) query.set('nurse_id', String(params.nurse_id))
+  if (params?.shift_date) query.set('shift_date', params.shift_date)
+  if (params?.department_id) query.set('department_id', String(params.department_id))
+  const qs = query.toString() ? `?${query.toString()}` : ''
+  return request<NurseShiftItem[]>(`/api/v1/nurses/shifts${qs}`)
+}
+
+export async function createNurseShift(data: {
+  nurse_id: number
+  department_id?: number
+  shift_date: string
+  shift_type: string
+  desk_name?: string
+  start_time?: string
+  end_time?: string
+  max_patients?: number
+  handover_notes?: string
+}) {
+  return request<NurseShiftItem>('/api/v1/nurses/shifts', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function updateNurseShift(shiftId: number, data: {
+  desk_name?: string
+  max_patients?: number
+  handover_notes?: string
+  is_active?: boolean
+}) {
+  return request<NurseShiftItem>(`/api/v1/nurses/shifts/${shiftId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function assignNurseToAppointment(appointmentId: number, data: {
+  nurse_id: number
+  nurse_shift_id?: number
+}) {
+  return request<{ success: boolean; message: string }>(`/api/v1/appointments/${appointmentId}/assign-nurse`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
 }
 
 export type ICD10Item = {
