@@ -1,0 +1,1669 @@
+/* ==========================================================================
+   PATIENT SANCTUARY DESIGN SYSTEM (CLINICAL SANCTUARY BENCHMARK)
+   Target: All Patient-Facing Interfaces & Portals
+   Standard: Plus Jakarta Sans, Soft Minimalist Clinical Precision
+   Colors: Primary Teal (#0e7490), Soft Blue (#0284c7), Mint (#10b981), Crimson (#ef4444)
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. ROOT VARIABLES & TOKENS INHERITANCE
+   -------------------------------------------------------------------------- */
+.ps-scope {
+  --ps-primary: #0e7490;
+  --ps-primary-dark: #005a71;
+  --ps-primary-light: #e0f2fe;
+  --ps-primary-hover: #155e75;
+  --ps-secondary: #0284c7;
+  --ps-secondary-tint: #eff6ff;
+  --ps-mint: #10b981;
+  --ps-mint-tint: #ecfdf5;
+  --ps-mint-border: #a7f3d0;
+  --ps-mint-dark: #065f46;
+  --ps-surface: #f8f9ff;
+  --ps-card-bg: #ffffff;
+  --ps-navy: #0b1c30;
+  --ps-slate: #334155;
+  --ps-slate-muted: #64748b;
+  --ps-border: rgba(226, 232, 240, 0.85);
+  --ps-border-focus: #0e7490;
+  --ps-danger: #ef4444;
+  --ps-danger-tint: #fef2f2;
+  --ps-warning: #f59e0b;
+  --ps-warning-tint: #fffbeb;
+  --ps-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(14, 116, 144, 0.04);
+  --ps-shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 10px 20px -3px rgba(14, 116, 144, 0.08);
+  --ps-shadow-lg: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.06);
+  --ps-radius-sm: 8px;
+  --ps-radius-md: 12px;
+  --ps-radius-lg: 16px;
+  --ps-radius-xl: 24px;
+  --ps-radius-pill: 9999px;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  color: var(--ps-navy);
+  box-sizing: border-box;
+}
+
+.ps-scope * {
+  box-sizing: border-box;
+}
+
+/* --------------------------------------------------------------------------
+   2. PATIENT DASHBOARD (HERO & SPOTLIGHT)
+   -------------------------------------------------------------------------- */
+.ps-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 8px 16px 48px;
+}
+
+/* Hero Header Card */
+.ps-hero-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdfa 100%);
+  border: 1px solid var(--ps-border);
+  border-radius: var(--ps-radius-xl);
+  padding: 24px 28px;
+  box-shadow: var(--ps-shadow-sm);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.ps-hero-card::after {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(14, 116, 144, 0.08) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.ps-hero-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.ps-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ps-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--ps-radius-pill);
+  background: linear-gradient(135deg, var(--ps-primary) 0%, var(--ps-secondary) 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(14, 116, 144, 0.25);
+  border: 3px solid #ffffff;
+}
+
+.ps-online-dot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ps-mint);
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+}
+
+.ps-user-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ps-chips-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ps-badge-pid {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--ps-radius-pill);
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ps-slate);
+  letter-spacing: 0.02em;
+}
+
+.ps-badge-bhyt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--ps-radius-pill);
+  background: var(--ps-mint-tint);
+  border: 1px solid var(--ps-mint-border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ps-mint-dark);
+}
+
+.ps-badge-vneid {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--ps-radius-pill);
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1d4ed8;
+}
+
+.ps-greeting-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--ps-navy);
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+.ps-greeting-sub {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ps-slate-muted);
+}
+
+.ps-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* Action Buttons */
+.ps-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border-radius: var(--ps-radius-pill);
+  background: var(--ps-primary);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 12px rgba(14, 116, 144, 0.25);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ps-btn-primary:hover {
+  background: var(--ps-primary-hover);
+  box-shadow: 0 6px 16px rgba(14, 116, 144, 0.35);
+  transform: translateY(-1px);
+}
+
+.ps-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: var(--ps-radius-pill);
+  background: #ffffff;
+  color: var(--ps-primary);
+  font-size: 14px;
+  font-weight: 600;
+  border: 1.5px solid rgba(14, 116, 144, 0.25);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.ps-btn-secondary:hover {
+  background: var(--ps-primary-light);
+  border-color: var(--ps-primary);
+  transform: translateY(-1px);
+}
+
+/* SOS & Emergency Banner */
+.ps-emergency-banner {
+  background: linear-gradient(135deg, #fff5f5 0%, #fef2f2 100%);
+  border: 1px solid #fecaca;
+  border-radius: var(--ps-radius-lg);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.08);
+}
+
+.ps-emergency-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ps-emergency-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--ps-radius-pill);
+  background: var(--ps-danger);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
+  animation: psPulseEmergency 2s infinite;
+}
+
+@keyframes psPulseEmergency {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.ps-emergency-text h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #991b1b;
+}
+
+.ps-emergency-text p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #b91c1c;
+}
+
+.ps-emergency-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: var(--ps-radius-pill);
+  background: var(--ps-danger);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+  transition: all 0.2s ease;
+}
+
+.ps-emergency-btn:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
+/* Consultation Spotlight Card (Level 2 Elevation) */
+.ps-spotlight-card {
+  background: #ffffff;
+  border: 1px solid var(--ps-border);
+  border-radius: var(--ps-radius-xl);
+  padding: 24px 28px;
+  box-shadow: var(--ps-shadow-md);
+  position: relative;
+  overflow: hidden;
+  border-left: 6px solid var(--ps-primary);
+}
+
+.ps-spotlight-card.waiting {
+  border-left-color: var(--ps-warning);
+}
+
+.ps-spotlight-card.in_progress {
+  border-left-color: var(--ps-mint);
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+}
+
+.ps-spotlight-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+.ps-spotlight-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--ps-radius-pill);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ps-spotlight-tag.ready {
+  background: var(--ps-mint-tint);
+  color: var(--ps-mint-dark);
+  border: 1px solid var(--ps-mint-border);
+}
+
+.ps-spotlight-tag.scheduled {
+  background: var(--ps-secondary-tint);
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.ps-spotlight-body {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+  align-items: center;
+}
+
+.ps-doctor-block {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ps-doc-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--ps-radius-pill);
+  background: #f1f5f9;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ps-primary);
+  font-size: 22px;
+  font-weight: 700;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ps-doc-meta h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ps-navy);
+}
+
+.ps-doc-meta .specialty {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ps-primary);
+  background: var(--ps-primary-light);
+  padding: 2px 10px;
+  border-radius: var(--ps-radius-pill);
+}
+
+.ps-slot-time-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 5px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--ps-radius-sm);
+  font-size: 13px;
+  color: var(--ps-slate);
+  font-weight: 600;
+}
+
+.ps-spotlight-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 200px;
+}
+
+.ps-btn-join-call {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 24px;
+  border-radius: var(--ps-radius-pill);
+  background: linear-gradient(135deg, #0e7490 0%, #0891b2 100%);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(14, 116, 144, 0.35);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ps-btn-join-call:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(14, 116, 144, 0.45);
+}
+
+.ps-btn-pay-qr {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: var(--ps-radius-pill);
+  background: #ffffff;
+  color: #0369a1;
+  border: 1.5px solid #0284c7;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ps-btn-pay-qr:hover {
+  background: var(--ps-secondary-tint);
+}
+
+/* Empty Spotlight Consultation Card */
+.ps-empty-spotlight {
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: var(--ps-radius-lg);
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.ps-empty-spotlight-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ps-empty-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--ps-radius-pill);
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ps-slate-muted);
+}
+
+.ps-empty-spotlight-left h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ps-navy);
+}
+
+.ps-empty-spotlight-left p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--ps-slate-muted);
+}
+
+/* --------------------------------------------------------------------------
+   3. BIOMETRIC SMART VITALS (QUICK SUMMARY & PPG SCANNER)
+   -------------------------------------------------------------------------- */
+.ps-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.ps-section-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ps-navy);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: -0.01em;
+}
+
+.ps-section-action {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ps-primary);
+  text-decoration: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ps-section-action:hover {
+  text-decoration: underline;
+}
+
+.ps-vitals-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.ps-vital-tile {
+  background: #ffffff;
+  border: 1px solid var(--ps-border);
+  border-radius: var(--ps-radius-lg);
+  padding: 18px;
+  box-shadow: var(--ps-shadow-sm);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  min-height: 140px;
+}
+
+.ps-vital-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ps-shadow-md);
+}
+
+.ps-vital-tile-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ps-vital-icon-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ps-vital-icon-wrap.red { background: #fef2f2; color: #ef4444; }
+.ps-vital-icon-wrap.teal { background: #f0fdfa; color: #0e7490; }
+.ps-vital-icon-wrap.blue { background: #eff6ff; color: #0284c7; }
+.ps-vital-icon-wrap.amber { background: #fffbeb; color: #f59e0b; }
+
+.ps-vital-status-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--ps-radius-pill);
+}
+
+.ps-vital-status-pill.normal { background: var(--ps-mint-tint); color: var(--ps-mint-dark); }
+.ps-vital-status-pill.watch { background: var(--ps-warning-tint); color: #92400e; }
+.ps-vital-status-pill.alert { background: var(--ps-danger-tint); color: #991b1b; }
+
+.ps-vital-tile-middle {
+  margin: 12px 0 6px;
+}
+
+.ps-vital-val-display {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--ps-navy);
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.ps-vital-val-display small {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ps-slate-muted);
+}
+
+.ps-vital-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ps-slate);
+}
+
+.ps-vital-tile-bottom {
+  font-size: 11px;
+  color: var(--ps-slate-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 8px;
+  margin-top: 6px;
+}
+
+/* --------------------------------------------------------------------------
+   4. HEALTH SERVICES ECOSYSTEM GRID (8 TILES)
+   -------------------------------------------------------------------------- */
+.ps-services-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.ps-service-tile {
+  background: #ffffff;
+  border: 1px solid var(--ps-border);
+  border-radius: var(--ps-radius-lg);
+  padding: 20px;
+  box-shadow: var(--ps-shadow-sm);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 150px;
+}
+
+.ps-service-tile:hover {
+  transform: translateY(-3px);
+  border-color: rgba(14, 116, 144, 0.3);
+  box-shadow: var(--ps-shadow-md);
+}
+
+.ps-service-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--ps-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.ps-service-icon-box.teal { background: #f0fdfa; color: #0e7490; }
+.ps-service-icon-box.blue { background: #eff6ff; color: #0284c7; }
+.ps-service-icon-box.mint { background: #ecfdf5; color: #10b981; }
+.ps-service-icon-box.purple { background: #faf5ff; color: #9333ea; }
+.ps-service-icon-box.amber { background: #fffbeb; color: #d97706; }
+.ps-service-icon-box.rose { background: #fff1f2; color: #e11d48; }
+.ps-service-icon-box.sky { background: #f0f9ff; color: #0369a1; }
+.ps-service-icon-box.indigo { background: #eef2ff; color: #4f46e5; }
+
+.ps-service-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ps-navy);
+  line-height: 1.35;
+}
+
+.ps-service-desc {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--ps-slate-muted);
+  line-height: 1.4;
+}
+
+.ps-service-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid #f8fafc;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ps-primary);
+}
+
+/* --------------------------------------------------------------------------
+   5. MEDICAL HISTORY & TIMELINE
+   -------------------------------------------------------------------------- */
+.ps-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ps-history-card {
+  background: #ffffff;
+  border: 1px solid var(--ps-border);
+  border-radius: var(--ps-radius-lg);
+  padding: 16px 20px;
+  box-shadow: var(--ps-shadow-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  transition: all 0.2s ease;
+}
+
+.ps-history-card:hover {
+  border-color: rgba(14, 116, 144, 0.3);
+  box-shadow: var(--ps-shadow-md);
+}
+
+.ps-history-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ps-date-badge {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--ps-radius-md);
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ps-date-badge b {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ps-navy);
+  line-height: 1;
+}
+
+.ps-date-badge small {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ps-slate-muted);
+  text-transform: uppercase;
+}
+
+.ps-history-info h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ps-navy);
+}
+
+.ps-history-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--ps-slate);
+}
+
+.ps-icd-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #f1f5f9;
+  border-radius: var(--ps-radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ps-slate-muted);
+}
+
+.ps-btn-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--ps-radius-pill);
+  background: #ffffff;
+  color: var(--ps-primary);
+  border: 1px solid rgba(14, 116, 144, 0.3);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.ps-btn-pdf:hover {
+  background: var(--ps-primary-light);
+  border-color: var(--ps-primary);
+}
+
+/* --------------------------------------------------------------------------
+   6. WAITING ROOM (THERAPEUTIC CLINICAL SANCTUARY)
+   -------------------------------------------------------------------------- */
+.ps-waiting-viewport {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 20px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ps-waiting-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: #ffffff;
+  border: 1px solid var(--ps-border);
+  border-radius: var(--ps-radius-pill);
+  box-shadow: var(--ps-shadow-sm);
+}
+
+.ps-btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--ps-slate);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: var(--ps-radius-pill);
+  transition: all 0.2s ease;
+}
+
+.ps-btn-back:hover {
+  background: #f1f5f9;
+  color: var(--ps-navy);
+}
+
+.ps-waiting-live-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--ps-mint-tint);
+  border: 1px solid var(--ps-mint-border);
+  border-radius: var(--ps-radius-pill);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ps-mint-dark);
+}
+
+.ps-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ps-mint);
+  animation: psDotBlink 1.4s infinite;
+}
+
+@keyframes psDotBlink {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.ps-waiting-layout {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 24px;
+}
+
+.ps-waiting-card {
+  background: #ffffff;
+  border: 1px solid var(--ps-border);
+  border-radius: var(--ps-radius-xl);
+  padding: 28px;
+  box-shadow: var(--ps-shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Big Queue Hero Display */
+.ps-queue-hero {
+  text-align: center;
+  padding: 24px 20px;
+  background: linear-gradient(135deg, #f0fdfa 0%, #eff6ff 100%);
+  border-radius: var(--ps-radius-lg);
+  border: 1px solid rgba(14, 116, 144, 0.15);
+}
+
+.ps-queue-hero-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ps-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ps-queue-big-number {
+  font-size: 64px;
+  font-weight: 800;
+  color: var(--ps-navy);
+  line-height: 1.1;
+  margin: 6px 0;
+  letter-spacing: -0.03em;
+}
+
+.ps-queue-estimate {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ps-slate);
+}
+
+/* Doctor Waiting State */
+.ps-waiting-doctor-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: var(--ps-radius-lg);
+  border: 1px solid #e2e8f0;
+}
+
+/* Camera Preview Mirror */
+.ps-camera-preview-container {
+  background: #0b1c30;
+  border-radius: var(--ps-radius-lg);
+  overflow: hidden;
+  position: relative;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ps-camera-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.ps-audio-meter-overlay {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  background: rgba(11, 28, 48, 0.75);
+  backdrop-filter: blur(8px);
+  padding: 8px 14px;
+  border-radius: var(--ps-radius-pill);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ps-meter-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: var(--ps-radius-pill);
+  overflow: hidden;
+}
+
+.ps-meter-fill {
+  height: 100%;
+  background: var(--ps-mint);
+  border-radius: var(--ps-radius-pill);
+  transition: width 0.1s ease;
+}
+
+/* Doctor Calling Flash Overlay */
+.ps-doctor-calling-hero {
+  background: linear-gradient(135deg, #0e7490 0%, #0369a1 100%);
+  color: #ffffff;
+  border-radius: var(--ps-radius-xl);
+  padding: 24px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  box-shadow: 0 10px 30px rgba(14, 116, 144, 0.4);
+  animation: psCallingPulse 2s infinite;
+}
+
+@keyframes psCallingPulse {
+  0%, 100% { box-shadow: 0 10px 30px rgba(14, 116, 144, 0.4); }
+  50% { box-shadow: 0 10px 40px rgba(16, 185, 129, 0.6); }
+}
+
+.ps-calling-btn-now {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 28px;
+  border-radius: var(--ps-radius-pill);
+  background: #ffffff;
+  color: var(--ps-primary);
+  font-size: 16px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.ps-calling-btn-now:hover {
+  transform: scale(1.03);
+}
+
+/* --------------------------------------------------------------------------
+   7. PATIENT PROFILE & DIGITAL HEALTH BHYT CARD
+   -------------------------------------------------------------------------- */
+.ps-profile-viewport {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 12px 16px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Digital BHYT Health Card (Specified in DESIGN.md) */
+.ps-bhyt-card-container {
+  background: linear-gradient(135deg, #0e7490 0%, #0284c7 65%, #0369a1 100%);
+  border-radius: var(--ps-radius-xl);
+  padding: 28px 32px;
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(14, 116, 144, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.ps-bhyt-card-watermark {
+  position: absolute;
+  right: -20px;
+  bottom: -30px;
+  font-size: 110px;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.05);
+  pointer-events: none;
+  user-select: none;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.ps-bhyt-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.ps-bhyt-agency-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ps-bhyt-emblem {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--ps-radius-pill);
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+}
+
+.ps-bhyt-titles b {
+  display: block;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ps-bhyt-titles span {
+  display: block;
+  font-size: 11px;
+  opacity: 0.85;
+  letter-spacing: 0.04em;
+}
+
+.ps-bhyt-code-number {
+  font-family: 'JetBrains Mono', monospace, ui-monospace;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  margin: 16px 0;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 10px 18px;
+  border-radius: var(--ps-radius-md);
+  display: inline-block;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.ps-bhyt-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.ps-bhyt-cell small {
+  display: block;
+  font-size: 11px;
+  opacity: 0.8;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ps-bhyt-cell strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Tabs Navigation in Profile */
+.ps-profile-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 4px;
+  overflow-x: auto;
+}
+
+.ps-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: var(--ps-radius-pill);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ps-slate);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.ps-tab-btn:hover {
+  background: #f1f5f9;
+  color: var(--ps-navy);
+}
+
+.ps-tab-btn.active {
+  background: var(--ps-primary);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(14, 116, 144, 0.25);
+}
+
+/* 48px Low-Fatigue Form Inputs */
+.ps-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.ps-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ps-input-group.full-width {
+  grid-column: span 2;
+}
+
+.ps-input-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ps-navy);
+}
+
+.ps-form-input {
+  height: 48px;
+  padding: 0 16px;
+  border-radius: var(--ps-radius-sm);
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  font-size: 14px;
+  color: var(--ps-navy);
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.ps-form-input:focus {
+  outline: none;
+  border-color: var(--ps-primary);
+  box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.15);
+}
+
+/* --------------------------------------------------------------------------
+   8. RESPONSIVE BREAKPOINTS (MOBILE FIRST ADAPTATION)
+   -------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+  .ps-vitals-grid,
+  .ps-services-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .ps-waiting-layout {
+    grid-template-columns: 1fr;
+  }
+  .ps-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .ps-input-group.full-width {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .ps-hero-card {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 20px;
+  }
+  .ps-hero-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .ps-spotlight-body {
+    grid-template-columns: 1fr;
+  }
+  .ps-spotlight-actions {
+    width: 100%;
+  }
+  .ps-vitals-grid {
+    grid-template-columns: 1fr;
+  }
+  .ps-services-grid {
+    grid-template-columns: 1fr;
+  }
+  .ps-bhyt-grid {
+    grid-template-columns: 1fr;
+  }
+  .ps-bhyt-code-number {
+    font-size: 18px;
+    letter-spacing: 0.08em;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   9. PATIENT APPOINTMENTS LIST (CLINICAL SANCTUARY ELEVATION)
+   -------------------------------------------------------------------------- */
+.ps-scope .appointment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.ps-scope .appointment-row {
+  background: #ffffff;
+  border: 1px solid var(--ps-border);
+  border-radius: var(--ps-radius-lg);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: var(--ps-shadow-sm);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ps-scope .appointment-row:hover {
+  transform: translateY(-2px);
+  border-color: rgba(14, 116, 144, 0.3);
+  box-shadow: var(--ps-shadow-md);
+}
+
+.ps-scope .date-block {
+  width: 54px;
+  height: 54px;
+  border-radius: var(--ps-radius-md);
+  background: linear-gradient(135deg, #f0fdfa 0%, #eff6ff 100%);
+  border: 1px solid rgba(14, 116, 144, 0.15);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ps-scope .date-block b {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ps-navy);
+  line-height: 1;
+}
+
+.ps-scope .date-block small {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ps-primary);
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.ps-scope .appointment-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ps-scope .appointment-info b {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ps-navy);
+}
+
+.ps-scope .appointment-info small {
+  font-size: 13px;
+  color: var(--ps-slate-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ps-scope .appointment-info .reason {
+  font-size: 13px;
+  color: var(--ps-slate);
+  background: #f8fafc;
+  padding: 3px 8px;
+  border-radius: var(--ps-radius-sm);
+  display: inline-block;
+  margin-top: 4px;
+  width: fit-content;
+}
+
+.ps-scope .status {
+  padding: 4px 12px;
+  border-radius: var(--ps-radius-pill);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.ps-scope .status.scheduled {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.ps-scope .status.confirmed {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.ps-scope .status.in_progress,
+.ps-scope .status.waiting {
+  background: var(--ps-mint-tint);
+  color: var(--ps-mint-dark);
+  border: 1px solid var(--ps-mint-border);
+}
+
+.ps-scope .status.completed {
+  background: #f1f5f9;
+  color: var(--ps-slate);
+  border: 1px solid #e2e8f0;
+}
+
+.ps-scope .status.cancelled {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.ps-scope .row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ps-scope .small-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: var(--ps-radius-pill);
+  background: var(--ps-primary);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(14, 116, 144, 0.25);
+  white-space: nowrap;
+}
+
+.ps-scope .small-primary:hover {
+  background: var(--ps-primary-hover);
+  transform: translateY(-1px);
+}
+
+.ps-scope .small-qr {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: var(--ps-radius-pill);
+  background: #ffffff;
+  color: #0369a1;
+  border: 1.5px solid #0284c7;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.ps-scope .small-qr:hover {
+  background: var(--ps-secondary-tint);
+}
+
+.ps-scope .small-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--ps-radius-pill);
+  background: #ffffff;
+  color: var(--ps-slate);
+  border: 1px solid #cbd5e1;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ps-scope .small-pdf:hover {
+  background: #f8fafc;
+  color: var(--ps-navy);
+}
+
+.ps-scope .small-cancel {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--ps-radius-pill);
+  background: #ffffff;
+  color: var(--ps-slate-muted);
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ps-scope .small-cancel:hover {
+  background: #fef2f2;
+  color: #ef4444;
+  border-color: #fecaca;
+}
+
+/* --------------------------------------------------------------------------
+   10. FAMILY HEALTH VAULT (CLINICAL SANCTUARY CARDS)
+   -------------------------------------------------------------------------- */
+.ps-family-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.ps-family-card {
+  background: #ffffff;
+  border: 1px solid var(--ps-border);
+  border-radius: var(--ps-radius-lg);
+  padding: 20px;
+  box-shadow: var(--ps-shadow-sm);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  transition: all 0.2s ease;
+}
+
+.ps-family-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(14, 116, 144, 0.3);
+  box-shadow: var(--ps-shadow-md);
+}
+
+.ps-family-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--ps-radius-pill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.ps-family-avatar.child { background: #fef3c7; color: #b45309; }
+.ps-family-avatar.parent { background: #e0f2fe; color: #0369a1; }
+.ps-family-avatar.spouse { background: #f3e8ff; color: #7e22ce; }
+.ps-family-avatar.other { background: #f1f5f9; color: #475569; }
+
+/* --------------------------------------------------------------------------
+   11. SMART DEVICES HUB SANCTUARY STYLING
+   -------------------------------------------------------------------------- */
+.ps-scope.smart-devices-hub-wrapper,
+.ps-scope .smart-devices-hub-wrapper {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  color: var(--ps-navy);
+}
+
+.ps-scope .smart-devices-hub-card {
+  background: #ffffff;
+  border: 1px solid var(--ps-border);
+  border-radius: var(--ps-radius-xl);
+  padding: 24px;
+  box-shadow: var(--ps-shadow-sm);
+}
+
+.ps-scope .compact-device-card {
+  background: #ffffff;
+  border: 1px solid var(--ps-border);
+  border-radius: var(--ps-radius-lg);
+  padding: 18px;
+  box-shadow: var(--ps-shadow-sm);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ps-scope .compact-device-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(14, 116, 144, 0.3);
+  box-shadow: var(--ps-shadow-md);
+}
+
+.ps-scope .btn-pair-device-action {
+  border-radius: var(--ps-radius-pill);
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.ps-scope .portal-modal-card {
+  border-radius: var(--ps-radius-xl);
+  box-shadow: var(--ps-shadow-lg);
+}
+
+/* --------------------------------------------------------------------------
+   12. MOBILE BOTTOM NAVIGATION (CLINICAL SANCTUARY TOUCH BAR)
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    background: rgba(255, 255, 255, 0.94) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    border-top: 1px solid rgba(226, 232, 240, 0.8) !important;
+    box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.05) !important;
+    height: 64px !important;
+    padding: 6px 12px !important;
+    padding-bottom: max(6px, env(safe-area-inset-bottom)) !important;
+    display: flex !important;
+    justify-content: space-around !important;
+    align-items: center !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 1000 !important;
+  }
+
+  .mobile-nav-item {
+    background: none !important;
+    border: none !important;
+    color: #64748b !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 3px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    padding: 6px 10px !important;
+    border-radius: 12px !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    min-width: 56px !important;
+  }
+
+  .mobile-nav-item.selected {
+    color: #0e7490 !important;
+    background: #f0fdfa !important;
+    font-weight: 700 !important;
+  }
+
+  .mobile-nav-item.selected svg {
+    color: #0e7490 !important;
+    transform: scale(1.1) !important;
+  }
+}

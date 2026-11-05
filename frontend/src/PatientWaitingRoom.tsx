@@ -23,6 +23,7 @@ import {
   type WaitingRoomStatus,
   getWaitingRoomStatus
 } from './api'
+import './patient-sanctuary.css'
 
 interface PatientWaitingRoomProps {
   appointment: Appointment
@@ -44,7 +45,7 @@ export function PatientWaitingRoom({
   const [isCameraTesting, setIsCameraTesting] = useState(false)
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
   const [audioLevel, setAudioLevel] = useState<number>(0)
-  
+
   const videoPreviewRef = useRef<HTMLVideoElement>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const pollTimerRef = useRef<any>(null)
@@ -57,7 +58,7 @@ export function PatientWaitingRoom({
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
       if (!AudioCtx) return
       const ctx = new AudioCtx()
-      
+
       const now = ctx.currentTime
       const osc1 = ctx.createOscillator()
       const gain1 = ctx.createGain()
@@ -211,223 +212,254 @@ export function PatientWaitingRoom({
   }
 
   return (
-    <div className="waiting-room-page">
-      {/* Top Navigation Bar */}
-      <header className="waiting-room-header">
-        <button className="btn-back-clean" onClick={onBack}>
-          <ArrowLeft size={16} /> Quay lại danh sách
-        </button>
-        <div className="waiting-brand-tag">
-          <Stethoscope size={18} color="#2563eb" />
-          <span>CareConnect <b>Phòng Chờ Khám Trực Tuyến</b></span>
-        </div>
-        <div className="live-status-pill">
-          <span className="live-pulse-dot" /> Đang Kết Nối Phòng Chờ
-        </div>
-      </header>
+    <div className="ps-scope">
+      <div className="ps-waiting-viewport">
+        {/* Top Navigation Bar */}
+        <header className="ps-waiting-topbar">
+          <button className="ps-btn-back" onClick={onBack}>
+            <ArrowLeft size={16} /> Quay lại trang chủ
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 700, color: 'var(--ps-navy)' }}>
+            <Stethoscope size={18} color="var(--ps-primary)" />
+            <span>CareConnect • <b>Phòng Chờ Khám Trực Tuyến</b></span>
+          </div>
+          <div className="ps-waiting-live-chip">
+            <span className="ps-live-dot" /> Đang Kết Nối Phòng Chờ
+          </div>
+        </header>
 
-      {/* Main Container */}
-      <div className="waiting-room-container">
-        {/* Banner khi Bác sĩ bấm chuông gọi vào phòng khám */}
+        {/* Doctor Calling Hero Flash Banner */}
         {isDoctorCalling && (
-          <div className="doctor-calling-banner animate-bounce-subtle">
-            <div className="banner-icon-pulse">
-              <Bell size={28} color="#ffffff" />
+          <div className="ps-doctor-calling-hero">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div
+                style={{
+                  width: '52px',
+                  height: '52px',
+                  borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Bell size={28} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>
+                  Bác sĩ {waitingStatus?.doctor_name || 'phụ trách'} đang mời bạn vào phòng khám!
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '14px', opacity: 0.9 }}>
+                  Hồ sơ bệnh án điện tử và sinh hiệu đã sẵn sàng.
+                  {autoJoinCountdown !== null && (
+                    <span style={{ marginLeft: '8px', fontWeight: 700 }}>
+                      Tự động chuyển vào sau {autoJoinCountdown}s
+                    </span>
+                  )}
+                </p>
+              </div>
             </div>
-            <div className="banner-text">
-              <h3>Bác sĩ {waitingStatus?.doctor_name || 'phụ trách'} đang mời bạn vào phòng khám!</h3>
-              <p>Mọi chỉ số sinh hiệu và hồ sơ đã sẵn sàng. Vui lòng bấm xác nhận để kết nối video.</p>
-              {autoJoinCountdown !== null && (
-                <span className="countdown-pill">
-                  Tự động chuyển vào sau <b>{autoJoinCountdown}s</b>
-                </span>
-              )}
-            </div>
-            <button className="btn-join-room-now" onClick={handleJoin}>
+
+            <button className="ps-calling-btn-now" onClick={handleJoin}>
               <Video size={18} /> Vào Gặp Bác Sĩ Ngay
             </button>
           </div>
         )}
 
-        <div className="waiting-room-grid">
-          {/* Left Column: Queue Number & Doctor Info */}
-          <div className="waiting-main-card">
-            <div className="queue-status-hero">
-              <span className="queue-label">SỐ THỨ TỰ PHÒNG CHỜ CỦA BẠN</span>
-              <div className="queue-number-display">
+        <div className="ps-waiting-layout">
+          {/* Cột trái: Số thứ tự phòng chờ & Thông tin Bác sĩ */}
+          <div className="ps-waiting-card">
+            {/* Big Queue Number Display */}
+            <div className="ps-queue-hero">
+              <span className="ps-queue-hero-label">SỐ THỨ TỰ PHÒNG CHỜ CỦA BẠN</span>
+              <div className="ps-queue-big-number">
                 #{String(waitingStatus?.queue_number || 1).padStart(2, '0')}
               </div>
-              <div className="queue-badge-detail">
-                <Clock size={16} color="#d97706" />
+              <div className="ps-queue-estimate">
+                <Clock size={16} color="var(--ps-warning)" />
                 <span>
                   Thời gian chờ ước tính: <b>~{waitingStatus?.estimated_wait_minutes || 5} phút</b>
                 </span>
                 {waitingStatus && waitingStatus.patients_ahead > 0 && (
-                  <span className="patients-ahead-tag">
-                    (Còn {waitingStatus.patients_ahead} bệnh nhân phía trước)
+                  <span style={{ color: 'var(--ps-primary)', fontWeight: 600 }}>
+                    (Còn {waitingStatus.patients_ahead} người phía trước)
                   </span>
                 )}
               </div>
             </div>
 
             {/* Doctor Info Card */}
-            <div className="waiting-doctor-card">
-              <div className="doc-avatar-box">
-                <User size={30} color="#2563eb" />
+            <div className="ps-waiting-doctor-card">
+              <div className="ps-doc-avatar">
+                🩺
               </div>
-              <div className="doc-info-text">
-                <span className="doc-title-role">{waitingStatus?.doctor_title || 'Bác sĩ chuyên khoa'}</span>
-                <h4>{waitingStatus?.doctor_name || 'Bác sĩ phụ trách'}</h4>
-                <p className="doc-dept">{waitingStatus?.department_name || 'Khoa Nội Tổng Quát'}</p>
+              <div style={{ flex: 1 }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--ps-primary)', textTransform: 'uppercase' }}>
+                  {waitingStatus?.doctor_title || 'Bác sĩ chuyên khoa'}
+                </span>
+                <h4 style={{ margin: '2px 0 0', fontSize: '17px', fontWeight: 700, color: 'var(--ps-navy)' }}>
+                  {waitingStatus?.doctor_name || 'Bác sĩ phụ trách'}
+                </h4>
+                <p style={{ margin: '2px 0 0', fontSize: '13px', color: 'var(--ps-slate-muted)' }}>
+                  {waitingStatus?.department_name || 'Khoa Nội Tổng Quát'}
+                </p>
               </div>
-              <div className="doc-ready-status">
-                <span className="dot-green" /> Đang trong ca trực
-              </div>
+              <span className="ps-badge-bhyt">
+                <span className="ps-live-dot" /> Đang trực
+              </span>
             </div>
 
-            {/* Reassurance Message */}
-            <div className="waiting-reassurance-box">
-              <div className="reassurance-icon">
-                <ShieldCheck size={20} color="#059669" />
+            {/* Calming Reassurance Message */}
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #f0fdfa 0%, #eff6ff 100%)',
+                border: '1px solid rgba(14, 116, 144, 0.2)',
+                borderRadius: 'var(--ps-radius-lg)',
+                padding: '16px 20px',
+                display: 'flex',
+                gap: '14px',
+                alignItems: 'flex-start'
+              }}
+            >
+              <div style={{ color: 'var(--ps-primary)', marginTop: '2px' }}>
+                <ShieldCheck size={22} />
               </div>
               <div>
-                <b>Điều dưỡng đã hoàn tất tiếp nhận & đo sinh hiệu</b>
-                <p>
-                  Bác sĩ đang xem xét bệnh án, tiền sử và kết quả cận lâm sàng của bạn. 
-                  Bác sĩ sẽ chủ động bấm chuông mời bạn vào ngay khi hoàn tất chuẩn bị chuyên môn. 
-                  Bạn hoàn toàn yên tâm ngồi thư giãn tại đây.
+                <b style={{ color: 'var(--ps-navy)', fontSize: '14px' }}>
+                  Điều dưỡng đã hoàn tất tiếp nhận hồ sơ & sinh hiệu
+                </b>
+                <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--ps-slate)', lineHeight: 1.5 }}>
+                  Bác sĩ đang xem xét lại tiền sử bệnh và kết quả cận lâm sàng của bạn. Ngay khi chuẩn bị xong,
+                  bác sĩ sẽ nhấn chuông mời bạn vào phòng khám. Bạn hoàn toàn yên tâm nghỉ ngơi tại đây.
                 </p>
               </div>
             </div>
 
-            {/* Self Camera & Audio Check */}
-            <div className="device-check-section">
-              <div className="device-check-header">
+            {/* Self Camera & Audio Diagnostic */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <h5>Kiểm tra Camera & Micro của bạn</h5>
-                  <small>Đảm bảo hình ảnh rõ nét và âm thanh chuẩn trước khi gặp bác sĩ</small>
+                  <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--ps-navy)' }}>
+                    Kiểm Tra Camera & Micro Trước Cuộc Khám
+                  </h4>
+                  <small style={{ color: 'var(--ps-slate-muted)', fontSize: '12px' }}>
+                    Đảm bảo âm thanh và hình ảnh rõ nét trước khi vào gặp bác sĩ
+                  </small>
                 </div>
                 <button
-                  className={`btn-device-toggle ${isCameraTesting ? 'active' : ''}`}
+                  type="button"
+                  className={isCameraTesting ? 'ps-btn-secondary' : 'ps-btn-primary'}
                   onClick={toggleCameraTest}
+                  style={{ padding: '8px 16px', fontSize: '13px' }}
                 >
-                  <Camera size={15} />
+                  <Camera size={14} />
                   {isCameraTesting ? 'Tắt xem trước' : 'Bật xem thử Camera'}
                 </button>
               </div>
 
               {isCameraTesting && (
-                <div className="camera-preview-box">
+                <div className="ps-camera-preview-container">
                   <video
                     ref={videoPreviewRef}
                     autoPlay
                     playsInline
                     muted
-                    className="self-preview-video"
+                    className="ps-camera-video"
                   />
-                  <div className="audio-meter-bar-wrap">
-                    <div className="audio-meter-label">
-                      <Mic size={13} color="#059669" /> Micro:
+                  <div className="ps-audio-meter-overlay">
+                    <Mic size={14} color="var(--ps-mint)" />
+                    <span>Micro:</span>
+                    <div className="ps-meter-track">
+                      <div className="ps-meter-fill" style={{ width: `${audioLevel}%` }} />
                     </div>
-                    <div className="audio-meter-track">
-                      <div
-                        className="audio-meter-fill"
-                        style={{ width: `${audioLevel}%` }}
-                      />
-                    </div>
+                    <span>{audioLevel}%</span>
                   </div>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Right Column: Pre-consultation Vitals & Calming Guide */}
-          <div className="waiting-sidebar-card">
-            {/* Vitals Summary Card */}
-            <div className="card-box vitals-summary-panel">
-              <div className="card-box-header">
-                <Activity size={18} color="#059669" />
-                <h5>Sinh Hiệu Điều Dưỡng Đã Đo</h5>
-              </div>
-              <p className="card-box-desc">
-                Chỉ số sinh tồn của bạn đã được lưu vào bệnh án điện tử EMR:
-              </p>
-
-              <div className="vitals-chips-grid">
-                <div className="vital-chip">
-                  <div className="vital-chip-label">
-                    <Heart size={14} color="#dc2626" /> Huyết áp
-                  </div>
-                  <div className="vital-chip-val">
-                    {vitals.blood_pressure || '120/80'} <small>mmHg</small>
-                  </div>
-                  <span className="vital-chip-badge normal">Ổn định</span>
-                </div>
-
-                <div className="vital-chip">
-                  <div className="vital-chip-label">
-                    <Activity size={14} color="#059669" /> Nhịp tim / Mạch
-                  </div>
-                  <div className="vital-chip-val">
-                    {vitals.pulse || '76'} <small>bpm</small>
-                  </div>
-                  <span className="vital-chip-badge normal">Bình thường</span>
-                </div>
-
-                <div className="vital-chip">
-                  <div className="vital-chip-label">
-                    <Wind size={14} color="#2563eb" /> Nồng độ SpO2
-                  </div>
-                  <div className="vital-chip-val">
-                    {vitals.spo2 || '99'} <small>%</small>
-                  </div>
-                  <span className="vital-chip-badge normal">Tốt</span>
-                </div>
-
-                <div className="vital-chip">
-                  <div className="vital-chip-label">
-                    <Thermometer size={14} color="#d97706" /> Thân nhiệt
-                  </div>
-                  <div className="vital-chip-val">
-                    {vitals.temperature || '36.6'} <small>°C</small>
-                  </div>
-                  <span className="vital-chip-badge normal">Chuẩn</span>
-                </div>
+          {/* Cột phải: Sinh hiệu đã đo & Hướng dẫn chuẩn bị */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Sinh hiệu */}
+            <div className="ps-waiting-card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Activity size={18} color="var(--ps-primary)" />
+                <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--ps-navy)' }}>
+                  Sinh Hiệu Điều Dưỡng Đã Đo
+                </h4>
               </div>
 
-              {vitals.weight && vitals.height && (
-                <div className="bmi-inline-note">
-                  <span>Cân nặng: <b>{vitals.weight} kg</b></span>
-                  <span> • </span>
-                  <span>Chiều cao: <b>{vitals.height} cm</b></span>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#dc2626', fontWeight: 600 }}>
+                    <Heart size={14} /> Huyết áp
+                  </div>
+                  <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--ps-navy)', margin: '4px 0 2px' }}>
+                    {vitals.blood_pressure || '120/80'} <small style={{ fontSize: '11px', fontWeight: 500 }}>mmHg</small>
+                  </div>
+                  <span className="ps-vital-status-pill normal">Ổn định</span>
                 </div>
-              )}
+
+                <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--ps-primary)', fontWeight: 600 }}>
+                    <Activity size={14} /> Nhịp tim
+                  </div>
+                  <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--ps-navy)', margin: '4px 0 2px' }}>
+                    {vitals.pulse || '76'} <small style={{ fontSize: '11px', fontWeight: 500 }}>bpm</small>
+                  </div>
+                  <span className="ps-vital-status-pill normal">Chuẩn</span>
+                </div>
+
+                <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#0284c7', fontWeight: 600 }}>
+                    <Wind size={14} /> SpO2
+                  </div>
+                  <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--ps-navy)', margin: '4px 0 2px' }}>
+                    {vitals.spo2 || '99'} <small style={{ fontSize: '11px', fontWeight: 500 }}>%</small>
+                  </div>
+                  <span className="ps-vital-status-pill normal">Tối ưu</span>
+                </div>
+
+                <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#d97706', fontWeight: 600 }}>
+                    <Thermometer size={14} /> Thân nhiệt
+                  </div>
+                  <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--ps-navy)', margin: '4px 0 2px' }}>
+                    {vitals.temperature || '36.6'} <small style={{ fontSize: '11px', fontWeight: 500 }}>°C</small>
+                  </div>
+                  <span className="ps-vital-status-pill normal">Bình thường</span>
+                </div>
+              </div>
 
               {waitingStatus?.triage_notes && (
-                <div className="nurse-triage-remark">
+                <div style={{ background: '#eff6ff', padding: '12px', borderRadius: '10px', fontSize: '12px', color: '#1e40af' }}>
                   <b>Ghi chú điều dưỡng:</b> {waitingStatus.triage_notes}
                 </div>
               )}
             </div>
 
-            {/* Preparation & Relaxation Tips */}
-            <div className="card-box tips-panel">
-              <div className="card-box-header">
-                <Sparkles size={18} color="#d97706" />
-                <h5>Chuẩn Bị Để Cuộc Khám Đạt Hiệu Quả Nhất</h5>
+            {/* Hướng dẫn thư giãn & Chuẩn bị */}
+            <div className="ps-waiting-card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sparkles size={18} color="var(--ps-warning)" />
+                <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--ps-navy)' }}>
+                  Chuẩn Bị Để Cuộc Khám Hiệu Quả
+                </h4>
               </div>
-              <ul className="waiting-tips-list">
-                <li>
-                  <CheckCircle2 size={15} color="#059669" />
-                  <span><b>Ngồi nơi yên tĩnh</b>, đủ ánh sáng chiếu thẳng vào khuôn mặt.</span>
+
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <li style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', fontSize: '13px', color: 'var(--ps-slate)' }}>
+                  <CheckCircle2 size={16} color="var(--ps-mint)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <span><b>Ngồi nơi yên tĩnh:</b> Đủ ánh sáng chiếu vào khuôn mặt, tránh ngồi ngược sáng.</span>
                 </li>
-                <li>
-                  <CheckCircle2 size={15} color="#059669" />
-                  <span><b>Chuẩn bị sẵn</b> các đơn thuốc cũ, vỏ hộp thuốc hoặc kết quả xét nghiệm gần nhất.</span>
+                <li style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', fontSize: '13px', color: 'var(--ps-slate)' }}>
+                  <CheckCircle2 size={16} color="var(--ps-mint)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <span><b>Chuẩn bị sẵn:</b> Đơn thuốc cũ, hộp thuốc đang dùng hoặc kết quả xét nghiệm gần nhất.</span>
                 </li>
-                <li>
-                  <CheckCircle2 size={15} color="#059669" />
-                  <span><b>Hít thở sâu & thư giãn:</b> Thở chậm 4 nhịp giúp nhịp tim và huyết áp ổn định nhất khi trao đổi cùng bác sĩ.</span>
+                <li style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', fontSize: '13px', color: 'var(--ps-slate)' }}>
+                  <CheckCircle2 size={16} color="var(--ps-mint)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <span><b>Hít thở sâu 4 nhịp:</b> Thư giãn tinh thần để huyết áp và nhịp tim ổn định nhất.</span>
                 </li>
               </ul>
             </div>

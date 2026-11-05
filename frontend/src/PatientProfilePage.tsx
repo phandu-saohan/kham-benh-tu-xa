@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   UserRound,
   ShieldCheck,
@@ -16,23 +16,17 @@ import {
   Lock,
   FileText,
   Activity,
-  Bell,
   LogOut,
-  Download,
-  Sparkles,
-  Building2,
-  Eye,
-  EyeOff,
   Camera,
   QrCode,
   Droplet,
   Weight,
   PhoneCall,
   Clock,
-  ArrowRight,
   ChevronRight,
-  ExternalLink,
-  Cpu
+  Sparkles,
+  Download,
+  KeyRound
 } from 'lucide-react'
 import { SmartDevicesHub } from './SmartDevicesHub'
 import {
@@ -42,6 +36,7 @@ import {
   type PatientProfile,
   type User
 } from './api'
+import './patient-sanctuary.css'
 
 interface PatientProfilePageProps {
   currentUser: User
@@ -158,11 +153,11 @@ export function PatientProfilePage({
         full_name: fullName.trim(),
         email: email.trim(),
         date_of_birth: dateOfBirth.trim(),
-        gender: gender.trim(),
+        gender,
         identity_card: identityCard.trim(),
         address: address.trim(),
         bhyt_code: bhytCode.trim(),
-        blood_type: bloodType.trim(),
+        blood_type: bloodType,
         allergies: allergies.trim(),
         emergency_contact_name: emergencyName.trim(),
         emergency_contact_phone: emergencyPhone.trim()
@@ -170,682 +165,590 @@ export function PatientProfilePage({
       setProfile(updated)
       setEditing(false)
       setSuccess('Cập nhật hồ sơ bệnh nhân thành công!')
-      setTimeout(() => setSuccess(''), 4000)
-
       onUpdateUser({
         ...currentUser,
         full_name: updated.full_name,
         email: updated.email
       })
-    } catch (e: any) {
-      setError(e.message || 'Lỗi khi lưu thông tin tài khoản')
+    } catch (err: any) {
+      setError(err.message || 'Lỗi lưu thông tin')
     } finally {
       setSaving(false)
     }
   }
 
-  // Format BHYT code with spaced segments: "GD 4 79 7931812345"
   const formatBhytCode = (code?: string) => {
     if (!code) return 'CHƯA LIÊN KẾT THẺ'
     const clean = code.replace(/\s+/g, '')
     if (clean.length === 15) {
-      return `${clean.slice(0, 2)} ${clean.slice(2, 3)} ${clean.slice(3, 5)} ${clean.slice(5)}`
+      return `${clean.slice(0, 2)} ${clean.slice(2, 3)} ${clean.slice(3, 5)} ${clean.slice(5, 7)} ${clean.slice(7)}`
     }
     return code
   }
 
   if (loading) {
     return (
-      <div className="panel profile-loading">
-        <Activity className="animate-spin" size={32} color="#0f766e" />
-        <p>Đang tải thông tin hồ sơ y tế bệnh nhân...</p>
+      <div className="ps-scope" style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--ps-slate-muted)' }}>
+        <Sparkles size={36} color="var(--ps-primary)" style={{ animation: 'spin 2s linear infinite', margin: '0 auto 12px' }} />
+        <p style={{ fontSize: '15px', fontWeight: 600 }}>Đang đồng bộ hồ sơ bệnh nhân & BHYT điện tử...</p>
       </div>
     )
   }
 
   return (
-    <div className="patient-profile-page mobile-patient-profile">
-      {error && (
-        <div className="alert error">
-          <span>{error}</span>
-          <button onClick={() => setError('')}><X size={16} /></button>
-        </div>
-      )}
-      {success && (
-        <div className="alert success">
-          <CheckCircle2 size={16} />
-          <span>{success}</span>
-          <button onClick={() => setSuccess('')}><X size={16} /></button>
-        </div>
-      )}
-
-      {/* 1. Mobile-First Clinical Hero Card */}
-      <section className="profile-hero-card-v2">
-        <div className="profile-hero-top-row">
-          <div className="profile-avatar-container">
-            <div className="profile-avatar-badge">
-              {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : 'BN'}
-            </div>
-            <span className="profile-verified-chip" title="Đã đối soát CCCD & VNeID mức 2">
-              <ShieldCheck size={12} /> Đã định danh
-            </span>
-          </div>
-
-          <div className="profile-headline-block">
-            <div className="profile-pid-row">
-              <span className="pid-badge">PID: {profile?.external_patient_id || `CC-PAT-${profile?.id?.toString().padStart(4, '0')}`}</span>
-              <span className="legal-badge">NĐ 13/2023/NĐ-CP</span>
-            </div>
-            <h2>{profile?.full_name || 'Quý bệnh nhân'}</h2>
-            <div className="profile-contact-line">
-              <span><Phone size={13} /> {profile?.phone_number || 'Chưa có SĐT'}</span>
-              <span>•</span>
-              <span><Mail size={13} /> {profile?.email}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Buttons Strip (Touch friendly) */}
-        <div className="profile-quick-action-strip">
-          <input
-            type="file"
-            ref={fileInputRef}
-            accept="image/*"
-            style={{ display: 'none' }}
-            onChange={handleOcrUpload}
-          />
-          <button
-            type="button"
-            className="btn-mobile-ocr"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={ocrLoading}
+    <div className="ps-scope">
+      <div className="ps-profile-viewport">
+        {/* Alerts */}
+        {error && (
+          <div
+            style={{
+              padding: '12px 20px',
+              borderRadius: '12px',
+              fontSize: '14px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: '#fef2f2',
+              color: '#991b1b',
+              border: '1px solid #fecaca'
+            }}
           >
-            <Camera size={16} />
-            {ocrLoading ? 'AI đang đọc thẻ...' : '📸 Quét CCCD / BHYT'}
-          </button>
-          {!editing ? (
-            <button className="btn-mobile-edit" onClick={() => setEditing(true)}>
-              <Edit3 size={15} /> Sửa hồ sơ
+            <span>{error}</span>
+            <button onClick={() => setError('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+              <X size={16} />
             </button>
-          ) : (
-            <button className="btn-mobile-cancel" onClick={() => setEditing(false)}>
-              <X size={15} /> Hủy sửa
-            </button>
-          )}
-          <button className="btn-mobile-logout" onClick={onLogout} title="Đăng xuất khỏi thiết bị">
-            <LogOut size={15} />
-          </button>
-        </div>
-      </section>
+          </div>
+        )}
 
-      {/* 2. Realistic Vietnamese Digital BHYT Card */}
-      <section className="digital-bhyt-section">
-        <div className="digital-bhyt-card">
-          <div className="bhyt-card-watermark">BẢO HIỂM Y TẾ VIỆT NAM</div>
-          
-          <div className="bhyt-header-row">
-            <div className="bhyt-emblem-wrap">
-              <div className="bhyt-emblem-icon">
+        {success && (
+          <div
+            style={{
+              padding: '12px 20px',
+              borderRadius: '12px',
+              fontSize: '14px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: '#ecfdf5',
+              color: '#065f46',
+              border: '1px solid #a7f3d0'
+            }}
+          >
+            <span>{success}</span>
+            <button onClick={() => setSuccess('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* 1. CLINICAL HERO PROFILE CARD */}
+        <section className="ps-hero-card">
+          <div className="ps-hero-left">
+            <div className="ps-avatar-wrap">
+              <div className="ps-avatar">
+                {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : 'BN'}
+              </div>
+              <div className="ps-online-dot" />
+            </div>
+
+            <div className="ps-user-meta">
+              <div className="ps-chips-row">
+                <span className="ps-badge-pid">
+                  PID: {profile?.external_patient_id || `CC-PAT-${profile?.id?.toString().padStart(4, '0')}`}
+                </span>
+                <span className="ps-badge-vneid">
+                  <ShieldCheck size={13} /> Định danh VNeID Mức 2
+                </span>
+                <span className="ps-badge-pid">
+                  Nghị định 13/2023/NĐ-CP
+                </span>
+              </div>
+              <h2 className="ps-greeting-title">{profile?.full_name || 'Quý bệnh nhân'}</h2>
+              <div style={{ display: 'flex', gap: '14px', fontSize: '13px', color: 'var(--ps-slate-muted)', marginTop: '2px' }}>
+                <span><Phone size={13} style={{ verticalAlign: '-1px' }} /> {profile?.phone_number || 'Chưa cập nhật SĐT'}</span>
+                <span>•</span>
+                <span><Mail size={13} style={{ verticalAlign: '-1px' }} /> {profile?.email}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="ps-hero-actions">
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleOcrUpload}
+            />
+            <button
+              type="button"
+              className="ps-btn-secondary"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={ocrLoading}
+            >
+              <Camera size={15} />
+              {ocrLoading ? 'AI đang đọc...' : 'Quét CCCD / BHYT'}
+            </button>
+
+            {!editing ? (
+              <button className="ps-btn-primary" onClick={() => setEditing(true)}>
+                <Edit3 size={15} /> Sửa hồ sơ
+              </button>
+            ) : (
+              <button className="ps-btn-secondary" onClick={() => setEditing(false)}>
+                <X size={15} /> Hủy sửa
+              </button>
+            )}
+
+            <button
+              className="ps-btn-secondary"
+              onClick={onLogout}
+              title="Đăng xuất khỏi thiết bị"
+              style={{ padding: '12px 14px' }}
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        </section>
+
+        {/* 2. REALISTIC DIGITAL BHYT HEALTH CARD (CLINICAL SANCTUARY BENCHMARK) */}
+        <section className="ps-bhyt-card-container">
+          <div className="ps-bhyt-card-watermark">BẢO HIỂM Y TẾ</div>
+
+          <div className="ps-bhyt-top-row">
+            <div className="ps-bhyt-agency-block">
+              <div className="ps-bhyt-emblem">
                 <ShieldCheck size={22} />
               </div>
-              <div>
-                <b className="bhyt-agency-title">BẢO HIỂM XÃ HỘI VIỆT NAM</b>
-                <span className="bhyt-sub-title">THẺ BẢO HIỂM Y TẾ ĐIỆN TỬ</span>
+              <div className="ps-bhyt-titles">
+                <b>BẢO HIỂM XÃ HỘI VIỆT NAM</b>
+                <span>THẺ BẢO HIỂM Y TẾ ĐIỆN TỬ • CARECONNECT EMR</span>
               </div>
             </div>
-            <span className={`bhyt-chip-status ${profile?.bhyt_code ? 'active' : 'inactive'}`}>
-              <span className="status-live-dot" />
+
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 12px',
+                borderRadius: 'var(--ps-radius-pill)',
+                background: profile?.bhyt_code ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                fontSize: '12px',
+                fontWeight: 700
+              }}
+            >
+              <span className="ps-live-dot" style={{ background: profile?.bhyt_code ? '#10b981' : '#ef4444' }} />
               {profile?.bhyt_code ? 'Đang có hiệu lực' : 'Chưa liên kết thẻ'}
             </span>
           </div>
 
-          <div className="bhyt-code-display">
+          <div className="ps-bhyt-code-number">
             {formatBhytCode(profile?.bhyt_code)}
           </div>
 
-          <div className="bhyt-details-grid">
-            <div className="bhyt-detail-cell">
-              <span className="detail-lbl">Họ và tên:</span>
-              <strong className="detail-val">{profile?.full_name || 'Bệnh nhân'}</strong>
+          <div className="ps-bhyt-grid">
+            <div className="ps-bhyt-cell">
+              <small>Họ và tên</small>
+              <strong>{profile?.full_name || 'Bệnh nhân'}</strong>
             </div>
-            <div className="bhyt-detail-cell">
-              <span className="detail-lbl">Ngày sinh:</span>
-              <strong className="detail-val">{profile?.date_of_birth || 'Chưa cập nhật'}</strong>
+
+            <div className="ps-bhyt-cell">
+              <small>Ngày sinh</small>
+              <strong>{profile?.date_of_birth || 'Chưa cập nhật'}</strong>
             </div>
-            <div className="bhyt-detail-cell">
-              <span className="detail-lbl">Giới tính:</span>
-              <strong className="detail-val">{profile?.gender || 'Nam'}</strong>
+
+            <div className="ps-bhyt-cell">
+              <small>Giới tính</small>
+              <strong>{profile?.gender || 'Nam'}</strong>
             </div>
-            <div className="bhyt-detail-cell">
-              <span className="detail-lbl">Mức hưởng:</span>
-              <strong className="detail-val" style={{ color: '#10b981' }}>
-                {profile?.bhyt_code ? '80% KCB Đúng tuyến' : 'Chưa áp dụng'}
+
+            <div className="ps-bhyt-cell">
+              <small>Mức hưởng BHYT</small>
+              <strong style={{ color: '#6ee7b7' }}>
+                {profile?.bhyt_code ? '80% KCB Đúng Tuyến' : 'Chưa áp dụng'}
               </strong>
             </div>
-            <div className="bhyt-detail-cell full-span">
-              <span className="detail-lbl">Nơi ĐK KCB Ban đầu:</span>
-              <strong className="detail-val">
-                79-014 (Bệnh viện Đa khoa Quốc tế CareConnect)
-              </strong>
+
+            <div className="ps-bhyt-cell" style={{ gridColumn: 'span 2' }}>
+              <small>Nơi ĐK KCB Ban đầu</small>
+              <strong>79-014 (Bệnh viện Đa khoa Quốc tế CareConnect)</strong>
             </div>
           </div>
+        </section>
 
-          <div className="bhyt-card-bottom-bar">
-            <div className="bhyt-qr-simulation">
-              <QrCode size={36} color="#0f766e" />
-              <div className="qr-subtext">
-                <small>Mã vạch tra cứu QĐ 4210</small>
-                <b>GDBHYT-{profile?.id || '79014'}</b>
+        {/* 3. TABBED PROFILE NAVIGATION */}
+        <div className="ps-profile-tabs">
+          <button
+            className={`ps-tab-btn ${activeTab === 'info' ? 'active' : ''}`}
+            onClick={() => setActiveTab('info')}
+          >
+            <UserRound size={16} /> Thông tin cá nhân & CCCD
+          </button>
+          <button
+            className={`ps-tab-btn ${activeTab === 'medical' ? 'active' : ''}`}
+            onClick={() => setActiveTab('medical')}
+          >
+            <Heart size={16} /> Tiền sử y tế & Nhóm máu
+          </button>
+          <button
+            className={`ps-tab-btn ${activeTab === 'devices' ? 'active' : ''}`}
+            onClick={() => setActiveTab('devices')}
+          >
+            <Activity size={16} /> Thiết bị sinh hiệu RPM
+          </button>
+          <button
+            className={`ps-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
+            onClick={() => setActiveTab('history')}
+          >
+            <FileText size={16} /> Lịch sử & Dịch vụ y tế
+          </button>
+          <button
+            className={`ps-tab-btn ${activeTab === 'privacy' ? 'active' : ''}`}
+            onClick={() => setActiveTab('privacy')}
+          >
+            <Lock size={16} /> Bảo mật & Quyền riêng tư
+          </button>
+        </div>
+
+        {/* TAB 1: THÔNG TIN CÁ NHÂN & CCCD */}
+        {activeTab === 'info' && (
+          <section className="ps-hero-card" style={{ display: 'block' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--ps-navy)' }}>
+                  Thông Tin Nhân Khẩu & Định Danh CCCD/VNeID
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--ps-slate-muted)' }}>
+                  Dữ liệu được bảo mật mã hóa E2EE và đối soát theo quy chuẩn y tế quốc gia
+                </p>
               </div>
+
+              {!editing && (
+                <button className="ps-btn-secondary" onClick={() => setEditing(true)}>
+                  <Edit3 size={14} /> Chỉnh sửa
+                </button>
+              )}
             </div>
-            <div className="bhyt-valid-date">
-              <small>Giá trị sử dụng từ:</small>
-              <b>01/01/2026 - Không thời hạn</b>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* 3. Clinical Vitals & Biometrics Quick Strip */}
-      <section className="profile-biometrics-strip">
-        {/* Nhóm máu */}
-        <div className="biometric-tile">
-          <div className="bio-icon blood">
-            <Droplet size={18} />
-          </div>
-          <div className="bio-info">
-            <small>Nhóm máu</small>
-            <strong style={{ color: '#e11d48' }}>{profile?.blood_type || 'O+'} (Rh+)</strong>
-          </div>
-        </div>
-
-        {/* Lịch khám */}
-        <div className="biometric-tile" onClick={() => onNavigate('appointments')}>
-          <div className="bio-icon appt">
-            <Calendar size={18} />
-          </div>
-          <div className="bio-info">
-            <small>Lịch khám</small>
-            <strong>{profile?.total_appointments || 0} lượt</strong>
-          </div>
-        </div>
-
-        {/* Đơn thuốc */}
-        <div className="biometric-tile" onClick={() => onNavigate('prescriptions')}>
-          <div className="bio-icon rx">
-            <FileText size={18} />
-          </div>
-          <div className="bio-info">
-            <small>Đơn thuốc</small>
-            <strong>{profile?.total_prescriptions || 0} toa</strong>
-          </div>
-        </div>
-
-        {/* Dị ứng */}
-        <div className="biometric-tile">
-          <div className="bio-icon allergy">
-            <AlertTriangle size={18} />
-          </div>
-          <div className="bio-info">
-            <small>Dị ứng thuốc</small>
-            <strong style={{ color: profile?.allergies ? '#d97706' : '#10b981' }}>
-              {profile?.allergies ? 'Có cảnh báo' : 'Chưa ghi nhận'}
-            </strong>
-          </div>
-        </div>
-      </section>
-
-      {/* 4. Touch-Friendly Segmented Navigation Tabs */}
-      <div className="profile-segmented-nav">
-        <button
-          className={`segment-btn ${activeTab === 'info' ? 'active' : ''}`}
-          onClick={() => setActiveTab('info')}
-        >
-          <UserRound size={15} />
-          <span>Hành chính & CCCD</span>
-        </button>
-        <button
-          className={`segment-btn ${activeTab === 'medical' ? 'active' : ''}`}
-          onClick={() => setActiveTab('medical')}
-        >
-          <Heart size={15} />
-          <span>Y tế & BHYT</span>
-        </button>
-        <button
-          className={`segment-btn ${activeTab === 'devices' ? 'active' : ''}`}
-          onClick={() => setActiveTab('devices')}
-        >
-          <Cpu size={15} />
-          <span>Kết nối thiết bị</span>
-        </button>
-        <button
-          className={`segment-btn ${activeTab === 'history' ? 'active' : ''}`}
-          onClick={() => setActiveTab('history')}
-        >
-          <Activity size={15} />
-          <span>Lịch sử khám</span>
-        </button>
-        <button
-          className={`segment-btn ${activeTab === 'privacy' ? 'active' : ''}`}
-          onClick={() => setActiveTab('privacy')}
-        >
-          <ShieldCheck size={15} />
-          <span>Bảo mật NĐ 13</span>
-        </button>
-      </div>
-
-      {/* 5. Tab Content Sections */}
-
-      {/* Tab 1: Thông tin Hành chính & CCCD */}
-      {activeTab === 'info' && (
-        <section className="panel profile-section-panel">
-          <div className="panel-heading">
-            <div>
-              <h3>Thông Tin Định Danh & Căn Cước Công Dân</h3>
-              <p>Khớp nối trực tiếp hệ thống dữ liệu Quốc gia VNeID & Thông tư 30/2023/TT-BYT</p>
-            </div>
-            {!editing && (
-              <button className="btn-edit-action" onClick={() => setEditing(true)}>
-                <Edit3 size={14} /> Chỉnh sửa
-              </button>
-            )}
-          </div>
-
-          <form onSubmit={handleSave}>
-            <div className="profile-fields-grid">
-              <div className="field-group">
-                <label><UserRound size={14} /> Họ và tên đầy đủ</label>
-                {editing ? (
+            <form onSubmit={handleSave}>
+              <div className="ps-form-grid">
+                <div className="ps-input-group">
+                  <label>Họ và tên bệnh nhân (*)</label>
                   <input
                     type="text"
+                    className="ps-form-input"
                     value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
+                    onChange={e => setFullName(e.target.value)}
+                    disabled={!editing}
+                    placeholder="Nguyễn Văn A..."
                   />
-                ) : (
-                  <div className="field-display-value highlight">{profile?.full_name}</div>
-                )}
-              </div>
-
-              <div className="field-group">
-                <label><Phone size={14} /> Số điện thoại xác thực OTP</label>
-                <div className="field-display-value verified-phone">
-                  <span>{profile?.phone_number || 'Chưa cung cấp'}</span>
-                  <span className="verified-badge-micro">✓ Đã xác thực OTP</span>
                 </div>
-              </div>
 
-              <div className="field-group">
-                <label><Mail size={14} /> Địa chỉ Email</label>
-                {editing ? (
+                <div className="ps-input-group">
+                  <label>Số điện thoại</label>
+                  <input
+                    type="text"
+                    className="ps-form-input"
+                    value={profile?.phone_number || ''}
+                    disabled
+                    style={{ background: '#f8fafc' }}
+                  />
+                </div>
+
+                <div className="ps-input-group">
+                  <label>Địa chỉ Email</label>
                   <input
                     type="email"
+                    className="ps-form-input"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
+                    onChange={e => setEmail(e.target.value)}
+                    disabled={!editing}
+                    placeholder="email@example.com"
                   />
-                ) : (
-                  <div className="field-display-value">{profile?.email}</div>
-                )}
-              </div>
+                </div>
 
-              <div className="field-group">
-                <label><CreditCard size={14} /> Số Căn cước công dân (CCCD 12 số)</label>
-                {editing ? (
+                <div className="ps-input-group">
+                  <label>Số CCCD / Mã định danh cá nhân</label>
                   <input
                     type="text"
+                    className="ps-form-input"
                     value={identityCard}
-                    onChange={(e) => setIdentityCard(e.target.value)}
-                    placeholder="12 chữ số trên thẻ CCCD gắn chip"
-                    maxLength={12}
+                    onChange={e => setIdentityCard(e.target.value)}
+                    disabled={!editing}
+                    placeholder="12 chữ số CCCD..."
                   />
-                ) : (
-                  <div className="field-display-value font-mono">
-                    {profile?.identity_card || 'Chưa cập nhật (Dùng nút Quét AI phía trên)'}
-                  </div>
-                )}
-              </div>
+                </div>
 
-              <div className="field-group">
-                <label><Calendar size={14} /> Ngày tháng năm sinh</label>
-                {editing ? (
+                <div className="ps-input-group">
+                  <label>Ngày tháng năm sinh</label>
                   <input
-                    type="date"
+                    type="text"
+                    className="ps-form-input"
                     value={dateOfBirth}
-                    onChange={(e) => setDateOfBirth(e.target.value)}
+                    onChange={e => setDateOfBirth(e.target.value)}
+                    disabled={!editing}
+                    placeholder="DD/MM/YYYY"
                   />
-                ) : (
-                  <div className="field-display-value">{profile?.date_of_birth || 'Chưa cập nhật'}</div>
-                )}
-              </div>
+                </div>
 
-              <div className="field-group">
-                <label><UserRound size={14} /> Giới tính</label>
-                {editing ? (
-                  <select value={gender} onChange={(e) => setGender(e.target.value)}>
+                <div className="ps-input-group">
+                  <label>Giới tính</label>
+                  <select
+                    className="ps-form-input"
+                    value={gender}
+                    onChange={e => setGender(e.target.value)}
+                    disabled={!editing}
+                  >
                     <option value="Nam">Nam</option>
                     <option value="Nữ">Nữ</option>
                     <option value="Khác">Khác</option>
                   </select>
-                ) : (
-                  <div className="field-display-value">{profile?.gender || 'Nam'}</div>
-                )}
-              </div>
+                </div>
 
-              <div className="field-group full-width">
-                <label><MapPin size={14} /> Địa chỉ thường trú / Nơi ở hiện tại</label>
-                {editing ? (
+                <div className="ps-input-group full-width">
+                  <label>Mã số Thẻ Bảo hiểm Y tế (BHYT)</label>
                   <input
                     type="text"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố"
-                  />
-                ) : (
-                  <div className="field-display-value">{profile?.address || 'Chưa cập nhật'}</div>
-                )}
-              </div>
-            </div>
-
-            {editing && (
-              <div className="edit-form-actions">
-                <button type="submit" className="btn-save-confirm" disabled={saving}>
-                  <Save size={16} /> {saving ? 'Đang lưu...' : 'Lưu cập nhật'}
-                </button>
-                <button type="button" className="btn-cancel" onClick={() => setEditing(false)}>
-                  Hủy bỏ
-                </button>
-              </div>
-            )}
-          </form>
-        </section>
-      )}
-
-      {/* Tab 2: Y tế, Thẻ BHYT & Tiền sử */}
-      {activeTab === 'medical' && (
-        <section className="panel profile-section-panel">
-          <div className="panel-heading">
-            <div>
-              <h3>Hồ Sơ Y Tế, Thẻ BHYT & Tiền Sử Lâm Sàng</h3>
-              <p>Phục vụ Bác sĩ kê đơn an toàn, cảnh báo tương tác thuốc và hưởng chiết khấu BHYT</p>
-            </div>
-            {!editing && (
-              <button className="btn-edit-action" onClick={() => setEditing(true)}>
-                <Edit3 size={14} /> Cập nhật y tế
-              </button>
-            )}
-          </div>
-
-          <form onSubmit={handleSave}>
-            <div className="profile-fields-grid">
-              <div className="field-group">
-                <label><ShieldCheck size={14} /> Mã số thẻ BHYT (15 ký tự)</label>
-                {editing ? (
-                  <input
-                    type="text"
+                    className="ps-form-input"
                     value={bhytCode}
-                    onChange={(e) => setBhytCode(e.target.value.toUpperCase())}
-                    maxLength={15}
-                    placeholder="VD: GD4791234567890"
+                    onChange={e => setBhytCode(e.target.value)}
+                    disabled={!editing}
+                    placeholder="Ví dụ: GD4797931812345"
+                    style={{ textTransform: 'uppercase', fontFamily: 'monospace', fontWeight: 700 }}
                   />
-                ) : (
-                  <div className="field-display-value font-mono highlight-teal">
-                    {profile?.bhyt_code || 'Chưa cập nhật'}
-                  </div>
-                )}
-              </div>
+                </div>
 
-              <div className="field-group">
-                <label><Droplet size={14} color="#e11d48" /> Nhóm máu (ABO & Rh)</label>
-                {editing ? (
-                  <select value={bloodType} onChange={(e) => setBloodType(e.target.value)}>
-                    <option value="O+">O+ (Rh dương)</option>
-                    <option value="A+">A+ (Rh dương)</option>
-                    <option value="B+">B+ (Rh dương)</option>
-                    <option value="AB+">AB+ (Rh dương)</option>
-                    <option value="O-">O- (Rh âm)</option>
-                    <option value="A-">A- (Rh âm)</option>
-                    <option value="B-">B- (Rh âm)</option>
-                    <option value="AB-">AB- (Rh âm)</option>
-                  </select>
-                ) : (
-                  <div className="field-display-value font-bold" style={{ color: '#e11d48' }}>
-                    {profile?.blood_type || 'O+'}
-                  </div>
-                )}
-              </div>
-
-              <div className="field-group full-width">
-                <label className="text-warning-label">
-                  <AlertTriangle size={15} color="#d97706" /> Tiền sử Dị ứng thuốc & Thực phẩm
-                </label>
-                {editing ? (
-                  <textarea
-                    rows={2}
-                    value={allergies}
-                    onChange={(e) => setAllergies(e.target.value)}
-                    placeholder="Ghi rõ dị ứng (ví dụ: Dị ứng Penicillin, Aspirin, phấn hoa, tôm cua...)"
-                  />
-                ) : (
-                  <div className={`field-display-box ${profile?.allergies ? 'has-allergy' : 'no-allergy'}`}>
-                    {profile?.allergies ? (
-                      <>
-                        <AlertTriangle size={16} color="#d97706" />
-                        <span>Cảnh báo dị ứng: <b>{profile.allergies}</b></span>
-                      </>
-                    ) : (
-                      '✓ Không ghi nhận tiền sử dị ứng thuốc nguy hiểm'
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="field-group">
-                <label><UserRound size={14} /> Người liên hệ khẩn cấp</label>
-                {editing ? (
+                <div className="ps-input-group full-width">
+                  <label>Địa chỉ thường trú</label>
                   <input
                     type="text"
-                    value={emergencyName}
-                    onChange={(e) => setEmergencyName(e.target.value)}
-                    placeholder="Họ tên người thân (Vợ/Chồng/Cha/Mẹ...)"
+                    className="ps-form-input"
+                    value={address}
+                    onChange={e => setAddress(e.target.value)}
+                    disabled={!editing}
+                    placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành..."
                   />
-                ) : (
-                  <div className="field-display-value">
-                    {profile?.emergency_contact_name || 'Chưa cập nhật'}
-                  </div>
-                )}
+                </div>
               </div>
 
-              <div className="field-group">
-                <label><PhoneCall size={14} /> SĐT người liên hệ khẩn cấp</label>
-                {editing ? (
+              {editing && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
+                  <button type="button" className="ps-btn-secondary" onClick={() => setEditing(false)}>
+                    Hủy bỏ
+                  </button>
+                  <button type="submit" className="ps-btn-primary" disabled={saving}>
+                    <Save size={15} /> {saving ? 'Đang lưu...' : 'Lưu cập nhật'}
+                  </button>
+                </div>
+              )}
+            </form>
+          </section>
+        )}
+
+        {/* TAB 2: TIỀN SỬ Y TẾ & NHÓM MÁU */}
+        {activeTab === 'medical' && (
+          <section className="ps-hero-card" style={{ display: 'block' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--ps-navy)' }}>
+                  Tiền Sử Bệnh & Cảnh Báo Lâm Sàng
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--ps-slate-muted)' }}>
+                  Bác sĩ điều trị sẽ đối chiếu thông tin này trước khi ra y lệnh thuốc và chẩn đoán
+                </p>
+              </div>
+
+              {!editing && (
+                <button className="ps-btn-secondary" onClick={() => setEditing(true)}>
+                  <Edit3 size={14} /> Chỉnh sửa
+                </button>
+              )}
+            </div>
+
+            <form onSubmit={handleSave}>
+              <div className="ps-form-grid">
+                <div className="ps-input-group">
+                  <label>Nhóm máu (Hệ ABO & Rh)</label>
+                  <select
+                    className="ps-form-input"
+                    value={bloodType}
+                    onChange={e => setBloodType(e.target.value)}
+                    disabled={!editing}
+                  >
+                    <option value="O+">O+ (Phổ biến)</option>
+                    <option value="O-">O- (Hiếm)</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                  </select>
+                </div>
+
+                <div className="ps-input-group">
+                  <label>Người liên hệ khẩn cấp (Họ tên)</label>
+                  <input
+                    type="text"
+                    className="ps-form-input"
+                    value={emergencyName}
+                    onChange={e => setEmergencyName(e.target.value)}
+                    disabled={!editing}
+                    placeholder="Người thân, cha mẹ, vợ/chồng..."
+                  />
+                </div>
+
+                <div className="ps-input-group">
+                  <label>Số điện thoại người liên hệ khẩn cấp</label>
                   <input
                     type="tel"
+                    className="ps-form-input"
                     value={emergencyPhone}
-                    onChange={(e) => setEmergencyPhone(e.target.value)}
-                    placeholder="Số điện thoại người thân"
+                    onChange={e => setEmergencyPhone(e.target.value)}
+                    disabled={!editing}
+                    placeholder="0912 345 678..."
                   />
-                ) : (
-                  <div className="field-display-value emergency-call-row">
-                    <span>{profile?.emergency_contact_phone || 'Chưa cập nhật'}</span>
-                    {profile?.emergency_contact_phone && (
-                      <a
-                        href={`tel:${profile.emergency_contact_phone}`}
-                        className="btn-call-emergency"
-                        title="Gọi khẩn cấp"
-                      >
-                        <PhoneCall size={13} /> Gọi ngay
-                      </a>
-                    )}
-                  </div>
-                )}
+                </div>
+
+                <div className="ps-input-group full-width">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#dc2626' }}>
+                    <AlertTriangle size={15} /> Tiền sử dị ứng (Thuốc, thức ăn, phấn hoa, v.v.)
+                  </label>
+                  <textarea
+                    className="ps-form-input"
+                    rows={3}
+                    style={{ height: 'auto', padding: '12px 16px' }}
+                    value={allergies}
+                    onChange={e => setAllergies(e.target.value)}
+                    disabled={!editing}
+                    placeholder="Ví dụ: Dị ứng Penicillin, Paracetamol nổi mề đay, dị ứng hải sản..."
+                  />
+                </div>
+              </div>
+
+              {editing && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
+                  <button type="button" className="ps-btn-secondary" onClick={() => setEditing(false)}>
+                    Hủy bỏ
+                  </button>
+                  <button type="submit" className="ps-btn-primary" disabled={saving}>
+                    <Save size={15} /> {saving ? 'Đang lưu...' : 'Lưu tiền sử'}
+                  </button>
+                </div>
+              )}
+            </form>
+          </section>
+        )}
+
+        {/* TAB 3: THIẾT BỊ SINH HIỆU RPM */}
+        {activeTab === 'devices' && (
+          <section>
+            <SmartDevicesHub user={currentUser} embedded={true} onNavigate={onNavigate} />
+          </section>
+        )}
+
+        {/* TAB 4: LỊCH SỬ & DỊCH VỤ Y TẾ */}
+        {activeTab === 'history' && (
+          <section className="ps-hero-card" style={{ display: 'block' }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: 700, color: 'var(--ps-navy)' }}>
+              Truy Cập Nhanh Hệ Sinh Thái Y Tế Cá Nhân
+            </h3>
+
+            <div className="ps-services-grid">
+              <div className="ps-service-tile" onClick={() => onNavigate('records')}>
+                <div>
+                  <div className="ps-service-icon-box blue"><FileText size={22} /></div>
+                  <h4 className="ps-service-title">Hồ Sơ Bệnh Án EMR</h4>
+                  <p className="ps-service-desc">Xem toàn bộ lịch sử thăm khám và chẩn đoán ICD-10</p>
+                </div>
+                <div className="ps-service-footer">
+                  <span>Mở EMR</span>
+                  <ChevronRight size={15} />
+                </div>
+              </div>
+
+              <div className="ps-service-tile" onClick={() => onNavigate('prescriptions')}>
+                <div>
+                  <div className="ps-service-icon-box mint"><Heart size={22} /></div>
+                  <h4 className="ps-service-title">Đơn Thuốc Điện Tử</h4>
+                  <p className="ps-service-desc">Đơn thuốc có ký số và hướng dẫn liều dùng</p>
+                </div>
+                <div className="ps-service-footer">
+                  <span>Mở đơn thuốc</span>
+                  <ChevronRight size={15} />
+                </div>
+              </div>
+
+              <div className="ps-service-tile" onClick={() => onNavigate('lab')}>
+                <div>
+                  <div className="ps-service-icon-box sky"><Droplet size={22} /></div>
+                  <h4 className="ps-service-title">Xét Nghiệm LIS</h4>
+                  <p className="ps-service-desc">Kết quả sinh hóa, huyết học kèm giá trị tham chiếu</p>
+                </div>
+                <div className="ps-service-footer">
+                  <span>Mở xét nghiệm</span>
+                  <ChevronRight size={15} />
+                </div>
+              </div>
+
+              <div className="ps-service-tile" onClick={() => onNavigate('pacs')}>
+                <div>
+                  <div className="ps-service-icon-box purple"><Camera size={22} /></div>
+                  <h4 className="ps-service-title">Hình Ảnh PACS</h4>
+                  <p className="ps-service-desc">Xem phim chụp X-quang, MRI, Siêu âm DICOM</p>
+                </div>
+                <div className="ps-service-footer">
+                  <span>Mở phim chụp</span>
+                  <ChevronRight size={15} />
+                </div>
               </div>
             </div>
+          </section>
+        )}
 
-            {editing && (
-              <div className="edit-form-actions">
-                <button type="submit" className="btn-save-confirm" disabled={saving}>
-                  <Save size={16} /> {saving ? 'Đang lưu...' : 'Lưu hồ sơ y tế'}
+        {/* TAB 5: BẢO MẬT & QUYỀN RIÊNG TƯ */}
+        {activeTab === 'privacy' && (
+          <section className="ps-hero-card" style={{ display: 'block' }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: 700, color: 'var(--ps-navy)' }}>
+              Bảo Mật Dữ Liệu & Quyền Riêng Tư Y Tế (Nghị Định 13/2023/NĐ-CP)
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ background: '#f8fafc', padding: '18px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--ps-primary)', fontWeight: 700 }}>
+                  <ShieldCheck size={20} />
+                  <span>Tuân thủ Luật Khám bệnh, chữa bệnh 2023 & Nghị định 13/2023/NĐ-CP</span>
+                </div>
+                <p style={{ margin: '8px 0 0', fontSize: '13px', color: 'var(--ps-slate)', lineHeight: 1.5 }}>
+                  Mọi hồ sơ bệnh án (EMR), hình ảnh xét nghiệm và chỉ số sinh hiệu của bạn được bảo mật tuyệt đối,
+                  mã hóa phân vùng PHI và chỉ được cung cấp cho Bác sĩ được chỉ định trong ca tư vấn.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="ps-btn-secondary"
+                  onClick={() => alert('Bản sao lưu dữ liệu y tế cá nhân đang được đóng gói. Hệ thống sẽ gửi về email của bạn.')}
+                >
+                  <Download size={15} /> Tải bản sao lưu dữ liệu EMR
                 </button>
-                <button type="button" className="btn-cancel" onClick={() => setEditing(false)}>
-                  Hủy bỏ
+                <button
+                  type="button"
+                  className="ps-btn-secondary"
+                  onClick={() => alert('Vui lòng sử dụng tính năng Đổi mật khẩu trên màn hình đăng nhập hoặc liên hệ tổng đài 1900 8866.')}
+                >
+                  <KeyRound size={15} /> Đổi mật khẩu tài khoản
                 </button>
               </div>
-            )}
-          </form>
-        </section>
-      )}
-
-      {/* Tab 3: Lịch sử Khám & Đơn thuốc */}
-      {/* Tab: Kết nối thiết bị Y tế Thông minh */}
-      {activeTab === 'devices' && (
-        <section className="panel profile-section-panel">
-          <div className="panel-heading">
-            <div>
-              <h3>Thiết Bị Đo Y Tế Đã Ghép Đôi & Đồng Bộ</h3>
-              <p>Quản lý các máy đo sinh hiệu cá nhân liên kết với tài khoản y bạ điện tử của bạn</p>
             </div>
-            {onNavigate && (
-              <button className="btn-book-action" onClick={() => onNavigate('vitals')}>
-                Trung tâm Sinh hiệu FDA <ArrowRight size={14} />
-              </button>
-            )}
-          </div>
-
-          <SmartDevicesHub
-            user={currentUser}
-            vitalsLogs={[]}
-            onNavigate={onNavigate}
-            embedded={true}
-          />
-        </section>
-      )}
-
-      {activeTab === 'history' && (
-        <section className="panel profile-section-panel">
-          <div className="panel-heading">
-            <div>
-              <h3>Lịch Sử Khám Bệnh & Đơn Thuốc</h3>
-              <p>Toàn bộ hồ sơ khám bệnh từ xa và đơn thuốc điện tử quốc gia</p>
-            </div>
-            <button className="btn-book-action" onClick={() => onNavigate('appointments')}>
-              Xem chi tiết lịch hẹn <ArrowRight size={14} />
-            </button>
-          </div>
-
-          <div className="history-cards-list">
-            <div className="history-action-tile" onClick={() => onNavigate('appointments')}>
-              <div className="tile-icon-circ" style={{ background: '#f0fdfa', color: '#0f766e' }}>
-                <Calendar size={22} />
-              </div>
-              <div className="tile-text">
-                <b>Quản lý Lịch khám của tôi</b>
-                <p>Xem danh sách ca khám, giờ hẹn, phòng khám trực tuyến và thanh toán</p>
-              </div>
-              <ChevronRight size={18} color="#94a3b8" />
-            </div>
-
-            <div className="history-action-tile" onClick={() => onNavigate('prescriptions')}>
-              <div className="tile-icon-circ" style={{ background: '#ecfdf5', color: '#059669' }}>
-                <FileText size={22} />
-              </div>
-              <div className="tile-text">
-                <b>Đơn thuốc điện tử Quốc gia</b>
-                <p>Tra cứu mã đơn thuốc, hướng dẫn sử dụng và mã QR donthuocquocgia.vn</p>
-              </div>
-              <ChevronRight size={18} color="#94a3b8" />
-            </div>
-
-            <div className="history-action-tile" onClick={() => onNavigate('family')}>
-              <div className="tile-icon-circ" style={{ background: '#faf5ff', color: '#9333ea' }}>
-                <UserRound size={22} />
-              </div>
-              <div className="tile-text">
-                <b>Hồ sơ Sức khỏe Gia đình (Family Vault)</b>
-                <p>Quản lý hồ sơ y tế của con nhỏ dưới 6 tuổi và cha mẹ lớn tuổi</p>
-              </div>
-              <ChevronRight size={18} color="#94a3b8" />
-            </div>
-
-            <div className="history-action-tile" onClick={() => onNavigate('vitals')}>
-              <div className="tile-icon-circ" style={{ background: '#fff1f2', color: '#e11d48' }}>
-                <Activity size={22} />
-              </div>
-              <div className="tile-text">
-                <b>Giám sát Sinh hiệu Từ xa (RPM IoT BLE)</b>
-                <p>Kết nối máy đo huyết áp Omron, máy đo đường huyết Accu-Chek và SpO2</p>
-              </div>
-              <ChevronRight size={18} color="#94a3b8" />
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Tab 4: Bảo mật NĐ 13 & Quyền riêng tư */}
-      {activeTab === 'privacy' && (
-        <section className="panel profile-section-panel">
-          <div className="panel-heading">
-            <div>
-              <h3>Bảo Vệ Dữ Liệu Y Tế & Tuân Thủ Pháp Lý</h3>
-              <p>Tuân thủ nghiêm ngặt Nghị định 13/2023/NĐ-CP và Luật Khám bệnh, chữa bệnh 2023</p>
-            </div>
-          </div>
-
-          <div className="privacy-feature-cards">
-            <div className="privacy-feature-item">
-              <div className="privacy-icon-circ" style={{ background: '#ecfdf5', color: '#059669' }}>
-                <ShieldCheck size={22} />
-              </div>
-              <div className="privacy-item-text">
-                <b>Đồng thuận Xử lý Dữ liệu Y tế Cá nhân</b>
-                <p>
-                  Bạn đã đồng thuận cho phép Bệnh viện CareConnect thu thập và lưu trữ thông tin bệnh án, kết quả xét nghiệm và đơn thuốc để phục vụ khám chữa bệnh từ xa.
-                </p>
-                <span className="privacy-badge">✓ Trạng thái: Đã đồng thuận (Phiên bản 2026.1-ND13)</span>
-              </div>
-            </div>
-
-            <div className="privacy-feature-item">
-              <div className="privacy-icon-circ" style={{ background: '#eff6ff', color: '#2563eb' }}>
-                <Lock size={22} />
-              </div>
-              <div className="privacy-item-text">
-                <b>Mã hóa Bệnh án End-to-End (AES-256)</b>
-                <p>
-                  Toàn bộ dữ liệu bệnh án điện tử EMR được mã hóa chuẩn quân sự AES-256-GCM. Chỉ Bác sĩ được phân công phụ trách ca khám mới có quyền giải mã xem bệnh án.
-                </p>
-                <span className="privacy-badge">✓ Tiêu chuẩn: AES-256-GCM & SSL/TLS 1.3</span>
-              </div>
-            </div>
-
-            <div className="privacy-feature-item">
-              <div className="privacy-icon-circ" style={{ background: '#faf5ff', color: '#9333ea' }}>
-                <FileText size={22} />
-              </div>
-              <div className="privacy-item-text">
-                <b>Chữ ký số Bác sĩ VNPT SmartCA</b>
-                <p>
-                  Mọi kết luận chẩn đoán và đơn thuốc ban hành đều được ký số PKI của Bác sĩ có giá trị pháp lý tương đương văn bản đóng dấu của bệnh viện.
-                </p>
-                <span className="privacy-badge">✓ Đạt chuẩn Thông tư 30/2023/TT-BYT & QCVN 108:2016</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="account-device-management">
-            <h4>Quản lý Phiên & Thiết bị Đăng nhập</h4>
-            <div className="device-logout-card">
-              <div>
-                <b>Đăng xuất khỏi thiết bị này</b>
-                <p>Xóa sạch token phiên làm việc trên trình duyệt và thiết bị di động để bảo mật dữ liệu</p>
-              </div>
-              <button className="btn-logout-safe" onClick={onLogout}>
-                <LogOut size={16} /> Đăng xuất an toàn
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
+          </section>
+        )}
+      </div>
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import './patient-sanctuary.css'
 
 import {
 
@@ -1722,7 +1723,7 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
   return (
 
-    <div className={`smart-devices-hub-wrapper ${embedded ? 'embedded' : 'standalone-page'}`}>
+    <div className={`ps-scope smart-devices-hub-wrapper ${embedded ? 'embedded' : 'standalone-page'}`}>
 
       {/* Toast Notification */}
 
