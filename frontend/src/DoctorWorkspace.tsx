@@ -27,6 +27,7 @@ import { webrtcService, type WebRTCState } from './webrtcService'
 import { ConsultationChat } from './ConsultationChat'
 import { PrescriptionBuilder } from './PrescriptionBuilder'
 import { NotificationCenter } from './NotificationCenter'
+import './doctor-sanctuary.css'
 
 export function DoctorWorkspace({
   appointment,
@@ -773,7 +774,8 @@ export function DoctorWorkspace({
   }
 
   return (
-    <div className="workspace-container">
+    <div className="ds-scope">
+      <div className="workspace-container">
       {/* Top Header */}
       <header className="workspace-header">
         <div className="workspace-header-left">
@@ -2967,5 +2969,6 @@ export function DoctorWorkspace({
         </div>
       )}
     </div>
-  )
+  </div>
+)
 }

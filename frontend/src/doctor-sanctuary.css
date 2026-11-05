@@ -1,0 +1,2004 @@
+/* ==========================================================================
+   DOCTOR SANCTUARY DESIGN SYSTEM (CLINICAL SANCTUARY BENCHMARK)
+   Standard: Clinical Sanctuary for Doctors & Clinicians
+   Geometry: 16px radius cards, 24px hero containers, 9999px pills & capsule docks
+   Palette: Primary Teal (#0e7490), Soft Blue (#0284c7), Mint (#10b981), Navy (#0b1c30)
+   Controls: Floating frosted glass toolbar (rgba(15, 23, 42, 0.88), blur(16px))
+   ========================================================================== */
+
+.ds-scope {
+  --ds-primary: #0e7490;
+  --ds-primary-dark: #005a71;
+  --ds-primary-light: #e0f2fe;
+  --ds-primary-hover: #155e75;
+  --ds-secondary: #0284c7;
+  --ds-secondary-tint: #eff6ff;
+  --ds-mint: #10b981;
+  --ds-mint-tint: #ecfdf5;
+  --ds-mint-border: #a7f3d0;
+  --ds-mint-dark: #065f46;
+  --ds-surface: #f8f9ff;
+  --ds-card-bg: #ffffff;
+  --ds-navy: #0b1c30;
+  --ds-slate: #334155;
+  --ds-slate-muted: #64748b;
+  --ds-border: rgba(226, 232, 240, 0.85);
+  --ds-border-focus: #0e7490;
+  --ds-danger: #ef4444;
+  --ds-danger-tint: #fef2f2;
+  --ds-warning: #f59e0b;
+  --ds-warning-tint: #fffbeb;
+  --ds-purple: #8b5cf6;
+  --ds-purple-tint: #faf5ff;
+  --ds-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(14, 116, 144, 0.04);
+  --ds-shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 10px 20px -3px rgba(14, 116, 144, 0.08);
+  --ds-shadow-lg: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.06);
+  --ds-radius-sm: 8px;
+  --ds-radius-md: 12px;
+  --ds-radius-lg: 16px;
+  --ds-radius-xl: 24px;
+  --ds-radius-pill: 9999px;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  color: var(--ds-navy);
+  box-sizing: border-box;
+}
+
+.ds-scope * {
+  box-sizing: border-box;
+}
+
+/* ==========================================================================
+   1. DOCTOR COMMAND CENTER DASHBOARD
+   ========================================================================== */
+
+.doctor-dashboard-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 8px 16px 48px;
+}
+
+/* Hero Command Banner */
+.doctor-hero-banner {
+  background: linear-gradient(135deg, #0b1c30 0%, #0e7490 60%, #0891b2 100%);
+  border-radius: var(--ds-radius-xl);
+  padding: 28px 32px;
+  color: #ffffff;
+  box-shadow: 0 12px 30px -4px rgba(14, 116, 144, 0.25);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 28px;
+  position: relative;
+  overflow: hidden;
+}
+
+.doctor-hero-banner::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.doctor-hero-content {
+  flex: 1;
+  z-index: 1;
+}
+
+.doctor-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.doctor-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--ds-radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  backdrop-filter: blur(8px);
+}
+
+.doctor-status-pill .live-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #34d399;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #34d399;
+  animation: ds-pulse 2s infinite;
+}
+
+@keyframes ds-pulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+.doctor-cchn-pill,
+.doctor-dept-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--ds-radius-pill);
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(8px);
+}
+
+.doctor-hero-content h1 {
+  font-size: 26px;
+  font-weight: 800;
+  margin: 0 0 6px;
+  color: #ffffff;
+  letter-spacing: -0.5px;
+}
+
+.doctor-hero-sub {
+  margin: 0 0 20px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.5;
+}
+
+.doctor-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-start-next {
+  background: #ffffff;
+  color: var(--ds-primary-dark);
+  border: none;
+  border-radius: var(--ds-radius-pill);
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+.btn-start-next:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  background: #f0fdfa;
+  color: #004d61;
+}
+
+.btn-secondary-white {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--ds-radius-pill);
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+.btn-secondary-white:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Quota Progress Card */
+.doctor-hero-quota-card {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--ds-radius-lg);
+  padding: 20px 24px;
+  min-width: 290px;
+  z-index: 1;
+}
+
+.quota-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+}
+
+.quota-tag {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 8px;
+  border-radius: var(--ds-radius-pill);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.quota-numbers {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.quota-numbers strong {
+  font-size: 28px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.quota-numbers small {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.quota-bar-track {
+  background: rgba(255, 255, 255, 0.2);
+  height: 8px;
+  border-radius: var(--ds-radius-pill);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.quota-bar-fill {
+  background: linear-gradient(90deg, #34d399 0%, #67e8f9 100%);
+  height: 100%;
+  border-radius: var(--ds-radius-pill);
+  transition: width 0.4s ease;
+}
+
+.quota-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.quota-footer b {
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   2. CLINICAL METRICS STRIP
+   ========================================================================== */
+
+.doctor-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.clinical-metric-card {
+  background: var(--ds-card-bg);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: var(--ds-shadow-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.clinical-metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ds-shadow-md);
+  border-color: var(--ds-primary-hover);
+}
+
+.metric-icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--ds-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.metric-data {
+  flex: 1;
+  min-width: 0;
+}
+
+.metric-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ds-slate-muted);
+  margin-bottom: 4px;
+}
+
+.metric-val-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.metric-val-row strong {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ds-navy);
+}
+
+.badge-micro {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--ds-radius-pill);
+}
+
+.badge-micro.warning {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.badge-micro.live {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.badge-micro.info {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.badge-micro.purple {
+  background: #faf5ff;
+  color: #7e22ce;
+}
+
+.metric-data small {
+  display: block;
+  font-size: 11px;
+  color: var(--ds-slate-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ==========================================================================
+   3. MAIN LIVE PATIENT QUEUE PANEL
+   ========================================================================== */
+
+.doctor-queue-panel {
+  background: var(--ds-card-bg);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  box-shadow: var(--ds-shadow-sm);
+  padding: 24px;
+}
+
+.doctor-queue-panel .panel-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.doctor-queue-panel .panel-heading h3 {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0 0 4px;
+  color: var(--ds-navy);
+}
+
+.doctor-queue-panel .panel-heading p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ds-slate-muted);
+}
+
+.queue-filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.search-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-pill);
+  padding: 6px 14px;
+  color: var(--ds-slate-muted);
+  transition: all 0.2s ease;
+}
+
+.search-input-wrap:focus-within {
+  border-color: var(--ds-primary);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.12);
+}
+
+.search-input-wrap input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+  color: var(--ds-navy);
+  width: 200px;
+}
+
+.select-status {
+  padding: 7px 14px;
+  border-radius: var(--ds-radius-pill);
+  border: 1px solid var(--ds-border);
+  background: #f8fafc;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ds-slate);
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.select-status:focus {
+  border-color: var(--ds-primary);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.12);
+}
+
+/* Queue Table */
+.doctor-queue-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--ds-border);
+}
+
+.doctor-queue-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+
+.doctor-queue-table thead {
+  background: #f8fafc;
+  border-bottom: 1px solid var(--ds-border);
+}
+
+.doctor-queue-table th {
+  padding: 12px 16px;
+  font-weight: 700;
+  color: var(--ds-slate-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.doctor-queue-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.doctor-queue-table tr:hover {
+  background: #f8faff;
+}
+
+.doctor-queue-table tr.row-in-progress {
+  background: #f0fdf4;
+}
+
+.queue-stt-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--ds-radius-pill);
+  background: #f1f5f9;
+  color: var(--ds-slate);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.patient-name-block b {
+  font-size: 14px;
+  color: var(--ds-navy);
+}
+
+.appointment-time-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.appointment-time-block span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+  color: var(--ds-navy);
+}
+
+.appointment-time-block small {
+  color: var(--ds-slate-muted);
+}
+
+.triage-level-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--ds-radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.triage-level-badge.emergency {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.triage-level-badge.standard {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.queue-symptom-text {
+  font-size: 12px;
+  color: var(--ds-slate);
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bhyt-verified-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--ds-radius-pill);
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid #bfdbfe;
+}
+
+.bhyt-none-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: var(--ds-radius-pill);
+  background: #f8fafc;
+  color: var(--ds-slate-muted);
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--ds-radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.status-pill.waiting {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.status-pill.scheduled {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.status-pill.confirmed {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.status-pill.in_progress {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.status-pill.completed {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.status-pill.cancelled {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.queue-actions-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.btn-open-workspace {
+  background: var(--ds-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--ds-radius-pill);
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(14, 116, 144, 0.25);
+}
+
+.btn-open-workspace:hover {
+  background: var(--ds-primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-view-record {
+  background: #f8fafc;
+  color: var(--ds-slate);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-pill);
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-view-record:hover {
+  background: #f1f5f9;
+  color: var(--ds-navy);
+}
+
+.btn-call-direct {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--ds-radius-pill);
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-call-direct:hover {
+  background: #059669;
+  color: #ffffff;
+}
+
+.empty-queue-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--ds-slate-muted);
+}
+
+.empty-queue-box b {
+  font-size: 16px;
+  color: var(--ds-navy);
+  margin: 12px 0 4px;
+}
+
+.empty-queue-box p {
+  margin: 0;
+  font-size: 13px;
+  max-width: 400px;
+}
+
+.queue-pagination-footer {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--ds-border);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ==========================================================================
+   4. CLINICAL ECOSYSTEM SHORTCUTS
+   ========================================================================== */
+
+.doctor-shortcuts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.clinical-shortcut-card {
+  background: var(--ds-card-bg);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: var(--ds-shadow-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clinical-shortcut-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ds-shadow-md);
+  border-color: var(--ds-primary);
+}
+
+.shortcut-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--ds-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.clinical-shortcut-card h4 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ds-navy);
+}
+
+.clinical-shortcut-card p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ds-slate-muted);
+  line-height: 1.4;
+}
+
+.shortcut-arrow {
+  margin-left: auto;
+  color: var(--ds-slate-muted);
+  transition: transform 0.2s ease;
+}
+
+.clinical-shortcut-card:hover .shortcut-arrow {
+  transform: translateX(3px);
+  color: var(--ds-primary);
+}
+
+/* ==========================================================================
+   5. DOCTOR WORKSPACE (SPLIT CONSULTATION STAGE)
+   ========================================================================== */
+
+.workspace-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+  background: #f8fafc;
+  color: var(--ds-navy);
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
+/* Workspace Sticky Header */
+.workspace-header {
+  height: 64px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--ds-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  z-index: 20;
+  flex-shrink: 0;
+}
+
+.workspace-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.workspace-header .back-btn {
+  background: #f1f5f9;
+  color: var(--ds-slate);
+  border: 1px solid #cbd5e1;
+  border-radius: var(--ds-radius-pill);
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.workspace-header .back-btn:hover {
+  background: #e2e8f0;
+  color: var(--ds-navy);
+}
+
+.consult-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.badge-consult {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ds-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.consult-title h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ds-navy);
+}
+
+.consult-title .sub-text {
+  font-size: 11px;
+  color: var(--ds-slate-muted);
+}
+
+.workspace-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-sign {
+  background: linear-gradient(135deg, #0e7490 0%, #0891b2 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--ds-radius-pill);
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(14, 116, 144, 0.3);
+  transition: all 0.2s ease;
+}
+
+.btn-sign:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(14, 116, 144, 0.4);
+}
+
+.signed-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  border-radius: var(--ds-radius-pill);
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.btn-draft {
+  background: #f8fafc;
+  color: var(--ds-slate);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-pill);
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-draft:hover {
+  background: #f1f5f9;
+  color: var(--ds-navy);
+}
+
+.btn-complete {
+  background: #059669;
+  color: #ffffff;
+  border: none;
+  border-radius: var(--ds-radius-pill);
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3);
+  transition: all 0.2s ease;
+}
+
+.btn-complete:hover {
+  background: #047857;
+  transform: translateY(-1px);
+}
+
+.locked-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  border-radius: var(--ds-radius-pill);
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.btn-action-icon {
+  background: #f8fafc;
+  color: var(--ds-slate);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-pill);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-action-icon:hover {
+  background: #f1f5f9;
+  color: var(--ds-navy);
+}
+
+/* ==========================================================================
+   6. SPLIT VIEW: VIDEO STAGE & CLINICAL EMR
+   ========================================================================== */
+
+.workspace-split {
+  display: grid;
+  grid-template-columns: 44% 56%;
+  height: calc(100vh - 64px);
+  overflow: hidden;
+  background: #f1f5f9;
+}
+
+@media (max-width: 1024px) {
+  .workspace-split {
+    grid-template-columns: 1fr;
+    height: auto;
+    overflow-y: auto;
+  }
+}
+
+/* Video Stage (Left) */
+.video-pane {
+  background: #0b1c30;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  border-right: 1px solid #1e293b;
+}
+
+.doctor-video-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #07101e;
+  overflow: hidden;
+}
+
+.room-secure-indicator {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+  background: rgba(11, 28, 48, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--ds-radius-pill);
+  padding: 6px 14px;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.room-secure-indicator .live-dot.online {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.room-secure-indicator .live-dot.connecting {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+}
+
+.doctor-remote-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.doctor-remote-video.hidden {
+  display: none;
+}
+
+.doctor-waiting-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px;
+  color: #ffffff;
+  z-index: 2;
+}
+
+.pulse-spinner {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(14, 116, 144, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  animation: ds-pulse 2s infinite ease-in-out;
+}
+
+.doctor-waiting-screen h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: #ffffff;
+}
+
+.doctor-waiting-screen p {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 16px;
+  max-width: 320px;
+}
+
+.audio-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--ds-radius-pill);
+  padding: 4px 12px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Local Doctor PiP */
+.doctor-local-pip-box {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 140px;
+  height: 95px;
+  border-radius: var(--ds-radius-md);
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  background: #1e293b;
+  z-index: 10;
+}
+
+.doctor-local-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.pip-label {
+  position: absolute;
+  bottom: 4px;
+  left: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Screen Sharing Banner */
+.doctor-screenshare-indicator {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(239, 68, 68, 0.9);
+  color: #ffffff;
+  padding: 6px 16px;
+  border-radius: var(--ds-radius-pill);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 12;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+/* Floating Frosted Glass In-Call Controls Dock */
+.doctor-media-toolbar {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--ds-radius-pill);
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  z-index: 15;
+}
+
+.doctor-media-btn {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--ds-radius-pill);
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.doctor-media-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.doctor-media-btn.muted {
+  background: rgba(239, 68, 68, 0.85);
+  border-color: rgba(239, 68, 68, 1);
+  color: #ffffff;
+}
+
+.doctor-media-btn.screenshare-active {
+  background: rgba(14, 116, 144, 0.85);
+  border-color: #06b6d4;
+  color: #ffffff;
+}
+
+.doctor-media-btn.active-sheet {
+  background: rgba(2, 132, 199, 0.85);
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+.doctor-media-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #94a3b8;
+  padding-left: 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* ==========================================================================
+   7. CLINICAL EMR RIGHT PANE
+   ========================================================================== */
+
+.clinical-pane {
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Clinical Pill Tabs Strip */
+.clinical-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid var(--ds-border);
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: thin;
+}
+
+.clinical-tabs::-webkit-scrollbar {
+  height: 4px;
+}
+
+.clinical-tabs::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.clinical-tabs .tab-btn {
+  background: #ffffff;
+  color: var(--ds-slate);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-pill);
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.clinical-tabs .tab-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: var(--ds-navy);
+}
+
+.clinical-tabs .tab-btn.active {
+  background: var(--ds-primary);
+  color: #ffffff;
+  border-color: var(--ds-primary);
+  box-shadow: 0 2px 6px rgba(14, 116, 144, 0.25);
+  font-weight: 700;
+}
+
+.tab-unread-badge {
+  background: #ef4444;
+  color: #ffffff;
+  border-radius: var(--ds-radius-pill);
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 800;
+  margin-left: 4px;
+}
+
+/* Tab Panels Scroll Container */
+.clinical-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px 60px;
+}
+
+/* Clinical Form Elements */
+.clinical-form-card {
+  background: #ffffff;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-md);
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: var(--ds-shadow-sm);
+}
+
+.clinical-form-card h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ds-navy);
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clinical-field-group {
+  margin-bottom: 16px;
+}
+
+.clinical-field-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ds-slate);
+  margin-bottom: 6px;
+}
+
+.clinical-field-group input,
+.clinical-field-group textarea,
+.clinical-field-group select {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--ds-radius-sm);
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--ds-navy);
+  background: #ffffff;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.clinical-field-group input:focus,
+.clinical-field-group textarea:focus,
+.clinical-field-group select:focus {
+  outline: none;
+  border-color: var(--ds-primary);
+  box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.12);
+}
+
+/* Toast & Error Banners */
+.toast-banner {
+  background: #ecfdf5;
+  color: #065f46;
+  border-bottom: 1px solid #a7f3d0;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  animation: ds-slide-down 0.3s ease;
+}
+
+.error-banner {
+  background: #fef2f2;
+  color: #991b1b;
+  border-bottom: 1px solid #fecaca;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  animation: ds-slide-down 0.3s ease;
+}
+
+@keyframes ds-slide-down {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* ==========================================================================
+   8. RESPONSIVE MOBILE ADJUSTMENTS
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  .doctor-hero-banner {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 20px;
+  }
+  
+  .doctor-hero-quota-card {
+    min-width: 0;
+  }
+  
+  .doctor-media-toolbar {
+    bottom: 12px;
+    padding: 6px 12px;
+    gap: 8px;
+  }
+  
+  .doctor-media-btn span {
+    display: none;
+  }
+  
+  .doctor-media-status-badge {
+    display: none;
+  }
+}
+
+
+/* ==========================================================================
+   9. PRESCRIPTION BUILDER (CLINICAL SANCTUARY BENCHMARK)
+   ========================================================================== */
+
+.prescription-builder-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.national-prescription-card {
+  background: linear-gradient(135deg, #0b1c30 0%, #0e7490 100%);
+  border-radius: var(--ds-radius-lg);
+  padding: 20px 24px;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  box-shadow: 0 8px 24px rgba(14, 116, 144, 0.2);
+}
+
+.national-qr-wrapper {
+  background: #ffffff;
+  padding: 8px;
+  border-radius: var(--ds-radius-md);
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.national-qr-img {
+  width: 90px;
+  height: 90px;
+  display: block;
+}
+
+.national-details {
+  flex: 1;
+}
+
+.tag-national {
+  display: inline-block;
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  padding: 2px 8px;
+  border-radius: var(--ds-radius-pill);
+  font-size: 10px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+
+.national-details h3 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+}
+
+.national-details .tiny.muted {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.sync-prompt-card {
+  background: linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%);
+  border: 1px solid #99f6e4;
+  border-radius: var(--ds-radius-lg);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sync-prompt-card b {
+  color: var(--ds-primary-dark);
+  font-size: 14px;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.sync-prompt-card .tiny.muted {
+  margin: 0;
+  color: var(--ds-slate-muted);
+  font-size: 12px;
+}
+
+.sync-prompt-card .primary {
+  background: var(--ds-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--ds-radius-pill);
+  padding: 8px 18px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(14, 116, 144, 0.2);
+}
+
+.sync-prompt-card .primary:hover {
+  background: var(--ds-primary-hover);
+  transform: translateY(-1px);
+}
+
+/* Rx Toolbar */
+.rx-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #f8fafc;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  padding: 12px 18px;
+}
+
+.rx-mode-switch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #e2e8f0;
+  padding: 4px;
+  border-radius: var(--ds-radius-pill);
+}
+
+.btn-mode-toggle {
+  background: transparent;
+  border: none;
+  border-radius: var(--ds-radius-pill);
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ds-slate);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-mode-toggle.active {
+  background: #ffffff;
+  color: var(--ds-navy);
+  font-weight: 700;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.rx-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-rx-action {
+  border-radius: var(--ds-radius-pill);
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-rx-action.safety-btn {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.btn-rx-action.safety-btn:hover {
+  background: #fee2e2;
+}
+
+.btn-rx-action.save-btn {
+  background: var(--ds-primary);
+  color: #ffffff;
+  border: none;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(14, 116, 144, 0.25);
+}
+
+.btn-rx-action.save-btn:hover {
+  background: var(--ds-primary-hover);
+}
+
+.btn-rx-action.pdf-btn {
+  background: #ffffff;
+  color: var(--ds-slate);
+  border: 1px solid var(--ds-border);
+}
+
+.btn-rx-action.pdf-btn:hover {
+  background: #f1f5f9;
+}
+
+.btn-rx-action.reset-btn {
+  background: transparent;
+  color: var(--ds-slate-muted);
+  border: 1px dashed var(--ds-border);
+}
+
+.btn-rx-action.reset-btn:hover {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+/* Rx Clinical Presets (1-Click) */
+.rx-presets-card {
+  background: #ffffff;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  padding: 16px 20px;
+  box-shadow: var(--ds-shadow-sm);
+}
+
+.presets-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.presets-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ds-navy);
+}
+
+.presets-pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.preset-pill-btn {
+  background: #f8fafc;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-pill);
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ds-slate);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.preset-pill-btn:hover {
+  background: #f0fdfa;
+  border-color: var(--ds-primary);
+  color: var(--ds-primary-dark);
+  transform: translateY(-1px);
+}
+
+.tpl-count {
+  background: #e2e8f0;
+  color: var(--ds-slate-muted);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: var(--ds-radius-pill);
+}
+
+/* Add Drug Card */
+.add-drug-card {
+  background: #ffffff;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  padding: 20px;
+  box-shadow: var(--ds-shadow-sm);
+}
+
+.card-sub-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ds-navy);
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drug-search-wrapper {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ds-slate);
+  margin-bottom: 6px;
+}
+
+.search-input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-input-group input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--ds-radius-md);
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--ds-navy);
+  transition: all 0.2s ease;
+}
+
+.search-input-group input:focus {
+  outline: none;
+  border-color: var(--ds-primary);
+  box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.12);
+}
+
+.clear-search-btn {
+  position: absolute;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: var(--ds-slate-muted);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.drug-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-md);
+  box-shadow: var(--ds-shadow-lg);
+  max-height: 260px;
+  overflow-y: auto;
+  z-index: 50;
+  margin-top: 4px;
+}
+
+.drug-dropdown-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.drug-dropdown-item:hover {
+  background: #f0fdfa;
+}
+
+.drug-item-primary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.drug-name {
+  font-weight: 700;
+  color: var(--ds-navy);
+  font-size: 13px;
+}
+
+.drug-badge {
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--ds-radius-pill);
+}
+
+.drug-item-secondary {
+  font-size: 11px;
+  color: var(--ds-slate-muted);
+  display: flex;
+  gap: 8px;
+}
+
+.drug-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.field-col label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ds-slate);
+  margin-bottom: 4px;
+}
+
+.field-col input,
+.field-col select,
+.field-col textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--ds-radius-sm);
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--ds-navy);
+  font-family: inherit;
+}
+
+.field-col input:focus,
+.field-col select:focus,
+.field-col textarea:focus {
+  outline: none;
+  border-color: var(--ds-primary);
+  box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.12);
+}
+
+.btn-add-drug {
+  background: var(--ds-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--ds-radius-pill);
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(14, 116, 144, 0.25);
+  transition: all 0.2s ease;
+  margin-top: 12px;
+}
+
+.btn-add-drug:hover {
+  background: var(--ds-primary-hover);
+  transform: translateY(-1px);
+}
+
+/* Prescribed Drugs Table / List */
+.prescribed-items-card {
+  background: #ffffff;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  padding: 20px;
+  box-shadow: var(--ds-shadow-sm);
+}
+
+.prescribed-drug-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-md);
+  margin-bottom: 10px;
+  background: #f8fafc;
+  transition: all 0.2s ease;
+}
+
+.prescribed-drug-row:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.drug-row-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.drug-stt {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--ds-radius-pill);
+  background: #e2e8f0;
+  color: var(--ds-slate);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.drug-row-info b {
+  font-size: 14px;
+  color: var(--ds-navy);
+}
+
+.drug-row-info p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--ds-slate-muted);
+}
+
+.btn-delete-drug {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--ds-radius-pill);
+  transition: background 0.15s ease;
+}
+
+.btn-delete-drug:hover {
+  background: #fef2f2;
+}
+
+/* ==========================================================================
+   10. CHAT TAB STYLES INSIDE DOCTOR WORKSPACE
+   ========================================================================== */
+
+.doctor-chat-tab-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}

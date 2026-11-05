@@ -28,6 +28,8 @@ import {
 import { Appointment, Department, identifyPatientByCCCD, PatientIdentifyResult } from './api'
 import { Pagination } from './Pagination'
 import { PatientIdentificationModal } from './PatientIdentificationModal'
+import { NotificationCenter } from './NotificationCenter'
+import './doctor-sanctuary.css'
 
 interface DoctorDashboardProps {
   doctor: any
@@ -108,7 +110,8 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
   const nextPatient = waitingAppts[0] || inProgressAppts[0]
 
   return (
-    <div className="doctor-dashboard-container">
+    <div className="ds-scope">
+      <div className="doctor-dashboard-container">
       {/* 1. Clinical Command Center Header */}
       <section className="doctor-hero-banner">
         <div className="doctor-hero-content">
@@ -122,6 +125,9 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
             <span className="doctor-dept-pill">
               <Building2 size={13} /> Khoa Nội Tổng Quát
             </span>
+            <div style={{ marginLeft: 'auto' }}>
+              <NotificationCenter userRole="doctor" />
+            </div>
           </div>
           <h1>{doctor.full_name || 'Bác sĩ chuyên khoa'}</h1>
           <p className="doctor-hero-sub">
@@ -513,5 +519,6 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
         onClose={() => setShowIdentifyModal(false)}
       />
     </div>
-  )
+  </div>
+)
 }

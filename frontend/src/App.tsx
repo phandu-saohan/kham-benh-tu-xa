@@ -891,7 +891,8 @@ export default function App() {
       {/* Main Content */}
       <main className="main-content">
         {/* Topbar: Ẩn hoàn toàn trên Dashboard Bệnh nhân (do Patient Dashboard đã có Header nhận diện riêng, loại bỏ phần thừa) */}
-        {!isPatient && (
+        {!isPatient && !(isDoctor && (view === 'overview' || view === 'appointments')) && (
+
           <header className="topbar">
             <div>
               <p className="eyebrow">HỆ THỐNG Y TẾ TỪ XA CHUẨN QUỐC GIA</p>
