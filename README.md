@@ -61,8 +61,8 @@ CareConnect Telemedicine V1.2 là hệ thống khám bệnh từ xa hoàn chỉn
 
 ## 🚀 ĐỊA CHỈ TRUY CẬP
 
-- **Web Production:** [https://app-bypass-back-end-circuit-7mgyyh-664221-72-61-123-73.sslip.io](https://app-bypass-back-end-circuit-7mgyyh-664221-72-61-123-73.sslip.io)
-- **API Swagger Documentation:** `https://app-bypass-back-end-circuit-7mgyyh-664221-72-61-123-73.sslip.io/docs`
+- **Web Production:** [https://telemed.medicalcenter.vn](https://telemed.medicalcenter.vn)
+- **API Swagger Documentation:** `https://telemed.medicalcenter.vn/docs`
 - **Android App:** Package `vn.careconnect.telemedicine.patient` (Trải nghiệm trực tiếp qua Android Device Hub).
 
 ---

@@ -155,9 +155,9 @@ Bạn có thể đăng nhập bằng các tài khoản sau trên cả giao diệ
 ## 🚀 7. ĐỊA CHỈ TRUY CẬP VÀ MÔI TRƯỜNG TRIỂN KHAI
 
 - **Hệ thống Web Production:**  
-  👉 [https://app-bypass-back-end-circuit-7mgyyh-664221-72-61-123-73.sslip.io](https://app-bypass-back-end-circuit-7mgyyh-664221-72-61-123-73.sslip.io)
+  👉 [https://telemed.medicalcenter.vn](https://telemed.medicalcenter.vn)
 - **Tài liệu API Backend Swagger UI:**  
-  👉 `https://app-bypass-back-end-circuit-7mgyyh-664221-72-61-123-73.sslip.io/docs`
+  👉 `https://telemed.medicalcenter.vn/docs`
 - **Ứng dụng Native Mobile (Android APK):**  
   Package ID: `vn.careconnect.telemedicine.patient`  
   Xem và điều khiển trực tiếp qua **[Android Device Hub](sidecar://android-cli-plugin/device-hub/)**.

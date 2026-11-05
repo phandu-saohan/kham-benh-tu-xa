@@ -1,0 +1,62 @@
+/* =========================================================================
+   Clinical Sanctuary Design System Tokens
+   Benchmark: c:\Users\design1saohan\Downloads\stitch_mobile_app_ui_design\DESIGN.md
+   ========================================================================= */
+
+:root {
+  /* Brand & Medical Core */
+  --cs-primary: #005a71;
+  --cs-on-primary: #ffffff;
+  --cs-primary-container: #0e7490;
+  --cs-on-primary-container: #d3f1ff;
+  --cs-inverse-primary: #81d1f0;
+
+  --cs-secondary: #006398;
+  --cs-on-secondary: #ffffff;
+  --cs-secondary-container: #5bb8fe;
+  --cs-on-secondary-container: #00476e;
+
+  --cs-tertiary: #005f40;
+  --cs-on-tertiary: #ffffff;
+  --cs-tertiary-container: #007a53;
+  --cs-on-tertiary-container: #a3ffd0;
+
+  --cs-error: #ba1a1a;
+  --cs-on-error: #ffffff;
+  --cs-error-container: #ffdad6;
+  --cs-on-error-container: #93000a;
+
+  /* Surfaces & Canvas Hierarchy */
+  --cs-background: #f8f9ff;
+  --cs-on-background: #0b1c30;
+  --cs-surface: #f8f9ff;
+  --cs-surface-bright: #f8f9ff;
+  --cs-surface-dim: #cbdbf5;
+  --cs-surface-container-lowest: #ffffff;
+  --cs-surface-container-low: #eff4ff;
+  --cs-surface-container: #e5eeff;
+  --cs-surface-container-high: #dce9ff;
+  --cs-surface-container-highest: #d3e4fe;
+
+  --cs-on-surface: #0b1c30;
+  --cs-on-surface-variant: #3f484c;
+  --cs-outline: #6f787d;
+  --cs-outline-variant: #bec8cd;
+
+  /* Typography */
+  --cs-font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+
+  /* Border Radii */
+  --cs-radius-sm: 0.25rem;
+  --cs-radius-default: 0.5rem;
+  --cs-radius-md: 0.75rem;
+  --cs-radius-lg: 1rem;
+  --cs-radius-xl: 1.5rem;
+  --cs-radius-full: 9999px;
+
+  /* Elevation & Ambient Shadows */
+  --cs-shadow-card: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(14, 116, 144, 0.04);
+  --cs-shadow-elevated: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 10px 20px -3px rgba(14, 116, 144, 0.08);
+  --cs-shadow-modal: 0 20px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
+  --cs-shadow-sos: 0 0 0 4px rgba(239, 68, 68, 0.18);
+}
