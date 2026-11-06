@@ -895,3 +895,55 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+/* QR Code Auto-filled Data Card */
+.pr-qr-card {
+  background: #f0fdfa;
+  border: 1.5px solid #0f766e;
+  border-radius: var(--pr-radius-card);
+  padding: 14px 16px;
+  margin-top: 14px;
+}
+
+.pr-qr-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.pr-qr-card-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #0f766e;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--pr-radius-tag);
+}
+
+.pr-qr-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px 12px;
+  background: #ffffff;
+  padding: 12px;
+  border-radius: var(--pr-radius-control);
+  border: 1px solid #99f6e4;
+  font-size: 12px;
+}
+
+.pr-qr-grid-item .label {
+  color: var(--pr-text-muted);
+  display: block;
+  font-size: 11px;
+  margin-bottom: 2px;
+}
+
+.pr-qr-grid-item strong {
+  color: var(--pr-text-main);
+  font-size: 13px;
+}

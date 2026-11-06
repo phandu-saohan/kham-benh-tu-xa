@@ -6,6 +6,7 @@ import {
   Camera, Droplets, ChevronRight,
   QrCode, RefreshCw, Upload, Shield
 } from 'lucide-react'
+import jsQR from 'jsqr'
 import {
   checkPatientHis,
   registerPatientAccount,
@@ -44,6 +45,160 @@ const VIETNAM_PROVINCES = [
   { code: '84', name: '84 - Tỉnh Trà Vinh' }
 ]
 
+export interface ParsedCccdQr {
+  cccd: string
+  cmnd?: string
+  fullName: string
+  dobIso: string
+  gender: string
+  address: string
+  issueDate?: string
+  provinceCode: string
+}
+
+// Tự động nhận diện mã Tỉnh / Thành phố từ chuỗi địa chỉ
+export function detectProvinceCodeFromAddress(addr: string): string {
+  if (!addr) return '79'
+  const lower = addr.toLowerCase()
+  if (lower.includes('hà nội') || lower.includes('ha noi')) return '01'
+  if (lower.includes('hồ chí minh') || lower.includes('ho chi minh') || lower.includes('tp.hcm') || lower.includes('tphcm') || lower.includes('sài gòn')) return '79'
+  if (lower.includes('đà nẵng') || lower.includes('da nang')) return '48'
+  if (lower.includes('hải phòng') || lower.includes('hai phong')) return '31'
+  if (lower.includes('cần thơ') || lower.includes('can tho')) return '92'
+  if (lower.includes('bình dương') || lower.includes('binh duong')) return '74'
+  if (lower.includes('đồng nai') || lower.includes('dong nai')) return '75'
+  if (lower.includes('bà rịa') || lower.includes('ba ria') || lower.includes('vũng tàu')) return '77'
+  if (lower.includes('thừa thiên') || lower.includes('huế') || lower.includes('hue')) return '46'
+  if (lower.includes('ninh bình') || lower.includes('ninh binh')) return '37'
+  if (lower.includes('vĩnh phúc') || lower.includes('vinh phuc')) return '26'
+  if (lower.includes('lâm đồng') || lower.includes('lam dong') || lower.includes('đà lạt')) return '68'
+  if (lower.includes('khánh hòa') || lower.includes('khanh hoa') || lower.includes('nha trang')) return '56'
+  if (lower.includes('an giang')) return '89'
+  if (lower.includes('trà vinh') || lower.includes('tra vinh')) return '84'
+  return '79'
+}
+
+// Giải mã chuỗi QR Code CCCD gắn chip theo chuẩn Bộ Công An
+// Cú pháp chuẩn: <Số CCCD 12 số>|<Số CMND 9 số cũ nếu có>|<Họ và tên>|<Ngày sinh DDMMYYYY>|<Giới tính>|<Địa chỉ thường trú>|<Ngày cấp DDMMYYYY>
+export function parseVietnamCccdQr(raw: string): ParsedCccdQr | null {
+  if (!raw || !raw.includes('|')) return null
+  const parts = raw.split('|').map(p => p.trim())
+  if (parts.length < 2) return null
+
+  const cccd = parts[0] || ''
+  const cmnd = parts[1] || ''
+  const fullName = (parts[2] || '').toUpperCase()
+
+  const dobRaw = parts[3] || ''
+  let dobIso = ''
+  if (dobRaw.length === 8 && /^\d+$/.test(dobRaw)) {
+    dobIso = `${dobRaw.substring(4, 8)}-${dobRaw.substring(2, 4)}-${dobRaw.substring(0, 2)}`
+  } else if (dobRaw.length === 4 && /^\d+$/.test(dobRaw)) {
+    dobIso = `${dobRaw}-01-01`
+  } else if (dobRaw.includes('/')) {
+    const dParts = dobRaw.split('/')
+    if (dParts.length === 3) {
+      dobIso = `${dParts[2]}-${dParts[1].padStart(2, '0')}-${dParts[0].padStart(2, '0')}`
+    }
+  }
+
+  const genderRaw = parts[4] || ''
+  const gender = genderRaw.toLowerCase().includes('nữ') || genderRaw.toLowerCase() === 'female' ? 'Nữ' : 'Nam'
+  const address = parts[5] || ''
+  const issueDate = parts[6] || ''
+  const provinceCode = detectProvinceCodeFromAddress(address)
+
+  return {
+    cccd,
+    cmnd,
+    fullName,
+    dobIso,
+    gender,
+    address,
+    issueDate,
+    provinceCode
+  }
+}
+
+// Quét mã QR trực tiếp từ ảnh CCCD bằng jsQR & canvas
+export async function scanQrCodeFromImage(imageSrc: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = async () => {
+      try {
+        const width = img.naturalWidth || img.width
+        const height = img.naturalHeight || img.height
+
+        // 1. Quét trên toàn bộ ảnh với canvas
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })
+        if (!ctx) {
+          resolve(null)
+          return
+        }
+
+        ctx.drawImage(img, 0, 0, width, height)
+        const fullImageData = ctx.getImageData(0, 0, width, height)
+        const fullQr = jsQR(fullImageData.data, width, height, { inversionAttempts: 'attemptBoth' })
+        if (fullQr && fullQr.data && fullQr.data.includes('|')) {
+          resolve(fullQr.data)
+          return
+        }
+
+        // 2. Quét vùng góc trên bên phải (vị trí in mã QR chuẩn trên thẻ CCCD Việt Nam)
+        const cropX = Math.floor(width * 0.4)
+        const cropY = 0
+        const cropW = Math.floor(width * 0.6)
+        const cropH = Math.floor(height * 0.6)
+
+        const cropCanvas = document.createElement('canvas')
+        cropCanvas.width = cropW
+        cropCanvas.height = cropH
+        const cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true })
+        if (cropCtx) {
+          cropCtx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH)
+          const cropData = cropCtx.getImageData(0, 0, cropW, cropH)
+          const cropQr = jsQR(cropData.data, cropW, cropH, { inversionAttempts: 'attemptBoth' })
+          if (cropQr && cropQr.data && cropQr.data.includes('|')) {
+            resolve(cropQr.data)
+            return
+          }
+        }
+
+        // 3. Quét bằng BarcodeDetector gốc của trình duyệt nếu có hỗ trợ
+        if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+          try {
+            const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] })
+            const detected = await detector.detect(canvas)
+            if (detected && detected.length > 0 && detected[0].rawValue) {
+              resolve(detected[0].rawValue)
+              return
+            }
+          } catch {
+            // bỏ qua lỗi detector
+          }
+        }
+
+        // Nếu fullQr có bất kỳ text nào
+        if (fullQr && fullQr.data) {
+          resolve(fullQr.data)
+          return
+        }
+
+        resolve(null)
+      } catch (err) {
+        console.warn('Lỗi giải mã QR code từ canvas:', err)
+        resolve(null)
+      }
+    }
+    img.onerror = () => resolve(null)
+    img.src = imageSrc
+  })
+}
+
 export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegisterPageProps) {
   // Step indicator: 1 = Quét CCCD & Tra cứu HIS, 2 = Bổ sung thông tin Y tế chuẩn, 3 = Mật khẩu & Kích hoạt
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1)
@@ -54,6 +209,7 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
   const [phoneNumber, setPhoneNumber] = useState('')
   const [ocrLoading, setOcrLoading] = useState(false)
   const [ocrSuccessMsg, setOcrSuccessMsg] = useState('')
+  const [scannedCccdData, setScannedCccdData] = useState<ParsedCccdQr | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Trạng thái kiểm tra HIS/EMR Bệnh viện
@@ -173,7 +329,7 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
     }
   }
 
-  // Quét AI OCR từ ảnh thẻ CCCD / BHYT
+  // Quét mã QR code trên ảnh CCCD và tự động điền form đăng ký
   async function handleOcrUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -185,30 +341,74 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
       reader.onload = async () => {
         try {
           const base64 = reader.result as string
-          const res = await ocrMedicalDocument(base64, 'AUTO')
+
+          // 1. QUÉT TRỰC TIẾP MÃ QR CODE TRÊN ẢNH CCCD (Client-side jsQR)
+          const detectedQr = await scanQrCodeFromImage(base64)
+          if (detectedQr) {
+            const parsed = parseVietnamCccdQr(detectedQr)
+            if (parsed && parsed.cccd) {
+              // TỰ ĐỘNG ĐIỀN ĐẦY ĐỦ THÔNG TIN VÀO FORM ĐĂNG KÝ
+              setIdentityCard(parsed.cccd)
+              setFullName(parsed.fullName)
+              if (parsed.dobIso) setDob(parsed.dobIso)
+              if (parsed.gender) setGender(parsed.gender)
+              if (parsed.address) setAddress(parsed.address)
+              if (parsed.provinceCode) setProvinceCode(parsed.provinceCode)
+
+              setScannedCccdData(parsed)
+              setOcrSuccessMsg(
+                `Đã quét thành công mã QR trên thẻ CCCD của ${parsed.fullName} (CCCD: ${parsed.cccd})! Toàn bộ thông tin đã được tự động điền vào form.`
+              )
+
+              // TỰ ĐỘNG ĐỐI SOÁT NGAY VỚI HIS BỆNH VIỆN
+              await triggerHisCheck(parsed.cccd, parsed.fullName)
+              setOcrLoading(false)
+              if (e.target) e.target.value = ''
+              return
+            }
+          }
+
+          // 2. NẾU MÃ QR MỜ HOẶC KHÔNG CÓ -> GỬI SANG AI OCR (Gemini Vision)
+          const res = await ocrMedicalDocument(base64, 'CCCD')
           if (res.success && res.extracted_data) {
             const d = res.extracted_data
             const scannedCCCD = d.cccd_number || identityCard
-            const scannedName = d.full_name || fullName
+            const scannedName = (d.full_name || fullName).toUpperCase()
+            const scannedDob = d.dob || dob
+            const scannedGender = d.gender === 'female' || d.gender === 'Nữ' ? 'Nữ' : 'Nam'
+            const scannedAddress = d.address || address
+            const matchedProv = detectProvinceCodeFromAddress(scannedAddress)
 
-            if (d.full_name) setFullName(d.full_name)
-            if (d.cccd_number) setIdentityCard(d.cccd_number)
+            // Tự động điền thông tin vào form
+            if (scannedCCCD) setIdentityCard(scannedCCCD)
+            if (scannedName) setFullName(scannedName)
+            if (scannedDob) setDob(scannedDob)
+            setGender(scannedGender)
+            if (scannedAddress) setAddress(scannedAddress)
+            if (matchedProv) setProvinceCode(matchedProv)
             if (d.bhyt_code) setBhytCode(d.bhyt_code)
-            if (d.dob) setDob(d.dob)
-            if (d.gender) setGender(d.gender === 'female' ? 'Nữ' : 'Nam')
-            if (d.address) setAddress(d.address)
 
-            setOcrSuccessMsg('AI đã nhận diện thành công CCCD! Đang đối soát với HIS bệnh viện...')
-            
-            // TỰ ĐỘNG CHECK NGAY VỚI HIS BỆNH VIỆN
+            setScannedCccdData({
+              cccd: scannedCCCD,
+              fullName: scannedName,
+              dobIso: scannedDob,
+              gender: scannedGender,
+              address: scannedAddress,
+              provinceCode: matchedProv
+            })
+
+            setOcrSuccessMsg(
+              `AI OCR đã bóc tách thành công thông tin thẻ CCCD của ${scannedName}! Đã tự động điền vào hồ sơ và đang đối soát HIS...`
+            )
+
             if (scannedCCCD && scannedCCCD.trim().length >= 9) {
               await triggerHisCheck(scannedCCCD, scannedName)
             }
           } else {
-            setError('Không nhận diện được rõ nét thông tin từ ảnh. Vui lòng chụp lại ảnh CCCD rõ nét hơn.')
+            setError('Không nhận diện được rõ mã QR hoặc thông tin trên ảnh CCCD. Bạn có thể chụp lại ảnh rõ nét hơn hoặc nhập trực tiếp số CCCD.')
           }
         } catch (err: any) {
-          setError(err.message || 'Lỗi quét AI OCR CCCD')
+          setError(err.message || 'Lỗi quét mã QR / OCR CCCD')
         } finally {
           setOcrLoading(false)
           if (e.target) e.target.value = ''
@@ -228,26 +428,18 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
 
     // Chuẩn QR CCCD: CCCD|CMND|Họ tên|DDMMYYYY|Giới tính|Địa chỉ|Ngày cấp
     if (raw.includes('|')) {
-      const parts = raw.split('|').map(p => p.trim())
-      if (parts.length >= 1) {
-        const cccd = parts[0]
-        const name = parts[2] || ''
-        const dobRaw = parts[3] || ''
-        let dobIso = ''
-        if (dobRaw.length === 8 && /^\d+$/.test(dobRaw)) {
-          dobIso = `${dobRaw.substring(4, 8)}-${dobRaw.substring(2, 4)}-${dobRaw.substring(0, 2)}`
-        }
-        const gnd = parts[4] || ''
-        const addr = parts[5] || ''
+      const parsed = parseVietnamCccdQr(raw)
+      if (parsed && parsed.cccd) {
+        setIdentityCard(parsed.cccd)
+        setFullName(parsed.fullName)
+        if (parsed.dobIso) setDob(parsed.dobIso)
+        if (parsed.gender) setGender(parsed.gender)
+        if (parsed.address) setAddress(parsed.address)
+        if (parsed.provinceCode) setProvinceCode(parsed.provinceCode)
 
-        setIdentityCard(cccd)
-        if (name) setFullName(name)
-        if (dobIso) setDob(dobIso)
-        if (gnd) setGender(gnd === 'Nữ' ? 'Nữ' : 'Nam')
-        if (addr) setAddress(addr)
-
-        setOcrSuccessMsg(`Đã trích xuất mã QR CCCD của ${name || cccd}! Đang đối soát với HIS...`)
-        triggerHisCheck(cccd, name)
+        setScannedCccdData(parsed)
+        setOcrSuccessMsg(`Đã giải mã chuỗi QR CCCD của ${parsed.fullName} (${parsed.cccd})! Đã tự động điền vào form đăng ký.`)
+        triggerHisCheck(parsed.cccd, parsed.fullName)
         return
       }
     }
@@ -259,10 +451,23 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
   }
 
   // Chọn bộ dữ liệu Test nhanh trên HIS Bệnh viện
-  function handleSelectPreset(presetCCCD: string, presetName: string, presetPhone: string) {
+  function handleSelectPreset(presetCCCD: string, presetName: string, presetPhone: string, presetDob?: string, presetGender?: string, presetAddress?: string) {
     setIdentityCard(presetCCCD)
     setFullName(presetName)
     setPhoneNumber(presetPhone)
+    if (presetDob) setDob(presetDob)
+    if (presetGender) setGender(presetGender)
+    if (presetAddress) setAddress(presetAddress)
+
+    setScannedCccdData({
+      cccd: presetCCCD,
+      fullName: presetName,
+      dobIso: presetDob || '1980-08-15',
+      gender: presetGender || 'Nữ',
+      address: presetAddress || 'Số 123 Đường Nguyễn Trãi, Phường 2, Quận 5, TP. Hồ Chí Minh',
+      provinceCode: '79'
+    })
+
     setOcrSuccessMsg(`Đã nạp mẫu thử nghiệm ${presetName}. Đang tự động đối soát với HIS bệnh viện...`)
     triggerHisCheck(presetCCCD, presetName)
   }
@@ -384,7 +589,7 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
               </div>
               <h2>Hồ Sơ Y Tế Số Điện Tử Chuẩn QĐ 2682/QĐ-BYT</h2>
               <p>
-                Tự động đối soát CCCD với HIS/EMR bệnh viện, đồng bộ lịch sử khám chữa bệnh, toa thuốc điện tử và quyền lợi BHYT.
+                Tự động quét mã QR trên CCCD, đối soát với HIS/EMR bệnh viện, đồng bộ lịch sử khám chữa bệnh và quyền lợi BHYT.
               </p>
             </div>
 
@@ -394,8 +599,8 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                   <QrCode size={16} />
                 </div>
                 <div>
-                  <strong>Ưu tiên Quét CCCD Gắn Chip</strong>
-                  <span>Tự động trích xuất thông tin hành chính và đối soát trực tiếp với dữ liệu viện.</span>
+                  <strong>Quét Mã QR Trên Thẻ CCCD</strong>
+                  <span>Tự động giải mã và điền đầy đủ Họ tên, CCCD, Ngày sinh, Giới tính, Địa chỉ.</span>
                 </div>
               </div>
 
@@ -513,8 +718,8 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                     <Camera size={20} />
                   </div>
                   <div className="pr-scanner-title">
-                    <h3>Ưu tiên Quét thẻ CCCD / Mã QR VNeID</h3>
-                    <p>Hệ thống tự động đọc thông tin và đối soát trực tiếp với cơ sở dữ liệu HIS viện</p>
+                    <h3>Chụp / Tải ảnh CCCD & Quét Mã QR Code</h3>
+                    <p>Hệ thống tự động giải mã QR code trên CCCD, tự động điền vào form và đối soát với HIS</p>
                   </div>
                 </div>
 
@@ -536,7 +741,7 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                     disabled={ocrLoading || checkingHis}
                   >
                     <Upload size={16} />
-                    <span>{ocrLoading ? 'Đang đọc thẻ CCCD...' : 'Chụp / Tải ảnh CCCD (AI OCR)'}</span>
+                    <span>{ocrLoading ? 'Đang giải mã QR & OCR ảnh...' : 'Chụp / Tải ảnh CCCD (Quét QR & AI OCR)'}</span>
                   </button>
 
                   {/* Nhập hoặc Quét QR CCCD */}
@@ -560,6 +765,44 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                   </div>
                 )}
 
+                {/* Card hiển thị chi tiết dữ liệu vừa được Quét & Tự động điền */}
+                {scannedCccdData && (
+                  <div className="pr-qr-card">
+                    <div className="pr-qr-card-header">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <CheckCircle2 size={18} color="#0f766e" />
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f766e' }}>
+                          Dữ liệu đã trích xuất từ Mã QR CCCD (Tự động điền vào Form)
+                        </span>
+                      </div>
+                      <span className="pr-qr-card-badge">ĐÃ TỰ ĐỘNG ĐIỀN</span>
+                    </div>
+
+                    <div className="pr-qr-grid">
+                      <div className="pr-qr-grid-item">
+                        <span className="label">Số CCCD:</span>
+                        <strong style={{ fontFamily: 'monospace' }}>{scannedCccdData.cccd}</strong>
+                      </div>
+                      <div className="pr-qr-grid-item">
+                        <span className="label">Họ và tên:</span>
+                        <strong>{scannedCccdData.fullName}</strong>
+                      </div>
+                      <div className="pr-qr-grid-item">
+                        <span className="label">Ngày sinh:</span>
+                        <strong>{scannedCccdData.dobIso || 'Chưa có'}</strong>
+                      </div>
+                      <div className="pr-qr-grid-item">
+                        <span className="label">Giới tính:</span>
+                        <strong>{scannedCccdData.gender}</strong>
+                      </div>
+                      <div className="pr-qr-grid-item" style={{ gridColumn: 'span 2' }}>
+                        <span className="label">Nơi thường trú:</span>
+                        <strong>{scannedCccdData.address || 'Theo CCCD'}</strong>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Nút Demo Test Nhanh */}
                 <div className="pr-presets-bar">
                   <span className="pr-presets-title">⚡ Thử nhanh hồ sơ mẫu trên HIS Bệnh viện:</span>
@@ -567,21 +810,42 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                     <button
                       type="button"
                       className="pr-btn-preset"
-                      onClick={() => handleSelectPreset('080180012345', 'Nguyễn Thị Bích Hòa', '0900000001')}
+                      onClick={() => handleSelectPreset(
+                        '080180012345',
+                        'Nguyễn Thị Bích Hòa',
+                        '0900000001',
+                        '1980-08-15',
+                        'Nữ',
+                        'Số 123 Đường Nguyễn Trãi, Phường 2, Quận 5, TP. Hồ Chí Minh'
+                      )}
                     >
                       Bệnh nhân có EMR & BHYT (080180012345 - Bích Hòa)
                     </button>
                     <button
                       type="button"
                       className="pr-btn-preset"
-                      onClick={() => handleSelectPreset('079192023456', 'Trần Văn Đạt', '0900000002')}
+                      onClick={() => handleSelectPreset(
+                        '079192023456',
+                        'Trần Văn Đạt',
+                        '0900000002',
+                        '1992-04-22',
+                        'Nam',
+                        'Ấp 1, Xã Bình Chánh, Huyện Bình Chánh, TP. Hồ Chí Minh'
+                      )}
                     >
                       Bệnh nhân tái khám (079192023456 - Văn Đạt)
                     </button>
                     <button
                       type="button"
                       className="pr-btn-preset"
-                      onClick={() => handleSelectPreset('079201009999', 'Lê Hoàng Nam', '0988776655')}
+                      onClick={() => handleSelectPreset(
+                        '079201009999',
+                        'Lê Hoàng Nam',
+                        '0988776655',
+                        '1995-10-10',
+                        'Nam',
+                        'Phường Tân Phong, Quận 7, TP. Hồ Chí Minh'
+                      )}
                     >
                       Bệnh nhân mới (Chưa có trên HIS)
                     </button>
@@ -601,7 +865,7 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                   <span>{checkingHis ? 'Đang đối soát HIS Bệnh viện...' : 'Tra cứu & Đối soát với HIS Bệnh viện'}</span>
                 </button>
                 <span style={{ fontSize: '12px', color: 'var(--pr-text-muted)' }}>
-                  (Hệ thống tự động tra cứu khi nhập đủ 12 số CCCD)
+                  (Hệ thống tự động tra cứu khi quét xong QR CCCD hoặc nhập đủ 12 số)
                 </span>
               </div>
 
@@ -703,7 +967,7 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                       <UserRound size={17} color="var(--pr-primary)" />
                       <span>1. Thông tin hành chính cá nhân (Quy định QĐ 2682/QĐ-BYT)</span>
                     </h4>
-                    <span className="pr-card-subtitle">Các trường thông tin đồng bộ dữ liệu y bạ viện</span>
+                    <span className="pr-card-subtitle">Các trường thông tin đồng bộ dữ liệu y bạ viện (Đã điền tự động từ QR CCCD / HIS)</span>
                   </div>
                 </div>
 

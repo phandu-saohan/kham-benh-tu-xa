@@ -1,3 +1,4 @@
+from typing import Optional
 from datetime import datetime, timedelta, timezone
 import hashlib
 import secrets
@@ -12,6 +13,7 @@ from app.models import User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
@@ -46,6 +48,21 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="User inactive or not found")
     return user
+
+def get_current_user_optional(token: Optional[str] = Depends(oauth2_scheme_optional), db: Session = Depends(get_db)) -> Optional[User]:
+    if not token:
+        return None
+    try:
+        payload = decode_token(token)
+        if payload.get("type") == "refresh":
+            return None
+        user_id = int(payload["sub"])
+        user = db.get(User, user_id)
+        if user and user.is_active:
+            return user
+    except Exception:
+        return None
+    return None
 
 def require_roles(*roles):
     def dependency(user: User = Depends(get_current_user)):

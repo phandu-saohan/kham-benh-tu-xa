@@ -1,3 +1,4 @@
+from typing import Optional
 from datetime import datetime, timezone, timedelta
 import random
 import os
@@ -60,7 +61,7 @@ from app.schemas import (
 from app.adapters.sms_gateway import send_otp_message
 from app.security import (
     verify_password, create_access_token, create_refresh_token, decode_token,
-    get_current_user, require_roles, hash_password
+    get_current_user, get_current_user_optional, require_roles, hash_password
 )
 from app.adapters.his import get_his_adapter
 from app.adapters.his.fhir import FHIRHISAdapter
@@ -2143,7 +2144,7 @@ def ai_triage_symptom_check(
 def ai_ocr_document(
     data: OcrDocumentIn,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
+    user: Optional[User] = Depends(get_current_user_optional)
 ):
     """
     2. OCR Trích xuất thông tin giấy tờ y tế (Thẻ BHYT, CCCD, Đơn thuốc cũ).
