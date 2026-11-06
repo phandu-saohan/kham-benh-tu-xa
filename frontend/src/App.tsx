@@ -43,6 +43,7 @@ import { NurseDashboard } from './NurseDashboard'
 import { RPMDeviceCenter } from './RPMDeviceCenter'
 import { SmartDevicesHub } from './SmartDevicesHub'
 import { Pagination } from './Pagination'
+import { HeaderSmartSearch } from './HeaderSmartSearch'
 
 const money = (n: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n)
@@ -862,19 +863,23 @@ export default function App() {
           </div>
         </div>
 
-        {/* Center: Live Clinical & System Badges */}
+        {/* Center: Smart Multi-Entity Search Bar */}
         <div className="header-center">
-          <div className="system-status-pills">
-            <span className="sys-status-chip online" title="Hệ thống Cổng Đơn thuốc điện tử Quốc gia liên thông">
-              <span className="status-live-dot" /> Đơn thuốc QG
-            </span>
-            <span className="sys-status-chip smartca" title="Chữ ký số PKI SmartCA đạt chuẩn Thông tư 30/2023/TT-BYT">
-              <ShieldCheck size={13} /> SmartCA PKI
-            </span>
-            <span className="sys-status-chip bhyt" title="Cổng Giám định BHYT 5 bảng XML 4210 sẵn sàng">
-              <Activity size={13} /> BHYT XML 4210
-            </span>
-          </div>
+          <HeaderSmartSearch
+            userRole={user.role}
+            appointments={appointments}
+            doctors={doctors}
+            departments={departments}
+            onNavigate={(v) => setView(v as any)}
+            onOpenBooking={() => setShowBooking(true)}
+            onSelectAppointment={(appt) => {
+              if (user.role === 'doctor') {
+                setActiveAppointment(appt)
+              } else {
+                handleJoinConsultation(appt)
+              }
+            }}
+          />
         </div>
 
         {/* Right: Quick Actions, Notifications, User Profile & Logout */}
