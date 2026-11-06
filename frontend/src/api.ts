@@ -36,6 +36,11 @@ export type User = {
   full_name: string
   role: 'patient' | 'doctor' | 'admin' | 'nurse'
   doctor_cchn?: string
+  gender?: string
+  date_of_birth?: string
+  national_id?: string
+  bhyt_code?: string
+  identity_card?: string
 }
 
 export type Appointment = {

@@ -46,6 +46,7 @@ import { Pagination } from './Pagination'
 import { HeaderSmartSearch } from './HeaderSmartSearch'
 import './patient-appointments.css'
 import { MedicalRecordModal } from './MedicalRecordModal'
+import { BookingFlowModal } from './BookingFlowModal'
 
 const money = (n: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n)
@@ -2122,176 +2123,24 @@ export default function App() {
           />
         )}
 
-        {/* Modal đặt lịch khám */}
-        {showBooking && (
-          <div className="modal-backdrop">
-            <form className="modal booking-modal" onSubmit={book}>
-              <div className="booking-modal-drag-bar" />
-              <div className="booking-modal-header panel-heading">
-                <div>
-                  <h3>Đặt lịch khám trực tuyến</h3>
-                  <p>Chọn chuyên khoa, bác sĩ và ca trực chống quá tải</p>
-                </div>
-                <button type="button" className="icon-button" onClick={() => setShowBooking(false)}>
-                  <X />
-                </button>
-              </div>
-
-              <div className="booking-modal-body">
-                <label>
-                  Khoa / Chuyên khoa
-                  <select
-                    value={selectedDeptId}
-                    onChange={e => {
-                      setSelectedDeptId(e.target.value)
-                      setDoctorId('')
-                      setSelectedShiftId(null)
-                    }}
-                  >
-                    <option value="">-- Tất cả chuyên khoa --</option>
-                    {departments.map(d => (
-                      <option key={d.id} value={d.id}>
-                        {d.code} - {d.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label>
-                  Bác sĩ tiếp nhận
-                  <select
-                    value={doctorId}
-                    onChange={e => {
-                      setDoctorId(e.target.value)
-                      setSelectedShiftId(null)
-                    }}
-                    required
-                  >
-                    <option value="">-- Chọn Bác sĩ chuyên khoa --</option>
-                    {doctors
-                      .filter((d: any) => !selectedDeptId || String(d.department_id) === String(selectedDeptId))
-                      .map(d => (
-                        <option key={d.id} value={d.id}>
-                          {d.full_name} {d.cchn ? `(${d.cchn})` : ''}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-
-                {/* Lịch trực chuyên khoa & Hạn ngạch ca khám (Anti-overload) */}
-                {doctorId && doctorShifts.length > 0 && (
-                  <div className="booking-shift-section">
-                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, fontSize: '13px' }}>
-                      Chọn Ca trực bác sĩ (Định mức chống quá tải):
-                    </label>
-                    <div className="booking-shifts-grid">
-                      {doctorShifts.map(s => {
-                        const isSelected = selectedShiftId === s.id
-                        const isFull = s.is_overloaded
-                        return (
-                          <button
-                            key={s.id}
-                            type="button"
-                            disabled={isFull}
-                            onClick={() => {
-                              setSelectedShiftId(s.id)
-                              setStartsAt(`${s.shift_date}T${s.start_time}:00`)
-                            }}
-                            className={`shift-card-btn ${isSelected ? 'selected' : ''} ${isFull ? 'full-quota' : ''}`}
-                          >
-                            <div className="shift-card-title">
-                              {s.shift_type === 'morning' ? '☀️ Ca sáng' : s.shift_type === 'afternoon' ? '🌤️ Ca chiều' : '🌙 Ca tối'} ({s.start_time.slice(0, 5)} - {s.end_time.slice(0, 5)})
-                            </div>
-                            <div className="shift-card-date">Ngày: {s.shift_date}</div>
-                            <div className={`shift-card-quota ${isFull ? 'danger' : 'success'}`}>
-                              {isFull ? '⚠️ ĐÃ ĐỦ ĐỊNH MỨC' : `Còn ${s.available_slots}/${s.max_patients} lượt khám`}
-                            </div>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <label>
-                  Ngày và giờ khám
-                  <input
-                    type="datetime-local"
-                    value={startsAt}
-                    onChange={e => setStartsAt(e.target.value)}
-                    required
-                  />
-                </label>
-
-                <label>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <span>Lý do khám / Triệu chứng ban đầu</span>
-                    <button
-                      type="button"
-                      onClick={handleAiTriage}
-                      disabled={triageLoading || !reason.trim()}
-                      style={{
-                        background: '#f0fdfa',
-                        color: '#0f766e',
-                        border: '1px solid #99f6e4',
-                        borderRadius: '6px',
-                        padding: '3px 8px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                    >
-                      <Sparkles size={13} />
-                      {triageLoading ? 'AI đang phân tích...' : '🤖 AI Sàng lọc & Gợi ý Khoa'}
-                    </button>
-                  </div>
-                  <textarea
-                    value={reason}
-                    onChange={e => setReason(e.target.value)}
-                    required
-                    minLength={3}
-                    placeholder="Mô tả triệu chứng bệnh của bạn..."
-                    rows={3}
-                  />
-                </label>
-
-                {triageResult && (
-                  <div style={{
-                    margin: '6px 0 10px',
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    border: triageResult.emergency_alert ? '2px solid #ef4444' : '1px solid #99f6e4',
-                    background: triageResult.emergency_alert ? '#fef2f2' : '#f0fdfa',
-                    fontSize: '13px'
-                  }}>
-                    {triageResult.emergency_alert ? (
-                      <div style={{ color: '#b91c1c', fontWeight: 700, marginBottom: '4px' }}>
-                        🚨 {triageResult.emergency_alert}
-                      </div>
-                    ) : (
-                      <div style={{ color: '#0f766e', fontWeight: 700, marginBottom: '4px' }}>
-                        ✨ Gợi ý phân luồng AI: {triageResult.recommended_department_name} ({triageResult.urgency_label})
-                      </div>
-                    )}
-                    <p style={{ margin: 0, fontSize: '12px', color: '#334155' }}>{triageResult.explanation}</p>
-                  </div>
-                )}
-
-                <div className="notice booking-fee-notice">
-                  Phí khám chuyên khoa: <strong>500.000 ₫</strong>. Có thể áp dụng giảm trừ thẻ BHYT trực tuyến sau khi tạo lịch.
-                </div>
-              </div>
-
-              <div className="booking-modal-footer">
-                <button className="primary full booking-submit-btn" type="submit">
-                  📅 Xác nhận tạo lịch khám
-                </button>
-              </div>
-            </form>
-          </div>
+        {/* Modal đặt lịch khám chuẩn 5 bước */}
+        {showBooking && user && (
+          <BookingFlowModal
+            user={user}
+            departments={departments}
+            doctors={doctors}
+            initialReason={reason}
+            onClose={() => setShowBooking(false)}
+            onSuccess={async (newAppt, openQr) => {
+              setShowBooking(false)
+              setToast('Lịch hẹn đã được khởi tạo thành công!')
+              await loadDashboard(user)
+              if (openQr) {
+                setQrAppointment(newAppt)
+              }
+            }}
+            onError={(msg) => setError(msg)}
+          />
         )}
 
         {/* Modal Hủy lịch hẹn & Hoàn tiền tự động */}
