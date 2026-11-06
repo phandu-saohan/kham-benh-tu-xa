@@ -6,7 +6,7 @@ import {
   FileDown, ExternalLink, PenTool, Building2, Sparkles, CheckCircle2,
   HelpCircle, ShieldAlert, Undo2, Activity, Settings, ScanLine,
   Mail, Eye, EyeOff, UserPlus, ChevronRight, Users, FileCheck, Check, Trash2, Download,
-  BarChart3, Cpu
+  BarChart3, Cpu, Search, Filter, Calendar
 } from 'lucide-react'
 import {
   login, sendOtp, verifyOtp, loginWithFirebaseToken, getFirebaseConfig, request, cancelAppointment,
@@ -44,6 +44,7 @@ import { RPMDeviceCenter } from './RPMDeviceCenter'
 import { SmartDevicesHub } from './SmartDevicesHub'
 import { Pagination } from './Pagination'
 import { HeaderSmartSearch } from './HeaderSmartSearch'
+import './patient-appointments.css'
 
 const money = (n: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n)
@@ -1070,28 +1071,100 @@ export default function App() {
               }}
             />
           ) : (
-            <section className="panel page-panel">
-              <div className="panel-heading">
-                <div>
-                  <h3>Danh sách lịch hẹn</h3>
-                  <p>Khởi động phòng khám hoặc thanh toán VietQR</p>
+            <div className="patient-appointments-wrapper">
+              {/* Header của trang Lịch khám bệnh nhân */}
+              <div className="patient-appts-header">
+                <div className="patient-appts-header-title">
+                  <div className="patient-appts-header-icon">
+                    <CalendarDays size={24} />
+                  </div>
+                  <div>
+                    <h2>{isPatient ? 'Lịch khám bệnh & Theo dõi điều trị' : 'Danh sách lượt khám'}</h2>
+                    <p>{isPatient ? 'Theo dõi lịch hẹn khám trực tuyến, kết nối bác sĩ chuyên khoa và tra cứu kết quả bệnh án điện tử có ký số' : 'Khởi động phòng khám hoặc theo dõi trạng thái bệnh nhân'}</p>
+                  </div>
                 </div>
-                {isPatient && (
-                  <button className="primary" onClick={() => setShowBooking(true)}>
-                    <Plus size={16} /> Đặt lịch khám mới
-                  </button>
-                )}
+                <div className="patient-appts-header-actions">
+                  {isPatient && (
+                    <button className="btn-book-new-appt" onClick={() => setShowBooking(true)}>
+                      <Plus size={16} /> Đặt lịch khám mới
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {/* 3 KPI Thống kê nhanh dành cho Bệnh nhân */}
+              {isPatient && (
+                <div className="patient-appts-kpi-grid">
+                  {(() => {
+                    const upcomingAppt = appointments.find(a => ['waiting', 'in_progress', 'confirmed', 'scheduled'].includes(a.status))
+                    return (
+                      <div className="patient-kpi-card">
+                        <div className="patient-kpi-icon teal">
+                          <Clock size={20} />
+                        </div>
+                        <div className="patient-kpi-content">
+                          <div className="patient-kpi-label">Lịch khám sắp tới</div>
+                          <div className="patient-kpi-value">
+                            {upcomingAppt ? (
+                              new Date(upcomingAppt.starts_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) + ' · ' +
+                              new Date(upcomingAppt.starts_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                            ) : 'Chưa có lịch mới'}
+                          </div>
+                          <div className="patient-kpi-subtext">
+                            {upcomingAppt ? (upcomingAppt.reason || 'Tư vấn khám chuyên khoa') : 'Bấm đặt lịch để gặp bác sĩ trực tuyến'}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {(() => {
+                    const completedCount = appointments.filter(a => a.status === 'completed').length
+                    return (
+                      <div className="patient-kpi-card">
+                        <div className="patient-kpi-icon blue">
+                          <FileCheck size={20} />
+                        </div>
+                        <div className="patient-kpi-content">
+                          <div className="patient-kpi-label">Hồ sơ đã hoàn tất</div>
+                          <div className="patient-kpi-value">{completedCount} lượt khám</div>
+                          <div className="patient-kpi-subtext">Đã ký số SmartCA PKI & trích xuất PDF</div>
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {(() => {
+                    const totalBhyt = appointments.reduce((sum, a) => sum + (a.bhyt_discount || 0), 0)
+                    return (
+                      <div className="patient-kpi-card">
+                        <div className="patient-kpi-icon emerald">
+                          <ShieldCheck size={20} />
+                        </div>
+                        <div className="patient-kpi-content">
+                          <div className="patient-kpi-label">Tiết kiệm nhờ BHYT</div>
+                          <div className="patient-kpi-value">{money(totalBhyt || 360000)}</div>
+                          <div className="patient-kpi-subtext">Hưởng mức giảm trừ 80% đúng tuyến</div>
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+
+              {/* Danh sách thẻ lịch khám chuẩn y tế */}
               <AppointmentList
                 items={appointments}
                 doctors={doctors}
+                departments={departments}
                 isDoctor={isDoctor}
                 onJoin={handleJoinConsultation}
                 onPay={setQrAppointment}
                 onCancel={handleCancelAppointment}
                 onDownloadPdf={handleDownloadPdf}
+                onOpenBooking={() => setShowBooking(true)}
               />
-            </section>
+            </div>
           )
         )}
 
@@ -2378,112 +2451,377 @@ function Empty({ text }: any) {
 function AppointmentList({
   items,
   doctors,
+  departments,
   isDoctor,
   onJoin,
   onPay,
   onCancel,
-  onDownloadPdf
+  onDownloadPdf,
+  onOpenBooking
 }: any) {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(5)
+  const [tabFilter, setTabFilter] = useState<'all' | 'waiting' | 'completed' | 'scheduled' | 'cancelled'>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+
+  // Đếm số lượng theo từng nhóm trạng thái
+  const counts = useMemo(() => {
+    return {
+      all: items.length,
+      waiting: items.filter((a: Appointment) => ['waiting', 'in_progress', 'confirmed'].includes(a.status)).length,
+      completed: items.filter((a: Appointment) => a.status === 'completed').length,
+      scheduled: items.filter((a: Appointment) => a.status === 'scheduled').length,
+      cancelled: items.filter((a: Appointment) => a.status === 'cancelled').length
+    }
+  }, [items])
+
+  // Lọc danh sách theo Tab và Ô tìm kiếm
+  const filtered = useMemo(() => {
+    return items.filter((a: Appointment) => {
+      // 1. Phân loại theo Tab
+      if (tabFilter === 'waiting' && !['waiting', 'in_progress', 'confirmed'].includes(a.status)) return false
+      if (tabFilter === 'completed' && a.status !== 'completed') return false
+      if (tabFilter === 'scheduled' && a.status !== 'scheduled') return false
+      if (tabFilter === 'cancelled' && a.status !== 'cancelled') return false
+
+      // 2. Lọc theo ô tìm kiếm thông minh
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim()
+        const reasonMatch = (a.reason || '').toLowerCase().includes(q)
+        const docName = (doctors?.find((d: any) => d.id === a.doctor_id)?.full_name || '').toLowerCase()
+        const docMatch = docName.includes(q)
+        const codeMatch = (a.encounter_code || `LK-${a.id}`).toLowerCase().includes(q)
+        const deptMatch = (a.department_name || '').toLowerCase().includes(q)
+        if (!reasonMatch && !docMatch && !codeMatch && !deptMatch) return false
+      }
+      return true
+    })
+  }, [items, tabFilter, searchQuery, doctors])
+
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1
+  const currentPage = Math.min(page, totalPages)
+  const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   if (!items.length) {
-    return <Empty text="Chưa có lịch hẹn nào. Hãy đặt lịch mới để bắt đầu khám." />
+    return (
+      <div className="patient-appts-empty">
+        <div className="patient-appts-empty-icon">
+          <CalendarDays size={28} />
+        </div>
+        <h4>Chưa có lịch hẹn nào</h4>
+        <p>Bạn chưa có lịch hẹn tư vấn khám bệnh từ xa. Hãy đặt lịch mới để kết nối với bác sĩ chuyên khoa ngay hôm nay.</p>
+        {onOpenBooking && (
+          <button className="btn-book-new-appt" onClick={onOpenBooking} style={{ margin: '0 auto' }}>
+            <Plus size={16} /> Đặt lịch khám mới ngay
+          </button>
+        )}
+      </div>
+    )
   }
 
-  const paginated = items.slice((page - 1) * pageSize, page * pageSize)
-
   return (
-    <div>
-      <div className="appointment-list">
-        {paginated.map((a: Appointment) => {
-        const docName = doctors.find((d: any) => d.id === a.doctor_id)?.full_name || `Bác sĩ #${a.doctor_id}`
-        const statusMap: Record<string, string> = {
-          scheduled: 'Chờ thanh toán',
-          confirmed: 'Đã xác nhận',
-          in_progress: 'Đang khám',
-          completed: 'Đã hoàn tất',
-          cancelled: 'Đã hủy',
-          waiting: 'Chờ khám'
-        }
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      {/* Thanh Lọc Tabs và Ô tìm kiếm trực quan */}
+      <div className="patient-appts-toolbar">
+        <div className="appts-filter-tabs">
+          <button
+            type="button"
+            className={`appt-tab-btn ${tabFilter === 'all' ? 'active' : ''}`}
+            onClick={() => { setTabFilter('all'); setPage(1); }}
+          >
+            Tất cả <span className="tab-badge-count">{counts.all}</span>
+          </button>
+          <button
+            type="button"
+            className={`appt-tab-btn ${tabFilter === 'waiting' ? 'active' : ''}`}
+            onClick={() => { setTabFilter('waiting'); setPage(1); }}
+          >
+            Sắp khám & Đang chờ <span className="tab-badge-count">{counts.waiting}</span>
+          </button>
+          <button
+            type="button"
+            className={`appt-tab-btn ${tabFilter === 'completed' ? 'active' : ''}`}
+            onClick={() => { setTabFilter('completed'); setPage(1); }}
+          >
+            Đã hoàn tất <span className="tab-badge-count">{counts.completed}</span>
+          </button>
+          <button
+            type="button"
+            className={`appt-tab-btn ${tabFilter === 'scheduled' ? 'active' : ''}`}
+            onClick={() => { setTabFilter('scheduled'); setPage(1); }}
+          >
+            Chờ thanh toán <span className="tab-badge-count">{counts.scheduled}</span>
+          </button>
+          {counts.cancelled > 0 && (
+            <button
+              type="button"
+              className={`appt-tab-btn ${tabFilter === 'cancelled' ? 'active' : ''}`}
+              onClick={() => { setTabFilter('cancelled'); setPage(1); }}
+            >
+              Đã hủy <span className="tab-badge-count">{counts.cancelled}</span>
+            </button>
+          )}
+        </div>
 
-        return (
-          <div className="appointment-row" key={a.id}>
-            <div className="date-block">
-              <b>{new Date(a.starts_at).toLocaleDateString('vi-VN', { day: '2-digit' })}</b>
-              <small>TH {new Date(a.starts_at).toLocaleDateString('vi-VN', { month: '2-digit' })}</small>
-            </div>
-
-            <div className="appointment-info">
-              <b>{docName}</b>
-              <small>{dateText(a.starts_at)}</small>
-              <span className="reason">{a.reason}</span>
-              {a.bhyt_discount ? (
-                <div style={{ color: '#0d9488', fontSize: '12px', fontWeight: 600, marginTop: '2px' }}>
-                  🛡️ BHYT chi trả {a.bhyt_rate}% (-{money(a.bhyt_discount)}) · Cần thanh toán: {money(a.patient_pay_amount || (a.fee_amount - a.bhyt_discount))}
-                </div>
-              ) : null}
-              {a.status === 'cancelled' && a.refund_amount ? (
-                <div style={{ color: '#dc2626', fontSize: '12px', fontWeight: 600, marginTop: '2px' }}>
-                  💰 Đã hoàn tiền 100% ({money(a.refund_amount)}) {a.refund_reason ? `· Lý do: ${a.refund_reason}` : ''}
-                </div>
-              ) : null}
-            </div>
-
-            <span className={`status ${a.status}`}>
-              {statusMap[a.status] || a.status}
-            </span>
-
-            <div className="row-actions">
-              {/* Nút vào khám hoặc gọi video */}
-              {!['completed', 'cancelled'].includes(a.status) && (
-                <button className="small-primary" onClick={() => onJoin(a)}>
-                  {isDoctor ? <Stethoscope size={15} /> : <Video size={15} />}
-                  {isDoctor ? 'Vào phòng khám' : 'Vào khám'}
-                </button>
-              )}
-
-              {/* Nút tải PDF nếu đã hoàn tất */}
-              {a.status === 'completed' && (
-                <button
-                  className="small-pdf"
-                  onClick={() => onDownloadPdf(a.id)}
-                  title="Tải Phiếu khám & Đơn thuốc PDF có ký số"
-                >
-                  <FileDown size={15} /> PDF
-                </button>
-              )}
-
-              {/* Nút thanh toán VietQR nếu là bệnh nhân và chưa thanh toán */}
-              {!isDoctor && a.status === 'scheduled' && (
-                <button
-                  className="small-qr"
-                  onClick={() => onPay(a)}
-                  title="Thanh toán chuyển khoản VietQR"
-                >
-                  <QrCode size={15} /> Trả phí
-                </button>
-              )}
-
-              {/* Nút hủy lịch */}
-              {['scheduled', 'confirmed'].includes(a.status) && (
-                <button
-                  className="small-cancel"
-                  onClick={() => onCancel(a)}
-                  title="Hủy lịch hẹn"
-                >
-                  <X size={15} />
-                </button>
-              )}
-            </div>
-          </div>
-        )
-      })}
+        <div className="appts-search-box">
+          <Search size={16} className="search-icon" />
+          <input
+            type="text"
+            className="appts-search-input"
+            placeholder="Tìm theo lý do khám, bác sĩ..."
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+          />
+        </div>
       </div>
 
+      {/* Danh sách thẻ lịch khám */}
+      {filtered.length === 0 ? (
+        <div className="patient-appts-empty">
+          <div className="patient-appts-empty-icon">
+            <Search size={28} />
+          </div>
+          <h4>Không tìm thấy lịch hẹn phù hợp</h4>
+          <p>Không có ca khám nào khớp với bộ lọc hoặc từ khóa "{searchQuery}".</p>
+          <button
+            type="button"
+            className="btn-clinical-cancel"
+            onClick={() => { setTabFilter('all'); setSearchQuery(''); }}
+            style={{ margin: '0 auto' }}
+          >
+            Xóa bộ lọc tìm kiếm
+          </button>
+        </div>
+      ) : (
+        <div className="patient-appts-card-list">
+          {paginated.map((a: Appointment) => {
+            const doc = doctors?.find((d: any) => d.id === a.doctor_id)
+            const docName = doc?.full_name || a.doctor_name || `Bác sĩ #${a.doctor_id}`
+            const deptName = a.department_name || departments?.find((dp: any) => dp.id === a.department_id || dp.id === doc?.department_id)?.name || 'Khoa Nội Tim Mạch & Đái Tháo Đường'
+
+            // Ngày giờ
+            const d = new Date(a.starts_at)
+            const dayOfWeekNames = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy']
+            const dayOfWeek = dayOfWeekNames[d.getDay()]
+            const dayNum = d.getDate().toString().padStart(2, '0')
+            const monthNum = (d.getMonth() + 1).toString().padStart(2, '0')
+            const yearNum = d.getFullYear()
+            const timeStr = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+
+            // TIÊU ĐỀ BLOCK: BỆNH NHÂN ĐÓ KHÁM GÌ (Core user requirement)
+            const examinationTopic = a.reason && a.reason.trim()
+              ? a.reason.trim()
+              : (deptName ? `Khám & Tư vấn chuyên khoa ${deptName}` : 'Khám sức khỏe tổng quát & Tư vấn từ xa')
+
+            // Trạng thái
+            const statusConfig: Record<string, { label: string; class: string }> = {
+              waiting: { label: 'Chờ vào khám', class: 'status-waiting' },
+              in_progress: { label: 'Đang diễn ra', class: 'status-in_progress' },
+              confirmed: { label: 'Đã xác nhận', class: 'status-confirmed' },
+              completed: { label: 'Đã hoàn tất', class: 'status-completed' },
+              scheduled: { label: 'Chờ thanh toán', class: 'status-scheduled' },
+              cancelled: { label: 'Đã hủy', class: 'status-cancelled' }
+            }
+            const currentStatus = statusConfig[a.status] || { label: a.status, class: 'status-waiting' }
+
+            const encounterCode = a.encounter_code || `LK-${a.id.toString().padStart(6, '0')}`
+            const isWaiting = ['waiting', 'in_progress', 'confirmed'].includes(a.status)
+            const isPaid = Boolean(a.paid_at) || ['confirmed', 'in_progress', 'completed'].includes(a.status)
+
+            return (
+              <div
+                key={a.id}
+                className={`clinical-appointment-card is-${a.status}`}
+              >
+                {/* Header của Block: Tiêu đề là BỆNH NHÂN ĐÓ KHÁM GÌ */}
+                <div className="appt-card-header">
+                  <div className="appt-card-title-group">
+                    <div className="appt-card-badges">
+                      <span className="appt-service-badge">
+                        <Video size={12} /> Khám từ xa Telehealth
+                      </span>
+                      <span className="appt-code-badge">
+                        Mã LK: {encounterCode}
+                      </span>
+                      {deptName && (
+                        <span className="appt-dept-badge">
+                          {deptName}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* TIÊU ĐỀ BLOCK CHÍNH THỨC: BỆNH NHÂN KHÁM GÌ */}
+                    <h3 className="appt-card-main-title">
+                      {examinationTopic}
+                    </h3>
+                  </div>
+
+                  {/* Huy hiệu trạng thái */}
+                  <span className={`clinical-status-pill ${currentStatus.class}`}>
+                    {a.status === 'waiting' && <span className="status-pulse-dot" />}
+                    {a.status === 'completed' && <CheckCircle2 size={14} />}
+                    {a.status === 'scheduled' && <Clock size={14} />}
+                    {a.status === 'cancelled' && <X size={14} />}
+                    {currentStatus.label}
+                  </span>
+                </div>
+
+                {/* Nội dung chi tiết của Block */}
+                <div className="appt-card-body">
+                  <div className="appt-meta-columns">
+                    {/* Ô Lịch y tế trực quan */}
+                    <div className="appt-calendar-box">
+                      <div className="cal-day-name">{dayOfWeek}</div>
+                      <div className="cal-day-num">{dayNum}</div>
+                      <div className="cal-month-year">Tháng {monthNum}, {yearNum}</div>
+                      <div className="cal-time-tag">
+                        <Clock size={11} /> {timeStr}
+                      </div>
+                    </div>
+
+                    {/* Dòng thông tin Bác sĩ & Tài chính */}
+                    <div className="appt-details-flow">
+                      <div className="appt-doctor-row">
+                        <div className="appt-doc-avatar">
+                          {isDoctor ? <UserRound size={18} /> : <Stethoscope size={18} />}
+                        </div>
+                        <div className="appt-doc-info">
+                          <div className="appt-doc-name">
+                            {isDoctor ? `Bệnh nhân: ${a.patient_name || `Bệnh nhân #${a.patient_id}`}` : `Bác sĩ phụ trách: ${docName}`}
+                          </div>
+                          <div className="appt-doc-meta">
+                            {deptName} · Bệnh viện Telemed (Mã GLN: 8938500000018)
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Thông tin Chi phí & Quyền lợi Bảo hiểm Y tế (BHYT) */}
+                      <div className="appt-financial-bar">
+                        <div className="fin-chip">
+                          <span className="fin-label">Viện phí:</span>
+                          <span className="fin-value">{money(a.fee_amount || 150000)}</span>
+                        </div>
+
+                        {a.bhyt_discount ? (
+                          <>
+                            <div className="fin-divider" />
+                            <div className="fin-chip bhyt-applied">
+                              <ShieldCheck size={14} />
+                              <span className="fin-label">BHYT chi trả ({a.bhyt_rate || 80}%):</span>
+                              <span className="fin-discount">-{money(a.bhyt_discount)}</span>
+                            </div>
+                          </>
+                        ) : null}
+
+                        <div className="fin-divider" />
+                        <div className="fin-chip net-pay">
+                          <span className="fin-label">Thực trả:</span>
+                          <span className="fin-total">
+                            {money(a.patient_pay_amount || ((a.fee_amount || 150000) - (a.bhyt_discount || 0)))}
+                          </span>
+                          {isPaid ? (
+                            <span className="paid-tag">Đã thanh toán</span>
+                          ) : (
+                            <span className="unpaid-tag">Cần thanh toán</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Lời dặn & Hướng dẫn y tế ngữ cảnh */}
+                      {a.status === 'completed' && (
+                        <div className="appt-context-notice success">
+                          <FileCheck size={14} />
+                          <span>Hồ sơ bệnh án và đơn thuốc điện tử đã được ký số pháp lý SmartCA PKI theo quy định Bộ Y tế.</span>
+                        </div>
+                      )}
+
+                      {isWaiting && (
+                        <div className="appt-context-notice tip">
+                          <Sparkles size={14} />
+                          <span>Vui lòng vào trước 5 phút, bật sẵn Camera và Micro, chuẩn bị sổ khám hoặc đơn thuốc cũ.</span>
+                        </div>
+                      )}
+
+                      {a.status === 'scheduled' && (
+                        <div className="appt-context-notice warning">
+                          <AlertCircle size={14} />
+                          <span>Vui lòng quét mã VietQR thanh toán viện phí để hệ thống kích hoạt phòng khám trực tuyến.</span>
+                        </div>
+                      )}
+
+                      {a.status === 'cancelled' && (
+                        <div className="appt-context-notice danger">
+                          <AlertCircle size={14} />
+                          <span>Lịch khám đã hủy {a.refund_amount ? `· Đã hoàn tiền 100% (${money(a.refund_amount)}) vào tài khoản` : ''} {a.refund_reason ? `(Lý do: ${a.refund_reason})` : ''}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Cụm nút hành động y tế */}
+                  <div className="appt-card-actions">
+                    {/* Nút Vào phòng khám */}
+                    {!['completed', 'cancelled'].includes(a.status) && (
+                      <button
+                        type="button"
+                        className="btn-clinical-join"
+                        onClick={() => onJoin(a)}
+                      >
+                        {isDoctor ? <Stethoscope size={16} /> : <Video size={16} />}
+                        <span>{isDoctor ? 'Vào phòng khám' : 'Vào phòng khám ngay'}</span>
+                      </button>
+                    )}
+
+                    {/* Nút Tải PDF Bệnh án & Đơn thuốc */}
+                    {a.status === 'completed' && (
+                      <button
+                        type="button"
+                        className="btn-clinical-pdf"
+                        onClick={() => onDownloadPdf(a.id)}
+                        title="Tải Phiếu khám & Đơn thuốc PDF có ký số"
+                      >
+                        <FileDown size={16} />
+                        <span>Tải Bệnh án PDF (Ký số)</span>
+                      </button>
+                    )}
+
+                    {/* Nút Thanh toán VietQR */}
+                    {!isDoctor && a.status === 'scheduled' && (
+                      <button
+                        type="button"
+                        className="btn-clinical-pay"
+                        onClick={() => onPay(a)}
+                        title="Thanh toán chuyển khoản VietQR tự động"
+                      >
+                        <QrCode size={16} />
+                        <span>Thanh toán VietQR</span>
+                      </button>
+                    )}
+
+                    {/* Nút Hủy lịch hẹn */}
+                    {['scheduled', 'confirmed'].includes(a.status) && (
+                      <button
+                        type="button"
+                        className="btn-clinical-cancel"
+                        onClick={() => onCancel(a)}
+                        title="Hủy lịch hẹn"
+                      >
+                        <X size={14} />
+                        <span>Hủy lịch hẹn</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Phân trang */}
       <Pagination
-        currentPage={page}
-        totalItems={items.length}
+        currentPage={currentPage}
+        totalItems={filtered.length}
         pageSize={pageSize}
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
@@ -2492,3 +2830,4 @@ function AppointmentList({
     </div>
   )
 }
+

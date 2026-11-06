@@ -1,0 +1,821 @@
+/* ==========================================================================
+   PATIENT APPOINTMENTS VIEW - CLINICAL SANCTUARY EDITION
+   Chuẩn hóa giao diện Lịch khám bệnh nhân:
+   - Tiêu đề của block là bệnh nhân đó khám gì
+   - Gọn gàng, giảm bo tròn (6px - 8px), chuyên nghiệp, dễ hiểu cho người bệnh
+   ========================================================================== */
+
+/* Main Page Container Wrapper */
+.patient-appointments-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+/* Page Header */
+.patient-appts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px 24px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.patient-appts-header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.patient-appts-header-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  color: #0f766e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.patient-appts-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.3px;
+}
+
+.patient-appts-header p {
+  margin: 4px 0 0 0;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.patient-appts-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-book-new-appt {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #0f766e;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 4px rgba(15, 118, 110, 0.2);
+}
+
+.btn-book-new-appt:hover {
+  background: #115e59;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(15, 118, 110, 0.25);
+}
+
+/* 3 Quick Overview / KPI Cards */
+.patient-appts-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.patient-kpi-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  transition: border-color 0.15s ease;
+}
+
+.patient-kpi-card:hover {
+  border-color: #cbd5e1;
+}
+
+.patient-kpi-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.patient-kpi-icon.teal {
+  background: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  color: #0f766e;
+}
+
+.patient-kpi-icon.blue {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  color: #0284c7;
+}
+
+.patient-kpi-icon.emerald {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #059669;
+}
+
+.patient-kpi-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.patient-kpi-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.patient-kpi-value {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.patient-kpi-subtext {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Toolbar: Filters & Live Search */
+.patient-appts-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.appts-filter-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.appt-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.appt-tab-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.appt-tab-btn.active {
+  background: #f0fdfa;
+  border-color: #99f6e4;
+  color: #0f766e;
+  font-weight: 700;
+}
+
+.tab-badge-count {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.appt-tab-btn.active .tab-badge-count {
+  background: #0f766e;
+  color: #ffffff;
+}
+
+.appts-search-box {
+  position: relative;
+  min-width: 260px;
+  flex: 1;
+  max-width: 360px;
+}
+
+.appts-search-box svg.search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.appts-search-input {
+  width: 100%;
+  padding: 7px 12px 7px 32px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  font-size: 13px;
+  color: #0f172a;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.appts-search-input:focus {
+  background: #ffffff;
+  border-color: #0f766e;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
+}
+
+/* Appointment List Container */
+.patient-appts-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Individual Appointment Card */
+.clinical-appointment-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.clinical-appointment-card:hover {
+  border-color: #94a3b8;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.07);
+}
+
+/* Specific Active / Waiting Highlight */
+.clinical-appointment-card.is-waiting {
+  border-left: 4px solid #0f766e;
+}
+
+.clinical-appointment-card.is-in-progress {
+  border-left: 4px solid #0284c7;
+}
+
+.clinical-appointment-card.is-completed {
+  border-left: 4px solid #10b981;
+}
+
+.clinical-appointment-card.is-scheduled {
+  border-left: 4px solid #f59e0b;
+}
+
+.clinical-appointment-card.is-cancelled {
+  border-left: 4px solid #94a3b8;
+  opacity: 0.85;
+}
+
+/* Card Header: "BỆNH NHÂN ĐÓ KHÁM GÌ" */
+.appt-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 20px 12px 20px;
+  background: #fafafa;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.appt-card-title-group {
+  flex: 1;
+  min-width: 0;
+}
+
+.appt-card-badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.appt-service-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  color: #0f766e;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.appt-code-badge {
+  display: inline-flex;
+  align-items: center;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.appt-dept-badge {
+  display: inline-flex;
+  align-items: center;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  color: #1e40af;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* CORE USER REQUIREMENT: BLOCK TITLE IS WHAT THE PATIENT IS CONSULTING FOR */
+.appt-card-main-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.4;
+  letter-spacing: -0.2px;
+}
+
+/* Status Pill */
+.clinical-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.clinical-status-pill.status-waiting {
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  color: #0f766e;
+}
+
+.clinical-status-pill.status-waiting .status-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #0f766e;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.25);
+  animation: pulse-dot 1.8s infinite;
+}
+
+.clinical-status-pill.status-in_progress {
+  background: #f0f9ff;
+  border: 1px solid #7dd3fc;
+  color: #0284c7;
+}
+
+.clinical-status-pill.status-confirmed {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+}
+
+.clinical-status-pill.status-completed {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+}
+
+.clinical-status-pill.status-scheduled {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #b45309;
+}
+
+.clinical-status-pill.status-cancelled {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+}
+
+@keyframes pulse-dot {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(15, 118, 110, 0.5); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(15, 118, 110, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(15, 118, 110, 0); }
+}
+
+/* Card Body Layout */
+.appt-card-body {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 18px 20px;
+}
+
+.appt-meta-columns {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  flex: 1;
+  min-width: 320px;
+}
+
+/* Left: Calendar Date Tile */
+.appt-calendar-box {
+  width: 90px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 8px 6px;
+  text-align: center;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.cal-day-name {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+  letter-spacing: 0.3px;
+}
+
+.cal-day-num {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.1;
+  margin: 3px 0;
+}
+
+.cal-month-year {
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.cal-time-tag {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed #cbd5e1;
+  font-size: 11px;
+  font-weight: 700;
+  color: #0f766e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+/* Details Flow */
+.appt-details-flow {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.appt-doctor-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.appt-doc-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #0f766e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.appt-doc-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.appt-doc-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.appt-doc-meta {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Financial Chip Row */
+.appt-financial-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 12px;
+  width: fit-content;
+}
+
+.fin-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.fin-label {
+  color: #64748b;
+}
+
+.fin-value {
+  font-weight: 600;
+  color: #334155;
+}
+
+.fin-chip.bhyt-applied {
+  color: #0f766e;
+  font-weight: 600;
+}
+
+.fin-chip.bhyt-applied .fin-discount {
+  font-weight: 700;
+  color: #0f766e;
+}
+
+.fin-divider {
+  width: 1px;
+  height: 14px;
+  background: #cbd5e1;
+}
+
+.fin-chip.net-pay {
+  font-weight: 700;
+}
+
+.fin-chip.net-pay .fin-total {
+  color: #0f172a;
+}
+
+.paid-tag {
+  background: #ecfdf5;
+  color: #059669;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid #a7f3d0;
+  margin-left: 4px;
+}
+
+.unpaid-tag {
+  background: #fffbeb;
+  color: #b45309;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid #fde68a;
+  margin-left: 4px;
+}
+
+/* Context Notice */
+.appt-context-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.appt-context-notice.tip {
+  background: #f0fdfa;
+  color: #0f766e;
+  border: 1px solid #ccfbf1;
+}
+
+.appt-context-notice.success {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.appt-context-notice.warning {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.appt-context-notice.danger {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+/* Action Buttons Container */
+.appt-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 190px;
+  align-items: stretch;
+}
+
+.btn-clinical-join {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #0f766e;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 18px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 4px rgba(15, 118, 110, 0.2);
+}
+
+.btn-clinical-join:hover {
+  background: #115e59;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(15, 118, 110, 0.3);
+}
+
+.btn-clinical-pdf {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #f0f9ff;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-clinical-pdf:hover {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #0369a1;
+}
+
+.btn-clinical-pay {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #f59e0b;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-clinical-pay:hover {
+  background: #d97706;
+}
+
+.btn-clinical-cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: transparent;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-clinical-cancel:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+/* Empty State */
+.patient-appts-empty {
+  text-align: center;
+  padding: 48px 24px;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+}
+
+.patient-appts-empty-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 8px;
+  background: #f0fdfa;
+  color: #0f766e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 14px auto;
+}
+
+.patient-appts-empty h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.patient-appts-empty p {
+  margin: 6px 0 16px 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .appt-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .appt-card-body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .appt-meta-columns {
+    flex-direction: column;
+    min-width: unset;
+  }
+  .appt-card-actions {
+    min-width: unset;
+    width: 100%;
+  }
+  .appts-search-box {
+    max-width: 100%;
+    min-width: 100%;
+  }
+}
