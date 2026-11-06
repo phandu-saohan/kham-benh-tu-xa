@@ -618,19 +618,23 @@ class PatientProfileUpdateIn(BaseModel):
     epidemiological_history: str | None = None
 
 class PatientHisCheckIn(BaseModel):
-    full_name: str = Field(min_length=1)
-    phone_number: str = Field(min_length=9)
     identity_card: str = Field(min_length=9, max_length=15)  # Số CCCD 9 hoặc 12 số
+    full_name: str | None = None
+    phone_number: str | None = None
 
 class PatientHisCheckOut(BaseModel):
     exists_in_his: bool
     external_patient_id: str | None = None
     full_name: str | None = None
+    phone_number: str | None = None
     dob: str | None = None
     gender: str | None = None
     bhyt_no: str | None = None
     address: str | None = None
     blood_type: str | None = None
+    ethnicity: str | None = None
+    province_code: str | None = None
+    ward_code: str | None = None
     conditions: list[dict] = Field(default_factory=list)
     allergies: list[dict] = Field(default_factory=list)
     already_registered_in_app: bool = False
@@ -689,6 +693,20 @@ class PatientRegisterIn(BaseModel):
     allergies: str | None = None
     emergency_contact_name: str | None = None
     emergency_contact_phone: str | None = None
+    ethnicity: str | None = "Kinh"
+    province_code: str | None = None
+    district_code: str | None = None
+    ward_code: str | None = None
+    companion_name: str | None = None
+    companion_id_card: str | None = None
+    companion_phone: str | None = None
+    companion_relationship: str | None = None
+    has_medical_history: bool | None = False
+    medical_history_icd10: str | None = None
+    medical_history_notes: str | None = None
+    family_history_icd10: str | None = None
+    family_history_notes: str | None = None
+    epidemiological_history: str | None = None
 
 class PatientRegisterOut(BaseModel):
     access_token: str

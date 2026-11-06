@@ -1042,20 +1042,24 @@ export async function updateMyProfile(data: Partial<PatientProfile>): Promise<Pa
 }
 
 export interface PatientHisCheckRequest {
-  full_name: string
-  phone_number: string
   identity_card: string
+  full_name?: string
+  phone_number?: string
 }
 
 export interface PatientHisCheckResponse {
   exists_in_his: boolean
   external_patient_id?: string
   full_name?: string
+  phone_number?: string
   dob?: string
   gender?: string
   bhyt_no?: string
   address?: string
   blood_type?: string
+  ethnicity?: string
+  province_code?: string
+  ward_code?: string
   conditions: Array<{ code?: string; display?: string; note?: string }>
   allergies: Array<{ substance?: string; severity?: string }>
   already_registered_in_app: boolean
@@ -1076,6 +1080,20 @@ export interface PatientRegisterRequest {
   allergies?: string
   emergency_contact_name?: string
   emergency_contact_phone?: string
+  ethnicity?: string
+  province_code?: string
+  district_code?: string
+  ward_code?: string
+  companion_name?: string
+  companion_id_card?: string
+  companion_phone?: string
+  companion_relationship?: string
+  has_medical_history?: boolean
+  medical_history_icd10?: string
+  medical_history_notes?: string
+  family_history_icd10?: string
+  family_history_notes?: string
+  epidemiological_history?: string
 }
 
 export interface PatientRegisterResponse {

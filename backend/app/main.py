@@ -297,24 +297,29 @@ def me(user: User = Depends(get_current_user)):
 
 @app.post("/api/v1/auth/check-patient-his", response_model=PatientHisCheckOut)
 def check_patient_his(data: PatientHisCheckIn, db: Session = Depends(get_db)):
-    clean_phone = data.phone_number.strip()
     clean_cccd = data.identity_card.strip()
-    clean_name = data.full_name.strip()
+    clean_phone = data.phone_number.strip() if data.phone_number else ""
+    clean_name = data.full_name.strip() if data.full_name else ""
 
     # 1. Kiểm tra xem tài khoản đã tồn tại trong ứng dụng CareConnect chưa
-    existing_user = db.query(User).filter(
-        or_(User.phone_number == clean_phone, User.identity_card == clean_cccd)
-    ).first()
+    conds = [User.identity_card == clean_cccd]
+    if clean_phone:
+        conds.append(User.phone_number == clean_phone)
+    existing_user = db.query(User).filter(or_(*conds)).first()
     if existing_user:
         return {
             "exists_in_his": True,
             "external_patient_id": existing_user.external_patient_id,
             "full_name": existing_user.full_name,
+            "phone_number": existing_user.phone_number,
             "dob": existing_user.date_of_birth,
             "gender": existing_user.gender,
             "bhyt_no": existing_user.bhyt_code,
             "address": existing_user.address,
             "blood_type": existing_user.blood_type,
+            "ethnicity": getattr(existing_user, "ethnicity", None) or "Kinh",
+            "province_code": getattr(existing_user, "province_code", None),
+            "ward_code": getattr(existing_user, "ward_code", None),
             "conditions": [],
             "allergies": [],
             "already_registered_in_app": True,
@@ -329,12 +334,16 @@ def check_patient_his(data: PatientHisCheckIn, db: Session = Depends(get_db)):
         return {
             "exists_in_his": True,
             "external_patient_id": his_patient.get("pid"),
-            "full_name": his_patient.get("full_name") or clean_name,
+            "full_name": his_patient.get("full_name") or clean_name or None,
+            "phone_number": his_patient.get("phone") or clean_phone or None,
             "dob": his_patient.get("dob"),
             "gender": his_patient.get("gender"),
             "bhyt_no": his_patient.get("bhyt_no"),
             "address": his_patient.get("address"),
             "blood_type": his_patient.get("blood_type"),
+            "ethnicity": his_patient.get("ethnicity", "Kinh"),
+            "province_code": his_patient.get("province_code"),
+            "ward_code": his_patient.get("ward_code"),
             "conditions": his_patient.get("conditions", []),
             "allergies": his_patient.get("allergies", []),
             "already_registered_in_app": False,
@@ -344,16 +353,20 @@ def check_patient_his(data: PatientHisCheckIn, db: Session = Depends(get_db)):
         return {
             "exists_in_his": False,
             "external_patient_id": None,
-            "full_name": clean_name,
+            "full_name": clean_name or None,
+            "phone_number": clean_phone or None,
             "dob": None,
             "gender": None,
             "bhyt_no": None,
             "address": None,
             "blood_type": None,
+            "ethnicity": "Kinh",
+            "province_code": None,
+            "ward_code": None,
             "conditions": [],
             "allergies": [],
             "already_registered_in_app": False,
-            "message": "Chưa có hồ sơ bệnh án trên HIS/EMR bệnh viện. Hệ thống sẽ tự động tạo hồ sơ bệnh nhân điện tử mới khi bạn hoàn tất đăng ký."
+            "message": "Chưa có hồ sơ bệnh án cũ trên HIS/EMR bệnh viện. Hệ thống sẽ tự động tạo hồ sơ bệnh nhân điện tử mới khi bạn hoàn tất đăng ký."
         }
 
 def parse_vneid_or_cccd(raw_text: str) -> dict:
@@ -636,7 +649,21 @@ def register_patient_account(data: PatientRegisterIn, db: Session = Depends(get_
         blood_type=final_blood,
         allergies=data.allergies or "Không ghi nhận dị ứng thuốc",
         emergency_contact_name=data.emergency_contact_name or "",
-        emergency_contact_phone=data.emergency_contact_phone or ""
+        emergency_contact_phone=data.emergency_contact_phone or "",
+        ethnicity=getattr(data, "ethnicity", None) or "Kinh",
+        province_code=getattr(data, "province_code", None),
+        district_code=getattr(data, "district_code", None),
+        ward_code=getattr(data, "ward_code", None),
+        companion_name=getattr(data, "companion_name", None),
+        companion_id_card=getattr(data, "companion_id_card", None),
+        companion_phone=getattr(data, "companion_phone", None),
+        companion_relationship=getattr(data, "companion_relationship", None),
+        has_medical_history=bool(getattr(data, "has_medical_history", False)),
+        medical_history_icd10=getattr(data, "medical_history_icd10", None),
+        medical_history_notes=getattr(data, "medical_history_notes", None),
+        family_history_icd10=getattr(data, "family_history_icd10", None),
+        family_history_notes=getattr(data, "family_history_notes", None),
+        epidemiological_history=getattr(data, "epidemiological_history", None)
     )
     db.add(new_user)
     db.flush()
