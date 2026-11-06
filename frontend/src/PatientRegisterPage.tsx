@@ -222,7 +222,7 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
   const [dob, setDob] = useState('')
   const [gender, setGender] = useState('Nam')
   const [ethnicity, setEthnicity] = useState('Kinh')
-  const [bloodType, setBloodType] = useState('O+')
+  const [bloodType, setBloodType] = useState('Không rõ')
   const [address, setAddress] = useState('')
   const [provinceCode, setProvinceCode] = useState('79')
   const [wardCode, setWardCode] = useState('')
@@ -1042,6 +1042,7 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                       value={bloodType}
                       onChange={(e) => setBloodType(e.target.value)}
                     >
+                      <option value="Không rõ">Không rõ</option>
                       <option value="A+">Nhóm A (Rh+)</option>
                       <option value="A-">Nhóm A (Rh-)</option>
                       <option value="B+">Nhóm B (Rh+)</option>
@@ -1081,22 +1082,13 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
 
                   <div className="pr-form-group pr-col-full">
                     <label className="pr-label">Địa chỉ thường trú / Số nhà, Phường/Xã:</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
-                      <input
-                        type="text"
-                        className="pr-input"
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                        placeholder="Số nhà, tên đường, khu phố..."
-                      />
-                      <input
-                        type="text"
-                        className="pr-input"
-                        value={wardCode}
-                        onChange={(e) => setWardCode(e.target.value)}
-                        placeholder="Mã Phường / Xã..."
-                      />
-                    </div>
+                    <input
+                      type="text"
+                      className="pr-input"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="Số nhà, tên đường, Phường/Xã, Quận/Huyện..."
+                    />
                   </div>
 
                   {/* Checkbox Người đi cùng / Giám hộ */}
@@ -1164,94 +1156,29 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                 </div>
               </div>
 
-              {/* 2. Tiền sử sức khỏe & Dịch tễ */}
+              {/* 2. Tiền sử dị ứng thuốc & thực phẩm */}
               <div className="pr-card">
                 <div className="pr-card-header">
                   <div>
                     <h4 className="pr-card-title">
-                      <HeartPulse size={17} color="var(--pr-primary)" />
-                      <span>2. Tiền sử sức khỏe & Dịch tễ (Mã ICD-10 & Bệnh mạn tính)</span>
+                      <Droplets size={17} color="#dc2626" />
+                      <span>2. Tiền sử dị ứng thuốc & thực phẩm</span>
                     </h4>
-                    <span className="pr-card-subtitle">Hỗ trợ Bác sĩ hội chẩn và ra phác đồ điều trị an toàn</span>
+                    <span className="pr-card-subtitle">Hỗ trợ Bác sĩ kê đơn và ra phác đồ điều trị an toàn</span>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div>
-                    <label className="pr-checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={hasMedicalHistory}
-                        onChange={(e) => setHasMedicalHistory(e.target.checked)}
-                      />
-                      <span>Người bệnh có tiền sử bệnh mạn tính / đang điều trị lâu năm</span>
-                    </label>
-
-                    {hasMedicalHistory && (
-                      <div className="pr-sub-panel">
-                        <div className="pr-grid-2">
-                          <div className="pr-form-group">
-                            <label className="pr-label">Mã bệnh tiền sử ICD-10 (phân cách bằng dấu ;):</label>
-                            <input
-                              type="text"
-                              className="pr-input monospace"
-                              value={medicalHistoryIcd10}
-                              onChange={(e) => setMedicalHistoryIcd10(e.target.value)}
-                              placeholder="I10; E11.9; J45..."
-                            />
-                          </div>
-                          <div className="pr-form-group">
-                            <label className="pr-label">Ghi chú diễn biến bệnh sử bản thân:</label>
-                            <input
-                              type="text"
-                              className="pr-input"
-                              value={medicalHistoryNotes}
-                              onChange={(e) => setMedicalHistoryNotes(e.target.value)}
-                              placeholder="Phát hiện năm 2021, đang uống thuốc duy trì..."
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="pr-grid-2">
-                    <div className="pr-form-group">
-                      <label className="pr-label">Tiền sử gia đình (Mã ICD-10 di truyền):</label>
-                      <input
-                        type="text"
-                        className="pr-input"
-                        value={familyHistoryIcd10}
-                        onChange={(e) => setFamilyHistoryIcd10(e.target.value)}
-                        placeholder="Mã ICD-10 (ví dụ: I10; E11)..."
-                      />
-                    </div>
-
-                    <div className="pr-form-group">
-                      <label className="pr-label">Tiền sử dịch tễ tiếp xúc:</label>
-                      <input
-                        type="text"
-                        className="pr-input"
-                        value={epidemiologicalHistory}
-                        onChange={(e) => setEpidemiologicalHistory(e.target.value)}
-                        placeholder="Không có / hoặc tiếp xúc gần ca mắc..."
-                      />
-                    </div>
-
-                    <div className="pr-form-group pr-col-full">
-                      <label className="pr-label">
-                        <Droplets size={15} color="#dc2626" />
-                        <span>Tiền sử dị ứng thuốc & thực phẩm:</span>
-                      </label>
-                      <input
-                        type="text"
-                        className="pr-input"
-                        value={allergies}
-                        onChange={(e) => setAllergies(e.target.value)}
-                        placeholder="Ví dụ: Dị ứng Penicillin, Paracetamol, hải sản... (Ghi 'Không' nếu không có)"
-                      />
-                    </div>
-                  </div>
+                <div className="pr-form-group">
+                  <label className="pr-label">
+                    <span>Tiền sử dị ứng thuốc & thực phẩm (nếu có):</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="pr-input"
+                    value={allergies}
+                    onChange={(e) => setAllergies(e.target.value)}
+                    placeholder="Ví dụ: Dị ứng Penicillin, Paracetamol, hải sản... (Ghi 'Không' nếu không có)"
+                  />
                 </div>
               </div>
 

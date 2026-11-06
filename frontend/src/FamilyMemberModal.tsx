@@ -417,6 +417,7 @@ export const FamilyMemberModal: React.FC<FamilyMemberModalProps> = ({
                     onChange={e => setBloodGroup(e.target.value)}
                     style={{ width: '100%', padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
                   >
+                    <option value="Không rõ">Không rõ</option>
                     <option value="O+">O+</option>
                     <option value="A+">A+</option>
                     <option value="B+">B+</option>

@@ -654,6 +654,7 @@ export function PatientProfilePage({
                     onChange={e => setBloodType(e.target.value)}
                     disabled={!editing}
                   >
+                    <option value="Không rõ">Không rõ</option>
                     <option value="O+">O+ (Phổ biến)</option>
                     <option value="O-">O- (Hiếm)</option>
                     <option value="A+">A+</option>
