@@ -834,36 +834,115 @@ export default function App() {
   ]
 
   return (
-    <div className="app-shell">
-      {/* Sidebar Desktop - Clean & Modern */}
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-mark small">
-            <HeartPulse size={20} />
+    <div className="app-shell with-global-header">
+      {/* 1. Global Unified Top Header */}
+      <header className="global-system-header">
+        <div className="header-left">
+          <div className="brand-logo" onClick={() => setView('overview')} title="Về trang chủ">
+            <div className="brand-icon">
+              <HeartPulse size={22} />
+            </div>
+            <div className="brand-titles">
+              <span className="brand-name">CareConnect</span>
+              <span className="brand-badge">BỘ Y TẾ · TELEMED</span>
+            </div>
           </div>
-          <div className="brand-text">
-            <b>CareConnect</b>
-            <small>Telemedicine V1.2</small>
+
+          <div className="header-divider" />
+
+          {/* Module / Breadcrumb */}
+          <div className="header-breadcrumb">
+            <span className={`breadcrumb-role-tag ${isPatient ? 'patient' : isDoctor ? 'doctor' : isNurse ? 'nurse' : 'admin'}`}>
+              {isPatient ? 'Cổng Bệnh nhân' : isDoctor ? 'Bàn Bác sĩ' : isNurse ? 'Tiếp đón Triage' : 'Quản trị Viện'}
+            </span>
+            <span className="breadcrumb-separator">/</span>
+            <span className="breadcrumb-current-view">
+              {(navItems.find(([id]: any) => id === view)?.[1] as string) || 'Tổng quan'}
+            </span>
           </div>
         </div>
 
-        <div className="profile">
-          <div className="avatar">
-            <UserRound size={18} />
-          </div>
-          <div className="profile-info">
-            <b>{user.full_name}</b>
-            <small>
-              {isPatient
-                ? 'Bệnh nhân'
-                : isDoctor
-                ? `Bác sĩ (${user.doctor_cchn || 'CCHN'})`
-                : isNurse
-                ? 'Điều dưỡng tiếp đón'
-                : 'Quản trị viên'}
-            </small>
+        {/* Center: Live Clinical & System Badges */}
+        <div className="header-center">
+          <div className="system-status-pills">
+            <span className="sys-status-chip online" title="Hệ thống Cổng Đơn thuốc điện tử Quốc gia liên thông">
+              <span className="status-live-dot" /> Đơn thuốc QG
+            </span>
+            <span className="sys-status-chip smartca" title="Chữ ký số PKI SmartCA đạt chuẩn Thông tư 30/2023/TT-BYT">
+              <ShieldCheck size={13} /> SmartCA PKI
+            </span>
+            <span className="sys-status-chip bhyt" title="Cổng Giám định BHYT 5 bảng XML 4210 sẵn sàng">
+              <Activity size={13} /> BHYT XML 4210
+            </span>
           </div>
         </div>
+
+        {/* Right: Quick Actions, Notifications, User Profile & Logout */}
+        <div className="header-right">
+          {isPatient && (
+            <button className="header-cta-btn" onClick={() => setShowBooking(true)} title="Tạo lịch khám mới">
+              <Plus size={15} /> Đặt khám nhanh
+            </button>
+          )}
+          {isDoctor && (
+            <button className="header-cta-btn" onClick={() => setView('overview')} title="Về bàn làm việc bác sĩ">
+              <Stethoscope size={15} /> Bàn khám bác sĩ
+            </button>
+          )}
+
+          {/* Notification Center */}
+          <div className="header-notif-wrap">
+            <NotificationCenter
+              userRole={user.role}
+              onNavigate={(url) => {
+                if (url.includes('appointments') || url.includes('booking')) setView('appointments')
+                else if (url.includes('prescriptions')) setView('prescriptions')
+                else if (url.includes('paraclinical') || url.includes('labs')) setView('paraclinical')
+                else if (url.includes('profile')) setView('profile')
+                else if (url.includes('admin')) setView('admin')
+              }}
+            />
+          </div>
+
+          <div className="header-divider" />
+
+          {/* User Profile Capsule */}
+          <div
+            className="header-user-capsule"
+            onClick={() => setView(isPatient ? 'profile' : 'overview')}
+            title={`Hồ sơ: ${user.full_name} (${isPatient ? 'Bệnh nhân' : isDoctor ? user.doctor_cchn || 'Bác sĩ' : user.role})`}
+          >
+            <div className="user-avatar-wrap">
+              <UserRound size={16} />
+              <span className="avatar-online-dot" />
+            </div>
+            <div className="user-meta">
+              <span className="user-name">{user.full_name}</span>
+              <span className="user-role-label">
+                {isPatient
+                  ? 'Bệnh nhân'
+                  : isDoctor
+                  ? `Bác sĩ (${user.doctor_cchn || 'CCHN'})`
+                  : isNurse
+                  ? 'Điều dưỡng'
+                  : 'Quản trị viên'}
+              </span>
+            </div>
+          </div>
+
+          {/* Logout button */}
+          <button className="header-logout-btn" onClick={logout} title="Đăng xuất khỏi hệ thống">
+            <LogOut size={15} />
+            <span className="logout-text">Đăng xuất</span>
+          </button>
+        </div>
+      </header>
+
+      {/* 2. Body Container with Sidebar + Main Content */}
+      <div className="app-body-layout">
+        <aside className="sidebar">
+          <div className="sidebar-nav-title">Chức năng & Điều hướng</div>
+
 
         {/* Desktop Navigation */}
         <nav className="desktop-nav">
@@ -879,58 +958,18 @@ export default function App() {
           ))}
         </nav>
 
-        {/* Sidebar Bottom - Sleek Logout Only */}
-        <div className="sidebar-bottom">
-          <button className="nav-item logout-btn" onClick={logout} title="Đăng xuất khỏi hệ thống">
-            <LogOut size={18} />
-            <span>Đăng xuất</span>
-          </button>
+        <div className="sidebar-help-widget">
+          <h5>
+            <HeartPulse size={14} color="#059669" /> Hỗ trợ y tế 24/7
+          </h5>
+          <p>Tổng đài tư vấn sức khỏe từ xa & cấp cứu:</p>
+          <a href="tel:19006868">📞 1900 6868</a>
         </div>
       </aside>
 
       {/* Main Content */}
       <main className="main-content">
-        {/* Topbar: Ẩn hoàn toàn trên Dashboard Bệnh nhân (do Patient Dashboard đã có Header nhận diện riêng, loại bỏ phần thừa) */}
-        {!isPatient && !(isDoctor && (view === 'overview' || view === 'appointments')) && (
 
-          <header className="topbar">
-            <div>
-              <p className="eyebrow">HỆ THỐNG Y TẾ TỪ XA CHUẨN QUỐC GIA</p>
-              <h2>
-                {isPatient
-                  ? `Xin chào, ${user.full_name}`
-                  : isDoctor
-                  ? `👨‍⚕️ Buồng làm việc Bác sĩ: ${user.full_name}`
-                  : isNurse
-                  ? `👩‍⚕️ Bàn Tiếp đón Điều dưỡng: ${user.full_name}`
-                  : `⚙️ Quản trị Toàn viện: ${user.full_name}`}
-              </h2>
-            </div>
-            <div className="top-actions">
-              <NotificationCenter
-                userRole={user.role}
-                onNavigate={(url) => {
-                  if (url.includes('appointments') || url.includes('booking')) setView('appointments')
-                  else if (url.includes('prescriptions')) setView('prescriptions')
-                  else if (url.includes('paraclinical') || url.includes('labs')) setView('paraclinical')
-                  else if (url.includes('profile')) setView('profile')
-                  else if (url.includes('admin')) setView('admin')
-                }}
-              />
-              <span className="status-dot" /> SmartCA & Cổng Đơn thuốc sẵn sàng
-              <button
-                className={`avatar small-avatar ${view === 'profile' ? 'selected' : ''}`}
-                title={`Hồ sơ tài khoản: ${user.full_name}`}
-                onClick={() => setView(isPatient ? 'profile' : 'overview')}
-              >
-                <UserRound size={17} />
-              </button>
-              <button className="mobile-logout-btn" onClick={logout} title="Đăng xuất tài khoản">
-                <LogOut size={16} />
-              </button>
-            </div>
-          </header>
-        )}
 
         {error && (
           <div className="alert error">
@@ -2276,6 +2315,7 @@ export default function App() {
           />
         )}
       </main>
+      </div>
 
       {/* Mobile Bottom Navigation Bar (Chỉ hiển thị trên thiết bị di động < 768px) */}
       <nav className="mobile-bottom-nav">
