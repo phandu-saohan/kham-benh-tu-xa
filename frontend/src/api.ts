@@ -41,6 +41,7 @@ export type User = {
   national_id?: string
   bhyt_code?: string
   identity_card?: string
+  avatar_url?: string
 }
 
 export type Appointment = {
@@ -1023,6 +1024,7 @@ export interface PatientProfile {
   companion_phone?: string
   companion_relationship?: string
   has_medical_history?: boolean
+  avatar_url?: string
   medical_history_icd10?: string
   medical_history_notes?: string
   family_history_icd10?: string
@@ -1094,6 +1096,7 @@ export interface PatientRegisterRequest {
   companion_phone?: string
   companion_relationship?: string
   has_medical_history?: boolean
+  avatar_url?: string
   medical_history_icd10?: string
   medical_history_notes?: string
   family_history_icd10?: string
@@ -1622,6 +1625,22 @@ export interface FamilyMemberItem {
   blood_group?: string | null
   allergies?: string | null
   chronic_conditions?: string | null
+  avatar_url?: string | null
+  ethnicity?: string | null
+  address?: string | null
+  province_code?: string | null
+  district_code?: string | null
+  ward_code?: string | null
+  companion_name?: string | null
+  companion_id_card?: string | null
+  companion_phone?: string | null
+  companion_relationship?: string | null
+  has_medical_history?: boolean
+  medical_history_icd10?: string | null
+  medical_history_notes?: string | null
+  family_history_icd10?: string | null
+  family_history_notes?: string | null
+  epidemiological_history?: string | null
   created_at: string
 }
 
@@ -1640,6 +1659,21 @@ export async function updateFamilyMember(id: number, data: Partial<FamilyMemberI
   return request<FamilyMemberItem>(`/api/v1/family-members/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data)
+  })
+}
+
+
+export async function uploadUserAvatar(avatarData: string) {
+  return request<{ success: boolean; avatar_url: string }>('/api/v1/users/me/avatar', {
+    method: 'POST',
+    body: JSON.stringify({ avatar_data: avatarData })
+  })
+}
+
+export async function uploadFamilyMemberAvatar(memberId: number, avatarData: string) {
+  return request<{ success: boolean; avatar_url: string }>(`/api/v1/family-members/${memberId}/avatar`, {
+    method: 'POST',
+    body: JSON.stringify({ avatar_data: avatarData })
   })
 }
 

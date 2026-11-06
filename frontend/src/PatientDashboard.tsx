@@ -311,8 +311,12 @@ export function PatientDashboard({
         <section className="ps-hero-card">
           <div className="ps-hero-left">
             <div className="ps-avatar-wrap">
-              <div className="ps-avatar">
-                {user.full_name ? user.full_name.charAt(0).toUpperCase() : 'BN'}
+              <div className="ps-avatar" style={{ overflow: 'hidden' }}>
+                {user.avatar_url ? (
+                  <img src={user.avatar_url} alt={user.full_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  user.full_name ? user.full_name.charAt(0).toUpperCase() : 'BN'
+                )}
               </div>
               <div className="ps-online-dot" title="Tài khoản đang trực tuyến" />
             </div>

@@ -54,7 +54,7 @@ from app.schemas import (
     NotificationOut, NotificationCreateIn, UnreadCountOut,
     AppointmentEventOut, ShareLabResultIn, ShareLabResultOut,
     BHYTClaimOut, BHYTXML4210Out, ConsultationMemberIn, ConsultationMemberOut, ConsultationOpinionIn,
-    RPMVitalLogIn, RPMVitalLogOut, FamilyMemberProfileIn, FamilyMemberProfileOut,
+    RPMVitalLogIn, RPMVitalLogOut, FamilyMemberProfileIn, FamilyMemberProfileOut, AvatarUploadIn,
     AIPACSAnalyzeIn, AIPACSConsultationOut, AIPACSFeedbackIn
 )
 from app.adapters.sms_gateway import send_otp_message
@@ -1912,6 +1912,7 @@ def get_my_patient_profile(
         "family_history_icd10": getattr(user, "family_history_icd10", None) or "",
         "family_history_notes": getattr(user, "family_history_notes", None) or "",
         "epidemiological_history": getattr(user, "epidemiological_history", None) or "",
+        "avatar_url": getattr(user, "avatar_url", None) or "",
         "consent_agreed": bool(consent) if consent else True,
         "consent_agreed_at": consent.consented_at if consent else datetime.now(timezone.utc),
         "total_appointments": total_appts,
@@ -1973,6 +1974,8 @@ def update_my_patient_profile(
         user.family_history_icd10 = data.family_history_icd10.strip()
     if data.family_history_notes is not None:
         user.family_history_notes = data.family_history_notes.strip()
+    if data.avatar_url is not None:
+        user.avatar_url = data.avatar_url
     if data.epidemiological_history is not None:
         user.epidemiological_history = data.epidemiological_history.strip()
 
@@ -3989,7 +3992,23 @@ def create_family_member(
         bhyt_code=data.bhyt_code,
         blood_group=data.blood_group,
         allergies=data.allergies,
-        chronic_conditions=data.chronic_conditions
+        chronic_conditions=data.chronic_conditions,
+        avatar_url=data.avatar_url,
+        ethnicity=data.ethnicity,
+        address=data.address,
+        province_code=data.province_code,
+        district_code=data.district_code,
+        ward_code=data.ward_code,
+        companion_name=data.companion_name,
+        companion_id_card=data.companion_id_card,
+        companion_phone=data.companion_phone,
+        companion_relationship=data.companion_relationship,
+        has_medical_history=bool(data.has_medical_history),
+        medical_history_icd10=data.medical_history_icd10,
+        medical_history_notes=data.medical_history_notes,
+        family_history_icd10=data.family_history_icd10,
+        family_history_notes=data.family_history_notes,
+        epidemiological_history=data.epidemiological_history
     )
     db.add(member)
     db.commit()
@@ -4017,6 +4036,38 @@ def update_family_member(
     member.blood_group = data.blood_group
     member.allergies = data.allergies
     member.chronic_conditions = data.chronic_conditions
+    if data.avatar_url is not None:
+        member.avatar_url = data.avatar_url
+    if data.ethnicity is not None:
+        member.ethnicity = data.ethnicity
+    if data.address is not None:
+        member.address = data.address
+    if data.province_code is not None:
+        member.province_code = data.province_code
+    if data.district_code is not None:
+        member.district_code = data.district_code
+    if data.ward_code is not None:
+        member.ward_code = data.ward_code
+    if data.companion_name is not None:
+        member.companion_name = data.companion_name
+    if data.companion_id_card is not None:
+        member.companion_id_card = data.companion_id_card
+    if data.companion_phone is not None:
+        member.companion_phone = data.companion_phone
+    if data.companion_relationship is not None:
+        member.companion_relationship = data.companion_relationship
+    if data.has_medical_history is not None:
+        member.has_medical_history = bool(data.has_medical_history)
+    if data.medical_history_icd10 is not None:
+        member.medical_history_icd10 = data.medical_history_icd10
+    if data.medical_history_notes is not None:
+        member.medical_history_notes = data.medical_history_notes
+    if data.family_history_icd10 is not None:
+        member.family_history_icd10 = data.family_history_icd10
+    if data.family_history_notes is not None:
+        member.family_history_notes = data.family_history_notes
+    if data.epidemiological_history is not None:
+        member.epidemiological_history = data.epidemiological_history
     db.commit()
     db.refresh(member)
     return member
@@ -4033,6 +4084,31 @@ def delete_family_member(
     db.delete(member)
     db.commit()
     return {"success": True, "message": "Đã xóa hồ sơ thành viên gia đình thành công"}
+
+@app.post("/api/v1/users/me/avatar")
+def upload_user_avatar(
+    data: AvatarUploadIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    user.avatar_url = data.avatar_data
+    db.commit()
+    return {"success": True, "avatar_url": user.avatar_url}
+
+@app.post("/api/v1/family-members/{member_id}/avatar")
+def upload_family_member_avatar(
+    member_id: int,
+    data: AvatarUploadIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    member = db.get(FamilyMemberProfile, member_id)
+    if not member or member.owner_user_id != user.id:
+        raise HTTPException(status_code=404, detail="Hồ sơ thành viên không tồn tại hoặc không thuộc quyền quản lý")
+    member.avatar_url = data.avatar_data
+    db.commit()
+    return {"success": True, "avatar_url": member.avatar_url}
+
 
 # -------------------------------------------------------------
 # PHÂN HỆ 5: AI PACS HỖ TRỢ CHẨN ĐOÁN HÌNH ẢNH (AI COPILOT)
@@ -4425,7 +4501,8 @@ def auto_migrate_schema():
         ("medical_history_notes", "TEXT"),
         ("family_history_icd10", "VARCHAR(300)"),
         ("family_history_notes", "TEXT"),
-        ("epidemiological_history", "TEXT")
+        ("epidemiological_history", "TEXT"),
+        ("avatar_url", "TEXT")
     ]
     clinical_columns = [
         ("clinical_examination", "TEXT"),
@@ -4447,6 +4524,34 @@ def auto_migrate_schema():
         for col_name, col_type in user_columns:
             try:
                 conn.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}"))
+                conn.commit()
+            except Exception:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+    family_columns = [
+        ("avatar_url", "TEXT"),
+        ("ethnicity", "VARCHAR(50)"),
+        ("address", "VARCHAR(300)"),
+        ("province_code", "VARCHAR(20)"),
+        ("district_code", "VARCHAR(20)"),
+        ("ward_code", "VARCHAR(20)"),
+        ("companion_name", "VARCHAR(150)"),
+        ("companion_id_card", "VARCHAR(30)"),
+        ("companion_phone", "VARCHAR(30)"),
+        ("companion_relationship", "VARCHAR(50)"),
+        ("has_medical_history", "BOOLEAN DEFAULT FALSE"),
+        ("medical_history_icd10", "VARCHAR(300)"),
+        ("medical_history_notes", "TEXT"),
+        ("family_history_icd10", "VARCHAR(300)"),
+        ("family_history_notes", "TEXT"),
+        ("epidemiological_history", "TEXT")
+    ]
+    with engine.connect() as conn:
+        for col_name, col_type in family_columns:
+            try:
+                conn.execute(text(f"ALTER TABLE family_member_profiles ADD COLUMN {col_name} {col_type}"))
                 conn.commit()
             except Exception:
                 try:

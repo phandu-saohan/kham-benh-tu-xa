@@ -6,7 +6,7 @@ import {
   FileDown, ExternalLink, PenTool, Building2, Sparkles, CheckCircle2,
   HelpCircle, ShieldAlert, Undo2, Activity, Settings, ScanLine,
   Mail, Eye, EyeOff, UserPlus, ChevronRight, Users, FileCheck, Check, Trash2, Download,
-  BarChart3, Cpu, Search, Filter, Calendar
+  BarChart3, Cpu, Search, Filter, Calendar, Edit3
 } from 'lucide-react'
 import {
   login, sendOtp, verifyOtp, loginWithFirebaseToken, getFirebaseConfig, request, cancelAppointment,
@@ -47,6 +47,7 @@ import { HeaderSmartSearch } from './HeaderSmartSearch'
 import './patient-appointments.css'
 import { MedicalRecordModal } from './MedicalRecordModal'
 import { BookingFlowModal } from './BookingFlowModal'
+import { FamilyMemberModal } from './FamilyMemberModal'
 
 const money = (n: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n)
@@ -110,6 +111,7 @@ export default function App() {
   const [familyMembers, setFamilyMembers] = useState<FamilyMemberItem[]>([])
   const [loadingFamily, setLoadingFamily] = useState(false)
   const [showAddFamilyModal, setShowAddFamilyModal] = useState(false)
+  const [editingFamilyMember, setEditingFamilyMember] = useState<FamilyMemberItem | null>(null)
   const [famName, setFamName] = useState('')
   const [famRel, setFamRel] = useState('child')
   const [famGender, setFamGender] = useState('male')
@@ -921,7 +923,11 @@ export default function App() {
             title={`Hồ sơ: ${user.full_name} (${isPatient ? 'Bệnh nhân' : isDoctor ? user.doctor_cchn || 'Bác sĩ' : user.role})`}
           >
             <div className="user-avatar-wrap">
-              <UserRound size={16} />
+              {user.avatar_url ? (
+                <img src={user.avatar_url} alt={user.full_name} style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} />
+              ) : (
+                <UserRound size={16} />
+              )}
               <span className="avatar-online-dot" />
             </div>
             <div className="user-meta">
@@ -1772,25 +1778,33 @@ export default function App() {
             {loadingFamily ? (
               <p className="muted">Đang tải danh sách hồ sơ gia đình...</p>
             ) : familyMembers.length === 0 ? (
-              <div style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '12px', padding: '32px', textAlign: 'center' }}>
+              <div style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '8px', padding: '32px', textAlign: 'center' }}>
                 <Users size={40} color="#94a3b8" style={{ margin: '0 auto 12px' }} />
                 <h4 style={{ margin: '0 0 6px', color: '#1e293b' }}>Chưa có hồ sơ người thân nào</h4>
                 <p style={{ margin: '0 0 16px', color: '#64748b', fontSize: '13px' }}>
                   Thêm hồ sơ con nhỏ hoặc cha mẹ lớn tuổi để theo dõi diễn biến sức khỏe và liên kết thẻ BHYT
                 </p>
-                <button type="button" className="primary" onClick={() => setShowAddFamilyModal(true)}>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => {
+                    setEditingFamilyMember(null)
+                    setShowAddFamilyModal(true)
+                  }}
+                >
                   <Plus size={16} /> Thêm người thân ngay
                 </button>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px', marginTop: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '16px', marginTop: '16px' }}>
                 {familyMembers.map(member => (
-                  <div key={member.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', position: 'relative' }}>
+                  <div key={member.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', position: 'relative' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        {/* Member Avatar */}
                         <div style={{
-                          width: '44px',
-                          height: '44px',
+                          width: '48px',
+                          height: '48px',
                           borderRadius: '50%',
                           background: member.relationship === 'child' ? '#fef3c7' : member.relationship === 'parent' ? '#e0f2fe' : '#f3e8ff',
                           color: member.relationship === 'child' ? '#b45309' : member.relationship === 'parent' ? '#0369a1' : '#7e22ce',
@@ -1798,50 +1812,92 @@ export default function App() {
                           alignItems: 'center',
                           justifyContent: 'center',
                           fontWeight: 800,
-                          fontSize: '16px'
+                          fontSize: '18px',
+                          overflow: 'hidden',
+                          border: '1px solid #cbd5e1',
+                          flexShrink: 0
                         }}>
-                          {member.full_name.charAt(0)}
+                          {member.avatar_url ? (
+                            <img src={member.avatar_url} alt={member.full_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            member.full_name.charAt(0)
+                          )}
                         </div>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <h4 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>{member.full_name}</h4>
+                            <h4 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>{member.full_name}</h4>
                             <span style={{
                               fontSize: '11px',
                               fontWeight: 700,
                               background: '#f1f5f9',
                               color: '#475569',
                               padding: '2px 8px',
-                              borderRadius: '10px'
+                              borderRadius: '4px'
                             }}>
                               {member.relationship === 'child' ? '👶 Con nhỏ' : member.relationship === 'parent' ? '👵 Cha/Mẹ' : member.relationship === 'spouse' ? '💍 Vợ/Chồng' : '👥 Người thân'}
                             </span>
                           </div>
                           <small style={{ color: '#64748b', fontSize: '12px', display: 'block', marginTop: '2px' }}>
-                            Sinh ngày: <strong>{member.date_of_birth}</strong> · Giới tính: <strong>{member.gender === 'male' ? 'Nam' : 'Nữ'}</strong>
+                            Sinh: <strong>{member.date_of_birth}</strong> · Giới tính: <strong>{member.gender === 'male' ? 'Nam' : member.gender === 'female' ? 'Nữ' : 'Khác'}</strong>
                           </small>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteFamily(member.id)}
-                        style={{ border: 'none', background: 'transparent', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}
-                        title="Xóa hồ sơ"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingFamilyMember(member)
+                            setShowAddFamilyModal(true)
+                          }}
+                          style={{ border: 'none', background: 'transparent', color: '#0284c7', cursor: 'pointer', padding: '4px' }}
+                          title="Sửa hồ sơ"
+                        >
+                          <Edit3 size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteFamily(member.id)}
+                          style={{ border: 'none', background: 'transparent', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}
+                          title="Xóa hồ sơ"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </div>
 
-                    <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', fontSize: '12px', marginBottom: '12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    {/* Details Box per Bộ Y Tế */}
+                    <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '6px', fontSize: '12px', marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748b' }}>CCCD / Định danh:</span>
+                        <strong>{member.national_id || 'Chưa cập nhật'}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ color: '#64748b' }}>Thẻ BHYT:</span>
-                        <strong>{member.bhyt_code || 'Chưa cập nhật'}</strong>
+                        <strong style={{ color: member.bhyt_code ? '#166534' : '#64748b' }}>{member.bhyt_code || 'Chưa liên kết'}</strong>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ color: '#64748b' }}>Nhóm máu:</span>
-                        <strong>{member.blood_group || 'O+'}</strong>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748b' }}>Dân tộc / Nhóm máu:</span>
+                        <strong>{member.ethnicity || 'Kinh'} · {member.blood_group || 'O+'}</strong>
                       </div>
+                      {member.address && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#64748b' }}>Nơi ở:</span>
+                          <span style={{ maxWidth: '65%', textAlign: 'right' }}>{member.address}</span>
+                        </div>
+                      )}
+                      {member.companion_name && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #cbd5e1', paddingTop: '4px', marginTop: '2px' }}>
+                          <span style={{ color: '#64748b' }}>Người đi cùng:</span>
+                          <strong>{member.companion_name} ({member.companion_relationship || 'Giám hộ'})</strong>
+                        </div>
+                      )}
+                      {member.medical_history_icd10 && (
+                        <div style={{ marginTop: '2px', color: '#0369a1' }}>
+                          📋 <strong>Tiền sử bệnh (ICD-10):</strong> {member.medical_history_icd10}
+                        </div>
+                      )}
                       {member.allergies && (
-                        <div style={{ marginTop: '4px', color: '#b91c1c' }}>
+                        <div style={{ marginTop: '2px', color: '#b91c1c' }}>
                           ⚠️ <strong>Dị ứng:</strong> {member.allergies}
                         </div>
                       )}
@@ -1855,12 +1911,23 @@ export default function App() {
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button
                         type="button"
+                        className="ghost"
+                        onClick={() => {
+                          setEditingFamilyMember(member)
+                          setShowAddFamilyModal(true)
+                        }}
+                        style={{ flex: 1, fontSize: '12px', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}
+                      >
+                        Chỉnh sửa hồ sơ
+                      </button>
+                      <button
+                        type="button"
                         className="primary small-primary"
                         onClick={() => {
                           setReason(`Khám cho ${member.full_name} (${member.relationship})`)
                           setShowBooking(true)
                         }}
-                        style={{ flex: 1, fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                        style={{ flex: 1.4, fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '6px' }}
                       >
                         <CalendarDays size={14} /> Đặt lịch khám ngay
                       </button>
@@ -1892,112 +1959,30 @@ export default function App() {
           />
         )}
 
-        {/* Modal Thêm Thành viên Gia đình */}
+        {/* Modal Thêm & Chỉnh Sửa Thành Viên Gia Đình Đầy Đủ Thông Tin Y Tế & Upload Avatar */}
         {showAddFamilyModal && (
-          <div className="modal-backdrop">
-            <div className="modal" style={{ maxWidth: '480px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                <h3 style={{ margin: 0, fontSize: '17px', color: '#0f172a' }}>Thêm Thành viên Gia đình</h3>
-                <button type="button" onClick={() => setShowAddFamilyModal(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}>
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Họ và tên người thân *</label>
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: Nguyễn Minh Khang"
-                    value={famName}
-                    onChange={e => setFamName(e.target.value)}
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Mối quan hệ</label>
-                    <select
-                      value={famRel}
-                      onChange={e => setFamRel(e.target.value)}
-                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    >
-                      <option value="child">Con nhỏ</option>
-                      <option value="parent">Cha / Mẹ</option>
-                      <option value="spouse">Vợ / Chồng</option>
-                      <option value="sibling">Anh / Chị / Em</option>
-                      <option value="other">Người thân khác</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Giới tính</label>
-                    <select
-                      value={famGender}
-                      onChange={e => setFamGender(e.target.value)}
-                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    >
-                      <option value="male">Nam</option>
-                      <option value="female">Nữ</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Ngày sinh (YYYY-MM-DD)</label>
-                    <input
-                      type="date"
-                      value={famDob}
-                      onChange={e => setFamDob(e.target.value)}
-                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Mã thẻ BHYT (nếu có)</label>
-                    <input
-                      type="text"
-                      placeholder="TE179..."
-                      value={famBhyt}
-                      onChange={e => setFamBhyt(e.target.value)}
-                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Tiền sử dị ứng thuốc</label>
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: Dị ứng Penicillin, Paracetamol..."
-                    value={famAllergies}
-                    onChange={e => setFamAllergies(e.target.value)}
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Bệnh nền / Mãn tính</label>
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: Tăng huyết áp, Đái tháo đường..."
-                    value={famConditions}
-                    onChange={e => setFamConditions(e.target.value)}
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
-                <button type="button" className="secondary" onClick={() => setShowAddFamilyModal(false)}>
-                  Hủy
-                </button>
-                <button type="button" className="primary" onClick={handleAddFamily} disabled={savingFamily}>
-                  {savingFamily ? 'Đang lưu...' : 'Thêm hồ sơ'}
-                </button>
-              </div>
-            </div>
-          </div>
+          <FamilyMemberModal
+            memberToEdit={editingFamilyMember}
+            onClose={() => {
+              setShowAddFamilyModal(false)
+              setEditingFamilyMember(null)
+            }}
+            onSaved={(saved) => {
+              setFamilyMembers(prev => {
+                const idx = prev.findIndex(m => m.id === saved.id)
+                if (idx !== -1) {
+                  const updated = [...prev]
+                  updated[idx] = saved
+                  return updated
+                }
+                return [...prev, saved]
+              })
+              setShowAddFamilyModal(false)
+              setEditingFamilyMember(null)
+              setToast(editingFamilyMember ? 'Đã cập nhật hồ sơ người thân thành công!' : 'Đã thêm thành viên gia đình thành công!')
+            }}
+            onError={(msg) => setError(msg)}
+          />
         )}
 
         {/* Modal Xem trước Gói XML 4210 */}

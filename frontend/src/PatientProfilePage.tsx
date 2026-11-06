@@ -152,6 +152,53 @@ export function PatientProfilePage({
     }
   }
 
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        const rawBase64 = ev.target?.result as string
+        const img = new Image()
+        img.onload = async () => {
+          const canvas = document.createElement('canvas')
+          const maxDim = 320
+          let width = img.width
+          let height = img.height
+          if (width > height) {
+            if (width > maxDim) {
+              height = Math.round((height * maxDim) / width)
+              width = maxDim
+            }
+          } else {
+            if (height > maxDim) {
+              width = Math.round((width * maxDim) / height)
+              height = maxDim
+            }
+          }
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          ctx?.drawImage(img, 0, 0, width, height)
+          const compressed = canvas.toDataURL('image/jpeg', 0.85)
+
+          try {
+            await updateMyProfile({ avatar_url: compressed } as any)
+            setProfile(prev => (prev ? { ...prev, avatar_url: compressed } : null))
+            onUpdateUser({ ...currentUser, avatar_url: compressed })
+            setSuccess('Đã cập nhật ảnh đại diện thành công!')
+          } catch (err: any) {
+            setError('Lỗi khi lưu ảnh: ' + (err.message || ''))
+          }
+        }
+        img.src = rawBase64
+      }
+      reader.readAsDataURL(file)
+    } catch (err: any) {
+      setError('Lỗi khi đọc tệp ảnh: ' + (err.message || ''))
+    }
+  }
+
   async function handleOcrUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -310,10 +357,45 @@ export function PatientProfilePage({
         {/* 1. CLINICAL HERO PROFILE CARD */}
         <section className="ps-hero-card">
           <div className="ps-hero-left">
-            <div className="ps-avatar-wrap">
-              <div className="ps-avatar">
-                {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : 'BN'}
+            <div className="ps-avatar-wrap" style={{ position: 'relative' }}>
+              <div className="ps-avatar" style={{ overflow: 'hidden' }}>
+                {profile?.avatar_url || currentUser.avatar_url ? (
+                  <img
+                    src={profile?.avatar_url || currentUser.avatar_url}
+                    alt={profile?.full_name || 'Bệnh nhân'}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : 'BN'
+                )}
               </div>
+              <label
+                style={{
+                  position: 'absolute',
+                  bottom: -2,
+                  right: -2,
+                  background: '#0284c7',
+                  color: '#fff',
+                  width: '26px',
+                  height: '26px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.25)',
+                  zIndex: 2
+                }}
+                title="Tải ảnh đại diện mới"
+              >
+                <Camera size={13} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleAvatarUpload}
+                />
+              </label>
               <div className="ps-online-dot" />
             </div>
 

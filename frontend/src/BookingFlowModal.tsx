@@ -460,8 +460,12 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
                   onClick={() => setTargetType('self')}
                 >
                   <div className="patient-card-top">
-                    <span className="patient-card-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <UserIcon size={16} color="#0284c7" />
+                    <span className="patient-card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {user.avatar_url ? (
+                        <img src={user.avatar_url} alt={user.full_name} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} />
+                      ) : (
+                        <UserIcon size={16} color="#0284c7" />
+                      )}
                       Chính tôi (Bệnh nhân)
                     </span>
                     <span className="patient-card-badge">Tài khoản chính</span>
@@ -637,7 +641,12 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
                           onClick={() => setSelectedFamilyId(m.id)}
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <strong style={{ fontSize: '13px', color: '#0f172a' }}>{m.full_name}</strong>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              {m.avatar_url ? (
+                                <img src={m.avatar_url} alt={m.full_name} style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} />
+                              ) : null}
+                              <strong style={{ fontSize: '13px', color: '#0f172a' }}>{m.full_name}</strong>
+                            </div>
                             <span style={{ fontSize: '11px', background: '#e0f2fe', color: '#0284c7', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>
                               {m.relationship}
                             </span>

@@ -49,6 +49,7 @@ class User(Base):
     family_history_icd10: Mapped[str | None] = mapped_column(String(300), nullable=True)   # ICD-10 di truyền / gia đình
     family_history_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     epidemiological_history: Mapped[str | None] = mapped_column(Text, nullable=True)       # Tiền sử dịch tễ (lao, truyền nhiễm...)
+    avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)  # Ảnh đại diện
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -369,6 +370,28 @@ class FamilyMemberProfile(Base):
     blood_group: Mapped[str | None] = mapped_column(String(10), nullable=True)  # A+, B+, O+, AB+
     allergies: Mapped[str | None] = mapped_column(Text, nullable=True)
     chronic_conditions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    
+    # Quyết định 2682/QĐ-BYT: Thông tin hành chính & Nơi ở
+    ethnicity: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    province_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    district_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    ward_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    
+    # Thông tin người đi cùng / Giám hộ
+    companion_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    companion_id_card: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    companion_phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    companion_relationship: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    
+    # Tiền sử sức khỏe & Dịch tễ (QĐ 2682/QĐ-BYT)
+    has_medical_history: Mapped[bool] = mapped_column(Boolean, default=False)
+    medical_history_icd10: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    medical_history_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    family_history_icd10: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    family_history_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    epidemiological_history: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 class AIPACSConsultation(Base):

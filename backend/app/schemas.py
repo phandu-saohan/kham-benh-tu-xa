@@ -584,6 +584,7 @@ class PatientProfileOut(BaseModel):
     family_history_icd10: str | None = None
     family_history_notes: str | None = None
     epidemiological_history: str | None = None
+    avatar_url: str | None = None
     consent_agreed: bool = False
     consent_agreed_at: datetime | None = None
     total_appointments: int = 0
@@ -616,6 +617,7 @@ class PatientProfileUpdateIn(BaseModel):
     family_history_icd10: str | None = None
     family_history_notes: str | None = None
     epidemiological_history: str | None = None
+    avatar_url: str | None = None
 
 class PatientHisCheckIn(BaseModel):
     identity_card: str = Field(min_length=9, max_length=15)  # Số CCCD 9 hoặc 12 số
@@ -1010,6 +1012,22 @@ class FamilyMemberProfileIn(BaseModel):
     blood_group: Optional[str] = None
     allergies: Optional[str] = None
     chronic_conditions: Optional[str] = None
+    avatar_url: Optional[str] = None
+    ethnicity: Optional[str] = None
+    address: Optional[str] = None
+    province_code: Optional[str] = None
+    district_code: Optional[str] = None
+    ward_code: Optional[str] = None
+    companion_name: Optional[str] = None
+    companion_id_card: Optional[str] = None
+    companion_phone: Optional[str] = None
+    companion_relationship: Optional[str] = None
+    has_medical_history: bool = False
+    medical_history_icd10: Optional[str] = None
+    medical_history_notes: Optional[str] = None
+    family_history_icd10: Optional[str] = None
+    family_history_notes: Optional[str] = None
+    epidemiological_history: Optional[str] = None
 
 class FamilyMemberProfileOut(BaseModel):
     id: int
@@ -1024,8 +1042,27 @@ class FamilyMemberProfileOut(BaseModel):
     blood_group: Optional[str] = None
     allergies: Optional[str] = None
     chronic_conditions: Optional[str] = None
+    avatar_url: Optional[str] = None
+    ethnicity: Optional[str] = None
+    address: Optional[str] = None
+    province_code: Optional[str] = None
+    district_code: Optional[str] = None
+    ward_code: Optional[str] = None
+    companion_name: Optional[str] = None
+    companion_id_card: Optional[str] = None
+    companion_phone: Optional[str] = None
+    companion_relationship: Optional[str] = None
+    has_medical_history: bool = False
+    medical_history_icd10: Optional[str] = None
+    medical_history_notes: Optional[str] = None
+    family_history_icd10: Optional[str] = None
+    family_history_notes: Optional[str] = None
+    epidemiological_history: Optional[str] = None
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+class AvatarUploadIn(BaseModel):
+    avatar_data: str
 
 # -------------------------------------------------------------
 # 5. AI PACS Hỗ trợ Chẩn đoán Hình ảnh
