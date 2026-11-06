@@ -26,7 +26,8 @@ import {
   ChevronRight,
   Sparkles,
   Download,
-  KeyRound
+  KeyRound,
+  Users
 } from 'lucide-react'
 import { SmartDevicesHub } from './SmartDevicesHub'
 import {
@@ -44,6 +45,30 @@ interface PatientProfilePageProps {
   onUpdateUser: (updated: User) => void
   onNavigate: (view: string) => void
 }
+
+const VIETNAM_ETHNICITIES = [
+  'Kinh', 'Tày', 'Thái', 'Mường', 'H\'Mông', 'Dao', 'Khmer', 'Nùng', 'Hoa', 'Gia Rai',
+  'Ê Đê', 'Ba Na', 'Xơ Đăng', 'Sán Dìu', 'Hre', 'Cơ Ho', 'Chăm', 'Sán Chay', 'Cơ Tu',
+  'Giáy', 'Giẻ Triêng', 'Tà Ôi', 'Mạ', 'Kháng', 'Co', 'Ta Ôi', 'Khác'
+]
+
+const VIETNAM_PROVINCES = [
+  { code: '01', name: '01 - TP. Hà Nội' },
+  { code: '79', name: '79 - TP. Hồ Chí Minh' },
+  { code: '48', name: '48 - TP. Đà Nẵng' },
+  { code: '31', name: '31 - TP. Hải Phòng' },
+  { code: '92', name: '92 - TP. Cần Thơ' },
+  { code: '74', name: '74 - Tỉnh Bình Dương' },
+  { code: '75', name: '75 - Tỉnh Đồng Nai' },
+  { code: '77', name: '77 - Tỉnh Bà Rịa - Vũng Tàu' },
+  { code: '46', name: '46 - Tỉnh Thừa Thiên Huế' },
+  { code: '37', name: '37 - Tỉnh Ninh Bình' },
+  { code: '26', name: '26 - Tỉnh Vĩnh Phúc' },
+  { code: '68', name: '68 - Tỉnh Lâm Đồng' },
+  { code: '56', name: '56 - Tỉnh Khánh Hòa' },
+  { code: '89', name: '89 - Tỉnh An Giang' },
+  { code: '84', name: '84 - Tỉnh Trà Vinh' }
+]
 
 export function PatientProfilePage({
   currentUser,
@@ -73,6 +98,19 @@ export function PatientProfilePage({
   const [allergies, setAllergies] = useState('')
   const [emergencyName, setEmergencyName] = useState('')
   const [emergencyPhone, setEmergencyPhone] = useState('')
+  const [ethnicity, setEthnicity] = useState('Kinh')
+  const [provinceCode, setProvinceCode] = useState('79')
+  const [wardCode, setWardCode] = useState('')
+  const [companionName, setCompanionName] = useState('')
+  const [companionIdCard, setCompanionIdCard] = useState('')
+  const [companionPhone, setCompanionPhone] = useState('')
+  const [companionRelationship, setCompanionRelationship] = useState('Bố/Mẹ')
+  const [hasMedicalHistory, setHasMedicalHistory] = useState(false)
+  const [medicalHistoryIcd10, setMedicalHistoryIcd10] = useState('')
+  const [medicalHistoryNotes, setMedicalHistoryNotes] = useState('')
+  const [familyHistoryIcd10, setFamilyHistoryIcd10] = useState('')
+  const [familyHistoryNotes, setFamilyHistoryNotes] = useState('')
+  const [epidemiologicalHistory, setEpidemiologicalHistory] = useState('')
 
   useEffect(() => {
     loadProfile()
@@ -94,6 +132,19 @@ export function PatientProfilePage({
       setAllergies(data.allergies || '')
       setEmergencyName(data.emergency_contact_name || '')
       setEmergencyPhone(data.emergency_contact_phone || '')
+      setEthnicity(data.ethnicity || 'Kinh')
+      setProvinceCode(data.province_code || '79')
+      setWardCode(data.ward_code || '')
+      setCompanionName(data.companion_name || '')
+      setCompanionIdCard(data.companion_id_card || '')
+      setCompanionPhone(data.companion_phone || '')
+      setCompanionRelationship(data.companion_relationship || 'Bố/Mẹ')
+      setHasMedicalHistory(!!data.has_medical_history)
+      setMedicalHistoryIcd10(data.medical_history_icd10 || '')
+      setMedicalHistoryNotes(data.medical_history_notes || '')
+      setFamilyHistoryIcd10(data.family_history_icd10 || '')
+      setFamilyHistoryNotes(data.family_history_notes || '')
+      setEpidemiologicalHistory(data.epidemiological_history || '')
     } catch (e: any) {
       setError(e.message || 'Không thể tải thông tin tài khoản')
     } finally {
@@ -160,7 +211,20 @@ export function PatientProfilePage({
         blood_type: bloodType,
         allergies: allergies.trim(),
         emergency_contact_name: emergencyName.trim(),
-        emergency_contact_phone: emergencyPhone.trim()
+        emergency_contact_phone: emergencyPhone.trim(),
+        ethnicity: ethnicity.trim(),
+        province_code: provinceCode.trim(),
+        ward_code: wardCode.trim(),
+        companion_name: companionName.trim(),
+        companion_id_card: companionIdCard.trim(),
+        companion_phone: companionPhone.trim(),
+        companion_relationship: companionRelationship.trim(),
+        has_medical_history: hasMedicalHistory,
+        medical_history_icd10: medicalHistoryIcd10.trim(),
+        medical_history_notes: medicalHistoryNotes.trim(),
+        family_history_icd10: familyHistoryIcd10.trim(),
+        family_history_notes: familyHistoryNotes.trim(),
+        epidemiological_history: epidemiologicalHistory.trim()
       })
       setProfile(updated)
       setEditing(false)
@@ -414,16 +478,16 @@ export function PatientProfilePage({
           </button>
         </div>
 
-        {/* TAB 1: THÔNG TIN CÁ NHÂN & CCCD */}
+        {/* TAB 1: THÔNG TIN HÀNH CHÍNH CÁ NHÂN (BẮT BUỘC THEO QĐ 2682/QĐ-BYT) */}
         {activeTab === 'info' && (
           <section className="ps-hero-card" style={{ display: 'block' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--ps-navy)' }}>
-                  Thông Tin Nhân Khẩu & Định Danh CCCD/VNeID
+                  1. Thông Tin Hành Chính Cá Nhân (Quyết định 2682/QĐ-BYT)
                 </h3>
                 <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--ps-slate-muted)' }}>
-                  Dữ liệu được bảo mật mã hóa E2EE và đối soát theo quy chuẩn y tế quốc gia
+                  Ghi nhận đầy đủ thông tin bắt buộc theo danh mục dữ liệu khám chữa bệnh quốc gia
                 </p>
               </div>
 
@@ -437,19 +501,128 @@ export function PatientProfilePage({
             <form onSubmit={handleSave}>
               <div className="ps-form-grid">
                 <div className="ps-input-group">
-                  <label>Họ và tên bệnh nhân (*)</label>
+                  <label>Họ và tên người bệnh (*)</label>
                   <input
                     type="text"
                     className="ps-form-input"
                     value={fullName}
                     onChange={e => setFullName(e.target.value)}
                     disabled={!editing}
-                    placeholder="Nguyễn Văn A..."
+                    placeholder="Ghi nhận họ và tên đầy đủ..."
                   />
                 </div>
 
                 <div className="ps-input-group">
-                  <label>Số điện thoại</label>
+                  <label>Ngày, tháng, năm sinh (*)</label>
+                  <input
+                    type="text"
+                    className="ps-form-input"
+                    value={dateOfBirth}
+                    onChange={e => setDateOfBirth(e.target.value)}
+                    disabled={!editing}
+                    placeholder="DD/MM/YYYY"
+                  />
+                </div>
+
+                <div className="ps-input-group">
+                  <label>Giới tính (*)</label>
+                  <select
+                    className="ps-form-input"
+                    value={gender}
+                    onChange={e => setGender(e.target.value)}
+                    disabled={!editing}
+                  >
+                    <option value="Nam">Nam</option>
+                    <option value="Nữ">Nữ</option>
+                    <option value="Khác">Khác</option>
+                  </select>
+                </div>
+
+                <div className="ps-input-group">
+                  <label>Số định danh cá nhân / CCCD / Hộ chiếu (*)</label>
+                  <input
+                    type="text"
+                    className="ps-form-input"
+                    value={identityCard}
+                    onChange={e => setIdentityCard(e.target.value)}
+                    disabled={!editing}
+                    placeholder="12 chữ số CCCD hoặc mã định danh..."
+                  />
+                </div>
+
+                <div className="ps-input-group">
+                  <label>Dân tộc (*)</label>
+                  <select
+                    className="ps-form-input"
+                    value={ethnicity}
+                    onChange={e => setEthnicity(e.target.value)}
+                    disabled={!editing}
+                  >
+                    {VIETNAM_ETHNICITIES.map(eth => (
+                      <option key={eth} value={eth}>{eth}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="ps-input-group">
+                  <label>Nhóm máu (nếu có xác định)</label>
+                  <select
+                    className="ps-form-input"
+                    value={bloodType}
+                    onChange={e => setBloodType(e.target.value)}
+                    disabled={!editing}
+                  >
+                    <option value="O+">O+ (Phổ biến)</option>
+                    <option value="O-">O- (Hiếm)</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                  </select>
+                </div>
+
+                <div className="ps-input-group">
+                  <label>Mã Tỉnh / Thành phố nơi ở hiện tại</label>
+                  <select
+                    className="ps-form-input"
+                    value={provinceCode}
+                    onChange={e => setProvinceCode(e.target.value)}
+                    disabled={!editing}
+                  >
+                    {VIETNAM_PROVINCES.map(p => (
+                      <option key={p.code} value={p.code}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="ps-input-group">
+                  <label>Mã Xã / Phường nơi ở hiện tại</label>
+                  <input
+                    type="text"
+                    className="ps-form-input"
+                    value={wardCode}
+                    onChange={e => setWardCode(e.target.value)}
+                    disabled={!editing}
+                    placeholder="Ví dụ: 26740, 00012..."
+                  />
+                </div>
+
+                <div className="ps-input-group full-width">
+                  <label>Nơi ở hiện tại (Địa chỉ chi tiết)</label>
+                  <input
+                    type="text"
+                    className="ps-form-input"
+                    value={address}
+                    onChange={e => setAddress(e.target.value)}
+                    disabled={!editing}
+                    placeholder="Số nhà, ngõ/ngách, tên đường phố, tổ dân phố, thôn xóm..."
+                  />
+                </div>
+
+                <div className="ps-input-group">
+                  <label>Số điện thoại liên hệ</label>
                   <input
                     type="text"
                     className="ps-form-input"
@@ -471,46 +644,8 @@ export function PatientProfilePage({
                   />
                 </div>
 
-                <div className="ps-input-group">
-                  <label>Số CCCD / Mã định danh cá nhân</label>
-                  <input
-                    type="text"
-                    className="ps-form-input"
-                    value={identityCard}
-                    onChange={e => setIdentityCard(e.target.value)}
-                    disabled={!editing}
-                    placeholder="12 chữ số CCCD..."
-                  />
-                </div>
-
-                <div className="ps-input-group">
-                  <label>Ngày tháng năm sinh</label>
-                  <input
-                    type="text"
-                    className="ps-form-input"
-                    value={dateOfBirth}
-                    onChange={e => setDateOfBirth(e.target.value)}
-                    disabled={!editing}
-                    placeholder="DD/MM/YYYY"
-                  />
-                </div>
-
-                <div className="ps-input-group">
-                  <label>Giới tính</label>
-                  <select
-                    className="ps-form-input"
-                    value={gender}
-                    onChange={e => setGender(e.target.value)}
-                    disabled={!editing}
-                  >
-                    <option value="Nam">Nam</option>
-                    <option value="Nữ">Nữ</option>
-                    <option value="Khác">Khác</option>
-                  </select>
-                </div>
-
                 <div className="ps-input-group full-width">
-                  <label>Mã số Thẻ Bảo hiểm Y tế (BHYT)</label>
+                  <label>Mã số Thẻ Bảo hiểm Y tế (BHYT 15 ký tự)</label>
                   <input
                     type="text"
                     className="ps-form-input"
@@ -521,17 +656,73 @@ export function PatientProfilePage({
                     style={{ textTransform: 'uppercase', fontFamily: 'monospace', fontWeight: 700 }}
                   />
                 </div>
+              </div>
 
-                <div className="ps-input-group full-width">
-                  <label>Địa chỉ thường trú</label>
-                  <input
-                    type="text"
-                    className="ps-form-input"
-                    value={address}
-                    onChange={e => setAddress(e.target.value)}
-                    disabled={!editing}
-                    placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành..."
-                  />
+              {/* KHỐI: THÔNG TIN NGƯỜI ĐI CÙNG (ĐỐI VỚI TRẺ EM HOẶC TRƯỜNG HỢP CẦN THIẾT) */}
+              <div style={{ marginTop: '28px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                  <Users size={18} color="#0e7490" />
+                  <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>
+                    Thông tin người đi cùng (Đối với trẻ em hoặc trường hợp cần thiết)
+                  </h4>
+                </div>
+                <p style={{ margin: '-6px 0 16px', fontSize: '12.5px', color: '#64748b' }}>
+                  Theo quy định Bộ Y tế: Họ tên, CCCD, số điện thoại và mối quan hệ với người bệnh
+                </p>
+
+                <div className="ps-form-grid">
+                  <div className="ps-input-group">
+                    <label>Họ và tên người đi cùng / Giám hộ</label>
+                    <input
+                      type="text"
+                      className="ps-form-input"
+                      value={companionName}
+                      onChange={e => setCompanionName(e.target.value)}
+                      disabled={!editing}
+                      placeholder="Họ tên cha/mẹ, người giám hộ..."
+                    />
+                  </div>
+
+                  <div className="ps-input-group">
+                    <label>Số CCCD / Định danh người đi cùng</label>
+                    <input
+                      type="text"
+                      className="ps-form-input"
+                      value={companionIdCard}
+                      onChange={e => setCompanionIdCard(e.target.value)}
+                      disabled={!editing}
+                      placeholder="Số CCCD 12 số của người đi cùng..."
+                    />
+                  </div>
+
+                  <div className="ps-input-group">
+                    <label>Số điện thoại người đi cùng</label>
+                    <input
+                      type="tel"
+                      className="ps-form-input"
+                      value={companionPhone}
+                      onChange={e => setCompanionPhone(e.target.value)}
+                      disabled={!editing}
+                      placeholder="09xx xxx xxx"
+                    />
+                  </div>
+
+                  <div className="ps-input-group">
+                    <label>Mối quan hệ với người bệnh</label>
+                    <select
+                      className="ps-form-input"
+                      value={companionRelationship}
+                      onChange={e => setCompanionRelationship(e.target.value)}
+                      disabled={!editing}
+                    >
+                      <option value="Bố/Mẹ">Bố / Mẹ</option>
+                      <option value="Người giám hộ">Người giám hộ hợp pháp</option>
+                      <option value="Vợ/Chồng">Vợ / Chồng</option>
+                      <option value="Con cái">Con cái</option>
+                      <option value="Anh/Chị/Em">Anh / Chị / Em</option>
+                      <option value="Người thân khác">Người thân khác</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -541,7 +732,7 @@ export function PatientProfilePage({
                     Hủy bỏ
                   </button>
                   <button type="submit" className="ps-btn-primary" disabled={saving}>
-                    <Save size={15} /> {saving ? 'Đang lưu...' : 'Lưu cập nhật'}
+                    <Save size={15} /> {saving ? 'Đang lưu...' : 'Lưu thông tin hành chính'}
                   </button>
                 </div>
               )}
@@ -549,16 +740,16 @@ export function PatientProfilePage({
           </section>
         )}
 
-        {/* TAB 2: TIỀN SỬ Y TẾ & NHÓM MÁU */}
+        {/* TAB 2: THÔNG TIN TIỀN SỬ SỨC KHỎE (QUYẾT ĐỊNH 2682/QĐ-BYT) */}
         {activeTab === 'medical' && (
           <section className="ps-hero-card" style={{ display: 'block' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--ps-navy)' }}>
-                  Tiền Sử Bệnh & Cảnh Báo Lâm Sàng
+                  2. Thông Tin Tiền Sử Sức Khỏe & Dịch Tễ
                 </h3>
                 <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--ps-slate-muted)' }}>
-                  Bác sĩ điều trị sẽ đối chiếu thông tin này trước khi ra y lệnh thuốc và chẩn đoán
+                  Ghi nhận tiền sử bản thân, tiền sử gia đình (mã ICD-10) và tiền sử dịch tễ theo chuẩn Bộ Y tế
                 </p>
               </div>
 
@@ -571,61 +762,163 @@ export function PatientProfilePage({
 
             <form onSubmit={handleSave}>
               <div className="ps-form-grid">
-                <div className="ps-input-group">
-                  <label>Nhóm máu (Hệ ABO & Rh)</label>
-                  <select
-                    className="ps-form-input"
-                    value={bloodType}
-                    onChange={e => setBloodType(e.target.value)}
-                    disabled={!editing}
-                  >
-                    <option value="O+">O+ (Phổ biến)</option>
-                    <option value="O-">O- (Hiếm)</option>
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                  </select>
+                {/* 1. Tiền sử bản thân */}
+                <div className="ps-input-group full-width" style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <label style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', margin: 0 }}>
+                      Tiền sử bản thân: Có mắc bệnh tiền sử hay không?
+                    </label>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                        <input
+                          type="radio"
+                          name="has_med"
+                          checked={hasMedicalHistory}
+                          onChange={() => setHasMedicalHistory(true)}
+                          disabled={!editing}
+                        />
+                        Có mắc bệnh tiền sử
+                      </label>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                        <input
+                          type="radio"
+                          name="has_med"
+                          checked={!hasMedicalHistory}
+                          onChange={() => setHasMedicalHistory(false)}
+                          disabled={!editing}
+                        />
+                        Không
+                      </label>
+                    </div>
+                  </div>
+
+                  {hasMedicalHistory && (
+                    <div style={{ marginTop: '10px' }}>
+                      <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#475569' }}>
+                        Mã bệnh tiền sử theo bảng mã ICD-10 (phân cách bằng dấu chấm phẩy ; nếu có nhiều bệnh)
+                      </label>
+                      <input
+                        type="text"
+                        className="ps-form-input"
+                        value={medicalHistoryIcd10}
+                        onChange={e => setMedicalHistoryIcd10(e.target.value)}
+                        disabled={!editing}
+                        placeholder="Ví dụ: I10; E11.9; J45..."
+                        style={{ fontFamily: 'monospace', fontWeight: 600, color: '#0e7490' }}
+                      />
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>Gợi ý mã phổ biến:</span>
+                        {[
+                          { code: 'I10', label: 'Tăng huyết áp vô căn' },
+                          { code: 'E11', label: 'Đái tháo đường Type 2' },
+                          { code: 'J45', label: 'Hen phế quản' },
+                          { code: 'K29', label: 'Viêm dạ dày' }
+                        ].map(s => (
+                          <button
+                            key={s.code}
+                            type="button"
+                            disabled={!editing}
+                            onClick={() => {
+                              const cur = medicalHistoryIcd10 ? medicalHistoryIcd10.split(';').map(x => x.trim()).filter(Boolean) : []
+                              if (!cur.includes(s.code)) {
+                                setMedicalHistoryIcd10(cur.length ? `${medicalHistoryIcd10}; ${s.code}` : s.code)
+                              }
+                            }}
+                            style={{
+                              border: '1px solid #bae6fd',
+                              background: '#f0f9ff',
+                              color: '#0369a1',
+                              fontSize: '11px',
+                              borderRadius: '4px',
+                              padding: '2px 6px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            + [{s.code}] {s.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div style={{ marginTop: '10px' }}>
+                        <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#475569' }}>
+                          Ghi chú mô tả tiền sử bệnh bản thân
+                        </label>
+                        <textarea
+                          className="ps-form-input"
+                          rows={2}
+                          value={medicalHistoryNotes}
+                          onChange={e => setMedicalHistoryNotes(e.target.value)}
+                          disabled={!editing}
+                          placeholder="Mô tả quá trình mắc, thuốc đang dùng định kỳ..."
+                          style={{ height: 'auto', padding: '8px 12px' }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div className="ps-input-group">
-                  <label>Người liên hệ khẩn cấp (Họ tên)</label>
+                {/* 2. Tiền sử gia đình */}
+                <div className="ps-input-group full-width" style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <label style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginBottom: '4px', display: 'block' }}>
+                    Tiền sử gia đình (Các bệnh lý có tính chất di truyền theo mã ICD-10)
+                  </label>
+                  <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#64748b' }}>
+                    Nhập mã ICD-10 của bệnh lý di truyền hoặc tiền sử bệnh gia đình (phân cách bằng dấu chấm phẩy ;)
+                  </p>
                   <input
                     type="text"
                     className="ps-form-input"
-                    value={emergencyName}
-                    onChange={e => setEmergencyName(e.target.value)}
+                    value={familyHistoryIcd10}
+                    onChange={e => setFamilyHistoryIcd10(e.target.value)}
                     disabled={!editing}
-                    placeholder="Người thân, cha mẹ, vợ/chồng..."
+                    placeholder="Ví dụ: I10; E11; C50 (Tăng huyết áp, Đái tháo đường, Ung thư vú...)"
+                    style={{ fontFamily: 'monospace', fontWeight: 600, color: '#0e7490' }}
                   />
+                  <div style={{ marginTop: '8px' }}>
+                    <textarea
+                      className="ps-form-input"
+                      rows={2}
+                      value={familyHistoryNotes}
+                      onChange={e => setFamilyHistoryNotes(e.target.value)}
+                      disabled={!editing}
+                      placeholder="Ghi chú chi tiết: Bố mẹ mắc tim mạch sớm, người thân có bệnh lý huyết học..."
+                      style={{ height: 'auto', padding: '8px 12px' }}
+                    />
+                  </div>
                 </div>
 
-                <div className="ps-input-group">
-                  <label>Số điện thoại người liên hệ khẩn cấp</label>
-                  <input
-                    type="tel"
+                {/* 3. Tiền sử dịch tễ */}
+                <div className="ps-input-group full-width" style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <label style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginBottom: '4px', display: 'block' }}>
+                    Tiền sử dịch tễ (Tiếp xúc người bệnh truyền nhiễm)
+                  </label>
+                  <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#64748b' }}>
+                    Ghi nhận tiền sử tiếp xúc với người bệnh truyền nhiễm (bệnh lao, sốt xuất huyết, sởi, cúm A, ho gà...)
+                  </p>
+                  <textarea
                     className="ps-form-input"
-                    value={emergencyPhone}
-                    onChange={e => setEmergencyPhone(e.target.value)}
+                    rows={2}
+                    value={epidemiologicalHistory}
+                    onChange={e => setEpidemiologicalHistory(e.target.value)}
                     disabled={!editing}
-                    placeholder="0912 345 678..."
+                    placeholder="Ví dụ: Không tiếp xúc người bệnh lao trong 6 tháng qua; hoặc có tiếp xúc gần người thân điều trị lao..."
+                    style={{ height: 'auto', padding: '8px 12px' }}
                   />
                 </div>
 
+                {/* Dị ứng */}
                 <div className="ps-input-group full-width">
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#dc2626' }}>
-                    <AlertTriangle size={15} /> Tiền sử dị ứng (Thuốc, thức ăn, phấn hoa, v.v.)
+                    <AlertTriangle size={15} /> Tiền sử dị ứng (Thuốc, kháng sinh, thức ăn, phấn hoa)
                   </label>
                   <textarea
                     className="ps-form-input"
-                    rows={3}
-                    style={{ height: 'auto', padding: '12px 16px' }}
+                    rows={2}
+                    style={{ height: 'auto', padding: '10px 14px' }}
                     value={allergies}
                     onChange={e => setAllergies(e.target.value)}
                     disabled={!editing}
-                    placeholder="Ví dụ: Dị ứng Penicillin, Paracetamol nổi mề đay, dị ứng hải sản..."
+                    placeholder="Ví dụ: Dị ứng Penicillin, Paracetamol nổi mề đay, dị ứng tôm cua..."
                   />
                 </div>
               </div>
@@ -636,7 +929,7 @@ export function PatientProfilePage({
                     Hủy bỏ
                   </button>
                   <button type="submit" className="ps-btn-primary" disabled={saving}>
-                    <Save size={15} /> {saving ? 'Đang lưu...' : 'Lưu tiền sử'}
+                    <Save size={15} /> {saving ? 'Đang lưu...' : 'Lưu tiền sử sức khỏe'}
                   </button>
                 </div>
               )}

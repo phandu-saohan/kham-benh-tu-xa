@@ -4,7 +4,7 @@ import {
   Pill, User, Search, AlertCircle, Stethoscope, Video, VideoOff, X,
   FileDown, PenTool, Share2, Code2, QrCode, Sparkles, Mic, MicOff, Bot, PhoneCall, Volume2,
   ScreenShare, ScreenShareOff, MessageSquare, FlaskConical, ScanLine, ExternalLink, Activity, Clock,
-  FileCheck, Users, HeartPulse, Download, Plus, Check, RefreshCw
+  FileCheck, Users, HeartPulse, Download, Plus, Check, RefreshCw, Building2
 } from 'lucide-react'
 import {
   type Appointment, type User as CurrentUser, type ICD10Item,
@@ -105,6 +105,12 @@ export function DoctorWorkspace({
   const [icd10Name, setIcd10Name] = useState('')
   const [clinicalNotes, setClinicalNotes] = useState('')
   const [plan, setPlan] = useState('')
+  const [clinicalExamination, setClinicalExamination] = useState('')
+  const [paraclinicalResults, setParaclinicalResults] = useState('')
+  const [treatmentRegimen, setTreatmentRegimen] = useState('')
+  const [clinicalEvolution, setClinicalEvolution] = useState('')
+  const [medicalServicesUsed, setMedicalServicesUsed] = useState('')
+  const [encounterInfo, setEncounterInfo] = useState<any>(null)
   const [prescription, setPrescription] = useState('')
   const [isLocked, setIsLocked] = useState(false)
   const [patientData, setPatientData] = useState<any>(null)
@@ -477,6 +483,7 @@ export function DoctorWorkspace({
     getClinicalRecord(appointment.id)
       .then(data => {
         setPatientData(data.patient)
+        setEncounterInfo(data.appointment || null)
         if (data.record) {
           setSymptoms(data.record.symptoms || '')
           setAllergies(data.record.allergies || '')
@@ -485,6 +492,11 @@ export function DoctorWorkspace({
           setIcd10Name(data.record.icd10_name || '')
           setClinicalNotes(data.record.clinical_notes || '')
           setPlan(data.record.plan || '')
+          setClinicalExamination(data.record.clinical_examination || '')
+          setParaclinicalResults(data.record.paraclinical_results || '')
+          setTreatmentRegimen(data.record.treatment_regimen || '')
+          setClinicalEvolution(data.record.clinical_evolution || '')
+          setMedicalServicesUsed(data.record.medical_services_used || '')
           setIsLocked(!!data.record.is_locked)
           if (data.record.is_digitally_signed) {
             setSignatureInfo({
@@ -607,7 +619,12 @@ export function DoctorWorkspace({
         icd10_code: icd10Code,
         icd10_name: icd10Name,
         clinical_notes: clinicalNotes,
-        plan
+        plan,
+        clinical_examination: clinicalExamination,
+        paraclinical_results: paraclinicalResults,
+        treatment_regimen: treatmentRegimen,
+        clinical_evolution: clinicalEvolution,
+        medical_services_used: medicalServicesUsed
       })
       if (prescription.trim()) {
         await savePrescription(appointment.id, prescription)
@@ -634,7 +651,12 @@ export function DoctorWorkspace({
         icd10_code: icd10Code,
         icd10_name: icd10Name,
         clinical_notes: clinicalNotes,
-        plan
+        plan,
+        clinical_examination: clinicalExamination,
+        paraclinical_results: paraclinicalResults,
+        treatment_regimen: treatmentRegimen,
+        clinical_evolution: clinicalEvolution,
+        medical_services_used: medicalServicesUsed
       })
       if (prescription.trim()) {
         await savePrescription(appointment.id, prescription)
@@ -755,7 +777,12 @@ export function DoctorWorkspace({
         icd10_code: icd10Code,
         icd10_name: icd10Name,
         clinical_notes: clinicalNotes,
-        plan
+        plan,
+        clinical_examination: clinicalExamination,
+        paraclinical_results: paraclinicalResults,
+        treatment_regimen: treatmentRegimen,
+        clinical_evolution: clinicalEvolution,
+        medical_services_used: medicalServicesUsed
       })
       if (prescription.trim()) {
         await savePrescription(appointment.id, prescription)
@@ -1292,24 +1319,101 @@ export function DoctorWorkspace({
                   />
                 </div>
 
+                {/* Mục 1: Kết quả khám bệnh & thăm khám lâm sàng */}
                 <div className="field-group">
-                  <label>4. Ghi chú lâm sàng / Đánh giá thăm khám qua video</label>
+                  <label>1.2 Thăm khám lâm sàng chi tiết (Toàn thân, các cơ quan qua video)</label>
                   <textarea
-                    rows={3}
-                    placeholder="Niêm mạc họng, nhịp thở, tri giác qua quan sát video..."
+                    rows={2}
+                    placeholder="Khám thể trạng, niêm mạc, tri giác, hô hấp, tuần hoàn, bụng, da niêm..."
+                    value={clinicalExamination}
+                    onChange={e => setClinicalExamination(e.target.value)}
+                    disabled={isLocked}
+                  />
+                </div>
+
+                <div className="field-group">
+                  <label>1.3 Đánh giá lâm sàng & Triệu chứng ghi nhận</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Đánh giá sơ bộ của bác sĩ qua trao đổi trực tuyến..."
                     value={clinicalNotes}
                     onChange={e => setClinicalNotes(e.target.value)}
                     disabled={isLocked}
                   />
                 </div>
 
-                <div className="field-group">
-                  <label>5. Kế hoạch điều trị & Hướng dẫn theo dõi (Treatment Plan)</label>
+                {/* Mục 2: Kết quả cận lâm sàng, xét nghiệm và thăm dò chức năng */}
+                <div className="field-group" style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <label style={{ margin: 0, fontWeight: 700, color: '#0f766e' }}>
+                      2. Kết quả cận lâm sàng, xét nghiệm và thăm dò chức năng
+                    </label>
+                    <button
+                      type="button"
+                      disabled={isLocked}
+                      onClick={() => {
+                        const labCount = labData?.reports?.length || 0
+                        const pacsCount = pacsData?.studies?.length || 0
+                        setParaclinicalResults(`Đã liên kết ${labCount} phiếu xét nghiệm & ${pacsCount} ca chụp PACS/DICOM của người bệnh trên hệ thống.`)
+                        setToast('Đã đồng bộ tóm tắt kết quả cận lâm sàng')
+                      }}
+                      style={{
+                        background: '#f0fdfa',
+                        border: '1px solid #99f6e4',
+                        color: '#0f766e',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        cursor: 'pointer',
+                        fontWeight: 600
+                      }}
+                    >
+                      ⚡ Trích xuất từ XN/PACS
+                    </button>
+                  </div>
                   <textarea
-                    rows={3}
-                    placeholder="Chế độ nghỉ ngơi, uống nhiều nước, dấu hiệu cảnh báo cần đến cấp cứu..."
-                    value={plan}
-                    onChange={e => setPlan(e.target.value)}
+                    rows={2}
+                    placeholder="Tóm tắt các chỉ số xét nghiệm huyết học, sinh hóa máu, nước tiểu, kết quả X-quang/CT/MRI/ECG..."
+                    value={paraclinicalResults}
+                    onChange={e => setParaclinicalResults(e.target.value)}
+                    disabled={isLocked}
+                  />
+                </div>
+
+                {/* Mục 3: Phác đồ điều trị, diễn biến bệnh lý và chăm sóc */}
+                <div className="field-group">
+                  <label>3.2 Phác đồ điều trị chi tiết</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Phác đồ điều trị nội khoa, thuốc phối hợp, chế độ dinh dưỡng và lối sống..."
+                    value={treatmentRegimen}
+                    onChange={e => setTreatmentRegimen(e.target.value)}
+                    disabled={isLocked}
+                  />
+                </div>
+
+                <div className="field-group">
+                  <label>3.3 Diễn biến bệnh lý & Kế hoạch chăm sóc theo dõi</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Diễn biến bệnh lý trong buổi khám, hướng dẫn theo dõi tại nhà, hẹn tái khám..."
+                    value={clinicalEvolution || plan}
+                    onChange={e => {
+                      setClinicalEvolution(e.target.value)
+                      setPlan(e.target.value)
+                    }}
+                    disabled={isLocked}
+                  />
+                </div>
+
+                {/* Mục 4: Danh mục chi tiết thuốc, trang thiết bị y tế hoặc dịch vụ đã sử dụng */}
+                <div className="field-group">
+                  <label>4. Danh mục trang thiết bị y tế & Dịch vụ kỹ thuật đã sử dụng</label>
+                  <input
+                    type="text"
+                    placeholder="Ví dụ: Khám bệnh từ xa chuyên khoa (01.0001); Thiết bị đo huyết áp RPM; Kết nối PKI SmartCA..."
+                    value={medicalServicesUsed}
+                    onChange={e => setMedicalServicesUsed(e.target.value)}
                     disabled={isLocked}
                   />
                 </div>
@@ -1926,43 +2030,141 @@ export function DoctorWorkspace({
 
             {activeTab === 'patient_info' && (
               <div className="patient-detail-card">
-                <h3>Thông tin hành chính bệnh nhân</h3>
-                <div className="detail-grid">
+                {/* 1. THÔNG TIN HÀNH CHÍNH CÁ NHÂN (BẮT BUỘC) */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <User size={18} color="#0e7490" />
+                  <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>
+                    1. Thông tin hành chính cá nhân (Bắt buộc theo QĐ 2682/QĐ-BYT)
+                  </h3>
+                </div>
+                <div className="detail-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
                   <div>
-                    <label>Họ và tên:</label>
+                    <label>Họ và tên người bệnh:</label>
                     <b>{patientData?.full_name}</b>
                   </div>
                   <div>
-                    <label>Số CCCD / VNeID:</label>
+                    <label>Ngày sinh & Giới tính:</label>
+                    <b>{patientData?.date_of_birth || 'Chưa cập nhật'} • {patientData?.gender || 'Nam'}</b>
+                  </div>
+                  <div>
+                    <label>Số định danh / CCCD / Hộ chiếu:</label>
                     <b style={{ color: '#047857' }}>{patientData?.identity_card || '079092014829'} (VNeID Cấp 2)</b>
+                  </div>
+                  <div>
+                    <label>Dân tộc & Nhóm máu:</label>
+                    <b>{patientData?.ethnicity || 'Kinh'} • Nhóm máu {patientData?.blood_type || 'O+'}</b>
+                  </div>
+                  <div>
+                    <label>Mã hồ sơ y tế (PID):</label>
+                    <b>{patientData?.external_patient_id || `CC-PAT-${appointment.patient_id.toString().padStart(4, '0')}`}</b>
                   </div>
                   <div>
                     <label>Số điện thoại:</label>
                     <b>{patientData?.phone_number || 'Chưa cập nhật'}</b>
                   </div>
-                  <div>
-                    <label>Mã hồ sơ (PID):</label>
-                    <b>{patientData?.external_patient_id || `CC-PAT-${appointment.patient_id.toString().padStart(4, '0')}`}</b>
-                  </div>
-                  <div>
-                    <label>Mã thẻ BHYT:</label>
-                    <b style={{ color: '#0284c7' }}>{patientData?.bhyt_code || appointment.bhyt_code || 'GD4797931812345'}</b>
-                  </div>
-                  <div>
-                    <label>Thời gian đặt khám:</label>
-                    <b>{new Date(appointment.starts_at).toLocaleString('vi-VN')}</b>
-                  </div>
-                  <div>
-                    <label>Nhóm máu & Rh:</label>
-                    <b>{patientData?.blood_type || 'O+'}</b>
-                  </div>
-                  <div>
-                    <label>Tiền sử dị ứng thuốc:</label>
-                    <b style={{ color: '#dc2626' }}>{patientData?.allergies || 'Không ghi nhận dị ứng'}</b>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label>Nơi ở hiện tại (Mã Tỉnh / Mã Xã):</label>
+                    <b>
+                      {patientData?.address || 'Chưa cập nhật địa chỉ'}
+                      {patientData?.province_code && ` • Mã Tỉnh: ${patientData.province_code}`}
+                      {patientData?.ward_code && ` • Mã Xã: ${patientData.ward_code}`}
+                    </b>
                   </div>
                 </div>
 
-                <h3 style={{ marginTop: '20px' }}>Lý do ban đầu bệnh nhân đăng ký:</h3>
+                {/* Thông tin người đi cùng */}
+                <div style={{ marginTop: '16px', padding: '12px 14px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                  <b style={{ fontSize: '13px', color: '#0e7490' }}>👨‍👩‍👦 Thông tin người đi cùng (Trẻ em hoặc ca đặc biệt):</b>
+                  <div style={{ marginTop: '6px', fontSize: '13px', color: '#334155' }}>
+                    {patientData?.companion_name ? (
+                      <div>
+                        <span>Họ tên: <strong>{patientData.companion_name}</strong></span> • 
+                        <span> CCCD: <strong>{patientData.companion_id_card || 'Chưa cập nhật'}</strong></span> • 
+                        <span> SĐT: <strong>{patientData.companion_phone || 'Chưa cập nhật'}</strong></span> • 
+                        <span> Mối quan hệ: <strong>{patientData.companion_relationship || 'Người thân'}</strong></span>
+                      </div>
+                    ) : (
+                      <span style={{ color: '#64748b' }}>Không có người đi cùng đi kèm (Bệnh nhân tự tham gia tư vấn).</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. THÔNG TIN TIỀN SỬ SỨC KHỎE & DỊCH TỄ */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '24px 0 12px' }}>
+                  <HeartPulse size={18} color="#dc2626" />
+                  <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>
+                    2. Thông tin tiền sử sức khỏe & Dịch tễ
+                  </h3>
+                </div>
+                <div className="detail-grid">
+                  <div>
+                    <label>Tiền sử bản thân (Mắc bệnh & Mã ICD-10):</label>
+                    <b style={{ color: patientData?.has_medical_history ? '#b45309' : '#059669' }}>
+                      {patientData?.has_medical_history ? `Có mắc bệnh tiền sử: [${patientData?.medical_history_icd10 || 'Chưa rõ mã'}]` : 'Không có tiền sử bệnh mạn tính'}
+                    </b>
+                    {patientData?.medical_history_notes && (
+                      <small style={{ display: 'block', color: '#64748b', marginTop: '2px' }}>{patientData.medical_history_notes}</small>
+                    )}
+                  </div>
+                  <div>
+                    <label>Tiền sử gia đình (Di truyền theo ICD-10):</label>
+                    <b>{patientData?.family_history_icd10 ? `Mã ICD-10: ${patientData.family_history_icd10}` : 'Chưa ghi nhận bệnh di truyền gia đình'}</b>
+                    {patientData?.family_history_notes && (
+                      <small style={{ display: 'block', color: '#64748b', marginTop: '2px' }}>{patientData.family_history_notes}</small>
+                    )}
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label>Tiền sử dịch tễ (Tiếp xúc bệnh truyền nhiễm):</label>
+                    <b style={{ color: '#0f766e' }}>
+                      {patientData?.epidemiological_history || 'Không tiếp xúc với người bệnh truyền nhiễm (bệnh lao, sốt xuất huyết, cúm A, sởi...)'}
+                    </b>
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label>Tiền sử dị ứng thuốc & Thực phẩm:</label>
+                    <b style={{ color: '#dc2626' }}>{patientData?.allergies || 'Chưa ghi nhận dị ứng'}</b>
+                  </div>
+                </div>
+
+                {/* 3. THÔNG TIN CHUNG VỀ LƯỢT KHÁM BỆNH, CHỮA BỆNH */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '24px 0 12px' }}>
+                  <Building2 size={18} color="#0284c7" />
+                  <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>
+                    3. Thông tin chung về lượt khám bệnh, chữa bệnh
+                  </h3>
+                </div>
+                <div className="detail-grid">
+                  <div>
+                    <label>Mã lượt khám (Quản lý KCB):</label>
+                    <b style={{ color: '#0e7490', fontFamily: 'monospace' }}>
+                      {encounterInfo?.encounter_code || appointment.encounter_code || `LK-${appointment.id.toString().padStart(6, '0')}`}
+                    </b>
+                  </div>
+                  <div>
+                    <label>Mã cơ sở KCB (GLN):</label>
+                    <b>{encounterInfo?.hospital_code || appointment.hospital_code || '79014 (GLN: 8938500000018)'}</b>
+                  </div>
+                  <div>
+                    <label>Đối tượng bệnh nhân:</label>
+                    <b>{encounterInfo?.patient_category || appointment.patient_category || (appointment.bhyt_code ? 'Bảo hiểm y tế' : 'Tự túc')}</b>
+                  </div>
+                  <div>
+                    <label>Nguồn chi trả viện phí:</label>
+                    <b>{encounterInfo?.payment_source || appointment.payment_source || (appointment.bhyt_code ? 'Quỹ Bảo hiểm y tế' : 'Tự túc')}</b>
+                  </div>
+                  <div>
+                    <label>Mã thẻ BHYT & Mức hưởng:</label>
+                    <b style={{ color: '#0284c7' }}>
+                      {encounterInfo?.bhyt_code || appointment.bhyt_code || patientData?.bhyt_code || 'Không có BHYT'} 
+                      {appointment.bhyt_rate ? ` (${appointment.bhyt_rate}%)` : ''}
+                    </b>
+                  </div>
+                  <div>
+                    <label>Thời gian bắt đầu phiên:</label>
+                    <b>{new Date(appointment.starts_at).toLocaleString('vi-VN')}</b>
+                  </div>
+                </div>
+
+                <h3 style={{ marginTop: '20px' }}>Lý do ban đầu người bệnh đăng ký khám:</h3>
                 <div className="quote-box">{appointment.reason}</div>
               </div>
             )}

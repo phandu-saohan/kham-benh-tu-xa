@@ -796,6 +796,8 @@ def create_appointment(data: AppointmentCreate, db: Session = Depends(get_db), u
             shift.booked_count += 1
 
     fee = 500000
+    appt_today_count = db.query(Appointment).count()
+    encounter_code = f"LK-{datetime.now().strftime('%Y%m%d')}-{appt_today_count + 1:04d}"
     appt = Appointment(
         patient_id=user.id,
         doctor_id=doctor.id,
@@ -803,7 +805,15 @@ def create_appointment(data: AppointmentCreate, db: Session = Depends(get_db), u
         reason=data.reason,
         fee_amount=fee,
         shift_id=data.shift_id,
-        department_id=data.department_id or doctor.department_id
+        department_id=data.department_id or doctor.department_id,
+        encounter_code=encounter_code,
+        hospital_code="79014 (GLN: 8938500000018)",
+        patient_category=data.patient_category or ("Bảo hiểm y tế" if user.bhyt_code else "Tự túc"),
+        payment_source=data.payment_source or ("Quỹ Bảo hiểm y tế" if user.bhyt_code else "Tự túc viện phí"),
+        companion_name=data.companion_name or getattr(user, "companion_name", None),
+        companion_id_card=data.companion_id_card or getattr(user, "companion_id_card", None),
+        companion_phone=data.companion_phone or getattr(user, "companion_phone", None),
+        companion_relationship=data.companion_relationship or getattr(user, "companion_relationship", None)
     )
     db.add(appt)
     db.commit()
@@ -1249,11 +1259,41 @@ def get_clinical_record(appointment_id: int, db: Session = Depends(get_db), user
     
     return {
         "appointment_id": appt.id,
+        "appointment": {
+            "id": appt.id,
+            "encounter_code": getattr(appt, "encounter_code", None) or f"LK-{appt.id:06d}",
+            "hospital_code": getattr(appt, "hospital_code", None) or "79014 (GLN: 8938500000018)",
+            "patient_category": getattr(appt, "patient_category", None) or ("Bảo hiểm y tế" if (appt.bhyt_code or patient.bhyt_code) else "Tự túc"),
+            "payment_source": getattr(appt, "payment_source", None) or ("Quỹ Bảo hiểm y tế" if (appt.bhyt_code or patient.bhyt_code) else "Tự túc viện phí"),
+            "bhyt_code": appt.bhyt_code or patient.bhyt_code or "",
+            "bhyt_rate": appt.bhyt_rate or 80,
+            "reason": appt.reason,
+            "starts_at": appt.starts_at,
+            "status": appt.status
+        },
         "patient": {
             "id": patient.id,
             "full_name": patient.full_name,
             "phone_number": patient.phone_number,
-            "external_patient_id": patient.external_patient_id
+            "external_patient_id": patient.external_patient_id,
+            "date_of_birth": patient.date_of_birth or "",
+            "gender": patient.gender or "Nam",
+            "identity_card": patient.identity_card or "",
+            "ethnicity": getattr(patient, "ethnicity", None) or "Kinh",
+            "blood_type": patient.blood_type or "O+",
+            "address": patient.address or "",
+            "province_code": getattr(patient, "province_code", None) or "",
+            "ward_code": getattr(patient, "ward_code", None) or "",
+            "companion_name": getattr(patient, "companion_name", None) or getattr(appt, "companion_name", None) or "",
+            "companion_id_card": getattr(patient, "companion_id_card", None) or getattr(appt, "companion_id_card", None) or "",
+            "companion_phone": getattr(patient, "companion_phone", None) or getattr(appt, "companion_phone", None) or "",
+            "companion_relationship": getattr(patient, "companion_relationship", None) or getattr(appt, "companion_relationship", None) or "",
+            "has_medical_history": bool(getattr(patient, "has_medical_history", False)),
+            "medical_history_icd10": getattr(patient, "medical_history_icd10", None) or "",
+            "medical_history_notes": getattr(patient, "medical_history_notes", None) or "",
+            "family_history_icd10": getattr(patient, "family_history_icd10", None) or "",
+            "family_history_notes": getattr(patient, "family_history_notes", None) or "",
+            "epidemiological_history": getattr(patient, "epidemiological_history", None) or ""
         },
         "doctor": {
             "id": doctor.id,
@@ -1269,6 +1309,11 @@ def get_clinical_record(appointment_id: int, db: Session = Depends(get_db), user
             "icd10_name": record.icd10_name if record else "",
             "clinical_notes": record.clinical_notes if record else "",
             "plan": record.plan if record else "",
+            "clinical_examination": getattr(record, "clinical_examination", None) if record else "",
+            "paraclinical_results": getattr(record, "paraclinical_results", None) if record else "",
+            "treatment_regimen": getattr(record, "treatment_regimen", None) if record else "",
+            "clinical_evolution": getattr(record, "clinical_evolution", None) if record else "",
+            "medical_services_used": getattr(record, "medical_services_used", None) if record else "",
             "is_locked": record.is_locked if record else False,
             "locked_at": record.locked_at if record else None,
             "is_digitally_signed": record.digital_signature is not None if record else False,
@@ -1312,6 +1357,11 @@ def save_clinical_record(
             icd10_name=data.icd10_name,
             clinical_notes=data.clinical_notes,
             plan=data.plan,
+            clinical_examination=data.clinical_examination,
+            paraclinical_results=data.paraclinical_results,
+            treatment_regimen=data.treatment_regimen,
+            clinical_evolution=data.clinical_evolution,
+            medical_services_used=data.medical_services_used,
             created_by=user.id
         )
         db.add(record)
@@ -1323,6 +1373,16 @@ def save_clinical_record(
         record.icd10_name = data.icd10_name
         record.clinical_notes = data.clinical_notes
         record.plan = data.plan
+        if data.clinical_examination is not None:
+            record.clinical_examination = data.clinical_examination
+        if data.paraclinical_results is not None:
+            record.paraclinical_results = data.paraclinical_results
+        if data.treatment_regimen is not None:
+            record.treatment_regimen = data.treatment_regimen
+        if data.clinical_evolution is not None:
+            record.clinical_evolution = data.clinical_evolution
+        if data.medical_services_used is not None:
+            record.medical_services_used = data.medical_services_used
         
     db.add(AuditLog(actor_user_id=user.id, action="clinical_record.save_draft", resource_type="clinical_record", resource_id=str(appt.id)))
     db.commit()
@@ -1517,11 +1577,36 @@ def download_medical_record_pdf(appointment_id: int, db: Session = Depends(get_d
             "id": patient.id,
             "full_name": patient.full_name,
             "phone_number": patient.phone_number,
-            "external_patient_id": patient.external_patient_id
+            "external_patient_id": patient.external_patient_id,
+            "date_of_birth": patient.date_of_birth or "",
+            "gender": patient.gender or "Nam",
+            "identity_card": patient.identity_card or "",
+            "ethnicity": getattr(patient, "ethnicity", None) or "Kinh",
+            "blood_type": patient.blood_type or "O+",
+            "address": patient.address or "",
+            "province_code": getattr(patient, "province_code", None) or "",
+            "ward_code": getattr(patient, "ward_code", None) or "",
+            "bhyt_code": appt.bhyt_code or patient.bhyt_code or "",
+            "allergies": patient.allergies or "",
+            "companion_name": getattr(patient, "companion_name", None) or getattr(appt, "companion_name", None) or "",
+            "companion_id_card": getattr(patient, "companion_id_card", None) or getattr(appt, "companion_id_card", None) or "",
+            "companion_phone": getattr(patient, "companion_phone", None) or getattr(appt, "companion_phone", None) or "",
+            "companion_relationship": getattr(patient, "companion_relationship", None) or getattr(appt, "companion_relationship", None) or "",
+            "has_medical_history": bool(getattr(patient, "has_medical_history", False)),
+            "medical_history_icd10": getattr(patient, "medical_history_icd10", None) or "",
+            "family_history_icd10": getattr(patient, "family_history_icd10", None) or "",
+            "epidemiological_history": getattr(patient, "epidemiological_history", None) or ""
         },
         doctor_info={
             "full_name": doctor.full_name,
             "cchn": doctor.doctor_cchn or "008912/BYT-CCHN"
+        },
+        encounter_info={
+            "encounter_code": getattr(appt, "encounter_code", None) or f"LK-{appt.id:06d}",
+            "hospital_code": getattr(appt, "hospital_code", None) or "79014 (GLN: 8938500000018)",
+            "patient_category": getattr(appt, "patient_category", None) or ("Bảo hiểm y tế" if (appt.bhyt_code or patient.bhyt_code) else "Tự túc"),
+            "payment_source": getattr(appt, "payment_source", None) or ("Quỹ Bảo hiểm y tế" if (appt.bhyt_code or patient.bhyt_code) else "Tự túc viện phí"),
+            "bhyt_code": appt.bhyt_code or patient.bhyt_code or ""
         },
         clinical_record={
             "symptoms": record.symptoms if record else "",
@@ -1529,7 +1614,13 @@ def download_medical_record_pdf(appointment_id: int, db: Session = Depends(get_d
             "diagnosis": record.diagnosis if record else "",
             "icd10_code": record.icd10_code if record else "",
             "icd10_name": record.icd10_name if record else "",
-            "plan": record.plan if record else ""
+            "plan": record.plan if record else "",
+            "clinical_notes": record.clinical_notes if record else "",
+            "clinical_examination": getattr(record, "clinical_examination", None) if record else "",
+            "paraclinical_results": getattr(record, "paraclinical_results", None) if record else "",
+            "treatment_regimen": getattr(record, "treatment_regimen", None) if record else "",
+            "clinical_evolution": getattr(record, "clinical_evolution", None) if record else "",
+            "medical_services_used": getattr(record, "medical_services_used", None) if record else ""
         },
         prescription_text=prescription.summary if prescription else "",
         signature_data=sig_data,
@@ -1776,10 +1867,24 @@ def get_my_patient_profile(
         "gender": user.gender or "Nam",
         "identity_card": user.identity_card or "",
         "address": user.address or "",
-        "blood_type": user.blood_type or "",
+        "province_code": getattr(user, "province_code", None) or "",
+        "district_code": getattr(user, "district_code", None) or "",
+        "ward_code": getattr(user, "ward_code", None) or "",
+        "ethnicity": getattr(user, "ethnicity", None) or "Kinh",
+        "blood_type": user.blood_type or "O+",
         "allergies": user.allergies or "",
         "emergency_contact_name": user.emergency_contact_name or "",
         "emergency_contact_phone": user.emergency_contact_phone or "",
+        "companion_name": getattr(user, "companion_name", None) or "",
+        "companion_id_card": getattr(user, "companion_id_card", None) or "",
+        "companion_phone": getattr(user, "companion_phone", None) or "",
+        "companion_relationship": getattr(user, "companion_relationship", None) or "",
+        "has_medical_history": bool(getattr(user, "has_medical_history", False)),
+        "medical_history_icd10": getattr(user, "medical_history_icd10", None) or "",
+        "medical_history_notes": getattr(user, "medical_history_notes", None) or "",
+        "family_history_icd10": getattr(user, "family_history_icd10", None) or "",
+        "family_history_notes": getattr(user, "family_history_notes", None) or "",
+        "epidemiological_history": getattr(user, "epidemiological_history", None) or "",
         "consent_agreed": bool(consent) if consent else True,
         "consent_agreed_at": consent.consented_at if consent else datetime.now(timezone.utc),
         "total_appointments": total_appts,
@@ -1807,6 +1912,14 @@ def update_my_patient_profile(
         user.identity_card = data.identity_card.strip()
     if data.address is not None:
         user.address = data.address.strip()
+    if data.province_code is not None:
+        user.province_code = data.province_code.strip()
+    if data.district_code is not None:
+        user.district_code = data.district_code.strip()
+    if data.ward_code is not None:
+        user.ward_code = data.ward_code.strip()
+    if data.ethnicity is not None:
+        user.ethnicity = data.ethnicity.strip()
     if data.blood_type is not None:
         user.blood_type = data.blood_type.strip()
     if data.allergies is not None:
@@ -1815,6 +1928,26 @@ def update_my_patient_profile(
         user.emergency_contact_name = data.emergency_contact_name.strip()
     if data.emergency_contact_phone is not None:
         user.emergency_contact_phone = data.emergency_contact_phone.strip()
+    if data.companion_name is not None:
+        user.companion_name = data.companion_name.strip()
+    if data.companion_id_card is not None:
+        user.companion_id_card = data.companion_id_card.strip()
+    if data.companion_phone is not None:
+        user.companion_phone = data.companion_phone.strip()
+    if data.companion_relationship is not None:
+        user.companion_relationship = data.companion_relationship.strip()
+    if data.has_medical_history is not None:
+        user.has_medical_history = data.has_medical_history
+    if data.medical_history_icd10 is not None:
+        user.medical_history_icd10 = data.medical_history_icd10.strip()
+    if data.medical_history_notes is not None:
+        user.medical_history_notes = data.medical_history_notes.strip()
+    if data.family_history_icd10 is not None:
+        user.family_history_icd10 = data.family_history_icd10.strip()
+    if data.family_history_notes is not None:
+        user.family_history_notes = data.family_history_notes.strip()
+    if data.epidemiological_history is not None:
+        user.epidemiological_history = data.epidemiological_history.strip()
 
     db.add(AuditLog(actor_user_id=user.id, action="patient.update_profile", resource_type="user", resource_id=str(user.id)))
     db.commit()
@@ -4233,17 +4366,46 @@ def auto_migrate_schema():
         ("waiting_room_called_at", dt_type),
         ("family_member_id", "INTEGER"),
         ("nurse_id", "INTEGER"),
-        ("nurse_shift_id", "INTEGER")
+        ("nurse_shift_id", "INTEGER"),
+        ("encounter_code", "VARCHAR(60)"),
+        ("hospital_code", "VARCHAR(100) DEFAULT '79014 (GLN: 8938500000018)'"),
+        ("patient_category", "VARCHAR(60) DEFAULT 'Bảo hiểm y tế'"),
+        ("payment_source", "VARCHAR(60) DEFAULT 'Quỹ Bảo hiểm y tế'"),
+        ("companion_name", "VARCHAR(150)"),
+        ("companion_id_card", "VARCHAR(30)"),
+        ("companion_phone", "VARCHAR(30)"),
+        ("companion_relationship", "VARCHAR(50)")
     ]
     user_columns = [
         ("date_of_birth", "VARCHAR(30)"),
         ("gender", "VARCHAR(20)"),
         ("identity_card", "VARCHAR(30)"),
         ("address", "VARCHAR(300)"),
+        ("province_code", "VARCHAR(20)"),
+        ("district_code", "VARCHAR(20)"),
+        ("ward_code", "VARCHAR(20)"),
+        ("ethnicity", "VARCHAR(50)"),
         ("blood_type", "VARCHAR(10)"),
         ("allergies", "VARCHAR(300)"),
         ("emergency_contact_name", "VARCHAR(150)"),
-        ("emergency_contact_phone", "VARCHAR(30)")
+        ("emergency_contact_phone", "VARCHAR(30)"),
+        ("companion_name", "VARCHAR(150)"),
+        ("companion_id_card", "VARCHAR(30)"),
+        ("companion_phone", "VARCHAR(30)"),
+        ("companion_relationship", "VARCHAR(50)"),
+        ("has_medical_history", "BOOLEAN DEFAULT FALSE"),
+        ("medical_history_icd10", "VARCHAR(300)"),
+        ("medical_history_notes", "TEXT"),
+        ("family_history_icd10", "VARCHAR(300)"),
+        ("family_history_notes", "TEXT"),
+        ("epidemiological_history", "TEXT")
+    ]
+    clinical_columns = [
+        ("clinical_examination", "TEXT"),
+        ("paraclinical_results", "TEXT"),
+        ("treatment_regimen", "TEXT"),
+        ("clinical_evolution", "TEXT"),
+        ("medical_services_used", "TEXT")
     ]
     with engine.connect() as conn:
         for col_name, col_type in triage_columns:
@@ -4258,6 +4420,15 @@ def auto_migrate_schema():
         for col_name, col_type in user_columns:
             try:
                 conn.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}"))
+                conn.commit()
+            except Exception:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+        for col_name, col_type in clinical_columns:
+            try:
+                conn.execute(text(f"ALTER TABLE clinical_records ADD COLUMN {col_name} {col_type}"))
                 conn.commit()
             except Exception:
                 try:

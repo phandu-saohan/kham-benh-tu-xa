@@ -17,6 +17,8 @@ def sign_webhook_payload(json_bytes: bytes, secret: str = "") -> str:
 def clean_database():
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
+    from app.main import auto_migrate_schema
+    auto_migrate_schema()
     db = SessionLocal()
     # Reset all tables before each test
     db.query(PatientConsent).delete()

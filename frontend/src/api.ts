@@ -74,6 +74,14 @@ export type Appointment = {
   doctor_name?: string
   patient_name?: string
   department_name?: string
+  encounter_code?: string
+  hospital_code?: string
+  patient_category?: string
+  payment_source?: string
+  companion_name?: string
+  companion_id_card?: string
+  companion_phone?: string
+  companion_relationship?: string
 }
 
 export interface NurseItem {
@@ -162,11 +170,41 @@ export type ICD10Item = {
 
 export type ClinicalRecordDetail = {
   appointment_id: number
+  appointment?: {
+    id: number
+    encounter_code?: string
+    hospital_code?: string
+    patient_category?: string
+    payment_source?: string
+    bhyt_code?: string
+    bhyt_rate?: number
+    reason?: string
+    starts_at?: string
+    status?: string
+  }
   patient: {
     id: number
     full_name: string
     phone_number?: string
     external_patient_id?: string
+    date_of_birth?: string
+    gender?: string
+    identity_card?: string
+    ethnicity?: string
+    blood_type?: string
+    address?: string
+    province_code?: string
+    ward_code?: string
+    companion_name?: string
+    companion_id_card?: string
+    companion_phone?: string
+    companion_relationship?: string
+    has_medical_history?: boolean
+    medical_history_icd10?: string
+    medical_history_notes?: string
+    family_history_icd10?: string
+    family_history_notes?: string
+    epidemiological_history?: string
   }
   doctor?: {
     id: number
@@ -182,6 +220,11 @@ export type ClinicalRecordDetail = {
     icd10_name?: string
     clinical_notes?: string
     plan?: string
+    clinical_examination?: string
+    paraclinical_results?: string
+    treatment_regimen?: string
+    clinical_evolution?: string
+    medical_services_used?: string
     is_locked?: boolean
     locked_at?: string
     is_digitally_signed?: boolean
@@ -962,10 +1005,24 @@ export interface PatientProfile {
   gender?: string
   identity_card?: string
   address?: string
+  province_code?: string
+  district_code?: string
+  ward_code?: string
+  ethnicity?: string
   blood_type?: string
   allergies?: string
   emergency_contact_name?: string
   emergency_contact_phone?: string
+  companion_name?: string
+  companion_id_card?: string
+  companion_phone?: string
+  companion_relationship?: string
+  has_medical_history?: boolean
+  medical_history_icd10?: string
+  medical_history_notes?: string
+  family_history_icd10?: string
+  family_history_notes?: string
+  epidemiological_history?: string
   consent_agreed: boolean
   consent_agreed_at?: string
   total_appointments: number

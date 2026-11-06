@@ -27,10 +27,28 @@ class User(Base):
     gender: Mapped[str | None] = mapped_column(String(20), nullable=True)
     identity_card: Mapped[str | None] = mapped_column(String(30), nullable=True)  # Số CCCD 12 số
     address: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    province_code: Mapped[str | None] = mapped_column(String(20), nullable=True)  # Mã Tỉnh/Thành phố
+    district_code: Mapped[str | None] = mapped_column(String(20), nullable=True)  # Mã Quận/Huyện
+    ward_code: Mapped[str | None] = mapped_column(String(20), nullable=True)      # Mã Xã/Phường
+    ethnicity: Mapped[str | None] = mapped_column(String(50), nullable=True)      # Dân tộc người bệnh
     blood_type: Mapped[str | None] = mapped_column(String(10), nullable=True)  # Nhóm máu A+, B+, O+...
     allergies: Mapped[str | None] = mapped_column(String(300), nullable=True)  # Tiền sử dị ứng
     emergency_contact_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
     emergency_contact_phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    
+    # Thông tin người đi cùng / Người giám hộ (cho trẻ em hoặc ca đặc biệt)
+    companion_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    companion_id_card: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    companion_phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    companion_relationship: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    # Tiền sử sức khỏe & Dịch tễ (Quyết định 2682/QĐ-BYT)
+    has_medical_history: Mapped[bool] = mapped_column(Boolean, default=False)
+    medical_history_icd10: Mapped[str | None] = mapped_column(String(300), nullable=True)  # Mã ICD-10 phân cách dấu ;
+    medical_history_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    family_history_icd10: Mapped[str | None] = mapped_column(String(300), nullable=True)   # ICD-10 di truyền / gia đình
+    family_history_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    epidemiological_history: Mapped[str | None] = mapped_column(Text, nullable=True)       # Tiền sử dịch tễ (lao, truyền nhiễm...)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -102,6 +120,18 @@ class Appointment(Base):
     bhyt_discount: Mapped[int] = mapped_column(Integer, default=0) # Số tiền BHYT chi trả
     patient_pay_amount: Mapped[int] = mapped_column(Integer, default=0) # Tiền bệnh nhân đồng chi trả
 
+    # Thông tin chung về lượt khám KCB (Quyết định 2682/QĐ-BYT)
+    encounter_code: Mapped[str | None] = mapped_column(String(60), nullable=True) # Mã lượt khám quản lý
+    hospital_code: Mapped[str | None] = mapped_column(String(100), default="79014 (GLN: 8938500000018)") # Mã cơ sở KCB & GLN
+    patient_category: Mapped[str | None] = mapped_column(String(60), default="Bảo hiểm y tế") # Phân loại đối tượng người bệnh
+    payment_source: Mapped[str | None] = mapped_column(String(60), default="Quỹ Bảo hiểm y tế") # Nguồn chi trả
+
+    # Người đi cùng / Người giám hộ trong lượt khám
+    companion_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    companion_id_card: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    companion_phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    companion_relationship: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
     # Phân luồng & Sàng lọc Điều dưỡng (Triage Desk)
     triage_status: Mapped[str] = mapped_column(String(30), default="pending")  # pending, assessed, dispatched
     triage_level: Mapped[str] = mapped_column(String(20), default="normal")    # normal (Xanh), priority (Vàng), emergency (Đỏ)
@@ -145,6 +175,13 @@ class ClinicalRecord(Base):
     icd10_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     clinical_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     plan: Mapped[str | None] = mapped_column(Text, nullable=True)
+    
+    # Hồ sơ bệnh án chuyên môn theo Luật Khám bệnh, chữa bệnh 2023 & Quyết định 2682/QĐ-BYT
+    clinical_examination: Mapped[str | None] = mapped_column(Text, nullable=True) # Kết quả khám bệnh & thăm khám lâm sàng
+    paraclinical_results: Mapped[str | None] = mapped_column(Text, nullable=True) # Kết quả cận lâm sàng, xét nghiệm & thăm dò chức năng
+    treatment_regimen: Mapped[str | None] = mapped_column(Text, nullable=True)    # Phác đồ điều trị chi tiết
+    clinical_evolution: Mapped[str | None] = mapped_column(Text, nullable=True)   # Quá trình diễn biến bệnh lý & chăm sóc
+    medical_services_used: Mapped[str | None] = mapped_column(Text, nullable=True)# Danh mục thuốc, trang thiết bị y tế / dịch vụ đã dùng
     is_locked: Mapped[bool] = mapped_column(Boolean, default=False)
     locked_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
     

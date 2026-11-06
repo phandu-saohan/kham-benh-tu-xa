@@ -42,6 +42,12 @@ class AppointmentCreate(BaseModel):
     reason: str = Field(min_length=3, max_length=500)
     shift_id: int | None = None
     department_id: int | None = None
+    patient_category: str | None = "Bảo hiểm y tế"
+    payment_source: str | None = "Quỹ Bảo hiểm y tế"
+    companion_name: str | None = None
+    companion_id_card: str | None = None
+    companion_phone: str | None = None
+    companion_relationship: str | None = None
 
 class AppointmentOut(BaseModel):
     id: int
@@ -79,6 +85,14 @@ class AppointmentOut(BaseModel):
     doctor_name: str | None = None
     patient_name: str | None = None
     department_name: str | None = None
+    encounter_code: str | None = None
+    hospital_code: str | None = None
+    patient_category: str | None = None
+    payment_source: str | None = None
+    companion_name: str | None = None
+    companion_id_card: str | None = None
+    companion_phone: str | None = None
+    companion_relationship: str | None = None
     model_config = ConfigDict(from_attributes=True)
 
 class ClinicalRecordIn(BaseModel):
@@ -89,6 +103,11 @@ class ClinicalRecordIn(BaseModel):
     icd10_name: str | None = None
     clinical_notes: str | None = None
     plan: str | None = None
+    clinical_examination: str | None = None
+    paraclinical_results: str | None = None
+    treatment_regimen: str | None = None
+    clinical_evolution: str | None = None
+    medical_services_used: str | None = None
 
 class ClinicalRecordOut(BaseModel):
     id: int
@@ -100,6 +119,11 @@ class ClinicalRecordOut(BaseModel):
     icd10_name: str | None = None
     clinical_notes: str | None = None
     plan: str | None = None
+    clinical_examination: str | None = None
+    paraclinical_results: str | None = None
+    treatment_regimen: str | None = None
+    clinical_evolution: str | None = None
+    medical_services_used: str | None = None
     is_locked: bool = False
     locked_at: datetime | None = None
     status: str = "local_draft"
@@ -542,10 +566,24 @@ class PatientProfileOut(BaseModel):
     gender: str | None = None
     identity_card: str | None = None
     address: str | None = None
+    province_code: str | None = None
+    district_code: str | None = None
+    ward_code: str | None = None
+    ethnicity: str | None = None
     blood_type: str | None = None
     allergies: str | None = None
     emergency_contact_name: str | None = None
     emergency_contact_phone: str | None = None
+    companion_name: str | None = None
+    companion_id_card: str | None = None
+    companion_phone: str | None = None
+    companion_relationship: str | None = None
+    has_medical_history: bool = False
+    medical_history_icd10: str | None = None
+    medical_history_notes: str | None = None
+    family_history_icd10: str | None = None
+    family_history_notes: str | None = None
+    epidemiological_history: str | None = None
     consent_agreed: bool = False
     consent_agreed_at: datetime | None = None
     total_appointments: int = 0
@@ -560,10 +598,24 @@ class PatientProfileUpdateIn(BaseModel):
     gender: str | None = None
     identity_card: str | None = None
     address: str | None = None
+    province_code: str | None = None
+    district_code: str | None = None
+    ward_code: str | None = None
+    ethnicity: str | None = None
     blood_type: str | None = None
     allergies: str | None = None
     emergency_contact_name: str | None = None
     emergency_contact_phone: str | None = None
+    companion_name: str | None = None
+    companion_id_card: str | None = None
+    companion_phone: str | None = None
+    companion_relationship: str | None = None
+    has_medical_history: bool | None = None
+    medical_history_icd10: str | None = None
+    medical_history_notes: str | None = None
+    family_history_icd10: str | None = None
+    family_history_notes: str | None = None
+    epidemiological_history: str | None = None
 
 class PatientHisCheckIn(BaseModel):
     full_name: str = Field(min_length=1)
