@@ -15,15 +15,13 @@ import {
   Plus,
   ChevronRight,
   Sparkles,
-  Phone,
   Download,
   CheckCircle2,
   Camera,
   X,
   Droplets,
   Heart,
-  Wind,
-  ShieldAlert
+  Wind
 } from 'lucide-react'
 import { Appointment, RPMVitalItem, recordRPMVitals } from './api'
 import { cameraPpgService, PPGMeasurementResult, PPGFrameData } from './cameraPpgService'
@@ -353,23 +351,7 @@ export function PatientDashboard({
           </div>
         </section>
 
-        {/* 2. EMERGENCY & 24/7 MEDICAL HOTLINE BANNER */}
-        <section className="ps-emergency-banner">
-          <div className="ps-emergency-left">
-            <div className="ps-emergency-icon">
-              <Phone size={20} />
-            </div>
-            <div className="ps-emergency-text">
-              <h4>Đường dây nóng Cấp cứu & Tiếp đón Y tế Khẩn cấp 24/7</h4>
-              <p>Tổng đài tư vấn y tế viện phí: <b>1900 8866</b> • Cấp cứu ngoại viện: <b>115</b> (Miễn phí 100%)</p>
-            </div>
-          </div>
-          <a href="tel:115" className="ps-emergency-btn">
-            <ShieldAlert size={16} /> Cấp Cứu 115
-          </a>
-        </section>
-
-        {/* 3. UPCOMING / ACTIVE CONSULTATION SPOTLIGHT CARD */}
+        {/* 2. UPCOMING / ACTIVE CONSULTATION SPOTLIGHT CARD */}
         {nextAppt ? (
           <section className={`ps-spotlight-card ${nextAppt.status}`}>
             <div className="ps-spotlight-header">

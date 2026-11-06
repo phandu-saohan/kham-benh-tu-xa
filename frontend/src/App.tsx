@@ -964,14 +964,6 @@ export default function App() {
             </button>
           ))}
         </nav>
-
-        <div className="sidebar-help-widget">
-          <h5>
-            <HeartPulse size={14} color="#059669" /> Hỗ trợ y tế 24/7
-          </h5>
-          <p>Tổng đài tư vấn sức khỏe từ xa & cấp cứu:</p>
-          <a href="tel:19006868">📞 1900 6868</a>
-        </div>
       </aside>
 
       {/* Main Content */}
