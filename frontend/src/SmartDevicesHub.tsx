@@ -1888,153 +1888,85 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
               return (
 
                 <div key={device.id} className="compact-device-card">
-
                   {/* Top Header: Icon, Tên, Hãng, Pin & Xóa */}
-
                   <div className="card-compact-head">
-
                     <div className="compact-dev-identity">
-
                       <div
-
                         className="compact-avatar-box"
-
                         style={{ background: `${device.accentColor}18`, color: device.accentColor }}
-
                       >
-
-                        <Icon size={20} />
-
+                        <Icon size={18} />
                       </div>
-
                       <div className="compact-title-wrap">
-
                         <div className="compact-title-line">
-
-                          <h4 className="compact-device-name">{device.name}</h4>
-
+                          <h4 className="compact-device-name" title={device.name}>{device.name}</h4>
                           <span className="compact-connected-tag">
-
                             <span className="status-dot connected" /> Đã kết nối
-
                           </span>
-
                         </div>
-
                         <div className="compact-sub-line">
-
                           <span>{device.brand}</span>
-
                           {device.regulatoryApproval && (
-
-                            <span className="compact-fda-tag">{device.regulatoryApproval}</span>
-
+                            <span className="compact-fda-tag" title={device.regulatoryApproval}>
+                              {device.regulatoryApproval.split('/')[0].trim()}
+                            </span>
                           )}
-
                         </div>
-
                       </div>
-
                     </div>
-
-                    <button
-
-                      className="btn-unpair-compact"
-
-                      onClick={(e) => handleDisconnectDevice(device, e)}
-
-                      title="Ngắt kết nối thiết bị này"
-
-                    >
-
-                      <Trash2 size={14} />
-
-                    </button>
-
+                    <div className="compact-top-actions">
+                      {device.battery !== undefined && (
+                        <span className="compact-battery-pill" title={`Mức pin: ${device.battery}%`}>
+                          <Battery size={13} color={device.battery > 20 ? '#059669' : '#f59e0b'} />
+                          <span>{device.battery}%</span>
+                        </span>
+                      )}
+                      <button
+                        className="btn-unpair-compact"
+                        onClick={(e) => handleDisconnectDevice(device, e)}
+                        title="Ngắt kết nối thiết bị này"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Chỉ số thiết bị đo lường (Compact Chips) */}
-
+                  {/* Chỉ số thiết bị đo lường (Tối giản 1 dòng gọn gàng) */}
                   <div className="compact-metrics-section">
-
-                    <span className="compact-metrics-label">Chỉ số đo:</span>
-
+                    <span className="compact-metrics-label">Chỉ số:</span>
                     <div className="compact-chips-list">
-
                       {device.measuredMetrics.map((m, idx) => (
-
-                        <span key={idx} className="compact-chip" title={`${m.name}: Chuẩn ${m.normalRange}`}>
-
+                        <span key={idx} className="compact-chip" title={`${m.name} • Chuẩn: ${m.normalRange}`}>
                           <b className="chip-code">{m.code}</b>
-
-                          <span className="chip-name">{m.name.split('(')[0].trim()}</span>
-
-                          <span className="chip-unit">[{m.unit}]</span>
-
+                          <span className="chip-unit">{m.unit}</span>
                         </span>
-
                       ))}
-
                     </div>
-
                   </div>
 
                   {/* Hàng số đo & nút thao tác đồng bộ */}
-
                   <div className="compact-reading-action-bar">
-
                     <div className="compact-reading-info">
-
-                      <span className="compact-reading-title">Số đo gần nhất:</span>
-
+                      <span className="compact-reading-title">Gần nhất:</span>
                       <strong className="compact-reading-val">{device.lastReading || 'Chưa ghi nhận'}</strong>
-
-                      <span className="compact-sync-time">• {device.lastSync || 'Chưa đồng bộ'}</span>
-
-                    </div>
-
-                    <div className="compact-action-group">
-
-                      {device.battery !== undefined && (
-
-                        <span className="compact-battery-pill">
-
-                          <Battery size={12} /> {device.battery}%
-
-                        </span>
-
+                      {device.lastSync && (
+                        <span className="compact-sync-time">• {device.lastSync}</span>
                       )}
-
-                      <button
-
-                        className="btn-sync-compact"
-
-                        onClick={() => handleMeasureDevice(device)}
-
-                        disabled={isConnecting}
-
-                        title="Đồng bộ chỉ số đo vào Bệnh án EMR"
-
-                      >
-
-                        {isConnecting ? (
-
-                          <RefreshCw size={13} className="spin" />
-
-                        ) : (
-
-                          <Zap size={13} />
-
-                        )}
-
-                        <span>{isConnecting ? 'Đang đọc...' : 'Đồng bộ'}</span>
-
-                      </button>
-
                     </div>
-
+                    <button
+                      className="btn-sync-compact"
+                      onClick={() => handleMeasureDevice(device)}
+                      disabled={isConnecting}
+                      title="Đồng bộ chỉ số đo vào Bệnh án EMR"
+                    >
+                      {isConnecting ? (
+                        <RefreshCw size={13} className="spin" />
+                      ) : (
+                        <Zap size={13} />
+                      )}
+                      <span>{isConnecting ? 'Đang đọc...' : 'Đồng bộ'}</span>
+                    </button>
                   </div>
-
                 </div>
 
               )
