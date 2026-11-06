@@ -39,8 +39,7 @@ import {
   readGlucoseBLE,
   readSpO2BLE,
   readHeartRateBLE,
-  readThermometerBLE,
-  simulateDeviceReading
+  readThermometerBLE
 } from './bluetoothService'
 import { cameraPpgService, PPGFrameData, PPGMeasurementResult } from './cameraPpgService'
 
@@ -349,10 +348,10 @@ export const RPMDeviceCenter: React.FC<RPMDeviceCenterProps> = ({
             measuredAt: res.measuredAt.toISOString()
           }
         } else {
-          result = await simulateDeviceReading(bleDeviceType)
+          throw new Error('Loại thiết bị này chưa hỗ trợ đọc trực tiếp qua Web Bluetooth. Vui lòng sử dụng tính năng Nhập số đo thủ công.')
         }
       } else {
-        result = await simulateDeviceReading(bleDeviceType)
+        throw new Error('Trình duyệt không hỗ trợ Web Bluetooth API. Hãy sử dụng Google Chrome trên Android/Windows/macOS hoặc Bluefy trên iOS.')
       }
 
       setBleLastReading(result)

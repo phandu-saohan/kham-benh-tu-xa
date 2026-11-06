@@ -105,7 +105,7 @@ import { Pagination } from './Pagination'
 
 import { PatientIdentificationModal } from './PatientIdentificationModal'
 
-import { readBloodPressureBLE, simulateDeviceReading, isWebBluetoothSupported } from './bluetoothService'
+import { readBloodPressureBLE, isWebBluetoothSupported } from './bluetoothService'
 
 interface NurseDashboardProps {
 
@@ -412,17 +412,10 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
           }
 
         } catch (bleErr: any) {
-
-          console.warn('Bluetooth BLE direct scan skipped or unavailable, falling back:', bleErr)
-
-          reading = await simulateDeviceReading('blood_pressure')
-
+          throw bleErr
         }
-
       } else {
-
-        reading = await simulateDeviceReading('blood_pressure')
-
+        throw new Error('Trình duyệt không hỗ trợ Web Bluetooth API. Vui lòng mở Chrome trên Android/Windows/macOS hoặc Bluefy trên iOS.')
       }
 
       if (reading.systolic && reading.diastolic) {
