@@ -45,6 +45,7 @@ import { SmartDevicesHub } from './SmartDevicesHub'
 import { Pagination } from './Pagination'
 import { HeaderSmartSearch } from './HeaderSmartSearch'
 import './patient-appointments.css'
+import { MedicalRecordModal } from './MedicalRecordModal'
 
 const money = (n: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n)
@@ -2463,6 +2464,7 @@ function AppointmentList({
   const [pageSize, setPageSize] = useState(5)
   const [tabFilter, setTabFilter] = useState<'all' | 'waiting' | 'completed' | 'scheduled' | 'cancelled'>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [viewingRecordApptId, setViewingRecordApptId] = useState<number | null>(null)
 
   // Đếm số lượng theo từng nhóm trạng thái
   const counts = useMemo(() => {
@@ -2772,17 +2774,28 @@ function AppointmentList({
                       </button>
                     )}
 
-                    {/* Nút Tải PDF Bệnh án & Đơn thuốc */}
+                    {/* Nút Xem Bệnh án đã khám & Tải PDF */}
                     {a.status === 'completed' && (
-                      <button
-                        type="button"
-                        className="btn-clinical-pdf"
-                        onClick={() => onDownloadPdf(a.id)}
-                        title="Tải Phiếu khám & Đơn thuốc PDF có ký số"
-                      >
-                        <FileDown size={16} />
-                        <span>Tải Bệnh án PDF (Ký số)</span>
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          className="btn-clinical-record"
+                          onClick={() => setViewingRecordApptId(a.id)}
+                          title="Xem lại chi tiết hồ sơ bệnh án điện tử đã khám"
+                        >
+                          <Eye size={16} />
+                          <span>Xem Bệnh án đã khám</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-clinical-pdf"
+                          onClick={() => onDownloadPdf(a.id)}
+                          title="Tải Phiếu khám & Đơn thuốc PDF có ký số"
+                        >
+                          <FileDown size={15} />
+                          <span>Tải PDF (Ký số)</span>
+                        </button>
+                      </>
                     )}
 
                     {/* Nút Thanh toán VietQR */}
@@ -2827,6 +2840,14 @@ function AppointmentList({
         onPageSizeChange={setPageSize}
         pageSizeOptions={[5, 10, 20]}
       />
+
+      {/* Modal Xem lại Bệnh án điện tử đã khám */}
+      {viewingRecordApptId && (
+        <MedicalRecordModal
+          appointmentId={viewingRecordApptId}
+          onClose={() => setViewingRecordApptId(null)}
+        />
+      )}
     </div>
   )
 }
