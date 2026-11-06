@@ -218,11 +218,11 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
       aiResult.suggested_questions.forEach((q, idx) => {
         const ans = answers[idx]
         if (ans && ans.trim()) {
-          qList.push(`- ${q} -> Trả lời: ${ans.trim()}`)
+          qList.push(`- ${q}: ${ans.trim()}`)
         }
       })
       if (qList.length > 0) {
-        text += `\n[Làm rõ theo AI MedGemma]:\n${qList.join('\n')}`
+        text += `\n${qList.join('\n')}`
       }
     }
     setCompiledSummary(text)
@@ -1180,7 +1180,7 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
                   </span>
                 </div>
                 <div className="summary-row">
-                  <span className="summary-row-label">Lý do & Triệu chứng AI:</span>
+                  <span className="summary-row-label">Lý do & Triệu chứng:</span>
                   <span className="summary-row-value" style={{ maxWidth: '60%', textAlign: 'right', fontSize: '12px' }}>
                     {compiledSummary || symptoms}
                   </span>
