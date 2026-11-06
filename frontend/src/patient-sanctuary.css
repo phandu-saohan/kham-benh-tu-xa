@@ -33,11 +33,11 @@
   --ps-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(14, 116, 144, 0.04);
   --ps-shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 10px 20px -3px rgba(14, 116, 144, 0.08);
   --ps-shadow-lg: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.06);
-  --ps-radius-sm: 8px;
-  --ps-radius-md: 12px;
-  --ps-radius-lg: 16px;
-  --ps-radius-xl: 24px;
-  --ps-radius-pill: 9999px;
+  --ps-radius-sm: 4px;
+  --ps-radius-md: 6px;
+  --ps-radius-lg: 8px;
+  --ps-radius-xl: 10px;
+  --ps-radius-pill: 6px;
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   color: var(--ps-navy);
   box-sizing: border-box;
@@ -599,7 +599,7 @@
 .ps-vital-icon-wrap {
   width: 36px;
   height: 36px;
-  border-radius: 10px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1651,7 +1651,7 @@
     font-size: 11px !important;
     font-weight: 600 !important;
     padding: 6px 10px !important;
-    border-radius: 12px !important;
+    border-radius: 6px !important;
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
     min-width: 56px !important;
   }
