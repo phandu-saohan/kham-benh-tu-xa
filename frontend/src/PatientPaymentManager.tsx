@@ -26,6 +26,7 @@ import {
   requestAppointmentRefund,
   approveAppointmentRefund
 } from './api'
+import { formatDateTimeVN, formatDateVN } from './dateFormatters'
 
 interface PatientPaymentManagerProps {
   appointments: Appointment[]
@@ -54,16 +55,7 @@ function money(amount?: number | null): string {
 }
 
 function formatDate(isoStr?: string | null): string {
-  if (!isoStr) return '—'
-  const d = new Date(isoStr)
-  if (isNaN(d.getTime())) return isoStr
-  return d.toLocaleString('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  })
+  return formatDateTimeVN(isoStr, '—')
 }
 
 export function PatientPaymentManager({

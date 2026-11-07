@@ -42,6 +42,7 @@ import {
   syncAppointmentToCabinet
 } from './api'
 import './prescription-cabinet.css'
+import { formatDateVN, formatDateTimeVN } from './dateFormatters'
 
 interface PatientPrescriptionCabinetProps {
   onViewRecord?: (appointmentId: number) => void
@@ -453,12 +454,7 @@ export const PatientPrescriptionCabinet: React.FC<PatientPrescriptionCabinetProp
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>
-                        {new Date(p.starts_at).toLocaleDateString('vi-VN', {
-                          weekday: 'long',
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric'
-                        })}
+                        {formatDateVN(p.starts_at)}
                       </span>
                       <span style={{ fontSize: '13px', color: '#64748b' }}>
                         · {new Date(p.starts_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
@@ -648,7 +644,7 @@ export const PatientPrescriptionCabinet: React.FC<PatientPrescriptionCabinetProp
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Clock size={16} color="#0284c7" />
-                Lịch nhắc uống thuốc hôm nay ({new Date().toLocaleDateString('vi-VN')})
+                Lịch nhắc uống thuốc hôm nay ({formatDateVN(new Date())})
               </div>
               <span style={{ fontSize: '12px', color: '#64748b' }}>
                 Đã uống: <strong>{takenTodayCount}</strong> / {activeCabinetCount} liều
@@ -905,14 +901,7 @@ export const PatientPrescriptionCabinet: React.FC<PatientPrescriptionCabinetProp
                   <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', justifyContent: 'space-between' }}>
                     <span>Lần uống gần nhất:</span>
                     <span style={{ fontWeight: 600, color: isTakenToday ? '#15803d' : '#64748b' }}>
-                      {item.last_taken_at
-                        ? new Date(item.last_taken_at).toLocaleString('vi-VN', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            day: '2-digit',
-                            month: '2-digit'
-                          })
-                        : 'Chưa có ghi nhận'}
+                      {item.last_taken_at ? formatDateTimeVN(item.last_taken_at) : "Chưa có ghi nhận"}
                     </span>
                   </div>
 

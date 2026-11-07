@@ -50,12 +50,12 @@ import { BookingFlowModal } from './BookingFlowModal'
 import { FamilyMemberModal } from './FamilyMemberModal'
 import { PatientPaymentManager } from './PatientPaymentManager'
 import { PatientPrescriptionCabinet } from './PatientPrescriptionCabinet'
+import { formatDateVN, formatDateTimeVN } from './dateFormatters'
 
 const money = (n: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n)
 
-const dateText = (s: string) =>
-  new Date(s).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' })
+const dateText = (s: string) => formatDateTimeVN(s)
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)

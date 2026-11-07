@@ -47,6 +47,7 @@ import {
   request
 } from './api'
 import './booking-flow.css'
+import { formatDateVN, formatDateTimeVN } from './dateFormatters'
 
 interface BookingFlowModalProps {
   user: User
@@ -358,7 +359,8 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
     if (targetType === 'self') {
       const activeName = profile?.full_name || user.full_name
       const activeGender = profile?.gender || user.gender || 'Nam'
-      const activeDob = profile?.date_of_birth || user.date_of_birth || 'Chưa cập nhật'
+      const rawDob = profile?.date_of_birth || user.date_of_birth
+      const activeDob = rawDob ? formatDateVN(rawDob) : 'Chưa cập nhật'
       const activeIdCard = profile?.identity_card || user.identity_card || user.national_id || 'Chưa cập nhật'
       const activeBhyt = profile?.bhyt_code || user.bhyt_code || 'Chưa liên kết'
       const activePhone = profile?.phone_number || user.phone_number || 'Chưa cập nhật'
@@ -396,7 +398,7 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
         name: member.full_name,
         relationship: member.relationship,
         gender: member.gender,
-        dob: member.date_of_birth,
+        dob: member.date_of_birth ? formatDateVN(member.date_of_birth) : 'Chưa cập nhật',
         idCard: member.national_id || 'Chưa cập nhật',
         bhyt: member.bhyt_code || 'Chưa cập nhật',
         phone: member.phone_number || user.phone_number || '',
@@ -1013,7 +1015,7 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
                             </span>
                           </div>
                           <div style={{ fontSize: '11px', color: '#64748b' }}>
-                            {m.gender} · Sinh: {m.date_of_birth}
+                            {m.gender} · Sinh: {m.date_of_birth ? formatDateVN(m.date_of_birth) : 'Chưa cập nhật'}
                           </div>
                           <div style={{ fontSize: '11px', color: '#475569' }}>
                             BHYT: {m.bhyt_code || 'Không có'}
@@ -1548,13 +1550,7 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
                 <div className="summary-row">
                   <span className="summary-row-label">Thời gian khám:</span>
                   <span className="summary-row-value">
-                    {new Date(startsAt).toLocaleString('vi-VN', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric'
-                    })}
+                    {formatDateTimeVN(startsAt)}
                   </span>
                 </div>
                 <div className="summary-row">

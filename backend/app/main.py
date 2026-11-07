@@ -73,6 +73,9 @@ from app.adapters.pacs.dicomweb import DICOMwebPACSAdapter
 from app.paraclinical import get_patient_lab_results, get_patient_pacs_studies
 from app.icd10 import search_icd10
 from app.vietqr import generate_vietqr_url
+from app.date_utils import (
+    to_qd130_timestamp, to_qd130_date, format_date_vn, format_datetime_vn, parse_qd130_timestamp
+)
 from app.smartca import sign_medical_document, verify_medical_signature
 from app.national_prescription import sync_to_national_prescription_system
 from app.pdf_generator import generate_medical_record_pdf
@@ -4252,7 +4255,8 @@ def export_xml_4210(
     doc = db.get(User, appt.doctor_id)
     record = db.query(ClinicalRecord).filter_by(appointment_id=appointment_id).first()
     
-    today_str = datetime.now().strftime("%Y%m%d%H%M")
+    today_str = to_qd130_timestamp(appt.starts_at or datetime.now())
+    ngay_sinh_str = to_qd130_date(getattr(pat, 'date_of_birth', '19850101') or '19850101')
     
     # Bảng 1: Tổng hợp chi phí KCB (XML1 - TongHop)
     xml1 = f"""<?xml version="1.0" encoding="utf-8"?>
@@ -4261,7 +4265,7 @@ def export_xml_4210(
   <STT>1</STT>
   <MA_BN>{pat.id if pat else 1:06d}</MA_BN>
   <HO_TEN>{pat.full_name if pat else "Bệnh nhân"}</HO_TEN>
-  <NGAY_SINH>{getattr(pat, 'date_of_birth', '19850101') or '19850101'}</NGAY_SINH>
+  <NGAY_SINH>{ngay_sinh_str}</NGAY_SINH>
   <GIOI_TINH>1</GIOI_TINH>
   <DIA_CHI>{getattr(pat, 'address', 'TP. Hồ Chí Minh') or 'TP. Hồ Chí Minh'}</DIA_CHI>
   <MA_THE>{claim.ma_the_bhyt}</MA_THE>
