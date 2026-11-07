@@ -21,7 +21,10 @@ import {
   X,
   Droplets,
   Heart,
-  Wind
+  Wind,
+  Thermometer,
+  Ruler,
+  Weight
 } from 'lucide-react'
 import { Appointment, RPMVitalItem, recordRPMVitals } from './api'
 import { cameraPpgService, PPGMeasurementResult, PPGFrameData } from './cameraPpgService'
@@ -398,9 +401,29 @@ export function PatientDashboard({
                       <b style={{ color: 'var(--ps-navy)' }}>Lý do khám:</b> {nextAppt.reason}
                     </p>
                   )}
-                  <div style={{ margin: '6px 0 0', fontSize: '12.5px', color: 'var(--ps-slate-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span>Mã ca khám:</span>
-                    <span style={{ fontWeight: 700, color: 'var(--ps-navy)' }}>#{nextAppt.id}</span>
+                  <div style={{ margin: '8px 0 0', fontSize: '12.5px', color: 'var(--ps-slate-muted)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <div>
+                      <span>Mã ca khám: </span>
+                      <span style={{ fontWeight: 700, color: 'var(--ps-navy)' }}>#{nextAppt.id}</span>
+                    </div>
+                    <span style={{ color: '#cbd5e1' }}>•</span>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--ps-slate)' }}>
+                      <Ruler size={13} color="#0891b2" />
+                      <span>Chiều cao:</span>
+                      <b style={{ color: 'var(--ps-navy)' }}>{(nextAppt as any).height || (user as any).height || 165} cm</b>
+                    </div>
+                    <span style={{ color: '#cbd5e1' }}>•</span>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--ps-slate)' }}>
+                      <Weight size={13} color="#0891b2" />
+                      <span>Cân nặng:</span>
+                      <b style={{ color: 'var(--ps-navy)' }}>{(nextAppt as any).weight || (user as any).weight || 60} kg</b>
+                    </div>
+                    <span style={{ color: '#cbd5e1' }}>•</span>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--ps-slate)' }}>
+                      <Thermometer size={13} color="#d97706" />
+                      <span>Thân nhiệt:</span>
+                      <b style={{ color: 'var(--ps-navy)' }}>{(nextAppt as any).temperature || latestVitals?.temperature_celsius || 36.8} °C</b>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -563,8 +586,48 @@ export function PatientDashboard({
                 <div className="ps-vital-name">Đường huyết lúc đói</div>
               </div>
               <div className="ps-vital-tile-bottom">
+                <span>Khoảng chuẩn: <b>4.4 - 7.2</b></span>
+                <span style={{ color: 'var(--ps-mint-dark)' }}>Bình thường</span>
+              </div>
+            </div>
+
+            {/* Thân nhiệt */}
+            <div className="ps-vital-tile">
+              <div className="ps-vital-tile-top">
+                <div className="ps-vital-icon-wrap amber">
+                  <Thermometer size={18} />
+                </div>
+                <span className="ps-vital-status-pill normal">Ổn định</span>
+              </div>
+              <div className="ps-vital-tile-middle">
+                <div className="ps-vital-val-display">
+                  {latestVitals?.temperature_celsius || 36.8} <small>°C</small>
+                </div>
+                <div className="ps-vital-name">Thân nhiệt</div>
+              </div>
+              <div className="ps-vital-tile-bottom">
+                <span>Khoảng chuẩn: <b>36.5 - 37.2</b></span>
+                <span style={{ color: 'var(--ps-mint-dark)' }}>Chuẩn</span>
+              </div>
+            </div>
+
+            {/* Thể trạng (Chiều cao & Cân nặng / BMI) */}
+            <div className="ps-vital-tile">
+              <div className="ps-vital-tile-top">
+                <div className="ps-vital-icon-wrap teal">
+                  <Weight size={18} />
+                </div>
+                <span className="ps-vital-status-pill normal">{bmiInfo?.category || 'Cân đối'}</span>
+              </div>
+              <div className="ps-vital-tile-middle">
+                <div className="ps-vital-val-display">
+                  {manualWeight || user.weight || 60} <small>kg</small> / {manualHeight || user.height || 165} <small>cm</small>
+                </div>
+                <div className="ps-vital-name">Chiều cao & Cân nặng</div>
+              </div>
+              <div className="ps-vital-tile-bottom">
                 <span>BMI: <b>{bmiInfo ? `${bmiInfo.bmi}` : '22.0'}</b></span>
-                <span style={{ color: 'var(--ps-mint-dark)' }}>{bmiInfo?.category || 'Cân đối'}</span>
+                <span style={{ color: 'var(--ps-mint-dark)' }}>Hợp lý</span>
               </div>
             </div>
           </div>

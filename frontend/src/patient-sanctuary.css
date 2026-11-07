@@ -624,8 +624,8 @@
 
 .ps-vitals-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  gap: 14px;
 }
 
 .ps-vital-tile {
