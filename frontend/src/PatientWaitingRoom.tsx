@@ -68,7 +68,7 @@ export function PatientWaitingRoom({
   const [isLeaving, setIsLeaving] = useState(false)
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'vitals' | 'documents' | 'chat' | 'devices'>('vitals')
+  const [activeTab, setActiveTab] = useState<'vitals' | 'documents' | 'chat'>('vitals')
 
   // --- 1. CHỈ SỐ SINH HIỆU (VITALS) STATES ---
   const [isSyncingVitals, setIsSyncingVitals] = useState(false)
@@ -625,6 +625,58 @@ export function PatientWaitingRoom({
                 </span>
               )}
             </div>
+
+            {/* Nút Kiểm tra Camera & Micro đặt dưới Thời gian chờ ước tính */}
+            <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                className={isCameraTesting ? 'ps-btn-secondary' : 'ps-btn-primary'}
+                onClick={toggleCameraTest}
+                style={{
+                  borderRadius: '6px',
+                  padding: '7px 16px',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  cursor: 'pointer',
+                  width: '100%',
+                  justifyContent: 'center',
+                  boxShadow: isCameraTesting ? 'none' : '0 2px 6px rgba(14, 116, 144, 0.25)'
+                }}
+              >
+                <Camera size={15} />
+                <span>{isCameraTesting ? 'Tắt xem thử Camera & Mic' : 'Kiểm Tra Camera & Micro'}</span>
+              </button>
+
+              {/* Khung soi gương camera và đo âm lượng micro hiển thị trực tiếp khi bật */}
+              {isCameraTesting && (
+                <div style={{ width: '100%', marginTop: '4px' }}>
+                  <div className="ps-camera-preview-container" style={{ borderRadius: '6px', maxHeight: '160px' }}>
+                    <video
+                      ref={videoPreviewRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="ps-camera-video"
+                    />
+                    <div className="ps-audio-meter-overlay" style={{ borderRadius: '4px', padding: '5px 10px', fontSize: '11px' }}>
+                      <Mic size={13} color="var(--ps-mint)" />
+                      <span>Micro:</span>
+                      <div className="ps-meter-track" style={{ borderRadius: '3px' }}>
+                        <div className="ps-meter-fill" style={{ width: `${audioLevel}%`, borderRadius: '3px' }} />
+                      </div>
+                      <span>{audioLevel}%</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b', marginTop: '6px', padding: '0 2px' }}>
+                    <span>✓ Đã mở Camera</span>
+                    <span>Nói thử để kiểm tra mic</span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Doctor Info & Triage Pipeline */}
@@ -766,13 +818,7 @@ export function PatientWaitingRoom({
             )}
           </button>
 
-          <button
-            className={`ps-waiting-tab-btn ${activeTab === 'devices' ? 'active' : ''}`}
-            onClick={() => setActiveTab('devices')}
-          >
-            <Camera size={16} />
-            <span>Kiểm Tra Camera & Micro</span>
-          </button>
+
         </div>
 
         {/* =========================================================================
@@ -1461,86 +1507,6 @@ export function PatientWaitingRoom({
                 <Send size={15} /> Gửi
               </button>
             </form>
-          </div>
-        )}
-
-        {/* =========================================================================
-            TAB 4: KIỂM TRA CAMERA & MICRO
-           ========================================================================= */}
-        {activeTab === 'devices' && (
-          <div className="ps-waiting-card">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--ps-navy)' }}>
-                  Kiểm Tra Camera & Micro Trước Giờ Khám
-                </h4>
-                <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: 'var(--ps-slate-muted)' }}>
-                  Thử soi gương camera và nói thử để đảm bảo âm thanh và hình ảnh rõ nét trước khi Bác sĩ kết nối
-                </p>
-              </div>
-
-              <button
-                type="button"
-                className={isCameraTesting ? 'ps-btn-secondary' : 'ps-btn-primary'}
-                onClick={toggleCameraTest}
-                style={{ borderRadius: '6px', padding: '8px 16px', fontSize: '13px' }}
-              >
-                <Camera size={14} />
-                {isCameraTesting ? 'Tắt xem trước' : 'Bật xem thử Camera & Mic'}
-              </button>
-            </div>
-
-            {isCameraTesting ? (
-              <div className="ps-camera-preview-container" style={{ borderRadius: '8px' }}>
-                <video
-                  ref={videoPreviewRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="ps-camera-video"
-                />
-                <div className="ps-audio-meter-overlay" style={{ borderRadius: '6px' }}>
-                  <Mic size={14} color="var(--ps-mint)" />
-                  <span>Âm lượng Micro:</span>
-                  <div className="ps-meter-track" style={{ borderRadius: '4px' }}>
-                    <div className="ps-meter-fill" style={{ width: `${audioLevel}%`, borderRadius: '4px' }} />
-                  </div>
-                  <span>{audioLevel}%</span>
-                </div>
-              </div>
-            ) : (
-              <div style={{ textAlign: 'center', padding: '36px 20px', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
-                <Camera size={36} color="#94a3b8" style={{ margin: '0 auto 10px' }} />
-                <h5 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--ps-navy)' }}>
-                  Camera và Micro đang ở chế độ chờ
-                </h5>
-                <p style={{ margin: '6px 0 16px', fontSize: '13px', color: 'var(--ps-slate-muted)' }}>
-                  Nhấn nút "Bật xem thử" ở trên để kiểm tra góc quay khuôn mặt và thử micro trước khi Bác sĩ gọi chuông.
-                </p>
-              </div>
-            )}
-
-            {/* Preparation Checklist */}
-            <div style={{ marginTop: '10px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: 700, color: 'var(--ps-navy)', marginBottom: '10px' }}>
-                <Sparkles size={16} color="var(--ps-warning)" />
-                <span>Hướng dẫn chuẩn bị để buổi khám đạt kết quả tốt nhất:</span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', fontSize: '13px', color: 'var(--ps-slate)' }}>
-                  <CheckCircle2 size={16} color="var(--ps-mint)" style={{ flexShrink: 0, marginTop: '2px' }} />
-                  <span><b>Ngồi nơi yên tĩnh:</b> Tránh phòng có nhiều tiếng ồn hoặc gió thổi trực tiếp vào micro.</span>
-                </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', fontSize: '13px', color: 'var(--ps-slate)' }}>
-                  <CheckCircle2 size={16} color="var(--ps-mint)" style={{ flexShrink: 0, marginTop: '2px' }} />
-                  <span><b>Đủ ánh sáng:</b> Nguồn sáng chiếu trực diện vào mặt, không ngồi ngược sáng với cửa sổ.</span>
-                </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', fontSize: '13px', color: 'var(--ps-mint)' }}>
-                  <CheckCircle2 size={16} color="var(--ps-mint)" style={{ flexShrink: 0, marginTop: '2px' }} />
-                  <span><b>Hít thở sâu & Thư giãn:</b> Giúp ổn định huyết áp và nhịp tim để bác sĩ đánh giá chính xác.</span>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
