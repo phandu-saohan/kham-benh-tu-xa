@@ -361,7 +361,7 @@ export function PatientDashboard({
             <div className="ps-spotlight-header">
               <span className={`ps-spotlight-tag ${['in_progress', 'waiting'].includes(nextAppt.status) ? 'ready' : 'scheduled'}`}>
                 {nextAppt.status === 'in_progress' ? '🟢 Bác sĩ đã mở phòng khám' :
-                 nextAppt.status === 'waiting' ? '🟡 Đang trong hàng đợi khám' :
+                 nextAppt.status === 'waiting' ? '🟡 Đang ở phòng chờ (Điều dưỡng điều phối)' :
                  nextAppt.status === 'confirmed' ? '🔵 Đã xác nhận lịch hẹn' : '🟠 Chờ thanh toán viện phí'}
               </span>
               <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ps-slate-muted)' }}>
@@ -405,8 +405,30 @@ export function PatientDashboard({
                 <button
                   className="ps-btn-join-call"
                   onClick={() => onJoin(nextAppt)}
+                  style={{
+                    background: nextAppt.status === 'in_progress'
+                      ? 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)'
+                      : nextAppt.status === 'waiting'
+                      ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'
+                      : 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
                 >
-                  <Video size={18} /> Vào phòng khám
+                  {nextAppt.status === 'in_progress' ? (
+                    <>
+                      <Video size={18} /> Vào khám với Bác sĩ ngay
+                    </>
+                  ) : nextAppt.status === 'waiting' ? (
+                    <>
+                      <Clock size={18} /> Đang ở phòng chờ (Xem điều dưỡng điều phối)
+                    </>
+                  ) : (
+                    <>
+                      <Activity size={18} /> Vào phòng chờ để điều dưỡng điều phối
+                    </>
+                  )}
                 </button>
                 {nextAppt.status === 'scheduled' && (
                   <button className="ps-btn-pay-qr" onClick={() => onPay(nextAppt)}>

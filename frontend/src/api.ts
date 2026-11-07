@@ -1840,6 +1840,14 @@ export async function getWaitingRoomStatus(appointmentId: number): Promise<Waiti
   return request<WaitingRoomStatus>(`/api/v1/appointments/${appointmentId}/waiting-status`)
 }
 
+export async function enterWaitingRoom(appointmentId: number): Promise<{ success: boolean; appointment_id: number; status: string; triage_status: string; message: string }> {
+  return request(`/api/v1/appointments/${appointmentId}/enter-waiting-room`, { method: 'POST' })
+}
+
+export async function leaveWaitingRoom(appointmentId: number): Promise<{ success: boolean; appointment_id: number; status: string; message: string }> {
+  return request(`/api/v1/appointments/${appointmentId}/leave-waiting-room`, { method: 'POST' })
+}
+
 export async function sendToWaitingRoom(appointmentId: number): Promise<{ success: boolean; message: string }> {
   return request(`/api/v1/triage/${appointmentId}/send-to-waiting-room`, { method: 'POST' })
 }

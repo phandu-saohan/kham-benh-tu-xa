@@ -33,7 +33,7 @@ interface TriageDeskProps {
 export const TriageDesk: React.FC<TriageDeskProps> = ({ onSelectPatientForDoctor }) => {
   const [queue, setQueue] = useState<TriageItem[]>([])
   const [loading, setLoading] = useState(false)
-  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'dispatched' | 'urgent'>('all')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'waiting_room' | 'dispatched' | 'urgent'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [triagePage, setTriagePage] = useState(1)
   const [triagePageSize, setTriagePageSize] = useState(6)
@@ -137,6 +137,7 @@ export const TriageDesk: React.FC<TriageDeskProps> = ({ onSelectPatientForDoctor
     if (!matchesSearch) return false
 
     if (filterStatus === 'pending') return item.triage_status === 'pending'
+    if (filterStatus === 'waiting_room') return item.triage_status === 'waiting_room' || item.status === 'waiting'
     if (filterStatus === 'dispatched') return item.triage_status === 'dispatched'
     if (filterStatus === 'urgent') return item.triage_level === 'priority' || item.triage_level === 'emergency'
     return true
@@ -180,6 +181,12 @@ export const TriageDesk: React.FC<TriageDeskProps> = ({ onSelectPatientForDoctor
           onClick={() => setFilterStatus('all')}
         >
           <Activity size={16} /> Tất cả: <b>{queue.length}</b>
+        </div>
+        <div
+          className={`triage-stat-chip ${filterStatus === 'waiting_room' ? 'active' : ''}`}
+          onClick={() => setFilterStatus('waiting_room')}
+        >
+          <Clock size={16} className="text-blue" /> Đang ở phòng chờ: <b>{queue.filter(q => q.triage_status === 'waiting_room' || q.status === 'waiting').length}</b>
         </div>
         <div
           className={`triage-stat-chip ${filterStatus === 'pending' ? 'active' : ''}`}
@@ -309,7 +316,11 @@ export const TriageDesk: React.FC<TriageDeskProps> = ({ onSelectPatientForDoctor
 
                 <div className="triage-card-footer">
                   <span className={`status-pill ${item.triage_status}`}>
-                    {item.triage_status === 'dispatched' ? '✅ Đã vào phòng BS' : '⏳ Chờ điều dưỡng'}
+                    {item.triage_status === 'dispatched'
+                      ? '✅ Đã vào phòng BS'
+                      : (item.status === 'waiting' || item.triage_status === 'waiting_room')
+                      ? '🕒 Đang ở phòng chờ'
+                      : '⏳ Chờ tiếp nhận'}
                   </span>
 
                   <button

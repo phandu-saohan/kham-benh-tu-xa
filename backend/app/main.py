@@ -2472,9 +2472,17 @@ def get_triage_queue(db: Session = Depends(get_db), user: User = Depends(require
         Appointment.status.in_(["scheduled", "confirmed", "waiting", "in_progress"])
     ).all()
     
-    # Sắp xếp ưu tiên: emergency (0) -> priority (1) -> normal (2)
+    # Sắp xếp ưu tiên:
+    # 1. Mức độ cấp thiết: emergency (0) -> priority (1) -> normal (2)
+    # 2. Đang ở phòng chờ (waiting = 0) -> đang khám (in_progress = 1) -> chưa vào phòng chờ (2)
+    # 3. Thời gian vào phòng chờ hoặc giờ hẹn
     priority_order = {"emergency": 0, "priority": 1, "normal": 2}
-    appts.sort(key=lambda a: (priority_order.get(a.triage_level, 2), a.starts_at))
+    status_order = {"waiting": 0, "in_progress": 1, "confirmed": 2, "scheduled": 3}
+    appts.sort(key=lambda a: (
+        priority_order.get(a.triage_level, 2),
+        status_order.get(a.status, 2),
+        a.waiting_room_entered_at or a.starts_at
+    ))
     
     results = []
     for a in appts:
@@ -2598,6 +2606,89 @@ def assess_and_dispatch_triage(
         triage_level=appt.triage_level,
         message=triage_msg
     )
+
+@app.post("/api/v1/appointments/{appointment_id}/enter-waiting-room")
+def patient_enter_waiting_room(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Bệnh nhân hoặc nhân viên y tế vào phòng chờ ảo để điều dưỡng điều phối & tiếp nhận"""
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
+    check_appointment_access(appt, user)
+    if appt.status in ("completed", "cancelled"):
+        raise HTTPException(status_code=400, detail="Không thể vào phòng chờ cho ca khám đã kết thúc hoặc đã hủy")
+
+    now = datetime.now(timezone.utc)
+    old_status = appt.status
+    appt.status = "waiting"
+    if not appt.triage_status or appt.triage_status == "pending":
+        appt.triage_status = "waiting_room"
+    appt.waiting_room_entered_at = now
+
+    user_title = "Điều dưỡng" if user.role == "nurse" else ("Bác sĩ" if user.role == "doctor" else "Bệnh nhân")
+    record_appointment_event(
+        db=db,
+        appointment_id=appt.id,
+        action="patient_enter_waiting_room",
+        from_status=old_status,
+        to_status="waiting",
+        actor=user,
+        notes=f"{user_title} {user.full_name} đã vào phòng chờ ảo để chờ điều dưỡng điều phối."
+    )
+
+    # Gửi thông báo đến Bác sĩ và Điều dưỡng trực
+    patient_name = user.full_name
+    db.add(Notification(
+        user_id=appt.doctor_id,
+        type="waiting_room",
+        title="Bệnh nhân đã vào phòng chờ",
+        message=f"Bệnh nhân {patient_name} đã vào phòng chờ cho ca khám #{appt.id}.",
+        action_url="/workspace"
+    ))
+    db.commit()
+
+    return {
+        "success": True,
+        "appointment_id": appt.id,
+        "status": appt.status,
+        "triage_status": appt.triage_status,
+        "waiting_room_entered_at": appt.waiting_room_entered_at.isoformat() if appt.waiting_room_entered_at else None,
+        "message": "Bạn đã vào phòng chờ. Điều dưỡng đang tiếp nhận và điều phối ca khám của bạn."
+    }
+
+@app.post("/api/v1/appointments/{appointment_id}/leave-waiting-room")
+def patient_leave_waiting_room(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Bệnh nhân tạm rời phòng chờ ảo"""
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
+    check_appointment_access(appt, user)
+    if appt.status == "waiting":
+        old_status = appt.status
+        appt.status = "confirmed" if appt.paid else "scheduled"
+        record_appointment_event(
+            db=db,
+            appointment_id=appt.id,
+            action="patient_leave_waiting_room",
+            from_status=old_status,
+            to_status=appt.status,
+            actor=user,
+            notes=f"Bệnh nhân {user.full_name} tạm rời phòng chờ ảo."
+        )
+        db.commit()
+    return {
+        "success": True,
+        "appointment_id": appt.id,
+        "status": appt.status,
+        "message": "Đã rời phòng chờ ảo."
+    }
 
 @app.post("/api/v1/triage/{appointment_id}/send-to-waiting-room")
 def send_to_waiting_room_endpoint(

@@ -21,7 +21,8 @@ import {
   type Appointment,
   type User as UserType,
   type WaitingRoomStatus,
-  getWaitingRoomStatus
+  getWaitingRoomStatus,
+  leaveWaitingRoom
 } from './api'
 import './patient-sanctuary.css'
 
@@ -45,6 +46,21 @@ export function PatientWaitingRoom({
   const [isCameraTesting, setIsCameraTesting] = useState(false)
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
   const [audioLevel, setAudioLevel] = useState<number>(0)
+  const [isLeaving, setIsLeaving] = useState(false)
+
+  const handleLeave = async () => {
+    if (window.confirm('Bạn có chắc chắn muốn rời khỏi phòng chờ? Bạn có thể vào lại bất kỳ lúc nào.')) {
+      setIsLeaving(true)
+      try {
+        await leaveWaitingRoom(appointment.id)
+      } catch (e) {
+        console.warn('Error leaving waiting room:', e)
+      } finally {
+        stopCameraTest()
+        onBack()
+      }
+    }
+  }
 
   const videoPreviewRef = useRef<HTMLVideoElement>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -216,12 +232,23 @@ export function PatientWaitingRoom({
       <div className="ps-waiting-viewport">
         {/* Top Navigation Bar */}
         <header className="ps-waiting-topbar">
-          <button className="ps-btn-back" onClick={onBack}>
-            <ArrowLeft size={16} /> Quay lại trang chủ
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button className="ps-btn-back" onClick={onBack} title="Về trang chủ (vẫn giữ số thứ tự)">
+              <ArrowLeft size={16} /> Về trang chủ
+            </button>
+            <button
+              className="ps-btn-back"
+              onClick={handleLeave}
+              disabled={isLeaving}
+              style={{ color: '#dc2626', borderColor: '#fca5a5', background: '#fef2f2' }}
+              title="Rời khỏi phòng chờ"
+            >
+              {isLeaving ? 'Đang rời...' : 'Rời phòng chờ'}
+            </button>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 700, color: 'var(--ps-navy)' }}>
             <Stethoscope size={18} color="var(--ps-primary)" />
-            <span>CareConnect • <b>Phòng Chờ Khám Trực Tuyến</b></span>
+            <span>CareConnect • <b>Phòng Chờ Khám Trực Tuyến & Điều Dưỡng Điều Phối</b></span>
           </div>
           <div className="ps-waiting-live-chip">
             <span className="ps-live-dot" /> Đang Kết Nối Phòng Chờ
@@ -309,30 +336,116 @@ export function PatientWaitingRoom({
               </span>
             </div>
 
-            {/* Calming Reassurance Message */}
+            {/* Tiến trình Điều Dưỡng Tiếp Nhận & Phân Luồng */}
             <div
               style={{
-                background: 'linear-gradient(135deg, #f0fdfa 0%, #eff6ff 100%)',
-                border: '1px solid rgba(14, 116, 144, 0.2)',
-                borderRadius: 'var(--ps-radius-lg)',
-                padding: '16px 20px',
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                padding: '16px 18px',
                 display: 'flex',
+                flexDirection: 'column',
                 gap: '14px',
-                alignItems: 'flex-start'
+                boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
               }}
             >
-              <div style={{ color: 'var(--ps-primary)', marginTop: '2px' }}>
-                <ShieldCheck size={22} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--ps-primary)', fontWeight: 700, fontSize: '14px' }}>
+                  <ShieldCheck size={18} />
+                  <span>Tiến Trình Tiếp Nhận & Điều Phối Y Tế</span>
+                </div>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    background: waitingStatus?.triage_status === 'dispatched' ? '#dcfce7' : waitingStatus?.triage_status === 'assessed' ? '#e0f2fe' : '#fef3c7',
+                    color: waitingStatus?.triage_status === 'dispatched' ? '#15803d' : waitingStatus?.triage_status === 'assessed' ? '#0369a1' : '#b45309'
+                  }}
+                >
+                  {waitingStatus?.triage_status === 'dispatched'
+                    ? '⚡ Đã điều phối tới Bác sĩ'
+                    : waitingStatus?.triage_status === 'assessed'
+                    ? '🩺 Đã sàng lọc sinh hiệu'
+                    : '⏳ Đang chờ điều dưỡng tiếp nhận'}
+                </span>
               </div>
-              <div>
-                <b style={{ color: 'var(--ps-navy)', fontSize: '14px' }}>
-                  Điều dưỡng đã hoàn tất tiếp nhận hồ sơ & sinh hiệu
-                </b>
-                <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--ps-slate)', lineHeight: 1.5 }}>
-                  Bác sĩ đang xem xét lại tiền sử bệnh và kết quả cận lâm sàng của bạn. Ngay khi chuẩn bị xong,
-                  bác sĩ sẽ nhấn chuông mời bạn vào phòng khám. Bạn hoàn toàn yên tâm nghỉ ngơi tại đây.
-                </p>
+
+              {/* 3 Steps Visual Timeline */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#16a34a', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <CheckCircle2 size={13} /> B1. Check-in
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ps-navy)', marginTop: '2px' }}>
+                    Vào phòng chờ
+                  </div>
+                  <small style={{ fontSize: '11px', color: '#64748b' }}>Đã xác nhận</small>
+                </div>
+
+                <div style={{
+                  background: waitingStatus?.triage_status === 'assessed' || waitingStatus?.triage_status === 'dispatched' ? '#f8fafc' : '#eff6ff',
+                  padding: '10px',
+                  borderRadius: '6px',
+                  border: waitingStatus?.triage_status === 'assessed' || waitingStatus?.triage_status === 'dispatched' ? '1px solid #cbd5e1' : '1px solid #3b82f6'
+                }}>
+                  <div style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    color: waitingStatus?.triage_status === 'assessed' || waitingStatus?.triage_status === 'dispatched' ? '#16a34a' : '#2563eb',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    {waitingStatus?.triage_status === 'assessed' || waitingStatus?.triage_status === 'dispatched' ? (
+                      <CheckCircle2 size={13} />
+                    ) : (
+                      <Clock size={13} />
+                    )}
+                    B2. Điều dưỡng
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ps-navy)', marginTop: '2px' }}>
+                    Tiếp nhận & sinh hiệu
+                  </div>
+                  <small style={{ fontSize: '11px', color: '#64748b' }}>
+                    {waitingStatus?.triage_status === 'assessed' || waitingStatus?.triage_status === 'dispatched' ? 'Hoàn tất' : 'Đang xử lý...'}
+                  </small>
+                </div>
+
+                <div style={{
+                  background: waitingStatus?.is_called || waitingStatus?.status === 'in_progress' ? '#f0fdf4' : '#f8fafc',
+                  padding: '10px',
+                  borderRadius: '6px',
+                  border: waitingStatus?.is_called || waitingStatus?.status === 'in_progress' ? '1px solid #22c55e' : '1px solid #e2e8f0'
+                }}>
+                  <div style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    color: waitingStatus?.is_called || waitingStatus?.status === 'in_progress' ? '#16a34a' : '#64748b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    <Video size={13} /> B3. Bác sĩ
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ps-navy)', marginTop: '2px' }}>
+                    Khám video trực tuyến
+                  </div>
+                  <small style={{ fontSize: '11px', color: '#64748b' }}>
+                    {waitingStatus?.is_called ? 'Đang gọi chuông!' : 'Chờ chuông gọi'}
+                  </small>
+                </div>
               </div>
+
+              {/* Dynamic message */}
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--ps-slate)', lineHeight: 1.5 }}>
+                {waitingStatus?.triage_status === 'dispatched'
+                  ? 'Điều dưỡng đã kiểm tra sinh hiệu và phân luồng bạn tới Bác sĩ phụ trách. Bác sĩ đang xem lại hồ sơ và sẽ kết nối video ngay.'
+                  : waitingStatus?.triage_status === 'assessed'
+                  ? 'Điều dưỡng đã hoàn tất tiếp nhận hồ sơ & sinh hiệu. Bạn vui lòng thư giãn và kiểm tra camera/micro trước khi bác sĩ gọi.'
+                  : 'Hồ sơ của bạn đã được chuyển tới Bàn Tiếp đón Điều dưỡng. Điều dưỡng sẽ tiếp nhận, kiểm tra thẻ BHYT và ghi nhận các chỉ số sinh hiệu sơ bộ.'}
+              </p>
             </div>
 
             {/* Self Camera & Audio Diagnostic */}

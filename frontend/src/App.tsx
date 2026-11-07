@@ -9,7 +9,7 @@ import {
   BarChart3, Cpu, Search, Filter, Calendar, Edit3
 } from 'lucide-react'
 import {
-  login, sendOtp, verifyOtp, loginWithFirebaseToken, getFirebaseConfig, request, cancelAppointment,
+  login, sendOtp, verifyOtp, loginWithFirebaseToken, getFirebaseConfig, request, cancelAppointment, enterWaitingRoom,
   getConsentStatus, downloadMedicalRecordPdf, getPacsDicomStudies,
   checkBhyt, applyBhyt, getDepartments, getDoctorShifts,
   checkIncomingCall, declineIncomingCall,
@@ -568,9 +568,20 @@ export default function App() {
     }
   }
 
-  // Xử lý vào phòng khám (Bệnh nhân đã đồng ý điều khoản khi đăng ký tài khoản)
+  // Xử lý vào phòng khám / phòng chờ ảo (Bệnh nhân đã đồng ý điều khoản khi đăng ký tài khoản)
   async function handleJoinConsultation(a: Appointment) {
     setPendingConsentAppointment(null)
+    if (user?.role === 'patient') {
+      try {
+        if (a.status !== 'in_progress') {
+          const res = await enterWaitingRoom(a.id)
+          a = { ...a, status: 'waiting', triage_status: (res.triage_status || 'waiting_room') as any }
+        }
+      } catch (e) {
+        console.warn('Enter waiting room error:', e)
+        a = { ...a, status: 'waiting' }
+      }
+    }
     setActiveAppointment(a)
   }
 
@@ -756,7 +767,10 @@ export default function App() {
         <PatientWaitingRoom
           appointment={activeAppointment}
           user={user}
-          onBack={() => setActiveAppointment(null)}
+          onBack={() => {
+            setActiveAppointment(null)
+            loadDashboard(user)
+          }}
           onEnterConsultation={(appt) => {
             setActiveAppointment(appt)
           }}
@@ -2594,9 +2608,26 @@ function AppointmentList({
                         type="button"
                         className="btn-clinical-join"
                         onClick={() => onJoin(a)}
+                        style={!isDoctor && a.status === 'waiting' ? { background: '#0284c7', borderColor: '#0284c7' } : undefined}
                       >
-                        {isDoctor ? <Stethoscope size={16} /> : <Video size={16} />}
-                        <span>{isDoctor ? 'Vào phòng khám' : 'Vào phòng khám ngay'}</span>
+                        {isDoctor ? (
+                          <Stethoscope size={16} />
+                        ) : a.status === 'in_progress' ? (
+                          <Video size={16} />
+                        ) : a.status === 'waiting' ? (
+                          <Clock size={16} />
+                        ) : (
+                          <Activity size={16} />
+                        )}
+                        <span>
+                          {isDoctor
+                            ? 'Vào phòng khám'
+                            : a.status === 'in_progress'
+                            ? 'Vào gặp Bác sĩ ngay'
+                            : a.status === 'waiting'
+                            ? 'Đang ở phòng chờ (Xem điều dưỡng điều phối)'
+                            : 'Vào phòng chờ để điều dưỡng điều phối'}
+                        </span>
                       </button>
                     )}
 
