@@ -77,7 +77,7 @@ export const HeaderSmartSearch: React.FC<HeaderSmartSearchProps> = ({
     { id: 'devices', title: 'Thiết bị Sinh hiệu IoT (Huyết áp, SpO2)', category: 'Thiết bị', icon: Cpu, action: () => onNavigate('devices') },
     { id: 'records', title: 'Hồ sơ Bệnh án Điện tử EMR', category: 'Bệnh án', icon: FileText, action: () => onNavigate('records') },
     { id: 'payments', title: 'Thanh toán Viện phí VietQR', category: 'Tài chính', icon: CreditCard, action: () => onNavigate('payments') },
-    { id: 'profile', title: 'Hồ sơ Cá nhân & Định danh CCCD/VNeID', category: 'Hồ sơ', icon: User, action: () => onNavigate('profile') }
+    { id: 'profile', title: 'Hồ sơ cá nhân', category: 'Hồ sơ', icon: User, action: () => onNavigate('profile') }
   ]
 
   const trimmed = query.trim().toLowerCase()

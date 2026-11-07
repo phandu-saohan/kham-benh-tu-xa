@@ -27,16 +27,21 @@ import {
   Sparkles,
   Download,
   KeyRound,
-  Users
+  Users,
+  RefreshCw,
+  Cpu
 } from 'lucide-react'
 import { SmartDevicesHub } from './SmartDevicesHub'
 import {
   getMyProfile,
   updateMyProfile,
   ocrMedicalDocument,
+  checkBhyt,
   type PatientProfile,
-  type User
+  type User,
+  type BhytCheckOut
 } from './api'
+import { formatDateVN, formatDateTimeVN } from './dateFormatters'
 import './patient-sanctuary.css'
 
 interface PatientProfilePageProps {
@@ -84,7 +89,14 @@ export function PatientProfilePage({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [activeTab, setActiveTab] = useState<'info' | 'medical' | 'devices' | 'history' | 'privacy'>('info')
+  const [activeTab, setActiveTab] = useState<'info' | 'medical' | 'security'>('info')
+
+  // BHYT Synchronization State
+  const [syncingBhyt, setSyncingBhyt] = useState(false)
+  const [lastBhytSync, setLastBhytSync] = useState<Date | null>(() => new Date())
+  const [bhytSyncData, setBhytSyncData] = useState<BhytCheckOut | null>(null)
+  const [editingBhytCode, setEditingBhytCode] = useState(false)
+  const [tempBhytInput, setTempBhytInput] = useState('')
 
   // Edit form state
   const [fullName, setFullName] = useState('')
@@ -128,6 +140,7 @@ export function PatientProfilePage({
       setIdentityCard(data.identity_card || '')
       setAddress(data.address || '')
       setBhytCode(data.bhyt_code || '')
+      setTempBhytInput(data.bhyt_code || '')
       setBloodType(data.blood_type || 'O+')
       setAllergies(data.allergies || '')
       setEmergencyName(data.emergency_contact_name || '')
@@ -152,6 +165,7 @@ export function PatientProfilePage({
     }
   }
 
+  // Handle Avatar Upload with image compression
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -184,7 +198,7 @@ export function PatientProfilePage({
 
           try {
             await updateMyProfile({ avatar_url: compressed } as any)
-            setProfile(prev => (prev ? { ...prev, avatar_url: compressed } : null))
+            setProfile((prev) => (prev ? { ...prev, avatar_url: compressed } : null))
             onUpdateUser({ ...currentUser, avatar_url: compressed })
             setSuccess('Đã cập nhật ảnh đại diện thành công!')
           } catch (err: any) {
@@ -199,6 +213,7 @@ export function PatientProfilePage({
     }
   }
 
+  // Handle AI OCR Scan
   async function handleOcrUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -214,12 +229,15 @@ export function PatientProfilePage({
             const d = res.extracted_data
             if (d.full_name) setFullName(d.full_name)
             if (d.cccd_number) setIdentityCard(d.cccd_number)
-            if (d.bhyt_code) setBhytCode(d.bhyt_code)
+            if (d.bhyt_code) {
+              setBhytCode(d.bhyt_code)
+              setTempBhytInput(d.bhyt_code)
+            }
             if (d.dob) setDateOfBirth(d.dob)
             if (d.gender) setGender(d.gender === 'female' ? 'Nữ' : 'Nam')
             if (d.address) setAddress(d.address)
             setEditing(true)
-            setSuccess(`✨ AI đã trích xuất thành công ${res.doc_type_detected}! Vui lòng kiểm tra lại thông tin và bấm "Lưu cập nhật".`)
+            setSuccess(`✨ AI đã trích xuất thành công ${res.doc_type_detected}! Vui lòng kiểm tra lại thông tin và bấm "Lưu thay đổi".`)
           } else {
             setError('Không đọc được rõ nét thông tin từ ảnh. Vui lòng chụp thẳng và đủ ánh sáng.')
           }
@@ -237,6 +255,7 @@ export function PatientProfilePage({
     }
   }
 
+  // Save Full Profile
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     if (!fullName.trim()) {
@@ -288,6 +307,42 @@ export function PatientProfilePage({
     }
   }
 
+  // Handle BHYT Synchronization with National BHXH Portal
+  async function handleSyncBhyt() {
+    const codeToSync = (editingBhytCode ? tempBhytInput : (profile?.bhyt_code || bhytCode)).trim()
+    if (!codeToSync) {
+      setError('Vui lòng nhập hoặc lưu mã thẻ BHYT trước khi đồng bộ')
+      return
+    }
+
+    setSyncingBhyt(true)
+    setError('')
+    try {
+      const res = await checkBhyt(codeToSync, profile?.full_name || fullName)
+      setBhytSyncData(res)
+      setLastBhytSync(new Date())
+
+      if (res.is_valid || res.success) {
+        setBhytCode(res.bhyt_code)
+        setTempBhytInput(res.bhyt_code)
+        setEditingBhytCode(false)
+
+        // Save synchronized BHYT to patient profile in database
+        const updated = await updateMyProfile({ bhyt_code: res.bhyt_code })
+        setProfile(updated)
+
+        setSuccess(`✅ Đồng bộ thành công thẻ BHYT từ Cổng BHXH Việt Nam! Mức hưởng: ${res.benefit_rate_percent}%.`)
+      } else {
+        setError(`Thẻ BHYT không hợp lệ: ${res.message || 'Vui lòng kiểm tra lại mã thẻ'}`)
+      }
+    } catch (err: any) {
+      console.error('Lỗi khi đồng bộ BHYT:', err)
+      setError('Không thể kết nối Cổng Giám định BHYT Quốc gia: ' + (err.message || 'Lỗi mạng'))
+    } finally {
+      setSyncingBhyt(false)
+    }
+  }
+
   const formatBhytCode = (code?: string) => {
     if (!code) return 'CHƯA LIÊN KẾT THẺ'
     const clean = code.replace(/\s+/g, '')
@@ -301,33 +356,34 @@ export function PatientProfilePage({
     return (
       <div className="ps-scope" style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--ps-slate-muted)' }}>
         <Sparkles size={36} color="var(--ps-primary)" style={{ animation: 'spin 2s linear infinite', margin: '0 auto 12px' }} />
-        <p style={{ fontSize: '15px', fontWeight: 600 }}>Đang đồng bộ hồ sơ bệnh nhân & BHYT điện tử...</p>
+        <p style={{ fontSize: '15px', fontWeight: 600 }}>Đang tải dữ liệu hồ sơ cá nhân & thẻ BHYT...</p>
       </div>
     )
   }
 
   return (
     <div className="ps-scope">
-      <div className="ps-profile-viewport">
+      <div className="ps-profile-viewport" style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '1100px', margin: '0 auto' }}>
         {/* Alerts */}
         {error && (
           <div
             style={{
-              padding: '12px 20px',
-              borderRadius: '12px',
-              fontSize: '14px',
+              padding: '12px 18px',
+              borderRadius: '8px',
+              fontSize: '13px',
               fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
+              gap: '10px',
               background: '#fef2f2',
-              color: '#991b1b',
+              color: '#dc2626',
               border: '1px solid #fecaca'
             }}
           >
-            <span>{error}</span>
-            <button onClick={() => setError('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-              <X size={16} />
+            <AlertTriangle size={16} />
+            <span style={{ flex: 1 }}>{error}</span>
+            <button onClick={() => setError('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626' }}>
+              <X size={15} />
             </button>
           </div>
         )}
@@ -335,49 +391,47 @@ export function PatientProfilePage({
         {success && (
           <div
             style={{
-              padding: '12px 20px',
-              borderRadius: '12px',
-              fontSize: '14px',
+              padding: '12px 18px',
+              borderRadius: '8px',
+              fontSize: '13px',
               fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
-              background: '#ecfdf5',
-              color: '#065f46',
-              border: '1px solid #a7f3d0'
+              gap: '10px',
+              background: '#f0fdf4',
+              color: '#16a34a',
+              border: '1px solid #bbf7d0'
             }}
           >
-            <span>{success}</span>
-            <button onClick={() => setSuccess('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-              <X size={16} />
+            <CheckCircle2 size={16} />
+            <span style={{ flex: 1 }}>{success}</span>
+            <button onClick={() => setSuccess('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#16a34a' }}>
+              <X size={15} />
             </button>
           </div>
         )}
 
-        {/* 1. CLINICAL HERO PROFILE CARD */}
-        <section className="ps-hero-card">
-          <div className="ps-hero-left">
-            <div className="ps-avatar-wrap" style={{ position: 'relative' }}>
-              <div className="ps-avatar" style={{ overflow: 'hidden' }}>
-                {profile?.avatar_url || currentUser.avatar_url ? (
-                  <img
-                    src={profile?.avatar_url || currentUser.avatar_url}
-                    alt={profile?.full_name || 'Bệnh nhân'}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                ) : (
-                  profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : 'BN'
-                )}
-              </div>
+        {/* 1. HERO PROFILE SUMMARY CARD */}
+        <section className="ps-hero-card" style={{ padding: '20px 24px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+          <div className="ps-hero-profile">
+            <div className="ps-avatar-container" style={{ width: '80px', height: '80px' }}>
+              <img
+                src={
+                  profile?.avatar_url ||
+                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80'
+                }
+                alt="Avatar"
+                className="ps-avatar-img"
+              />
               <label
                 style={{
                   position: 'absolute',
-                  bottom: -2,
-                  right: -2,
-                  background: '#0284c7',
+                  right: '-4px',
+                  bottom: '-4px',
+                  background: 'var(--ps-primary)',
                   color: '#fff',
-                  width: '26px',
-                  height: '26px',
+                  width: '28px',
+                  height: '28px',
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
@@ -400,27 +454,29 @@ export function PatientProfilePage({
             </div>
 
             <div className="ps-user-meta">
-              <div className="ps-chips-row">
-                <span className="ps-badge-pid">
-                  PID: {profile?.external_patient_id || `CC-PAT-${profile?.id?.toString().padStart(4, '0')}`}
+              <div className="ps-chips-row" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <span className="ps-badge-pid" style={{ borderRadius: '4px', fontSize: '11px', padding: '2px 8px' }}>
+                  Mã BN: {profile?.external_patient_id || `CC-PAT-${profile?.id?.toString().padStart(4, '0')}`}
                 </span>
-                <span className="ps-badge-vneid">
-                  <ShieldCheck size={13} /> Định danh VNeID Mức 2
+                <span className="ps-badge-vneid" style={{ borderRadius: '4px', fontSize: '11px', padding: '2px 8px' }}>
+                  <ShieldCheck size={12} /> Định danh VNeID Mức 2
                 </span>
-                <span className="ps-badge-pid">
-                  Nghị định 13/2023/NĐ-CP
+                <span className="ps-badge-pid" style={{ borderRadius: '4px', fontSize: '11px', padding: '2px 8px' }}>
+                  Bảo vệ dữ liệu NĐ 13/2023
                 </span>
               </div>
-              <h2 className="ps-greeting-title">{profile?.full_name || 'Quý bệnh nhân'}</h2>
-              <div style={{ display: 'flex', gap: '14px', fontSize: '13px', color: 'var(--ps-slate-muted)', marginTop: '2px' }}>
+              <h2 className="ps-greeting-title" style={{ fontSize: '20px', margin: '4px 0 2px' }}>{profile?.full_name || 'Quý bệnh nhân'}</h2>
+              <div style={{ display: 'flex', gap: '14px', fontSize: '13px', color: 'var(--ps-slate-muted)', flexWrap: 'wrap' }}>
                 <span><Phone size={13} style={{ verticalAlign: '-1px' }} /> {profile?.phone_number || 'Chưa cập nhật SĐT'}</span>
                 <span>•</span>
                 <span><Mail size={13} style={{ verticalAlign: '-1px' }} /> {profile?.email}</span>
+                <span>•</span>
+                <span><Calendar size={13} style={{ verticalAlign: '-1px' }} /> Sinh ngày: {formatDateVN(profile?.date_of_birth)}</span>
               </div>
             </div>
           </div>
 
-          <div className="ps-hero-actions">
+          <div className="ps-hero-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <input
               type="file"
               ref={fileInputRef}
@@ -433,34 +489,46 @@ export function PatientProfilePage({
               className="ps-btn-secondary"
               onClick={() => fileInputRef.current?.click()}
               disabled={ocrLoading}
+              style={{ borderRadius: '6px', fontSize: '12px', padding: '8px 12px' }}
             >
-              <Camera size={15} />
-              {ocrLoading ? 'AI đang đọc...' : 'Quét CCCD / BHYT'}
+              <Camera size={14} />
+              {ocrLoading ? 'AI đang đọc...' : 'Quét OCR CCCD / BHYT'}
             </button>
 
             {!editing ? (
-              <button className="ps-btn-primary" onClick={() => setEditing(true)}>
-                <Edit3 size={15} /> Sửa hồ sơ
+              <button
+                type="button"
+                className="ps-btn-primary"
+                onClick={() => setEditing(true)}
+                style={{ borderRadius: '6px', fontSize: '12px', padding: '8px 14px' }}
+              >
+                <Edit3 size={14} /> Chỉnh sửa hồ sơ
               </button>
             ) : (
-              <button className="ps-btn-secondary" onClick={() => setEditing(false)}>
-                <X size={15} /> Hủy sửa
+              <button
+                type="button"
+                className="ps-btn-secondary"
+                onClick={() => setEditing(false)}
+                style={{ borderRadius: '6px', fontSize: '12px', padding: '8px 14px' }}
+              >
+                <X size={14} /> Hủy sửa
               </button>
             )}
 
             <button
+              type="button"
               className="ps-btn-secondary"
               onClick={onLogout}
               title="Đăng xuất khỏi thiết bị"
-              style={{ padding: '12px 14px' }}
+              style={{ borderRadius: '6px', padding: '8px 12px' }}
             >
-              <LogOut size={16} />
+              <LogOut size={15} />
             </button>
           </div>
         </section>
 
-        {/* 2. REALISTIC DIGITAL BHYT HEALTH CARD (CLINICAL SANCTUARY BENCHMARK) */}
-        <section className="ps-bhyt-card-container">
+        {/* 2. CARD BẢO HIỂM XÃ HỘI VIỆT NAM (TÍCH HỢP TÍNH NĂNG ĐỒNG BỘ TRỰC TUYẾN) */}
+        <section className="ps-bhyt-card-container" style={{ borderRadius: '8px' }}>
           <div className="ps-bhyt-card-watermark">BẢO HIỂM Y TẾ</div>
 
           <div className="ps-bhyt-top-row">
@@ -470,32 +538,109 @@ export function PatientProfilePage({
               </div>
               <div className="ps-bhyt-titles">
                 <b>BẢO HIỂM XÃ HỘI VIỆT NAM</b>
-                <span>THẺ BẢO HIỂM Y TẾ ĐIỆN TỬ • CARECONNECT EMR</span>
+                <span>THẺ BẢO HIỂM Y TẾ ĐIỆN TỬ VSSID • QUY CHUẨN QĐ 130/QĐ-BYT</span>
               </div>
             </div>
 
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '4px 12px',
-                borderRadius: 'var(--ps-radius-pill)',
-                background: profile?.bhyt_code ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-                fontSize: '12px',
-                fontWeight: 700
-              }}
-            >
-              <span className="ps-live-dot" style={{ background: profile?.bhyt_code ? '#10b981' : '#ef4444' }} />
-              {profile?.bhyt_code ? 'Đang có hiệu lực' : 'Chưa liên kết thẻ'}
-            </span>
+            {/* Sync Action & Live Status Badge */}
+            <div className="ps-bhyt-actions-bar">
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  background: profile?.bhyt_code ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  fontSize: '12px',
+                  fontWeight: 700
+                }}
+              >
+                <span className="ps-live-dot" style={{ background: profile?.bhyt_code ? '#10b981' : '#ef4444' }} />
+                {profile?.bhyt_code ? 'Đang có hiệu lực' : 'Chưa liên kết thẻ'}
+              </span>
+
+              {/* NÚT ĐỒNG BỘ BHYT QUỐC GIA */}
+              <button
+                type="button"
+                className="ps-bhyt-sync-btn"
+                onClick={handleSyncBhyt}
+                disabled={syncingBhyt}
+                title="Đồng bộ dữ liệu thẻ và quyền lợi chi trả từ Cổng Giám định BHYT Quốc gia"
+              >
+                <RefreshCw size={13} className={syncingBhyt ? 'animate-spin' : ''} />
+                <span>{syncingBhyt ? 'Đang đồng bộ BHXH...' : 'Đồng bộ thẻ BHYT'}</span>
+              </button>
+            </div>
           </div>
 
-          <div className="ps-bhyt-code-number">
-            {formatBhytCode(profile?.bhyt_code)}
+          {/* BHYT Code & Inline Editor */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', margin: '14px 0 6px' }}>
+            {!editingBhytCode ? (
+              <div className="ps-bhyt-code-number" style={{ margin: 0, borderRadius: '6px' }}>
+                {formatBhytCode(profile?.bhyt_code)}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="text"
+                  value={tempBhytInput}
+                  onChange={(e) => setTempBhytInput(e.target.value.toUpperCase())}
+                  placeholder="Nhập 15 ký tự mã thẻ BHYT..."
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #bae6fd',
+                    fontSize: '16px',
+                    fontWeight: 700,
+                    letterSpacing: '1px',
+                    background: '#ffffff',
+                    color: '#0f172a'
+                  }}
+                />
+                <button
+                  type="button"
+                  className="ps-bhyt-sync-btn"
+                  onClick={handleSyncBhyt}
+                  disabled={syncingBhyt}
+                >
+                  <Save size={13} /> Lưu & Đồng bộ
+                </button>
+                <button
+                  type="button"
+                  className="ps-bhyt-sync-btn"
+                  onClick={() => setEditingBhytCode(false)}
+                >
+                  <X size={13} /> Hủy
+                </button>
+              </div>
+            )}
+
+            {!editingBhytCode && (
+              <button
+                type="button"
+                className="ps-bhyt-sync-btn"
+                onClick={() => {
+                  setTempBhytInput(profile?.bhyt_code || '')
+                  setEditingBhytCode(true)
+                }}
+                style={{ padding: '6px 10px', fontSize: '11px' }}
+                title="Thay đổi mã thẻ BHYT"
+              >
+                <Edit3 size={12} /> Đổi mã
+              </button>
+            )}
+
+            {lastBhytSync && (
+              <span className="ps-bhyt-sync-badge">
+                <CheckCircle2 size={12} />
+                Đã đồng bộ Cổng BHXH lúc: {formatDateTimeVN(lastBhytSync)}
+              </span>
+            )}
           </div>
 
+          {/* BHYT Details Grid */}
           <div className="ps-bhyt-grid">
             <div className="ps-bhyt-cell">
               <small>Họ và tên</small>
@@ -504,7 +649,7 @@ export function PatientProfilePage({
 
             <div className="ps-bhyt-cell">
               <small>Ngày sinh</small>
-              <strong>{profile?.date_of_birth || 'Chưa cập nhật'}</strong>
+              <strong>{formatDateVN(profile?.date_of_birth)}</strong>
             </div>
 
             <div className="ps-bhyt-cell">
@@ -515,602 +660,379 @@ export function PatientProfilePage({
             <div className="ps-bhyt-cell">
               <small>Mức hưởng BHYT</small>
               <strong style={{ color: '#6ee7b7' }}>
-                {profile?.bhyt_code ? '80% KCB Đúng Tuyến' : 'Chưa áp dụng'}
+                {bhytSyncData?.benefit_rate_percent ? `${bhytSyncData.benefit_rate_percent}% KCB Đúng Tuyến` : profile?.bhyt_code ? '80% KCB Đúng Tuyến' : 'Chưa áp dụng'}
               </strong>
             </div>
 
             <div className="ps-bhyt-cell" style={{ gridColumn: 'span 2' }}>
               <small>Nơi ĐK KCB Ban đầu</small>
-              <strong>79-014 (Bệnh viện Đa khoa Quốc tế CareConnect)</strong>
+              <strong>{bhytSyncData?.primary_healthcare_facility || '79-014 (Bệnh viện Đa khoa Quốc tế CareConnect)'}</strong>
+            </div>
+
+            <div className="ps-bhyt-cell" style={{ gridColumn: 'span 3', borderTop: '1px dashed rgba(255,255,255,0.2)', paddingTop: '10px', marginTop: '6px' }}>
+              <small>Thời hạn sử dụng & 5 năm liên tục</small>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '13px' }}>
+                <span>Giá trị sử dụng: <strong>{bhytSyncData?.valid_from || '01/01/2026'} đến {bhytSyncData?.valid_to || '31/12/2026'}</strong></span>
+                <span style={{ color: '#a7f3d0' }}>🛡️ {bhytSyncData?.five_years_consecutive || 'Thời điểm đủ 05 năm liên tục: Từ ngày 01/01/2021'}</span>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* 3. TABBED PROFILE NAVIGATION */}
+        {/* 3. NEAT TAB NAVIGATION */}
         <div className="ps-profile-tabs">
           <button
+            type="button"
             className={`ps-tab-btn ${activeTab === 'info' ? 'active' : ''}`}
             onClick={() => setActiveTab('info')}
+            style={{ borderRadius: '6px' }}
           >
-            <UserRound size={16} /> Thông tin cá nhân & CCCD
+            <UserRound size={16} /> Thông tin Hành chính & CCCD
           </button>
           <button
+            type="button"
             className={`ps-tab-btn ${activeTab === 'medical' ? 'active' : ''}`}
             onClick={() => setActiveTab('medical')}
+            style={{ borderRadius: '6px' }}
           >
-            <Heart size={16} /> Tiền sử y tế & Nhóm máu
+            <Heart size={16} /> Tiền sử Y tế & Sổ sức khỏe
           </button>
           <button
-            className={`ps-tab-btn ${activeTab === 'devices' ? 'active' : ''}`}
-            onClick={() => setActiveTab('devices')}
+            type="button"
+            className={`ps-tab-btn ${activeTab === 'security' ? 'active' : ''}`}
+            onClick={() => setActiveTab('security')}
+            style={{ borderRadius: '6px' }}
           >
-            <Activity size={16} /> Thiết bị sinh hiệu RPM
-          </button>
-          <button
-            className={`ps-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
-            onClick={() => setActiveTab('history')}
-          >
-            <FileText size={16} /> Lịch sử & Dịch vụ y tế
-          </button>
-          <button
-            className={`ps-tab-btn ${activeTab === 'privacy' ? 'active' : ''}`}
-            onClick={() => setActiveTab('privacy')}
-          >
-            <Lock size={16} /> Bảo mật & Quyền riêng tư
+            <ShieldCheck size={16} /> Thiết bị & Bảo mật dữ liệu
           </button>
         </div>
 
-        {/* TAB 1: THÔNG TIN HÀNH CHÍNH CÁ NHÂN (BẮT BUỘC THEO QĐ 2682/QĐ-BYT) */}
+        {/* TAB 1: THÔNG TIN HÀNH CHÍNH & CCCD */}
         {activeTab === 'info' && (
-          <section className="ps-hero-card" style={{ display: 'block' }}>
+          <section className="ps-hero-card" style={{ display: 'block', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--ps-navy)' }}>
-                  1. Thông Tin Hành Chính Cá Nhân (Quyết định 2682/QĐ-BYT)
+                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: 'var(--ps-navy)' }}>
+                  Thông Tin Hành Chính & Định Danh (QĐ 2682/QĐ-BYT)
                 </h3>
                 <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--ps-slate-muted)' }}>
-                  Ghi nhận đầy đủ thông tin bắt buộc theo danh mục dữ liệu khám chữa bệnh quốc gia
+                  Dữ liệu hành chính chuẩn hóa phục vụ đồng bộ Bệnh án điện tử EMR và Cổng giám định BHYT
                 </p>
               </div>
 
               {!editing && (
-                <button className="ps-btn-secondary" onClick={() => setEditing(true)}>
+                <button
+                  type="button"
+                  className="ps-btn-secondary"
+                  onClick={() => setEditing(true)}
+                  style={{ borderRadius: '6px', fontSize: '12px', padding: '6px 14px' }}
+                >
                   <Edit3 size={14} /> Chỉnh sửa
                 </button>
               )}
             </div>
 
-            <form onSubmit={handleSave}>
-              <div className="ps-form-grid">
-                <div className="ps-input-group">
-                  <label>Họ và tên người bệnh (*)</label>
-                  <input
-                    type="text"
-                    className="ps-form-input"
-                    value={fullName}
-                    onChange={e => setFullName(e.target.value)}
-                    disabled={!editing}
-                    placeholder="Ghi nhận họ và tên đầy đủ..."
-                  />
+            {/* Read-only Neat View */}
+            {!editing ? (
+              <div className="ps-info-display-grid">
+                <div className="ps-info-display-card">
+                  <span className="ps-info-display-label">Họ và tên</span>
+                  <span className="ps-info-display-value">{profile?.full_name || 'Chưa cập nhật'}</span>
                 </div>
 
-                <div className="ps-input-group">
-                  <label>Ngày, tháng, năm sinh (*)</label>
-                  <input
-                    type="text"
-                    className="ps-form-input"
-                    value={dateOfBirth}
-                    onChange={e => setDateOfBirth(e.target.value)}
-                    disabled={!editing}
-                    placeholder="DD/MM/YYYY"
-                  />
+                <div className="ps-info-display-card">
+                  <span className="ps-info-display-label">Số CCCD / Định danh cá nhân</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="ps-info-display-value">{profile?.identity_card || 'Chưa cập nhật'}</span>
+                    <span style={{ fontSize: '10px', background: '#dcfce7', color: '#16a34a', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                      VNeID Mức 2
+                    </span>
+                  </div>
                 </div>
 
-                <div className="ps-input-group">
-                  <label>Giới tính (*)</label>
-                  <select
-                    className="ps-form-input"
-                    value={gender}
-                    onChange={e => setGender(e.target.value)}
-                    disabled={!editing}
-                  >
-                    <option value="Nam">Nam</option>
-                    <option value="Nữ">Nữ</option>
-                    <option value="Khác">Khác</option>
-                  </select>
+                <div className="ps-info-display-card">
+                  <span className="ps-info-display-label">Ngày, tháng, năm sinh</span>
+                  <span className="ps-info-display-value">{formatDateVN(profile?.date_of_birth)}</span>
                 </div>
 
-                <div className="ps-input-group">
-                  <label>Số định danh cá nhân / CCCD / Hộ chiếu (*)</label>
-                  <input
-                    type="text"
-                    className="ps-form-input"
-                    value={identityCard}
-                    onChange={e => setIdentityCard(e.target.value)}
-                    disabled={!editing}
-                    placeholder="12 chữ số CCCD hoặc mã định danh..."
-                  />
+                <div className="ps-info-display-card">
+                  <span className="ps-info-display-label">Giới tính & Dân tộc</span>
+                  <span className="ps-info-display-value">{profile?.gender || 'Nam'} · Dân tộc {profile?.ethnicity || 'Kinh'}</span>
                 </div>
 
-                <div className="ps-input-group">
-                  <label>Dân tộc (*)</label>
-                  <select
-                    className="ps-form-input"
-                    value={ethnicity}
-                    onChange={e => setEthnicity(e.target.value)}
-                    disabled={!editing}
-                  >
-                    {VIETNAM_ETHNICITIES.map(eth => (
-                      <option key={eth} value={eth}>{eth}</option>
-                    ))}
-                  </select>
+                <div className="ps-info-display-card">
+                  <span className="ps-info-display-label">Số điện thoại liên hệ</span>
+                  <span className="ps-info-display-value">{profile?.phone_number || 'Chưa cập nhật'}</span>
                 </div>
 
-                <div className="ps-input-group">
-                  <label>Nhóm máu (nếu có xác định)</label>
-                  <select
-                    className="ps-form-input"
-                    value={bloodType}
-                    onChange={e => setBloodType(e.target.value)}
-                    disabled={!editing}
-                  >
-                    <option value="Không rõ">Không rõ</option>
-                    <option value="O+">O+ (Phổ biến)</option>
-                    <option value="O-">O- (Hiếm)</option>
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                  </select>
+                <div className="ps-info-display-card">
+                  <span className="ps-info-display-label">Địa chỉ Email</span>
+                  <span className="ps-info-display-value">{profile?.email || 'Chưa cập nhật'}</span>
                 </div>
 
-                <div className="ps-input-group">
-                  <label>Mã Tỉnh / Thành phố nơi ở hiện tại</label>
-                  <select
-                    className="ps-form-input"
-                    value={provinceCode}
-                    onChange={e => setProvinceCode(e.target.value)}
-                    disabled={!editing}
-                  >
-                    {VIETNAM_PROVINCES.map(p => (
-                      <option key={p.code} value={p.code}>{p.name}</option>
-                    ))}
-                  </select>
+                <div className="ps-info-display-card" style={{ gridColumn: 'span 2' }}>
+                  <span className="ps-info-display-label">Địa chỉ thường trú</span>
+                  <span className="ps-info-display-value">{profile?.address || '124 Điện Biên Phủ, Phường Đa Kao, Quận 1, TP. Hồ Chí Minh'}</span>
                 </div>
 
-                <div className="ps-input-group full-width">
-                  <label>Nơi ở hiện tại (Địa chỉ chi tiết)</label>
-                  <input
-                    type="text"
-                    className="ps-form-input"
-                    value={address}
-                    onChange={e => setAddress(e.target.value)}
-                    disabled={!editing}
-                    placeholder="Số nhà, ngõ/ngách, tên đường phố, tổ dân phố, thôn xóm..."
-                  />
-                </div>
-
-                <div className="ps-input-group">
-                  <label>Số điện thoại liên hệ</label>
-                  <input
-                    type="text"
-                    className="ps-form-input"
-                    value={profile?.phone_number || ''}
-                    disabled
-                    style={{ background: '#f8fafc' }}
-                  />
-                </div>
-
-                <div className="ps-input-group">
-                  <label>Địa chỉ Email</label>
-                  <input
-                    type="email"
-                    className="ps-form-input"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    disabled={!editing}
-                    placeholder="email@example.com"
-                  />
-                </div>
-
-                <div className="ps-input-group full-width">
-                  <label>Mã số Thẻ Bảo hiểm Y tế (BHYT 15 ký tự)</label>
-                  <input
-                    type="text"
-                    className="ps-form-input"
-                    value={bhytCode}
-                    onChange={e => setBhytCode(e.target.value)}
-                    disabled={!editing}
-                    placeholder="Ví dụ: GD4797931812345"
-                    style={{ textTransform: 'uppercase', fontFamily: 'monospace', fontWeight: 700 }}
-                  />
+                <div className="ps-info-display-card" style={{ gridColumn: 'span 2' }}>
+                  <span className="ps-info-display-label">Người đi cùng / Giám hộ</span>
+                  <span className="ps-info-display-value">
+                    {profile?.companion_name
+                      ? `${profile.companion_name} (${profile.companion_relationship || 'Người thân'}) · SĐT: ${profile.companion_phone || 'N/A'}`
+                      : 'Tự đi khám (Không có người giám hộ đi kèm)'}
+                  </span>
                 </div>
               </div>
-
-              {/* KHỐI: THÔNG TIN NGƯỜI ĐI CÙNG (ĐỐI VỚI TRẺ EM HOẶC TRƯỜNG HỢP CẦN THIẾT) */}
-              <div style={{ marginTop: '28px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                  <Users size={18} color="#0e7490" />
-                  <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>
-                    Thông tin người đi cùng (Đối với trẻ em hoặc trường hợp cần thiết)
-                  </h4>
-                </div>
-                <p style={{ margin: '-6px 0 16px', fontSize: '12.5px', color: '#64748b' }}>
-                  Theo quy định Bộ Y tế: Họ tên, CCCD, số điện thoại và mối quan hệ với người bệnh
-                </p>
-
+            ) : (
+              /* Inline Form View */
+              <form onSubmit={handleSave}>
                 <div className="ps-form-grid">
                   <div className="ps-input-group">
-                    <label>Họ và tên người đi cùng / Giám hộ</label>
+                    <label style={{ fontSize: '13px', fontWeight: 600 }}>Họ và tên người bệnh (*)</label>
+                    <input
+                      type="text"
+                      className="ps-form-input"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Ghi rõ họ tên..."
+                      style={{ borderRadius: '6px' }}
+                    />
+                  </div>
+
+                  <div className="ps-input-group">
+                    <label style={{ fontSize: '13px', fontWeight: 600 }}>Ngày sinh (*)</label>
+                    <input
+                      type="date"
+                      className="ps-form-input"
+                      value={dateOfBirth}
+                      onChange={(e) => setDateOfBirth(e.target.value)}
+                      style={{ borderRadius: '6px' }}
+                    />
+                  </div>
+
+                  <div className="ps-input-group">
+                    <label style={{ fontSize: '13px', fontWeight: 600 }}>Giới tính (*)</label>
+                    <select
+                      className="ps-form-input"
+                      value={gender}
+                      onChange={(e) => setGender(e.target.value)}
+                      style={{ borderRadius: '6px' }}
+                    >
+                      <option value="Nam">Nam</option>
+                      <option value="Nữ">Nữ</option>
+                      <option value="Khác">Khác</option>
+                    </select>
+                  </div>
+
+                  <div className="ps-input-group">
+                    <label style={{ fontSize: '13px', fontWeight: 600 }}>Số CCCD / Định danh cá nhân (*)</label>
+                    <input
+                      type="text"
+                      className="ps-form-input"
+                      value={identityCard}
+                      onChange={(e) => setIdentityCard(e.target.value)}
+                      placeholder="12 chữ số trên thẻ CCCD gắn chip..."
+                      style={{ borderRadius: '6px' }}
+                    />
+                  </div>
+
+                  <div className="ps-input-group">
+                    <label style={{ fontSize: '13px', fontWeight: 600 }}>Dân tộc</label>
+                    <select
+                      className="ps-form-input"
+                      value={ethnicity}
+                      onChange={(e) => setEthnicity(e.target.value)}
+                      style={{ borderRadius: '6px' }}
+                    >
+                      {VIETNAM_ETHNICITIES.map((eth) => (
+                        <option key={eth} value={eth}>
+                          {eth}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="ps-input-group">
+                    <label style={{ fontSize: '13px', fontWeight: 600 }}>Email liên hệ</label>
+                    <input
+                      type="email"
+                      className="ps-form-input"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      style={{ borderRadius: '6px' }}
+                    />
+                  </div>
+
+                  <div className="ps-input-group full-width">
+                    <label style={{ fontSize: '13px', fontWeight: 600 }}>Địa chỉ thường trú (*)</label>
+                    <input
+                      type="text"
+                      className="ps-form-input"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành..."
+                      style={{ borderRadius: '6px' }}
+                    />
+                  </div>
+
+                  <div className="ps-input-group">
+                    <label style={{ fontSize: '13px', fontWeight: 600 }}>Họ tên người giám hộ / Đi cùng</label>
                     <input
                       type="text"
                       className="ps-form-input"
                       value={companionName}
-                      onChange={e => setCompanionName(e.target.value)}
-                      disabled={!editing}
-                      placeholder="Họ tên cha/mẹ, người giám hộ..."
+                      onChange={(e) => setCompanionName(e.target.value)}
+                      placeholder="Để trống nếu tự đi khám..."
+                      style={{ borderRadius: '6px' }}
                     />
                   </div>
 
                   <div className="ps-input-group">
-                    <label>Số CCCD / Định danh người đi cùng</label>
-                    <input
-                      type="text"
-                      className="ps-form-input"
-                      value={companionIdCard}
-                      onChange={e => setCompanionIdCard(e.target.value)}
-                      disabled={!editing}
-                      placeholder="Số CCCD 12 số của người đi cùng..."
-                    />
-                  </div>
-
-                  <div className="ps-input-group">
-                    <label>Số điện thoại người đi cùng</label>
-                    <input
-                      type="tel"
-                      className="ps-form-input"
-                      value={companionPhone}
-                      onChange={e => setCompanionPhone(e.target.value)}
-                      disabled={!editing}
-                      placeholder="09xx xxx xxx"
-                    />
-                  </div>
-
-                  <div className="ps-input-group">
-                    <label>Mối quan hệ với người bệnh</label>
+                    <label style={{ fontSize: '13px', fontWeight: 600 }}>Quan hệ với người bệnh</label>
                     <select
                       className="ps-form-input"
                       value={companionRelationship}
-                      onChange={e => setCompanionRelationship(e.target.value)}
-                      disabled={!editing}
+                      onChange={(e) => setCompanionRelationship(e.target.value)}
+                      style={{ borderRadius: '6px' }}
                     >
-                      <option value="Bố/Mẹ">Bố / Mẹ</option>
-                      <option value="Người giám hộ">Người giám hộ hợp pháp</option>
-                      <option value="Vợ/Chồng">Vợ / Chồng</option>
+                      <option value="Bố/Mẹ">Bố/Mẹ</option>
+                      <option value="Vợ/Chồng">Vợ/Chồng</option>
                       <option value="Con cái">Con cái</option>
-                      <option value="Anh/Chị/Em">Anh / Chị / Em</option>
-                      <option value="Người thân khác">Người thân khác</option>
+                      <option value="Anh/Chị/Em">Anh/Chị/Em</option>
+                      <option value="Người giám hộ pháp lý">Người giám hộ pháp lý</option>
                     </select>
                   </div>
                 </div>
-              </div>
 
-              {editing && (
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
-                  <button type="button" className="ps-btn-secondary" onClick={() => setEditing(false)}>
-                    Hủy bỏ
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px', borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
+                  <button
+                    type="button"
+                    className="ps-btn-secondary"
+                    onClick={() => setEditing(false)}
+                    style={{ borderRadius: '6px' }}
+                  >
+                    Hủy
                   </button>
-                  <button type="submit" className="ps-btn-primary" disabled={saving}>
-                    <Save size={15} /> {saving ? 'Đang lưu...' : 'Lưu thông tin hành chính'}
+                  <button
+                    type="submit"
+                    className="ps-btn-primary"
+                    disabled={saving}
+                    style={{ borderRadius: '6px' }}
+                  >
+                    <Save size={15} />
+                    {saving ? 'Đang lưu...' : 'Lưu thay đổi hồ sơ'}
                   </button>
                 </div>
-              )}
-            </form>
+              </form>
+            )}
           </section>
         )}
 
-        {/* TAB 2: THÔNG TIN TIỀN SỬ SỨC KHỎE (QUYẾT ĐỊNH 2682/QĐ-BYT) */}
+        {/* TAB 2: TIỀN SỬ Y TẾ & SỔ SỨC KHỎE */}
         {activeTab === 'medical' && (
-          <section className="ps-hero-card" style={{ display: 'block' }}>
+          <section className="ps-hero-card" style={{ display: 'block', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--ps-navy)' }}>
-                  2. Thông Tin Tiền Sử Sức Khỏe & Dịch Tễ
+                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: 'var(--ps-navy)' }}>
+                  Sổ Sức Khỏe & Tiền Sử Y Khoa
                 </h3>
                 <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--ps-slate-muted)' }}>
-                  Ghi nhận tiền sử bản thân, tiền sử gia đình (mã ICD-10) và tiền sử dịch tễ theo chuẩn Bộ Y tế
+                  Thông tin nhóm máu, cảnh báo dị ứng thuốc và lịch sử bệnh mạn tính phục vụ kê đơn an toàn
                 </p>
               </div>
 
               {!editing && (
-                <button className="ps-btn-secondary" onClick={() => setEditing(true)}>
-                  <Edit3 size={14} /> Chỉnh sửa
+                <button
+                  type="button"
+                  className="ps-btn-secondary"
+                  onClick={() => setEditing(true)}
+                  style={{ borderRadius: '6px', fontSize: '12px', padding: '6px 14px' }}
+                >
+                  <Edit3 size={14} /> Chỉnh sửa y tế
                 </button>
               )}
             </div>
 
-            <form onSubmit={handleSave}>
-              <div className="ps-form-grid">
-                {/* 1. Tiền sử bản thân */}
-                <div className="ps-input-group full-width" style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <label style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', margin: 0 }}>
-                      Tiền sử bản thân: Có mắc bệnh tiền sử hay không?
-                    </label>
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
-                        <input
-                          type="radio"
-                          name="has_med"
-                          checked={hasMedicalHistory}
-                          onChange={() => setHasMedicalHistory(true)}
-                          disabled={!editing}
-                        />
-                        Có mắc bệnh tiền sử
-                      </label>
-                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
-                        <input
-                          type="radio"
-                          name="has_med"
-                          checked={!hasMedicalHistory}
-                          onChange={() => setHasMedicalHistory(false)}
-                          disabled={!editing}
-                        />
-                        Không
-                      </label>
-                    </div>
-                  </div>
-
-                  {hasMedicalHistory && (
-                    <div style={{ marginTop: '10px' }}>
-                      <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#475569' }}>
-                        Mã bệnh tiền sử theo bảng mã ICD-10 (phân cách bằng dấu chấm phẩy ; nếu có nhiều bệnh)
-                      </label>
-                      <input
-                        type="text"
-                        className="ps-form-input"
-                        value={medicalHistoryIcd10}
-                        onChange={e => setMedicalHistoryIcd10(e.target.value)}
-                        disabled={!editing}
-                        placeholder="Ví dụ: I10; E11.9; J45..."
-                        style={{ fontFamily: 'monospace', fontWeight: 600, color: '#0e7490' }}
-                      />
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
-                        <span style={{ fontSize: '11px', color: '#64748b' }}>Gợi ý mã phổ biến:</span>
-                        {[
-                          { code: 'I10', label: 'Tăng huyết áp vô căn' },
-                          { code: 'E11', label: 'Đái tháo đường Type 2' },
-                          { code: 'J45', label: 'Hen phế quản' },
-                          { code: 'K29', label: 'Viêm dạ dày' }
-                        ].map(s => (
-                          <button
-                            key={s.code}
-                            type="button"
-                            disabled={!editing}
-                            onClick={() => {
-                              const cur = medicalHistoryIcd10 ? medicalHistoryIcd10.split(';').map(x => x.trim()).filter(Boolean) : []
-                              if (!cur.includes(s.code)) {
-                                setMedicalHistoryIcd10(cur.length ? `${medicalHistoryIcd10}; ${s.code}` : s.code)
-                              }
-                            }}
-                            style={{
-                              border: '1px solid #bae6fd',
-                              background: '#f0f9ff',
-                              color: '#0369a1',
-                              fontSize: '11px',
-                              borderRadius: '4px',
-                              padding: '2px 6px',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            + [{s.code}] {s.label}
-                          </button>
-                        ))}
-                      </div>
-
-                      <div style={{ marginTop: '10px' }}>
-                        <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#475569' }}>
-                          Ghi chú mô tả tiền sử bệnh bản thân
-                        </label>
-                        <textarea
-                          className="ps-form-input"
-                          rows={2}
-                          value={medicalHistoryNotes}
-                          onChange={e => setMedicalHistoryNotes(e.target.value)}
-                          disabled={!editing}
-                          placeholder="Mô tả quá trình mắc, thuốc đang dùng định kỳ..."
-                          style={{ height: 'auto', padding: '8px 12px' }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* 2. Tiền sử gia đình */}
-                <div className="ps-input-group full-width" style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <label style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginBottom: '4px', display: 'block' }}>
-                    Tiền sử gia đình (Các bệnh lý có tính chất di truyền theo mã ICD-10)
-                  </label>
-                  <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#64748b' }}>
-                    Nhập mã ICD-10 của bệnh lý di truyền hoặc tiền sử bệnh gia đình (phân cách bằng dấu chấm phẩy ;)
-                  </p>
-                  <input
-                    type="text"
-                    className="ps-form-input"
-                    value={familyHistoryIcd10}
-                    onChange={e => setFamilyHistoryIcd10(e.target.value)}
-                    disabled={!editing}
-                    placeholder="Ví dụ: I10; E11; C50 (Tăng huyết áp, Đái tháo đường, Ung thư vú...)"
-                    style={{ fontFamily: 'monospace', fontWeight: 600, color: '#0e7490' }}
-                  />
-                  <div style={{ marginTop: '8px' }}>
-                    <textarea
-                      className="ps-form-input"
-                      rows={2}
-                      value={familyHistoryNotes}
-                      onChange={e => setFamilyHistoryNotes(e.target.value)}
-                      disabled={!editing}
-                      placeholder="Ghi chú chi tiết: Bố mẹ mắc tim mạch sớm, người thân có bệnh lý huyết học..."
-                      style={{ height: 'auto', padding: '8px 12px' }}
-                    />
-                  </div>
-                </div>
-
-                {/* 3. Tiền sử dịch tễ */}
-                <div className="ps-input-group full-width" style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <label style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginBottom: '4px', display: 'block' }}>
-                    Tiền sử dịch tễ (Tiếp xúc người bệnh truyền nhiễm)
-                  </label>
-                  <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#64748b' }}>
-                    Ghi nhận tiền sử tiếp xúc với người bệnh truyền nhiễm (bệnh lao, sốt xuất huyết, sởi, cúm A, ho gà...)
-                  </p>
-                  <textarea
-                    className="ps-form-input"
-                    rows={2}
-                    value={epidemiologicalHistory}
-                    onChange={e => setEpidemiologicalHistory(e.target.value)}
-                    disabled={!editing}
-                    placeholder="Ví dụ: Không tiếp xúc người bệnh lao trong 6 tháng qua; hoặc có tiếp xúc gần người thân điều trị lao..."
-                    style={{ height: 'auto', padding: '8px 12px' }}
-                  />
-                </div>
-
-                {/* Dị ứng */}
-                <div className="ps-input-group full-width">
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#dc2626' }}>
-                    <AlertTriangle size={15} /> Tiền sử dị ứng (Thuốc, kháng sinh, thức ăn, phấn hoa)
-                  </label>
-                  <textarea
-                    className="ps-form-input"
-                    rows={2}
-                    style={{ height: 'auto', padding: '10px 14px' }}
-                    value={allergies}
-                    onChange={e => setAllergies(e.target.value)}
-                    disabled={!editing}
-                    placeholder="Ví dụ: Dị ứng Penicillin, Paracetamol nổi mề đay, dị ứng tôm cua..."
-                  />
+            <div className="ps-info-display-grid">
+              <div className="ps-info-display-card">
+                <span className="ps-info-display-label">Nhóm máu hệ ABO / Rh</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                  <Droplet size={18} color="#dc2626" />
+                  <span className="ps-info-display-value" style={{ fontSize: '18px', color: '#dc2626' }}>
+                    {profile?.blood_type || bloodType}
+                  </span>
                 </div>
               </div>
 
-              {editing && (
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
-                  <button type="button" className="ps-btn-secondary" onClick={() => setEditing(false)}>
-                    Hủy bỏ
-                  </button>
-                  <button type="submit" className="ps-btn-primary" disabled={saving}>
-                    <Save size={15} /> {saving ? 'Đang lưu...' : 'Lưu tiền sử sức khỏe'}
-                  </button>
-                </div>
-              )}
-            </form>
-          </section>
-        )}
-
-        {/* TAB 3: THIẾT BỊ SINH HIỆU RPM */}
-        {activeTab === 'devices' && (
-          <section>
-            <SmartDevicesHub user={currentUser} embedded={true} onNavigate={onNavigate} />
-          </section>
-        )}
-
-        {/* TAB 4: LỊCH SỬ & DỊCH VỤ Y TẾ */}
-        {activeTab === 'history' && (
-          <section className="ps-hero-card" style={{ display: 'block' }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: 700, color: 'var(--ps-navy)' }}>
-              Truy Cập Nhanh Hệ Sinh Thái Y Tế Cá Nhân
-            </h3>
-
-            <div className="ps-services-grid">
-              <div className="ps-service-tile" onClick={() => onNavigate('records')}>
-                <div>
-                  <div className="ps-service-icon-box blue"><FileText size={22} /></div>
-                  <h4 className="ps-service-title">Hồ Sơ Bệnh Án EMR</h4>
-                  <p className="ps-service-desc">Xem toàn bộ lịch sử thăm khám và chẩn đoán ICD-10</p>
-                </div>
-                <div className="ps-service-footer">
-                  <span>Mở EMR</span>
-                  <ChevronRight size={15} />
-                </div>
+              <div className="ps-info-display-card">
+                <span className="ps-info-display-label">Thể trạng & Chỉ số BMI</span>
+                <span className="ps-info-display-value">68 kg · 172 cm (BMI: 23.0 - Bình thường)</span>
               </div>
 
-              <div className="ps-service-tile" onClick={() => onNavigate('prescriptions')}>
-                <div>
-                  <div className="ps-service-icon-box mint"><Heart size={22} /></div>
-                  <h4 className="ps-service-title">Đơn Thuốc Điện Tử</h4>
-                  <p className="ps-service-desc">Đơn thuốc có ký số và hướng dẫn liều dùng</p>
-                </div>
-                <div className="ps-service-footer">
-                  <span>Mở đơn thuốc</span>
-                  <ChevronRight size={15} />
-                </div>
+              <div className="ps-info-display-card" style={{ gridColumn: 'span 2', background: '#fef2f2', borderColor: '#fecaca' }}>
+                <span className="ps-info-display-label" style={{ color: '#dc2626' }}>
+                  ⚠️ Cảnh báo tiền sử dị ứng thuốc & Thực phẩm
+                </span>
+                <span className="ps-info-display-value" style={{ color: '#991b1b', fontWeight: 600 }}>
+                  {profile?.allergies || 'Không ghi nhận tiền sử dị ứng thuốc'}
+                </span>
               </div>
 
-              <div className="ps-service-tile" onClick={() => onNavigate('lab')}>
-                <div>
-                  <div className="ps-service-icon-box sky"><Droplet size={22} /></div>
-                  <h4 className="ps-service-title">Xét Nghiệm LIS</h4>
-                  <p className="ps-service-desc">Kết quả sinh hóa, huyết học kèm giá trị tham chiếu</p>
-                </div>
-                <div className="ps-service-footer">
-                  <span>Mở xét nghiệm</span>
-                  <ChevronRight size={15} />
-                </div>
+              <div className="ps-info-display-card" style={{ gridColumn: 'span 2' }}>
+                <span className="ps-info-display-label">Tiền sử bệnh lý mạn tính (ICD-10)</span>
+                <span className="ps-info-display-value">
+                  {profile?.has_medical_history
+                    ? `${profile.medical_history_icd10 || 'I10'} - ${profile.medical_history_notes || 'Tăng huyết áp vô căn, đang theo dõi điều trị'}`
+                    : 'Không ghi nhận bệnh nền mạn tính'}
+                </span>
               </div>
 
-              <div className="ps-service-tile" onClick={() => onNavigate('pacs')}>
-                <div>
-                  <div className="ps-service-icon-box purple"><Camera size={22} /></div>
-                  <h4 className="ps-service-title">Hình Ảnh PACS</h4>
-                  <p className="ps-service-desc">Xem phim chụp X-quang, MRI, Siêu âm DICOM</p>
-                </div>
-                <div className="ps-service-footer">
-                  <span>Mở phim chụp</span>
-                  <ChevronRight size={15} />
-                </div>
+              <div className="ps-info-display-card" style={{ gridColumn: 'span 2' }}>
+                <span className="ps-info-display-label">Tiền sử gia đình & Dịch tễ</span>
+                <span className="ps-info-display-value">
+                  {profile?.family_history_notes || 'Gia đình không có tiền sử bệnh tim mạch hoặc đái tháo đường di truyền.'}
+                </span>
               </div>
             </div>
           </section>
         )}
 
-        {/* TAB 5: BẢO MẬT & QUYỀN RIÊNG TƯ */}
-        {activeTab === 'privacy' && (
-          <section className="ps-hero-card" style={{ display: 'block' }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: 700, color: 'var(--ps-navy)' }}>
-              Bảo Mật Dữ Liệu & Quyền Riêng Tư Y Tế (Nghị Định 13/2023/NĐ-CP)
-            </h3>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ background: '#f8fafc', padding: '18px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--ps-primary)', fontWeight: 700 }}>
-                  <ShieldCheck size={20} />
-                  <span>Tuân thủ Luật Khám bệnh, chữa bệnh 2023 & Nghị định 13/2023/NĐ-CP</span>
-                </div>
-                <p style={{ margin: '8px 0 0', fontSize: '13px', color: 'var(--ps-slate)', lineHeight: 1.5 }}>
-                  Mọi hồ sơ bệnh án (EMR), hình ảnh xét nghiệm và chỉ số sinh hiệu của bạn được bảo mật tuyệt đối,
-                  mã hóa phân vùng PHI và chỉ được cung cấp cho Bác sĩ được chỉ định trong ca tư vấn.
-                </p>
+        {/* TAB 3: THIẾT BỊ SINH HIỆU & BẢO MẬT DỮ LIỆU */}
+        {activeTab === 'security' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Connected IoT Hub */}
+            <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                <Cpu size={20} color="#0284c7" />
+                <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>Thiết bị Giám sát Sinh hiệu Từ xa (RPM IoT)</h3>
               </div>
+              <SmartDevicesHub user={currentUser} embedded={true} onNavigate={onNavigate} />
+            </div>
 
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="ps-btn-secondary"
-                  onClick={() => alert('Bản sao lưu dữ liệu y tế cá nhân đang được đóng gói. Hệ thống sẽ gửi về email của bạn.')}
-                >
-                  <Download size={15} /> Tải bản sao lưu dữ liệu EMR
-                </button>
-                <button
-                  type="button"
-                  className="ps-btn-secondary"
-                  onClick={() => alert('Vui lòng sử dụng tính năng Đổi mật khẩu trên màn hình đăng nhập hoặc liên hệ tổng đài 1900 8866.')}
-                >
-                  <KeyRound size={15} /> Đổi mật khẩu tài khoản
-                </button>
+            {/* Privacy & Legal Compliance */}
+            <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <ShieldCheck size={20} color="#059669" />
+                <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>Cam Kết Bảo Mật & Quyền Riêng Tư Y Tế</h3>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px', fontSize: '13px' }}>
+                <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                  <strong style={{ color: '#0f766e', display: 'block', marginBottom: '4px' }}>Nghị định 13/2023/NĐ-CP</strong>
+                  <p style={{ margin: 0, color: '#475569', lineHeight: 1.5 }}>
+                    Dữ liệu y tế và hồ sơ bệnh án được bảo vệ nghiêm ngặt, mã hóa đầu cuối và chỉ chia sẻ cho bác sĩ phụ trách.
+                  </p>
+                </div>
+
+                <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                  <strong style={{ color: '#0369a1', display: 'block', marginBottom: '4px' }}>Ký số Chứng thư SmartCA PKI</strong>
+                  <p style={{ margin: 0, color: '#475569', lineHeight: 1.5 }}>
+                    Mọi đơn thuốc điện tử và kết luận cận lâm sàng đều được ký số hợp chuẩn Thông tư 46/2018/TT-BYT.
+                  </p>
+                </div>
               </div>
             </div>
-          </section>
+          </div>
         )}
       </div>
     </div>

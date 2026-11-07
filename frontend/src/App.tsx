@@ -832,7 +832,7 @@ export default function App() {
     ['vitals', 'Sinh hiệu RPM IoT', Activity],
     ['insurance', 'Bảo hiểm Y tế & XML 4210', ShieldCheck],
     ['payments', 'Thanh toán VietQR', CreditCard],
-    ['profile', 'Hồ sơ cá nhân & CCCD', UserRound]
+    ['profile', 'Hồ sơ cá nhân', UserRound]
   ] : isDoctor ? [
     ['overview', 'Bàn làm việc Bác sĩ', Activity],
     ['appointments', 'Hàng đợi khám hôm nay', CalendarDays],
