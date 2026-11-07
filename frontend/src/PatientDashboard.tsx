@@ -654,7 +654,7 @@ export function PatientDashboard({
                     </>
                   ) : nextAppt.status === 'waiting' ? (
                     <>
-                      <Clock size={18} /> Đang ở phòng chờ (Xem điều dưỡng điều phối)
+                      <Clock size={18} /> Đang ở phòng chờ
                     </>
                   ) : (
                     <>

@@ -2626,7 +2626,7 @@ function AppointmentList({
                             : a.status === 'in_progress'
                             ? 'Vào gặp Bác sĩ ngay'
                             : a.status === 'waiting'
-                            ? 'Đang ở phòng chờ (Xem điều dưỡng điều phối)'
+                            ? 'Đang ở phòng chờ'
                             : 'Vào phòng chờ để điều dưỡng điều phối'}
                         </span>
                       </button>
