@@ -24,7 +24,7 @@ from app.models import (
     User, Appointment, TelehealthSession, ClinicalRecord, PrescriptionRef,
     Payment, AuditLog, OtpCode, PatientConsent, Department, DoctorShift, NurseShift,
     ConsultationMessage, SystemSetting, Notification, AppointmentEvent,
-    BHYTClaim, ConsultationMember, RPMVitalLog, FamilyMemberProfile, AIPACSConsultation
+    BHYTClaim, ConsultationMember, RPMVitalLog, FamilyMemberProfile, AIPACSConsultation, AppointmentDocument
 )
 from app.schemas import (
     LoginIn, TokenOut, OtpSendIn, OtpSendOut, OtpVerifyIn, FirebaseVerifyIn, RefreshTokenIn,
@@ -37,7 +37,7 @@ from app.schemas import (
     DepartmentOut, DoctorShiftOut, NurseShiftIn, NurseShiftOut, NurseShiftUpdateIn, AssignNurseIn, AppointmentCancelIn, AppointmentCancelOut,
     ConsultationMessageIn, ConsultationMessageOut,
     IceServersOut, IceServerConfig, PaymentWebhookOut,
-    TriageAssessmentIn, TriageAssessmentOut, TriageQueueItem, WaitingRoomStatusOut,
+    TriageAssessmentIn, TriageAssessmentOut, TriageQueueItem, WaitingRoomStatusOut, AppointmentDocumentIn, AppointmentDocumentOut, PatientVitalsUpdateIn,
     AdminOverviewOut, AuditLogOut, SystemSettingsOut, SystemSettingsUpdateIn,
     PatientProfileOut, PatientProfileUpdateIn,
     PatientHisCheckIn, PatientHisCheckOut, PatientRegisterIn, PatientRegisterOut,
@@ -2777,6 +2777,253 @@ def get_waiting_room_status(
         message="Đang ở phòng chờ, bác sĩ sẽ mời vào khám khi sẵn sàng." if appt.status == "waiting" else "Ca khám đang diễn ra."
     )
 
+
+# ----------------- PATIENT WAITING ROOM VITALS & MEDICAL DOCUMENTS -----------------
+
+@app.post("/api/v1/appointments/{appointment_id}/patient-vitals")
+def update_patient_vitals_in_waiting_room(
+    appointment_id: int,
+    data: PatientVitalsUpdateIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Bệnh nhân tự nhập hoặc đồng bộ chỉ số sinh hiệu (Huyết áp, Mạch, SpO2, Thân nhiệt, Chiều cao, Cân nặng)
+    trực tiếp từ phòng chờ ảo trước khi vào gặp bác sĩ.
+    """
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
+    check_appointment_access(appt, user)
+
+    # 1. Nếu chọn đồng bộ tự động từ hồ sơ y tế / thiết bị đo gần nhất
+    if data.sync_from_profile:
+        latest_vital = db.query(RPMVitalLog).filter_by(patient_id=appt.patient_id).order_by(RPMVitalLog.measured_at.desc()).first()
+        if latest_vital:
+            if latest_vital.blood_pressure:
+                appt.blood_pressure = latest_vital.blood_pressure
+            if latest_vital.heart_rate:
+                appt.pulse = latest_vital.heart_rate
+            if latest_vital.temperature_celsius:
+                appt.temperature = latest_vital.temperature_celsius
+            if latest_vital.spo2:
+                appt.spo2 = latest_vital.spo2
+            if latest_vital.weight_kg:
+                appt.weight = latest_vital.weight_kg
+
+        # Đồng bộ từ user profile nếu appointment còn thiếu
+        patient = db.get(User, appt.patient_id)
+        if patient:
+            if not appt.weight and getattr(patient, "weight", None):
+                appt.weight = patient.weight
+            if not appt.height and getattr(patient, "height", None):
+                appt.height = patient.height
+            if not appt.blood_pressure:
+                appt.blood_pressure = "120/80"
+            if not appt.pulse:
+                appt.pulse = 76
+            if not appt.temperature:
+                appt.temperature = 36.8
+            if not appt.spo2:
+                appt.spo2 = 98
+    else:
+        # Cập nhật theo dữ liệu tự nhập thủ công
+        if data.blood_pressure is not None and data.blood_pressure.strip():
+            appt.blood_pressure = data.blood_pressure.strip()
+        if data.pulse is not None:
+            appt.pulse = data.pulse
+        if data.temperature is not None:
+            appt.temperature = data.temperature
+        if data.spo2 is not None:
+            appt.spo2 = data.spo2
+        if data.weight is not None:
+            appt.weight = data.weight
+        if data.height is not None:
+            appt.height = data.height
+
+    if data.notes:
+        existing_notes = appt.triage_notes or ""
+        appt.triage_notes = f"{existing_notes} | [Người bệnh ghi nhận]: {data.notes}".strip(" |")
+
+    # Lưu lại chỉ số vào RPM Vital Log để làm giàu dữ liệu sức khỏe người bệnh
+    if appt.patient_id and (appt.blood_pressure or appt.pulse or appt.temperature):
+        sysNum = None
+        diaNum = None
+        if appt.blood_pressure and "/" in appt.blood_pressure:
+            try:
+                parts = appt.blood_pressure.split("/")
+                sysNum = int(parts[0].strip())
+                diaNum = int(parts[1].strip())
+            except Exception:
+                pass
+        db.add(RPMVitalLog(
+            patient_id=appt.patient_id,
+            device_type="patient_self_report",
+            device_name="Người bệnh tự nhập tại Phòng chờ",
+            connection_method="manual",
+            systolic=sysNum,
+            diastolic=diaNum,
+            heart_rate=appt.pulse,
+            spo2=appt.spo2,
+            temperature_celsius=appt.temperature,
+            weight_kg=appt.weight
+        ))
+
+    # Ghi nhận sự kiện lượt khám
+    record_appointment_event(
+        db=db,
+        appointment_id=appt.id,
+        action="patient_update_vitals",
+        from_status=appt.status,
+        to_status=appt.status,
+        actor=user,
+        notes=f"Người bệnh tự cập nhật sinh hiệu: HA: {appt.blood_pressure or '—'} mmHg, Mạch: {appt.pulse or '—'} l/p, SpO2: {appt.spo2 or '—'}%, Thân nhiệt: {appt.temperature or '—'}°C"
+    )
+
+    db.commit()
+
+    return {
+        "success": True,
+        "appointment_id": appt.id,
+        "vitals": {
+            "blood_pressure": appt.blood_pressure,
+            "pulse": appt.pulse,
+            "temperature": appt.temperature,
+            "spo2": appt.spo2,
+            "weight": appt.weight,
+            "height": appt.height,
+            "triage_notes": appt.triage_notes
+        },
+        "message": "Đã lưu và đồng bộ chỉ số sinh hiệu thành công."
+    }
+
+@app.get("/api/v1/appointments/{appointment_id}/documents", response_model=list[AppointmentDocumentOut])
+def get_appointment_documents(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Lấy danh sách các tài liệu (đơn thuốc, xét nghiệm, CĐHA) đã tải lên cho ca khám"""
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
+    check_appointment_access(appt, user)
+    return db.query(AppointmentDocument).filter_by(appointment_id=appt.id).order_by(AppointmentDocument.id.desc()).all()
+
+@app.post("/api/v1/appointments/{appointment_id}/documents", response_model=AppointmentDocumentOut)
+def upload_appointment_document(
+    appointment_id: int,
+    data: AppointmentDocumentIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Bệnh nhân (hoặc Điều dưỡng) tải lên:
+    - Đơn thuốc hoặc hình ảnh hộp thuốc đã sử dụng ('prescription')
+    - Phiếu kết quả xét nghiệm ('lab_test')
+    - Phiếu Chẩn đoán hình ảnh CĐHA: X-quang, Siêu âm, CT/MRI ('cdha')
+    """
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
+    check_appointment_access(appt, user)
+
+    # 1. Giải mã Base64
+    raw_b64 = data.file_data
+    if "," in raw_b64:
+        raw_b64 = raw_b64.split(",", 1)[1]
+    try:
+        file_bytes = base64.b64decode(raw_b64)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Dữ liệu tệp không hợp lệ: {str(e)}")
+
+    file_size = len(file_bytes)
+    safe_ext = ".jpg"
+    if data.file_name and "." in data.file_name:
+        safe_ext = "." + data.file_name.rsplit(".", 1)[1].lower()[:10]
+
+    clean_name = f"doc_{appt.id}_{uuid.uuid4().hex[:8]}{safe_ext}"
+    saved_path = os.path.join(UPLOAD_DIR, clean_name)
+    with open(saved_path, "wb") as f:
+        f.write(file_bytes)
+
+    # 2. Tải lên Supabase Storage (nếu đã cấu hình) kết hợp lưu cục bộ
+    supabase_content_type = "image/jpeg" if safe_ext in (".jpg", ".jpeg") else ("image/png" if safe_ext == ".png" else "application/pdf" if safe_ext == ".pdf" else "application/octet-stream")
+    supabase_url = upload_file_to_supabase(
+        file_bytes=file_bytes,
+        destination_path=f"documents/{appt.id}/{clean_name}",
+        content_type=supabase_content_type
+    )
+    file_url = supabase_url if supabase_url else f"/uploads/{clean_name}"
+
+    # 3. Tạo bản ghi AppointmentDocument
+    doc = AppointmentDocument(
+        appointment_id=appt.id,
+        uploaded_by=user.id,
+        document_type=data.document_type,
+        title=data.title.strip(),
+        description=data.description.strip() if data.description else None,
+        file_url=file_url,
+        file_name=data.file_name or clean_name,
+        file_size=file_size
+    )
+    db.add(doc)
+
+    type_labels = {
+        "prescription": "Đơn thuốc / Hộp thuốc đang dùng",
+        "lab_test": "Phiếu kết quả xét nghiệm",
+        "cdha": "Phiếu Chẩn đoán hình ảnh (CĐHA)",
+        "other": "Tài liệu y tế đính kèm"
+    }
+    type_display = type_labels.get(data.document_type, "Tài liệu y tế")
+
+    # 4. Ghi nhận sự kiện lượt khám
+    record_appointment_event(
+        db=db,
+        appointment_id=appt.id,
+        action="upload_document",
+        actor=user,
+        notes=f"Người bệnh tải lên {type_display}: {data.title}"
+    )
+
+    # 5. Đồng thời gửi tin nhắn thông báo vào buồng chat ca khám để Điều dưỡng & Bác sĩ thấy ngay
+    chat_content = f"📎 [ĐÍNH KÈM Y TẾ - {type_display.upper()}]\n• Tiêu đề: {data.title}"
+    if data.description:
+        chat_content += f"\n• Ghi chú: {data.description}"
+    msg = ConsultationMessage(
+        appointment_id=appt.id,
+        sender_id=user.id,
+        sender_role=user.role,
+        sender_name=user.full_name,
+        message_type="image" if safe_ext in (".jpg", ".jpeg", ".png", ".webp") else "file",
+        content=chat_content,
+        file_url=file_url,
+        file_name=data.file_name or clean_name,
+        file_size=file_size
+    )
+    db.add(msg)
+
+    db.commit()
+    db.refresh(doc)
+    return doc
+
+@app.delete("/api/v1/appointments/{appointment_id}/documents/{document_id}")
+def delete_appointment_document(
+    appointment_id: int,
+    document_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Xóa tài liệu y tế đã tải lên"""
+    doc = db.get(AppointmentDocument, document_id)
+    if not doc or doc.appointment_id != appointment_id:
+        raise HTTPException(status_code=404, detail="Tài liệu không tồn tại")
+    if doc.uploaded_by != user.id and user.role not in ("admin", "doctor", "nurse"):
+        raise HTTPException(status_code=403, detail="Không có quyền xóa tài liệu này")
+    db.delete(doc)
+    db.commit()
+    return {"success": True, "message": "Đã xóa tài liệu thành công"}
+
 # ----------------- ADMIN DASHBOARD & SYSTEM SETTINGS -----------------
 
 @app.get("/api/v1/admin/overview", response_model=AdminOverviewOut)
@@ -4641,6 +4888,28 @@ def auto_migrate_schema():
         ("epidemiological_history", "TEXT")
     ]
     with engine.connect() as conn:
+        try:
+            conn.execute(text(f"""
+                CREATE TABLE IF NOT EXISTS appointment_documents (
+                    id {"SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"},
+                    appointment_id INTEGER NOT NULL REFERENCES appointments(id),
+                    uploaded_by INTEGER NOT NULL REFERENCES users(id),
+                    document_type VARCHAR(50) NOT NULL,
+                    title VARCHAR(255) NOT NULL,
+                    description TEXT,
+                    file_url VARCHAR(500) NOT NULL,
+                    file_name VARCHAR(255),
+                    file_size INTEGER,
+                    created_at {dt_type} DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            conn.commit()
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+
         for col_name, col_type in family_columns:
             try:
                 conn.execute(text(f"ALTER TABLE family_member_profiles ADD COLUMN {col_name} {col_type}"))

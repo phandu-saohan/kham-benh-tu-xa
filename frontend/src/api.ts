@@ -707,7 +707,7 @@ export type ConsultationMessage = {
   id: number
   appointment_id: number
   sender_id: number
-  sender_role: 'doctor' | 'patient'
+  sender_role: 'doctor' | 'patient' | 'nurse' | string
   sender_name: string
   message_type: 'text' | 'image' | 'file'
   content?: string
@@ -1851,3 +1851,70 @@ export async function leaveWaitingRoom(appointmentId: number): Promise<{ success
 export async function sendToWaitingRoom(appointmentId: number): Promise<{ success: boolean; message: string }> {
   return request(`/api/v1/triage/${appointmentId}/send-to-waiting-room`, { method: 'POST' })
 }
+
+export interface AppointmentDocument {
+  id: number
+  appointment_id: number
+  uploaded_by: number
+  document_type: 'prescription' | 'lab_test' | 'cdha' | 'other' | string
+  title: string
+  description?: string | null
+  file_url: string
+  file_name?: string | null
+  file_size?: number | null
+  created_at: string
+}
+
+export interface PatientVitalsUpdateData {
+  blood_pressure?: string
+  pulse?: number
+  temperature?: number
+  spo2?: number
+  weight?: number
+  height?: number
+  notes?: string
+  sync_from_profile?: boolean
+}
+
+export async function getAppointmentDocuments(appointmentId: number): Promise<AppointmentDocument[]> {
+  return request<AppointmentDocument[]>(`/api/v1/appointments/${appointmentId}/documents`)
+}
+
+export async function uploadAppointmentDocument(
+  appointmentId: number,
+  data: {
+    document_type: string
+    title: string
+    description?: string
+    file_data: string
+    file_name?: string
+  }
+): Promise<AppointmentDocument> {
+  return request<AppointmentDocument>(`/api/v1/appointments/${appointmentId}/documents`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function deleteAppointmentDocument(
+  appointmentId: number,
+  documentId: number
+): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>(`/api/v1/appointments/${appointmentId}/documents/${documentId}`, {
+    method: 'DELETE'
+  })
+}
+
+export async function updatePatientWaitingVitals(
+  appointmentId: number,
+  data: PatientVitalsUpdateData
+): Promise<{ success: boolean; appointment_id: number; vitals: any; message: string }> {
+  return request<{ success: boolean; appointment_id: number; vitals: any; message: string }>(
+    `/api/v1/appointments/${appointmentId}/patient-vitals`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }
+  )
+}
+

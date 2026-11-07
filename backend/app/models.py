@@ -410,7 +410,16 @@ class AIPACSConsultation(Base):
     doctor_feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-
-
-
+class AppointmentDocument(Base):
+    __tablename__ = "appointment_documents"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    appointment_id: Mapped[int] = mapped_column(ForeignKey("appointments.id"), index=True)
+    uploaded_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    document_type: Mapped[str] = mapped_column(String(50))  # "prescription", "lab_test", "cdha", "other"
+    title: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    file_url: Mapped[str] = mapped_column(String(500))
+    file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

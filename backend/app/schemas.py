@@ -1093,12 +1093,33 @@ class AIPACSFeedbackIn(BaseModel):
     doctor_concurrence: str  # approved, disagreed
     doctor_feedback: Optional[str] = None
 
+class AppointmentDocumentIn(BaseModel):
+    document_type: str  # "prescription", "lab_test", "cdha", "other"
+    title: str
+    description: Optional[str] = None
+    file_data: str  # Base64 string or data URL
+    file_name: Optional[str] = None
 
+class AppointmentDocumentOut(BaseModel):
+    id: int
+    appointment_id: int
+    uploaded_by: int
+    document_type: str
+    title: str
+    description: Optional[str] = None
+    file_url: str
+    file_name: Optional[str] = None
+    file_size: Optional[int] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
 
-
-
-
-
-
-
+class PatientVitalsUpdateIn(BaseModel):
+    blood_pressure: Optional[str] = None
+    pulse: Optional[int] = None
+    temperature: Optional[float] = None
+    spo2: Optional[int] = None
+    weight: Optional[float] = None
+    height: Optional[float] = None
+    notes: Optional[str] = None
+    sync_from_profile: bool = False
 

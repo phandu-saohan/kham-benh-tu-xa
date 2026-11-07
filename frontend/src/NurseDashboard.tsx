@@ -80,9 +80,12 @@ import {
 
   assignNurseToAppointment,
   recordRPMVitals,
-
+  getAppointmentDocuments,
+  getConsultationMessages,
+  sendConsultationMessage,
+  type AppointmentDocument,
+  type ConsultationMessage,
   request
-
 } from './api'
 
 import {
@@ -144,6 +147,55 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
   const [triagePageSize, setTriagePageSize] = useState(6)
 
   const [selectedItem, setSelectedItem] = useState<TriageItem | null>(null)
+
+  // Tabs for Patient Intake: Vitals / Documents / Waiting Room Chat
+  const [intakeTab, setIntakeTab] = useState<'vitals' | 'docs' | 'chat'>('vitals')
+  const [patientDocs, setPatientDocs] = useState<AppointmentDocument[]>([])
+  const [loadingPatientDocs, setLoadingPatientDocs] = useState(false)
+  const [nurseChatMessages, setNurseChatMessages] = useState<ConsultationMessage[]>([])
+  const [nurseChatInput, setNurseChatInput] = useState('')
+  const [nurseSendingMsg, setNurseSendingMsg] = useState(false)
+  const [nurseLightboxImg, setNurseLightboxImg] = useState<{ url: string; title: string } | null>(null)
+
+  const loadPatientDocs = async (apptId: number) => {
+    try {
+      setLoadingPatientDocs(true)
+      const docs = await getAppointmentDocuments(apptId)
+      setPatientDocs(docs)
+    } catch (e) {
+      console.warn('Error loading patient docs:', e)
+    } finally {
+      setLoadingPatientDocs(false)
+    }
+  }
+
+  const loadNurseChat = async (apptId: number) => {
+    try {
+      const msgs = await getConsultationMessages(apptId)
+      setNurseChatMessages(msgs)
+    } catch (e) {
+      console.warn('Error loading nurse chat:', e)
+    }
+  }
+
+  const handleNurseSendChat = async (customText?: string) => {
+    const textToSend = customText !== undefined ? customText : nurseChatInput
+    if (!textToSend.trim() || !selectedItem) return
+    setNurseSendingMsg(true)
+    try {
+      await sendConsultationMessage(selectedItem.appointment_id, {
+        content: textToSend.trim(),
+        message_type: 'text'
+      })
+      setNurseChatInput('')
+      loadNurseChat(selectedItem.appointment_id)
+    } catch (e: any) {
+      alert('Lỗi gửi tin nhắn: ' + (e.message || 'Vui lòng thử lại'))
+    } finally {
+      setNurseSendingMsg(false)
+    }
+  }
+
 
   const [toastMessage, setToastMessage] = useState('')
 
@@ -579,6 +631,9 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
   const handleSelectItem = (item: TriageItem) => {
 
     setSelectedItem(item)
+    setIntakeTab('vitals')
+    loadPatientDocs(item.appointment_id)
+    loadNurseChat(item.appointment_id)
 
     setPulse(item.pulse || '')
 
@@ -1733,6 +1788,72 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
 
           ) : (
 
+            <div>
+              {/* Tabs for Nurse Intake */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setIntakeTab('vitals')}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: intakeTab === 'vitals' ? '#0284c7' : '#f1f5f9',
+                    color: intakeTab === 'vitals' ? '#fff' : '#475569',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  🩺 1. Đo Sinh Hiệu & Phân Tầng
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIntakeTab('docs')
+                    if (selectedItem) loadPatientDocs(selectedItem.appointment_id)
+                  }}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: intakeTab === 'docs' ? '#0284c7' : '#f1f5f9',
+                    color: intakeTab === 'docs' ? '#fff' : '#475569',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  📁 2. Tài Liệu Người Bệnh Tải Lên {patientDocs.length > 0 && `(${patientDocs.length})`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIntakeTab('chat')
+                    if (selectedItem) loadNurseChat(selectedItem.appointment_id)
+                  }}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: intakeTab === 'chat' ? '#0284c7' : '#f1f5f9',
+                    color: intakeTab === 'chat' ? '#fff' : '#475569',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  💬 3. Chat Phòng Chờ {nurseChatMessages.length > 0 && `(${nurseChatMessages.length})`}
+                </button>
+              </div>
+
+              {intakeTab === 'vitals' && (
             <form onSubmit={handleSubmitTriage} className="vitals-intake-form">
 
               {/* Bluetooth BLE Auto-fetch Quick Bar */}
@@ -2160,6 +2281,190 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
               </div>
 
             </form>
+              )}
+
+              {intakeTab === 'docs' && (
+                <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                    <h4 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>
+                      Tài liệu y tế người bệnh đã tải lên tại phòng chờ ({patientDocs.length})
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => selectedItem && loadPatientDocs(selectedItem.appointment_id)}
+                      style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#f8fafc', fontSize: '12px', cursor: 'pointer' }}
+                    >
+                      Làm mới
+                    </button>
+                  </div>
+
+                  {loadingPatientDocs ? (
+                    <p style={{ color: '#64748b', fontSize: '13px' }}>Đang tải tài liệu...</p>
+                  ) : patientDocs.length === 0 ? (
+                    <div style={{ padding: '24px', textAlign: 'center', background: '#f8fafc', borderRadius: '6px', border: '1px dashed #cbd5e1', color: '#64748b' }}>
+                      Người bệnh chưa tải lên đơn thuốc, xét nghiệm hoặc phiếu CĐHA nào.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px' }}>
+                      {patientDocs.map(doc => {
+                        const isImg = doc.file_url.match(/\.(jpeg|jpg|png|webp)($|\?)/i) || doc.file_url.startsWith('data:image')
+                        return (
+                          <div key={doc.id} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px', background: '#fff' }}>
+                            <div
+                              style={{ width: '100%', height: '120px', borderRadius: '6px', background: '#f1f5f9', overflow: 'hidden', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              onClick={() => {
+                                if (isImg) setNurseLightboxImg({ url: doc.file_url, title: doc.title })
+                                else window.open(doc.file_url, '_blank')
+                              }}
+                            >
+                              {isImg ? (
+                                <img src={doc.file_url} alt={doc.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ) : (
+                                <span style={{ fontSize: '12px', color: '#64748b' }}>Tệp tài liệu</span>
+                              )}
+                            </div>
+                            <div style={{ marginTop: '8px' }}>
+                              <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: '#e0f2fe', color: '#0369a1' }}>
+                                {doc.document_type === 'prescription' ? '💊 Đơn thuốc' : doc.document_type === 'lab_test' ? '🧪 Xét nghiệm' : '🩻 CĐHA'}
+                              </span>
+                              <h5 style={{ margin: '4px 0 2px', fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{doc.title}</h5>
+                              {doc.description && <p style={{ margin: 0, fontSize: '11.5px', color: '#475569' }}>{doc.description}</p>}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {intakeTab === 'chat' && (
+                <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '420px' }}>
+                  <div style={{ padding: '10px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
+                      💬 Trao đổi với người bệnh: {selectedItem?.patient_name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => selectedItem && loadNurseChat(selectedItem.appointment_id)}
+                      style={{ padding: '3px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '11px', cursor: 'pointer' }}
+                    >
+                      Cập nhật tin nhắn
+                    </button>
+                  </div>
+
+                  <div style={{ flex: 1, padding: '12px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', background: '#fafafa' }}>
+                    {nurseChatMessages.length === 0 ? (
+                      <p style={{ color: '#94a3b8', fontSize: '12.5px', textAlign: 'center', margin: 'auto' }}>
+                        Chưa có tin nhắn nào trong phòng chờ ca khám này.
+                      </p>
+                    ) : (
+                      nurseChatMessages.map(msg => {
+                        const isNurse = msg.sender_role === 'nurse'
+                        return (
+                          <div
+                            key={msg.id}
+                            style={{
+                              alignSelf: isNurse ? 'flex-end' : 'flex-start',
+                              maxWidth: '80%',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: isNurse ? 'flex-end' : 'flex-start'
+                            }}
+                          >
+                            <div
+                              style={{
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                background: isNurse ? '#0284c7' : '#ffffff',
+                                color: isNurse ? '#ffffff' : '#0f172a',
+                                border: isNurse ? 'none' : '1px solid #e2e8f0',
+                                fontSize: '13px',
+                                wordBreak: 'break-word'
+                              }}
+                            >
+                              {msg.content}
+                              {msg.file_url && (
+                                <div style={{ marginTop: '6px', maxWidth: '180px', borderRadius: '4px', overflow: 'hidden', cursor: 'pointer' }} onClick={() => setNurseLightboxImg({ url: msg.file_url!, title: msg.file_name || 'Ảnh đính kèm' })}>
+                                  <img src={msg.file_url} alt="img" style={{ width: '100%', display: 'block' }} />
+                                </div>
+                              )}
+                            </div>
+                            <small style={{ fontSize: '10.5px', color: '#94a3b8', marginTop: '2px' }}>
+                              {isNurse ? 'Điều dưỡng' : msg.sender_name} • {new Date(msg.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                            </small>
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+
+                  {/* Quick canned responses */}
+                  <div style={{ padding: '6px 10px', background: '#f8fafc', borderTop: '1px dashed #e2e8f0', display: 'flex', gap: '6px', overflowX: 'auto' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleNurseSendChat('Chào bạn, Điều dưỡng đã nhận được thông tin và hình ảnh thuốc của bạn nhé.')}
+                      style={{ padding: '3px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      ✓ Đã nhận sinh hiệu & ảnh
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleNurseSendChat('Bác sĩ đang xem lại hồ sơ và sẽ kết nối video với bạn sau khoảng 5 phút nữa nhé.')}
+                      style={{ padding: '3px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      ⏱️ Bác sĩ sắp gọi (~5p)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleNurseSendChat('Bạn vui lòng kiểm tra lại camera và micro xem hình ảnh và âm thanh đã rõ chưa nhé.')}
+                      style={{ padding: '3px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      📹 Nhắc kiểm tra camera/mic
+                    </button>
+                  </div>
+
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      handleNurseSendChat()
+                    }}
+                    style={{ padding: '8px 12px', background: '#fff', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '8px' }}
+                  >
+                    <input
+                      type="text"
+                      placeholder="Nhập tin nhắn trả lời người bệnh..."
+                      value={nurseChatInput}
+                      onChange={e => setNurseChatInput(e.target.value)}
+                      style={{ flex: 1, padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                    />
+                    <button
+                      type="submit"
+                      disabled={nurseSendingMsg || !nurseChatInput.trim()}
+                      style={{ padding: '7px 14px', borderRadius: '6px', border: 'none', background: '#0284c7', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      Gửi
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {/* Lightbox Modal */}
+              {nurseLightboxImg && (
+                <div
+                  style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+                  onClick={() => setNurseLightboxImg(null)}
+                >
+                  <div style={{ background: '#fff', borderRadius: '8px', maxWidth: '85vw', maxHeight: '85vh', overflow: 'hidden', position: 'relative' }} onClick={e => e.stopPropagation()}>
+                    <div style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eee' }}>
+                      <span style={{ fontWeight: 700, fontSize: '13.5px' }}>{nurseLightboxImg.title}</span>
+                      <button onClick={() => setNurseLightboxImg(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontWeight: 700 }}>✕</button>
+                    </div>
+                    <img src={nurseLightboxImg.url} alt="img" style={{ maxWidth: '100%', maxHeight: 'calc(80vh - 50px)', display: 'block' }} />
+                  </div>
+                </div>
+              )}
+            </div>
 
           )}
 

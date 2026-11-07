@@ -1902,3 +1902,434 @@
     transform: scale(1.1) !important;
   }
 }
+
+/* --------------------------------------------------------------------------
+   ENHANCED WAITING ROOM STYLES (TABS, VITALS SYNC/INPUT, DOCS, NURSE CHAT)
+   Rule: Card radius 8px, Button/Input radius 6px, Chip/Badge radius 4px
+   -------------------------------------------------------------------------- */
+
+.ps-waiting-topbar {
+  border-radius: 8px !important;
+}
+
+.ps-waiting-card {
+  border-radius: 8px !important;
+  padding: 20px !important;
+}
+
+.ps-queue-hero {
+  border-radius: 8px !important;
+  padding: 18px !important;
+}
+
+.ps-waiting-doctor-card {
+  border-radius: 8px !important;
+}
+
+.ps-waiting-tabs-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--ps-border);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  flex-wrap: wrap;
+}
+
+.ps-waiting-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ps-slate);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.ps-waiting-tab-btn:hover {
+  background: #f1f5f9;
+  color: var(--ps-navy);
+}
+
+.ps-waiting-tab-btn.active {
+  background: var(--ps-primary);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(14, 116, 144, 0.25);
+}
+
+.ps-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.25);
+  color: inherit;
+}
+
+.ps-tab-badge.blue {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+/* Vitals Sync & Input */
+.ps-vitals-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ps-btn-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid #38bdf8;
+  background: #f0f9ff;
+  color: #0369a1;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ps-btn-sync:hover {
+  background: #e0f2fe;
+}
+
+.ps-btn-edit-vitals {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--ps-border);
+  background: #ffffff;
+  color: var(--ps-navy);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ps-btn-edit-vitals:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+/* Documents Grid */
+.ps-docs-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ps-filter-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ps-filter-pill {
+  padding: 5px 10px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ps-filter-pill.active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+}
+
+.ps-docs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.ps-doc-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.ps-doc-card:hover {
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  border-color: #cbd5e1;
+}
+
+.ps-doc-thumb {
+  width: 100%;
+  height: 140px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+}
+
+.ps-doc-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.2s ease;
+}
+
+.ps-doc-thumb:hover img {
+  transform: scale(1.03);
+}
+
+.ps-doc-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ps-doc-type-badge.prescription {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.ps-doc-type-badge.lab_test {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.ps-doc-type-badge.cdha {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+
+.ps-doc-type-badge.other {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+/* Nurse - Patient Chat */
+.ps-chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 480px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ps-chat-header {
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ps-chat-messages-area {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #fafafa;
+}
+
+.ps-chat-bubble {
+  max-width: 78%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ps-chat-bubble.patient {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.ps-chat-bubble.nurse,
+.ps-chat-bubble.doctor {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.ps-bubble-content {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.ps-chat-bubble.patient .ps-bubble-content {
+  background: #0284c7;
+  color: #ffffff;
+  border-bottom-right-radius: 2px;
+}
+
+.ps-chat-bubble.nurse .ps-bubble-content {
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+  border-bottom-left-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.ps-chat-bubble.doctor .ps-bubble-content {
+  background: #f0fdf4;
+  color: #14532d;
+  border: 1px solid #bbf7d0;
+  border-bottom-left-radius: 2px;
+}
+
+.ps-bubble-meta {
+  font-size: 11px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ps-bubble-img-preview {
+  max-width: 240px;
+  max-height: 200px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: 6px;
+  cursor: pointer;
+  border: 1px solid rgba(0,0,0,0.1);
+}
+
+.ps-bubble-img-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ps-chat-input-bar {
+  padding: 10px 14px;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ps-chat-input-field {
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  font-size: 13.5px;
+  font-family: inherit;
+  outline: none;
+}
+
+.ps-chat-input-field:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+}
+
+.ps-chat-quick-chips {
+  padding: 8px 14px;
+  background: #ffffff;
+  border-top: 1px dashed #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.ps-chat-chip-btn {
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.ps-chat-chip-btn:hover {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-color: #bae6fd;
+}
+
+/* Lightbox Modal */
+.ps-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.ps-lightbox-content {
+  background: #ffffff;
+  border-radius: 8px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.ps-lightbox-img {
+  max-width: 100%;
+  max-height: calc(85vh - 70px);
+  object-fit: contain;
+  background: #0f172a;
+}
+
