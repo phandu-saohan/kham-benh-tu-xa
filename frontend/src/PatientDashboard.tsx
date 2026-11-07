@@ -727,7 +727,7 @@ export function PatientDashboard({
             <div className="ps-vital-tile">
               <div className="ps-vital-tile-top">
                 <div className="ps-vital-icon-wrap red">
-                  <Heart size={18} />
+                  <Heart size={16} />
                 </div>
                 <span className="ps-vital-status-pill normal">Ổn định</span>
               </div>
@@ -739,7 +739,7 @@ export function PatientDashboard({
               </div>
               <div className="ps-vital-tile-bottom">
                 <span>Huyết áp TB: <b>{mapValue ? `${mapValue} mmHg` : 'N/A'}</b></span>
-                <span style={{ color: 'var(--ps-mint-dark)' }}>Chuẩn WHO</span>
+                <span style={{ color: 'var(--ps-mint-dark)', fontWeight: 600 }}>Chuẩn WHO</span>
               </div>
             </div>
 
@@ -747,7 +747,7 @@ export function PatientDashboard({
             <div className="ps-vital-tile">
               <div className="ps-vital-tile-top">
                 <div className="ps-vital-icon-wrap teal">
-                  <HeartPulse size={18} />
+                  <HeartPulse size={16} />
                 </div>
                 <span className="ps-vital-status-pill normal">Bình thường</span>
               </div>
@@ -759,9 +759,14 @@ export function PatientDashboard({
               </div>
               <div className="ps-vital-tile-bottom">
                 <span>Khoảng chuẩn: <b>60 - 90</b></span>
-                <span style={{ color: 'var(--ps-primary)', cursor: 'pointer' }} onClick={handleOpenOpticalCamera}>
+                <button
+                  type="button"
+                  onClick={handleOpenOpticalCamera}
+                  className="ps-vital-action-btn"
+                  title="Đo nhịp tim và mạch bằng Camera PPG"
+                >
                   Đo lại
-                </span>
+                </button>
               </div>
             </div>
 
@@ -769,7 +774,7 @@ export function PatientDashboard({
             <div className="ps-vital-tile">
               <div className="ps-vital-tile-top">
                 <div className="ps-vital-icon-wrap blue">
-                  <Wind size={18} />
+                  <Wind size={16} />
                 </div>
                 <span className="ps-vital-status-pill normal">Tốt</span>
               </div>
@@ -781,78 +786,39 @@ export function PatientDashboard({
               </div>
               <div className="ps-vital-tile-bottom">
                 <span>Bão hòa oxy máu</span>
-                <span style={{ color: 'var(--ps-mint-dark)' }}>Tối ưu</span>
+                <span style={{ color: 'var(--ps-mint-dark)', fontWeight: 600 }}>Tối ưu</span>
               </div>
             </div>
 
             {/* Đường huyết: Roche Accu-Chek Instant BLE */}
-            <div className="ps-vital-tile" style={{ position: 'relative' }}>
+            <div className="ps-vital-tile">
               <div className="ps-vital-tile-top">
                 <div className="ps-vital-icon-wrap amber">
-                  <Droplets size={18} />
+                  <Droplets size={16} />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      background: '#eff6ff',
-                      color: '#1d4ed8',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      padding: '2px 7px',
-                      borderRadius: '4px',
-                      border: '1px solid #bfdbfe'
-                    }}
-                    title="Chuẩn giao tiếp Bluetooth SIG GATT 0x1808 (Glucose Service)"
-                  >
-                    <Bluetooth size={12} color="#2563eb" /> Accu-Chek BLE
-                  </span>
-                  <span className="ps-vital-status-pill normal" style={{ borderRadius: '4px', whiteSpace: 'nowrap' }}>
-                    {glucoseDisplay < 3.9 ? 'Hạ đường huyết' : glucoseDisplay > 7.2 ? 'Đường huyết cao' : 'Ổn định'}
-                  </span>
-                </div>
+                <span className="ps-vital-status-pill normal">
+                  {glucoseDisplay < 3.9 ? 'Hạ đường' : glucoseDisplay > 7.2 ? 'Đường cao' : 'Ổn định'}
+                </span>
               </div>
-
               <div className="ps-vital-tile-middle">
-                <div className="ps-vital-val-display" style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                  <span>{glucoseDisplay}</span>
-                  <small style={{ fontSize: '13px', fontWeight: 600 }}>mmol/L</small>
-                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+                <div className="ps-vital-val-display">
+                  {glucoseDisplay} <small>mmol/L</small>
+                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500, marginLeft: '3px' }}>
                     (~{Math.round(glucoseDisplay * 18.018)} mg/dL)
                   </span>
                 </div>
+                <div className="ps-vital-name">Đường huyết (Accu-Chek BLE)</div>
               </div>
-
-              <div className="ps-vital-tile-bottom" style={{ borderTop: '1px solid #f1f5f9', paddingTop: '8px', marginTop: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px', color: '#64748b' }}>
-                  <span>Khoảng đói chuẩn: <b>4.4 - 7.2 mmol/L</b></span>
-                  <span>Đồng bộ: <b>{(latestGlucoseLog as any)?.measured_at ? new Date((latestGlucoseLog as any).measured_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '07:15 Hôm nay'}</b> (Pin 92%)</span>
-                </div>
+              <div className="ps-vital-tile-bottom">
+                <span>Khoảng đói: <b>4.4 - 7.2</b></span>
                 <button
                   type="button"
                   onClick={handleSyncAccuChekBLE}
                   disabled={isSyncingAccuChek}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    background: '#f0f9ff',
-                    color: '#0284c7',
-                    border: '1px solid #bae6fd',
-                    borderRadius: '4px',
-                    padding: '4px 9px',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0
-                  }}
+                  className="ps-vital-action-btn"
                   title="Kết nối đọc kết quả từ máy đo đường huyết Roche Accu-Chek Instant qua Bluetooth"
                 >
-                  <Bluetooth size={12} />
+                  <Bluetooth size={11} />
                   <span>{isSyncingAccuChek ? 'Đang đọc...' : 'Đo BLE'}</span>
                 </button>
               </div>
@@ -862,7 +828,7 @@ export function PatientDashboard({
             <div className="ps-vital-tile">
               <div className="ps-vital-tile-top">
                 <div className="ps-vital-icon-wrap amber">
-                  <Thermometer size={18} />
+                  <Thermometer size={16} />
                 </div>
                 <span className="ps-vital-status-pill normal">Ổn định</span>
               </div>
@@ -874,7 +840,7 @@ export function PatientDashboard({
               </div>
               <div className="ps-vital-tile-bottom">
                 <span>Khoảng chuẩn: <b>36.5 - 37.2</b></span>
-                <span style={{ color: 'var(--ps-mint-dark)' }}>Chuẩn</span>
+                <span style={{ color: 'var(--ps-mint-dark)', fontWeight: 600 }}>Chuẩn</span>
               </div>
             </div>
 
@@ -882,7 +848,7 @@ export function PatientDashboard({
             <div className="ps-vital-tile">
               <div className="ps-vital-tile-top">
                 <div className="ps-vital-icon-wrap teal">
-                  <Weight size={18} />
+                  <Weight size={16} />
                 </div>
                 <span className="ps-vital-status-pill normal">{bmiInfo?.category || 'Cân đối'}</span>
               </div>
@@ -894,7 +860,7 @@ export function PatientDashboard({
               </div>
               <div className="ps-vital-tile-bottom">
                 <span>Mục tiêu: <b>±1.5 kg</b></span>
-                <span style={{ color: 'var(--ps-mint-dark)' }}>Theo dõi</span>
+                <span style={{ color: 'var(--ps-mint-dark)', fontWeight: 600 }}>Theo dõi</span>
               </div>
             </div>
 
@@ -902,7 +868,7 @@ export function PatientDashboard({
             <div className="ps-vital-tile">
               <div className="ps-vital-tile-top">
                 <div className="ps-vital-icon-wrap blue">
-                  <Ruler size={18} />
+                  <Ruler size={16} />
                 </div>
                 <span className="ps-vital-status-pill normal">Cố định</span>
               </div>
@@ -914,7 +880,7 @@ export function PatientDashboard({
               </div>
               <div className="ps-vital-tile-bottom">
                 <span>Hồ sơ y tế số</span>
-                <span style={{ color: 'var(--ps-primary)' }}>QĐ 2682</span>
+                <span style={{ color: 'var(--ps-primary)', fontWeight: 600 }}>QĐ 2682</span>
               </div>
             </div>
 
@@ -922,7 +888,7 @@ export function PatientDashboard({
             <div className="ps-vital-tile">
               <div className="ps-vital-tile-top">
                 <div className="ps-vital-icon-wrap green">
-                  <Activity size={18} />
+                  <Activity size={16} />
                 </div>
                 <span className="ps-vital-status-pill normal">{bmiInfo?.category || 'Cân đối'}</span>
               </div>
@@ -934,7 +900,7 @@ export function PatientDashboard({
               </div>
               <div className="ps-vital-tile-bottom">
                 <span>Thể trạng: <b>{bmiInfo?.category || 'Cân đối'}</b></span>
-                <span style={{ color: 'var(--ps-mint-dark)' }}>Hợp lý</span>
+                <span style={{ color: 'var(--ps-mint-dark)', fontWeight: 600 }}>Hợp lý</span>
               </div>
             </div>
           </div>
