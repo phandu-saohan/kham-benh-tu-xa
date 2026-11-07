@@ -970,3 +970,304 @@ button,
 .doctor-local-pip-box {
   border-radius: 8px !important;
 }
+
+/* ==========================================================================
+   MOBILE MENU TOGGLE & SLIDE-OUT NAVIGATION DRAWER
+   ========================================================================== */
+
+.mobile-menu-toggle-btn {
+  display: none !important;
+  background: transparent !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 6px !important;
+  padding: 6px !important;
+  color: #334155 !important;
+  cursor: pointer !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.15s ease !important;
+}
+
+.mobile-menu-toggle-btn:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
+}
+
+@media (max-width: 768px) {
+  .mobile-menu-toggle-btn {
+    display: flex !important;
+  }
+}
+
+.mobile-drawer-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(15, 23, 42, 0.5) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  z-index: 1000 !important;
+  display: flex !important;
+  animation: drawerFadeIn 0.2s ease forwards !important;
+}
+
+@keyframes drawerFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.mobile-drawer-content {
+  width: 290px !important;
+  max-width: 85vw !important;
+  height: 100% !important;
+  background: #ffffff !important;
+  box-shadow: 4px 0 24px rgba(15, 23, 42, 0.18) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  animation: drawerSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+@keyframes drawerSlideIn {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.mobile-drawer-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 16px 18px !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  background: #f8fafc !important;
+}
+
+.btn-close-drawer {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 6px !important;
+  border: 1px solid #e2e8f0 !important;
+  background: #ffffff !important;
+  color: #64748b !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.btn-close-drawer:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+.mobile-drawer-user-card {
+  margin: 14px 16px 8px !important;
+  padding: 10px 14px !important;
+  background: #f0fdfa !important;
+  border: 1px solid #ccfbf1 !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.mobile-drawer-user-card:hover {
+  background: #e6fffa !important;
+  border-color: #99f6e4 !important;
+}
+
+.mobile-drawer-cta-btn {
+  width: 100% !important;
+  background: linear-gradient(135deg, #0e7490 0%, #0891b2 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 6px !important;
+  padding: 10px 14px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  box-shadow: 0 2px 8px rgba(14, 116, 144, 0.25) !important;
+  transition: all 0.15s ease !important;
+}
+
+.mobile-drawer-cta-btn:active {
+  transform: scale(0.98) !important;
+}
+
+.mobile-drawer-nav-list {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  padding: 8px 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.mobile-drawer-nav-title {
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.8px !important;
+  color: #94a3b8 !important;
+  padding: 6px 10px !important;
+}
+
+.mobile-drawer-nav-item {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 10px 12px !important;
+  border-radius: 6px !important;
+  border: none !important;
+  background: transparent !important;
+  color: #334155 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  text-align: left !important;
+  transition: all 0.12s ease !important;
+}
+
+.mobile-drawer-nav-item:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+.mobile-drawer-nav-item.selected {
+  background: #f0fdfa !important;
+  color: #0e7490 !important;
+  font-weight: 700 !important;
+}
+
+.mobile-drawer-active-dot {
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  background: #0e7490 !important;
+  margin-left: auto !important;
+}
+
+.mobile-drawer-footer {
+  padding: 12px 16px max(12px, env(safe-area-inset-bottom)) !important;
+  border-top: 1px solid #e2e8f0 !important;
+  background: #f8fafc !important;
+}
+
+.mobile-drawer-logout-btn {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 10px !important;
+  border-radius: 6px !important;
+  border: 1px solid #fee2e2 !important;
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.12s ease !important;
+}
+
+.mobile-drawer-logout-btn:hover {
+  background: #fee2e2 !important;
+}
+
+/* ==========================================================================
+   ENHANCED MOBILE BOTTOM NAVIGATION BAR
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display: flex !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 58px !important;
+    background: rgba(255, 255, 255, 0.96) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border-top: 1px solid #e2e8f0 !important;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05) !important;
+    z-index: 99 !important;
+    justify-content: space-around !important;
+    align-items: center !important;
+    padding: 0 4px max(2px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .mobile-nav-item {
+    flex: 1 1 0 !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 3px !important;
+    border: none !important;
+    background: transparent !important;
+    color: #64748b !important;
+    font-size: 10.5px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    padding: 4px 2px !important;
+    transition: all 0.15s ease !important;
+  }
+
+  .mobile-nav-item.selected {
+    color: #0e7490 !important;
+    font-weight: 700 !important;
+  }
+
+  .mobile-nav-item.selected svg {
+    color: #0e7490 !important;
+    transform: translateY(-1px) !important;
+  }
+
+  /* Universal Mobile Responsive Overrides */
+  .page-panel,
+  .panel {
+    padding: 16px 12px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .panel-heading {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+
+  /* Compact 2-column grids on mobile */
+  .stat-grid,
+  .stats-grid,
+  .summary-stat-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  /* Touch-scrollable table wrappers */
+  .table-wrap,
+  .table-responsive,
+  .table-scroll {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Modals on mobile */
+  .modal:not(.booking-modal) {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    padding: 16px !important;
+    margin: 10px !important;
+  }
+}

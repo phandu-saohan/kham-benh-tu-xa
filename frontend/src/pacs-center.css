@@ -958,3 +958,73 @@
     padding: 0;
   }
 }
+
+/* =========================================================================
+   MOBILE RESPONSIVENESS FOR PACS CENTER (< 768px)
+   ========================================================================= */
+@media (max-width: 768px) {
+  .pacs-header-card {
+    padding: 16px !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+
+  .pacs-header-title {
+    font-size: 17px !important;
+  }
+
+  .pacs-category-tabs {
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    display: flex !important;
+    gap: 6px !important;
+    padding-bottom: 6px !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .pacs-viewport-toolbar {
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    padding: 8px 10px !important;
+  }
+
+  .pacs-tools-group {
+    flex-shrink: 0 !important;
+  }
+
+  .pacs-viewport-panel {
+    min-height: 380px !important;
+  }
+
+  .pacs-dicom-canvas {
+    max-height: 320px !important;
+  }
+
+  .pacs-preset-row {
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 4px !important;
+  }
+
+  .pacs-preset-btn {
+    flex-shrink: 0 !important;
+  }
+
+  .pacs-study-card-meta {
+    grid-template-columns: 1fr !important;
+  }
+
+  .pacs-study-card-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+}

@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import {
-  CalendarDays, Video, FileText, FlaskConical, Pill, CreditCard,
+  CalendarDays, Menu, Video, FileText, FlaskConical, Pill, CreditCard,
   LogOut, HeartPulse, Clock, UserRound, ShieldCheck, ArrowRight,
   Plus, X, Phone, Lock, Stethoscope, AlertCircle, RefreshCw, QrCode,
   FileDown, ExternalLink, PenTool, Building2, Sparkles, CheckCircle2,
@@ -87,6 +87,7 @@ export default function App() {
   const [doctors, setDoctors] = useState<{ id: number; full_name: string; cchn?: string; department_id?: number }[]>([])
   const [error, setError] = useState('')
   const [view, setView] = useState('overview')
+  const [showMobileDrawer, setShowMobileDrawer] = useState(false)
   
   // Modal states
   const [activeAppointment, setActiveAppointment] = useState<Appointment | null>(null)
@@ -826,6 +827,7 @@ export default function App() {
     ['appointments', 'Lịch khám của tôi', CalendarDays],
     ['prescriptions', 'Đơn thuốc & Tủ thuốc', Pill],
     ['paraclinical', 'Xét nghiệm Cận lâm sàng', FlaskConical],
+    ['pacs', 'Hình ảnh y khoa PACS', ScanLine],
     ['records', 'Hồ sơ bệnh án EMR', FileText],
     ['family', 'Hồ sơ Gia đình', Users],
     ['devices', 'Kết nối thiết bị', Cpu],
@@ -858,30 +860,31 @@ export default function App() {
     ['payments', 'Đối soát Viện phí VietQR', CreditCard]
   ]
 
-  // Danh mục điều hướng Mobile theo từng vai trò (Bottom Navigation Bar)
+  // Danh mục điều hướng Mobile theo từng vai trò (Bottom Navigation Bar chuẩn 5 tabs)
   const mobileNavItems = isPatient ? [
     ['overview', 'Tổng quan', HeartPulse],
     ['appointments', 'Lịch khám', CalendarDays],
-    ['paraclinical', 'Xét nghiệm', FlaskConical],
-    ['devices', 'Thiết bị', Cpu],
-    ['family', 'Gia đình', Users],
-    ['vitals', 'Sinh hiệu', Activity],
-    ['profile', 'Hồ sơ', UserRound]
+    ['prescriptions', 'Đơn thuốc', Pill],
+    ['profile', 'Hồ sơ', UserRound],
+    ['menu', 'Menu', Menu]
   ] : isDoctor ? [
     ['overview', 'Khám bệnh', Activity],
     ['appointments', 'Hàng đợi', CalendarDays],
     ['triage', 'Sàng lọc', Stethoscope],
-    ['records', 'Bệnh án', FileText]
+    ['records', 'Bệnh án', FileText],
+    ['menu', 'Menu', Menu]
   ] : isNurse ? [
     ['overview', 'Tiếp đón', Activity],
     ['appointments', 'Lịch hẹn', CalendarDays],
     ['insurance', 'BHYT', ShieldCheck],
-    ['records', 'Bệnh án', FileText]
+    ['records', 'Bệnh án', FileText],
+    ['menu', 'Menu', Menu]
   ] : [
     ['admin-overview', 'Báo cáo', BarChart3],
     ['admin-settings', 'Cài đặt', Settings],
     ['admin-users', 'Nhân sự', Users],
-    ['admin-rbac', 'Phân quyền', ShieldCheck]
+    ['admin-rbac', 'Phân quyền', ShieldCheck],
+    ['menu', 'Menu', Menu]
   ]
 
   return (
@@ -889,6 +892,16 @@ export default function App() {
       {/* 1. Global Unified Top Header */}
       <header className="global-system-header">
         <div className="header-left">
+          {/* Mobile hamburger menu toggle */}
+          <button
+            type="button"
+            className="mobile-menu-toggle-btn"
+            onClick={() => setShowMobileDrawer(true)}
+            aria-label="Mở menu điều hướng"
+          >
+            <Menu size={20} />
+          </button>
+
           <div className="brand-logo" onClick={() => setView('overview')} title="Về trang chủ">
             <div className="brand-icon">
               <HeartPulse size={22} />
@@ -2023,17 +2036,137 @@ export default function App() {
 
       {/* Mobile Bottom Navigation Bar (Chỉ hiển thị trên thiết bị di động < 768px) */}
       <nav className="mobile-bottom-nav">
-        {mobileNavItems.map(([id, label, Icon]: any) => (
-          <button
-            key={id}
-            className={`mobile-nav-item ${view === id ? 'selected' : ''}`}
-            onClick={() => setView(id)}
-          >
-            <Icon size={20} />
-            <span>{label}</span>
-          </button>
-        ))}
+        {mobileNavItems.map(([id, label, Icon]: any) => {
+          const isSelected = id === 'menu' ? showMobileDrawer : view === id
+          return (
+            <button
+              key={id}
+              className={`mobile-nav-item ${isSelected ? 'selected' : ''}`}
+              onClick={() => {
+                if (id === 'menu') {
+                  setShowMobileDrawer(true)
+                } else {
+                  setView(id)
+                }
+              }}
+            >
+              <Icon size={19} />
+              <span>{label}</span>
+            </button>
+          )
+        })}
       </nav>
+
+      {/* Mobile Slide-Out Navigation Drawer */}
+      {showMobileDrawer && (
+        <div className="mobile-drawer-overlay" onClick={() => setShowMobileDrawer(false)}>
+          <div className="mobile-drawer-content" onClick={e => e.stopPropagation()}>
+            {/* Drawer Header */}
+            <div className="mobile-drawer-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div className="brand-icon" style={{ width: '34px', height: '34px' }}>
+                  <HeartPulse size={18} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>CareConnect</div>
+                  <div style={{ fontSize: '10px', color: '#0e7490', fontWeight: 700 }}>BỘ Y TẾ &bull; TELEMED</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn-close-drawer"
+                onClick={() => setShowMobileDrawer(false)}
+                aria-label="Đóng"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* User Profile Mini Banner in Drawer */}
+            <div
+              className="mobile-drawer-user-card"
+              onClick={() => {
+                setView(isPatient ? 'profile' : 'overview')
+                setShowMobileDrawer(false)
+              }}
+            >
+              <div className="user-avatar-wrap">
+                {user.avatar_url ? (
+                  <img src={user.avatar_url} alt={user.full_name} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
+                ) : (
+                  <UserRound size={16} />
+                )}
+                <span className="avatar-online-dot" />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {user.full_name}
+                </div>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>
+                  {isPatient ? 'Bệnh nhân' : isDoctor ? user.doctor_cchn || 'Bác sĩ chuyên khoa' : isNurse ? 'Điều dưỡng Triage' : 'Quản trị Viện'}
+                </div>
+              </div>
+              <ChevronRight size={16} color="#94a3b8" />
+            </div>
+
+            {/* Quick Action Button in Drawer */}
+            {isPatient && (
+              <div style={{ padding: '0 16px 12px' }}>
+                <button
+                  type="button"
+                  className="mobile-drawer-cta-btn"
+                  onClick={() => {
+                    setShowMobileDrawer(false)
+                    setShowBooking(true)
+                  }}
+                >
+                  <Plus size={15} /> Đặt lịch khám nhanh
+                </button>
+              </div>
+            )}
+
+            {/* Navigation Groups */}
+            <div className="mobile-drawer-nav-list">
+              <div className="mobile-drawer-nav-title">Chức năng & Điều hướng</div>
+              {navItems.map(([id, label, Icon]: any) => {
+                const isSelected = view === id
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    className={`mobile-drawer-nav-item ${isSelected ? 'selected' : ''}`}
+                    onClick={() => {
+                      setView(id)
+                      setShowMobileDrawer(false)
+                    }}
+                  >
+                    <Icon size={18} />
+                    <span>{label}</span>
+                    {isSelected && <span className="mobile-drawer-active-dot" />}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Drawer Footer with Logout */}
+            <div className="mobile-drawer-footer">
+              <button
+                type="button"
+                className="mobile-drawer-logout-btn"
+                onClick={() => {
+                  setShowMobileDrawer(false)
+                  localStorage.removeItem('tm_token')
+                  localStorage.removeItem('tm_refresh_token')
+                  setUser(null)
+                  setView('overview')
+                }}
+              >
+                <LogOut size={16} /> Đăng xuất tài khoản
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

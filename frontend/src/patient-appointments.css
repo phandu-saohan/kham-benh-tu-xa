@@ -844,3 +844,29 @@
     min-width: 100%;
   }
 }
+
+/* Enhanced mobile tab bar & buttons for patient appointments */
+@media (max-width: 768px) {
+  .patient-appts-header {
+    padding: 16px 14px !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+
+  .appts-filter-tabs {
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+    display: flex !important;
+    gap: 6px !important;
+    padding-bottom: 6px !important;
+  }
+
+  .appt-card-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+}
