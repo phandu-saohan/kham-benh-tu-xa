@@ -414,42 +414,60 @@
   padding: 8px 12px;
 }
 
-/* Step 3: Department & Doctor Shifts */
+/* Step 3: Department, Doctor & Shift Selection (Redesigned) */
 .dept-selector-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
 }
 
 .dept-pill-btn {
   border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 8px 10px;
+  border-radius: 6px;
+  padding: 8px 14px;
   background: #ffffff;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: #334155;
   cursor: pointer;
-  text-align: left;
-  transition: all 0.12s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .dept-pill-btn:hover {
   border-color: #0284c7;
   background: #f8fafc;
+  transform: translateY(-1px);
 }
 
 .dept-pill-btn.selected {
   border-color: #0284c7;
-  background: #f0f9ff;
-  color: #0284c7;
-  box-shadow: 0 0 0 1px #0284c7;
+  background: #0284c7;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+}
+
+.dept-pill-btn.selected .dept-code-tag {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.dept-code-tag {
+  font-size: 10px;
+  background: #f1f5f9;
+  color: #64748b;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
 }
 
 .doctors-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 12px;
   margin-top: 8px;
 }
@@ -457,38 +475,55 @@
 .doctor-item-card {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  padding: 12px;
+  padding: 14px 16px;
   background: #ffffff;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  position: relative;
 }
 
 .doctor-item-card:hover {
   border-color: #0284c7;
   background: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.08);
 }
 
 .doctor-item-card.selected {
-  border-color: #0284c7;
+  border: 2px solid #0284c7;
   background: #f0f9ff;
-  box-shadow: 0 0 0 1px #0284c7;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.14);
 }
 
 .doctor-avatar-circle {
-  width: 42px;
-  height: 42px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  background: #e0f2fe;
-  color: #0284c7;
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  color: #ffffff;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 16px;
   flex-shrink: 0;
+  position: relative;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3);
+}
+
+.doctor-avatar-online-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  background: #22c55e;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
 }
 
 .doctor-item-meta {
@@ -496,46 +531,83 @@
 }
 
 .doctor-item-name {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: #0f172a;
+  line-height: 1.3;
+}
+
+.doctor-item-specialty {
+  font-size: 12px;
+  color: #0369a1;
+  font-weight: 600;
+  margin: 2px 0;
 }
 
 .doctor-item-cchn {
   font-size: 11px;
   color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-/* Shifts Grid */
+.doctor-select-radio {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.doctor-item-card.selected .doctor-select-radio {
+  border-color: #0284c7;
+  background: #0284c7;
+}
+
+.doctor-select-radio-inner {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+/* Shifts Grid Redesigned */
 .booking-shifts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
   margin-top: 8px;
 }
 
 .shift-card-btn {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 14px;
   background: #ffffff;
   text-align: left;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
   transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .shift-card-btn:hover:not(:disabled) {
   border-color: #0284c7;
   background: #f8fafc;
+  transform: translateY(-1px);
 }
 
 .shift-card-btn.selected {
-  border-color: #0284c7;
+  border: 2px solid #0284c7;
   background: #f0f9ff;
-  box-shadow: 0 0 0 1px #0284c7;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.12);
 }
 
 .shift-card-btn.full-quota {
@@ -545,20 +617,59 @@
   border-color: #e2e8f0;
 }
 
+.shift-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .shift-card-title {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.shift-card-hours {
+  font-size: 11px;
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
 }
 
 .shift-card-date {
-  font-size: 11px;
-  color: #64748b;
+  font-size: 12px;
+  color: #334155;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.shift-quota-bar-container {
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 2px 0;
+}
+
+.shift-quota-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
 }
 
 .shift-card-quota {
   font-size: 11px;
   font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .shift-card-quota.success {
@@ -567,6 +678,79 @@
 
 .shift-card-quota.danger {
   color: #b91c1c;
+}
+
+/* Time Slot Chips */
+.shift-slots-wrapper {
+  margin-top: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.shift-slots-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.shift-slot-chip {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.shift-slot-chip:hover {
+  border-color: #0284c7;
+  color: #0284c7;
+}
+
+.shift-slot-chip.selected {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+  box-shadow: 0 2px 4px rgba(2, 132, 199, 0.2);
+}
+
+/* Summary Confirmation Card */
+.booking-selection-summary {
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.booking-summary-details {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: #0f766e;
+}
+
+.booking-summary-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.booking-summary-item strong {
+  color: #134e4a;
 }
 
 /* Step 4: Medical Documents & Meds Upload */
