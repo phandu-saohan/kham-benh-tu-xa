@@ -452,7 +452,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
           </div>
         )}
 
-        {totalPages > 1 && (
+        {filteredAppointments.length > 0 && (
           <div className="queue-pagination-footer">
             <Pagination
               currentPage={currentPage}

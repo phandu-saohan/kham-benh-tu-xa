@@ -43,6 +43,7 @@ import {
 } from './api'
 import './prescription-cabinet.css'
 import { formatDateVN, formatDateTimeVN } from './dateFormatters'
+import { Pagination } from './Pagination'
 
 interface PatientPrescriptionCabinetProps {
   onViewRecord?: (appointmentId: number) => void
@@ -248,6 +249,32 @@ export const PatientPrescriptionCabinet: React.FC<PatientPrescriptionCabinetProp
   }, [cabinetItems, cabinetFilter, searchQuery])
 
   // Split into schedule slots for Today's Schedule Board
+  // Phân trang đơn thuốc (Tab 1)
+  const [rxPage, setRxPage] = useState(1)
+  const [rxPageSize, setRxPageSize] = useState(5)
+  useEffect(() => {
+    setRxPage(1)
+  }, [searchQuery])
+  const totalRxPages = Math.ceil(filteredPrescriptions.length / rxPageSize) || 1
+  const activeRxPage = Math.min(rxPage, totalRxPages)
+  const paginatedPrescriptions = useMemo(() => {
+    const start = (activeRxPage - 1) * rxPageSize
+    return filteredPrescriptions.slice(start, start + rxPageSize)
+  }, [filteredPrescriptions, activeRxPage, rxPageSize])
+
+  // Phân trang tủ thuốc (Tab 2)
+  const [cabinetPage, setCabinetPage] = useState(1)
+  const [cabinetPageSize, setCabinetPageSize] = useState(8)
+  useEffect(() => {
+    setCabinetPage(1)
+  }, [cabinetFilter, searchQuery])
+  const totalCabinetPages = Math.ceil(filteredCabinetItems.length / cabinetPageSize) || 1
+  const activeCabinetPage = Math.min(cabinetPage, totalCabinetPages)
+  const paginatedCabinetItems = useMemo(() => {
+    const start = (activeCabinetPage - 1) * cabinetPageSize
+    return filteredCabinetItems.slice(start, start + cabinetPageSize)
+  }, [filteredCabinetItems, activeCabinetPage, cabinetPageSize])
+
   const morningMeds = cabinetItems.filter(c => c.schedule_slot === 'morning' && c.status === 'active')
   const noonMeds = cabinetItems.filter(c => c.schedule_slot === 'noon' && c.status === 'active')
   const eveningMeds = cabinetItems.filter(
@@ -447,7 +474,7 @@ export const PatientPrescriptionCabinet: React.FC<PatientPrescriptionCabinetProp
               </div>
             </div>
           ) : (
-            filteredPrescriptions.map(p => (
+            paginatedPrescriptions.map(p => (
               <div key={p.appointment_id} className="pc-prescription-card">
                 {/* Header of Prescription */}
                 <div className="pc-prescription-header">
@@ -623,6 +650,18 @@ export const PatientPrescriptionCabinet: React.FC<PatientPrescriptionCabinetProp
                 </div>
               </div>
             ))
+          )}
+          {filteredPrescriptions.length > 0 && (
+            <div style={{ marginTop: '16px' }}>
+              <Pagination
+                currentPage={activeRxPage}
+                totalItems={filteredPrescriptions.length}
+                pageSize={rxPageSize}
+                onPageChange={setRxPage}
+                onPageSizeChange={setRxPageSize}
+                pageSizeOptions={[5, 10, 20]}
+              />
+            </div>
           )}
         </div>
       )}
@@ -828,7 +867,7 @@ export const PatientPrescriptionCabinet: React.FC<PatientPrescriptionCabinetProp
 
           {/* Cabinet Medication Cards Grid */}
           <div className="pc-cabinet-cards-grid">
-            {filteredCabinetItems.map(item => {
+            {paginatedCabinetItems.map(item => {
               const isLowStock = item.quantity_remaining <= 5
               const percentage = Math.min(100, Math.round((item.quantity_remaining / (item.total_quantity || 30)) * 100))
               const isTakenToday = Boolean(item.last_taken_at && item.last_taken_at.startsWith(new Date().toISOString().slice(0, 10)))
@@ -947,6 +986,18 @@ export const PatientPrescriptionCabinet: React.FC<PatientPrescriptionCabinetProp
               )
             })}
           </div>
+          {filteredCabinetItems.length > 0 && (
+            <div style={{ marginTop: '16px' }}>
+              <Pagination
+                currentPage={activeCabinetPage}
+                totalItems={filteredCabinetItems.length}
+                pageSize={cabinetPageSize}
+                onPageChange={setCabinetPage}
+                onPageSizeChange={setCabinetPageSize}
+                pageSizeOptions={[4, 8, 16]}
+              />
+            </div>
+          )}
         </div>
       )}
 

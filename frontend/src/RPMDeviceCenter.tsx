@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { Pagination } from './Pagination'
 import {
   HeartPulse,
   Activity,
@@ -106,6 +107,15 @@ export const RPMDeviceCenter: React.FC<RPMDeviceCenterProps> = ({
   const [monitorBpm, setMonitorBpm] = useState(72)
   const [monitorRhythm, setMonitorRhythm] = useState('Normal Sinus Rhythm (Nhịp xoang đều)')
   const [monitorActive, setMonitorActive] = useState(true)
+  // Phân trang lịch sử sinh hiệu (Tab 5)
+  const [historyPage, setHistoryPage] = useState(1)
+  const [historyPageSize, setHistoryPageSize] = useState(8)
+  const totalHistoryPages = Math.ceil(vitalsHistory.length / historyPageSize) || 1
+  const activeHistoryPage = Math.min(historyPage, totalHistoryPages)
+  const paginatedVitalsHistory = vitalsHistory.slice(
+    (activeHistoryPage - 1) * historyPageSize,
+    activeHistoryPage * historyPageSize
+  )
 
   // Load packages and vitals on mount
   useEffect(() => {
@@ -1208,7 +1218,7 @@ export const RPMDeviceCenter: React.FC<RPMDeviceCenterProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {vitalsHistory.map((item) => {
+                  {paginatedVitalsHistory.map((item) => {
                     const bpAssess = getBpAssessment(item.systolic ?? undefined, item.diastolic ?? undefined)
                     return (
                       <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -1258,6 +1268,18 @@ export const RPMDeviceCenter: React.FC<RPMDeviceCenterProps> = ({
           )}
         </div>
       )}
+          {vitalsHistory.length > 0 && (
+            <div style={{ marginTop: '16px' }}>
+              <Pagination
+                currentPage={activeHistoryPage}
+                totalItems={vitalsHistory.length}
+                pageSize={historyPageSize}
+                onPageChange={setHistoryPage}
+                onPageSizeChange={setHistoryPageSize}
+                pageSizeOptions={[5, 8, 15, 30]}
+              />
+            </div>
+          )}
 
       {/* ========================================================================= */}
       {/* TAB 6: 3 GÓI DỰ TOÁN ĐẦU TƯ THIẾT BỊ SINH HIỆU FDA                       */}

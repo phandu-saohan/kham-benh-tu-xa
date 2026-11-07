@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 
 import {
 
@@ -145,6 +145,34 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
   const [triagePage, setTriagePage] = useState(1)
 
   const [triagePageSize, setTriagePageSize] = useState(6)
+
+  useEffect(() => {
+    setTriagePage(1)
+  }, [filterStatus, searchQuery])
+
+  const filteredQueue = useMemo(() => {
+    return queue
+      .filter(item => {
+        if (filterStatus === 'pending') return item.triage_status === 'pending'
+        if (filterStatus === 'waiting_room') return item.triage_status === 'waiting_room' || item.status === 'waiting'
+        if (filterStatus === 'dispatched') return item.triage_status === 'dispatched'
+        if (filterStatus === 'urgent') return item.triage_level === 'emergency' || item.triage_level === 'priority'
+        return true
+      })
+      .filter(item =>
+        searchQuery === '' ||
+        item.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.reason && item.reason.toLowerCase().includes(searchQuery.toLowerCase()))
+      )
+  }, [queue, filterStatus, searchQuery])
+
+  const totalTriagePages = Math.ceil(filteredQueue.length / triagePageSize) || 1
+  const activeTriagePage = Math.min(triagePage, totalTriagePages)
+  const paginatedQueue = useMemo(() => {
+    const start = (activeTriagePage - 1) * triagePageSize
+    return filteredQueue.slice(start, start + triagePageSize)
+  }, [filteredQueue, activeTriagePage, triagePageSize])
+
 
   const [selectedItem, setSelectedItem] = useState<TriageItem | null>(null)
 
@@ -1642,33 +1670,7 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
 
             <div className="triage-cards-list">
 
-              {queue
-
-                .filter(item => {
-
-                  if (filterStatus === 'pending') return item.triage_status === 'pending'
-
-                  if (filterStatus === 'waiting_room') return item.triage_status === 'waiting_room' || item.status === 'waiting'
-
-                  if (filterStatus === 'dispatched') return item.triage_status === 'dispatched'
-
-                  if (filterStatus === 'urgent') return item.triage_level === 'emergency' || item.triage_level === 'priority'
-
-                  return true
-
-                })
-
-                .filter(item =>
-
-                  searchQuery === '' ||
-
-                  item.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-
-                  (item.reason && item.reason.toLowerCase().includes(searchQuery.toLowerCase()))
-
-                )
-
-                .map(item => {
+              {paginatedQueue.map(item => {
 
                   const isSelected = selectedItem?.appointment_id === item.appointment_id
 
@@ -1746,6 +1748,19 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
 
           )}
 
+
+            {filteredQueue.length > 0 && (
+              <div style={{ marginTop: '16px' }}>
+                <Pagination
+                  currentPage={activeTriagePage}
+                  totalItems={filteredQueue.length}
+                  pageSize={triagePageSize}
+                  onPageChange={setTriagePage}
+                  onPageSizeChange={setTriagePageSize}
+                  pageSizeOptions={[6, 12, 24]}
+                />
+              </div>
+            )}
         </section>
 
         {/* Right Column: Vitals Intake & Assessment Form */}

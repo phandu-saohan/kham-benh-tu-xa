@@ -340,7 +340,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onNaviga
             )}
           </div>
 
-          {notifications.length > notifPageSize && (
+          {notifications.length > 0 && (
             <div style={{ padding: '0 12px', background: '#f8fafc', borderTop: '1px solid #f1f5f9' }}>
               <Pagination
                 currentPage={notifPage}

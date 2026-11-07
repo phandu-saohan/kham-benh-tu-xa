@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   CreditCard,
   QrCode,
@@ -27,6 +27,7 @@ import {
   approveAppointmentRefund
 } from './api'
 import { formatDateTimeVN, formatDateVN } from './dateFormatters'
+import { Pagination } from './Pagination'
 
 interface PatientPaymentManagerProps {
   appointments: Appointment[]
@@ -163,6 +164,21 @@ export function PatientPaymentManager({
       return true
     })
   }, [appointments, filterTab, searchTerm])
+
+  // Phân trang danh sách giao dịch
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [filterTab, searchTerm])
+
+  const totalPages = Math.ceil(filteredAppointments.length / pageSize) || 1
+  const activePage = Math.min(currentPage, totalPages)
+  const paginatedAppointments = useMemo(() => {
+    const start = (activePage - 1) * pageSize
+    return filteredAppointments.slice(start, start + pageSize)
+  }, [filteredAppointments, activePage, pageSize])
 
   // Mở modal hoàn tiền
   function handleOpenRefundModal(a: Appointment) {
@@ -529,7 +545,7 @@ export function PatientPaymentManager({
             </p>
           </div>
         ) : (
-          filteredAppointments.map((a) => {
+          paginatedAppointments.map((a) => {
             const isPaid = a.status === 'confirmed' || a.status === 'completed' || a.paid_at
             const isRefundRequested = a.refund_status === 'requested'
             const isRefundCompleted = a.refund_status === 'completed' || (a.refund_amount && a.refund_amount > 0)
@@ -909,6 +925,20 @@ export function PatientPaymentManager({
         )}
       </div>
 
+
+      {/* Phân trang danh sách giao dịch */}
+      {filteredAppointments.length > 0 && (
+        <div style={{ marginTop: '16px' }}>
+          <Pagination
+            currentPage={activePage}
+            totalItems={filteredAppointments.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[5, 10, 20]}
+          />
+        </div>
+      )}
       {/* =========================================================================
           MODAL: YÊU CẦU HOÀN TIỀN VIỆN PHÍ (REFUND REQUEST MODAL)
          ========================================================================= */}
