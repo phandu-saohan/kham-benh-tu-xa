@@ -48,6 +48,7 @@ import './patient-appointments.css'
 import { MedicalRecordModal } from './MedicalRecordModal'
 import { BookingFlowModal } from './BookingFlowModal'
 import { FamilyMemberModal } from './FamilyMemberModal'
+import { PatientPaymentManager } from './PatientPaymentManager'
 
 const money = (n: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n)
@@ -2148,39 +2149,18 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab: Thanh toán VietQR */}
+        {/* Tab: Thanh toán VietQR & Quản lý Hoàn tiền */}
         {view === 'payments' && (
-          <section className="panel page-panel">
-            <div className="panel-heading">
-              <div>
-                <h3>Thanh toán trực tuyến VietQR (Napas 247)</h3>
-                <p>Khớp tiền tự động qua số tài khoản bệnh viện</p>
-              </div>
-            </div>
-            {appointments.map(a => (
-              <div className="result-row" key={a.id}>
-                <div className="result-icon">
-                  <CreditCard />
-                </div>
-                <div className="grow">
-                  <b>Lịch hẹn #{a.id}</b>
-                  <small>{dateText(a.starts_at)} · {a.reason}</small>
-                  {a.refund_amount ? (
-                    <span className="refund-badge">Đã hoàn lại: {money(a.refund_amount)}</span>
-                  ) : null}
-                </div>
-                <b>{money(a.fee_amount)}</b>
-                {a.status === 'confirmed' || a.status === 'completed' ? (
-                  <span className="status confirmed">Đã thanh toán</span>
-                ) : a.status === 'cancelled' ? (
-                  <span className="status cancelled">Đã hủy</span>
-                ) : (
-                  <button className="primary" onClick={() => setQrAppointment(a)}>
-                    <QrCode size={15} /> Quét VietQR
-                  </button>
-                )}
-              </div>
-            ))}
+          <section className="panel page-panel" style={{ padding: 0, border: 'none', background: 'transparent' }}>
+            <PatientPaymentManager
+              appointments={appointments}
+              user={user}
+              onOpenVietQR={(a) => setQrAppointment(a)}
+              onRefreshData={() => {
+                if (user) loadDashboard(user)
+              }}
+              onToast={(msg) => setToast(msg)}
+            />
           </section>
         )}
 

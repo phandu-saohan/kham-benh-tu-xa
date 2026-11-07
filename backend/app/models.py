@@ -165,8 +165,14 @@ class Appointment(Base):
     waiting_room_called_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
     
     paid_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    refund_status: Mapped[str | None] = mapped_column(String(30), nullable=True) # "none", "requested", "completed", "rejected"
     refund_amount: Mapped[int] = mapped_column(Integer, default=0)
     refund_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    bank_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    bank_account: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    account_holder_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    refund_requested_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    refunded_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancelled_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -240,9 +246,13 @@ class Payment(Base):
     provider_reference: Mapped[str | None] = mapped_column(String(200), nullable=True)
     qr_code_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     paid_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    refund_status: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    refund_status: Mapped[str | None] = mapped_column(String(30), nullable=True) # "none", "requested", "completed", "rejected"
     bank_account: Mapped[str | None] = mapped_column(String(50), nullable=True)
     bank_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    account_holder_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    refund_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    refund_requested_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    refunded_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 class IntegrationJob(Base):

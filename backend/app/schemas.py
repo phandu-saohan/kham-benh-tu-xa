@@ -98,6 +98,13 @@ class AppointmentOut(BaseModel):
     companion_id_card: str | None = None
     companion_phone: str | None = None
     companion_relationship: str | None = None
+    payment_status: str | None = None
+    refund_status: str | None = None
+    bank_name: str | None = None
+    bank_account: str | None = None
+    account_holder_name: str | None = None
+    refund_requested_at: datetime | None = None
+    refunded_at: datetime | None = None
     model_config = ConfigDict(from_attributes=True)
 
 class ClinicalRecordIn(BaseModel):
@@ -372,6 +379,23 @@ class AppointmentCancelOut(BaseModel):
     refund_amount: int
     refund_percent: int
     refund_reason: str
+    message: str
+
+class RefundRequestIn(BaseModel):
+    reason: str
+    bank_name: str
+    bank_account: str
+    account_holder_name: str
+    notes: Optional[str] = None
+
+class RefundRequestOut(BaseModel):
+    success: bool
+    appointment_id: int
+    refund_status: str
+    refund_amount: int
+    bank_name: str
+    bank_account: str
+    account_holder_name: str
     message: str
 
 class ConsultationMessageIn(BaseModel):

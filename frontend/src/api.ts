@@ -57,6 +57,13 @@ export type Appointment = {
   refund_amount?: number
   refund_reason?: string
   cancelled_at?: string
+  payment_status?: string
+  refund_status?: string
+  bank_name?: string
+  bank_account?: string
+  account_holder_name?: string
+  refund_requested_at?: string
+  refunded_at?: string
   shift_id?: number
   department_id?: number
   bhyt_code?: string
@@ -475,6 +482,39 @@ export async function getVietQR(appointmentId: number) {
 export async function simulatePayment(appointmentId: number) {
   return request<{ success: boolean; message: string }>(
     `/api/v1/payments/${appointmentId}/simulate-success`,
+    { method: 'POST' }
+  )
+}
+
+export interface RefundRequestPayload {
+  reason: string
+  bank_name: string
+  bank_account: string
+  account_holder_name: string
+  notes?: string
+}
+
+export interface RefundRequestResponse {
+  success: boolean
+  appointment_id: number
+  refund_status: string
+  refund_amount: number
+  bank_name: string
+  bank_account: string
+  account_holder_name: string
+  message: string
+}
+
+export async function requestAppointmentRefund(appointmentId: number, data: RefundRequestPayload) {
+  return request<RefundRequestResponse>(`/api/v1/payments/${appointmentId}/request-refund`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function approveAppointmentRefund(appointmentId: number) {
+  return request<{ success: boolean; appointment_id: number; refund_status: string; refund_amount: number; message: string }>(
+    `/api/v1/payments/${appointmentId}/approve-refund`,
     { method: 'POST' }
   )
 }

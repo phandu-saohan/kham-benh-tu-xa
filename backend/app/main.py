@@ -35,6 +35,7 @@ from app.schemas import (
     NationalPrescriptionSyncOut, PACSViewerOut,
     AmbientScribeIn, AmbientScribeOut, BhytCheckIn, BhytCheckOut,
     DepartmentOut, DoctorShiftOut, NurseShiftIn, NurseShiftOut, NurseShiftUpdateIn, AssignNurseIn, AppointmentCancelIn, AppointmentCancelOut,
+    RefundRequestIn, RefundRequestOut,
     ConsultationMessageIn, ConsultationMessageOut,
     IceServersOut, IceServerConfig, PaymentWebhookOut,
     TriageAssessmentIn, TriageAssessmentOut, TriageQueueItem, WaitingRoomStatusOut, AppointmentDocumentIn, AppointmentDocumentOut, PatientVitalsUpdateIn,
@@ -896,6 +897,9 @@ def list_appointments(db: Session = Depends(get_db), user: User = Depends(get_cu
     users_map = {u.id: u.full_name for u in db.query(User).filter(User.id.in_(user_ids)).all()} if user_ids else {}
     dept_map = {d.id: d.name for d in db.query(Department).filter(Department.id.in_(dept_ids)).all()} if dept_ids else {}
 
+    appt_ids = [a.id for a in appts]
+    payments_map = {p.appointment_id: p for p in db.query(Payment).filter(Payment.appointment_id.in_(appt_ids)).all()} if appt_ids else {}
+
     res = []
     for a in appts:
         item = AppointmentOut.model_validate(a)
@@ -903,6 +907,27 @@ def list_appointments(db: Session = Depends(get_db), user: User = Depends(get_cu
         item.doctor_name = users_map.get(a.doctor_id, "Bác sĩ")
         item.nurse_name = users_map.get(a.nurse_id) if a.nurse_id else None
         item.department_name = dept_map.get(a.department_id) if a.department_id else "Khoa Khám Bệnh"
+        
+        pm = payments_map.get(a.id)
+        if pm:
+            item.payment_status = pm.status
+            item.refund_status = pm.refund_status or a.refund_status
+            if pm.bank_name:
+                item.bank_name = pm.bank_name
+            if pm.bank_account:
+                item.bank_account = pm.bank_account
+            if pm.account_holder_name:
+                item.account_holder_name = pm.account_holder_name
+            if pm.refund_reason:
+                item.refund_reason = pm.refund_reason
+            if pm.refund_requested_at:
+                item.refund_requested_at = pm.refund_requested_at
+            if pm.refunded_at:
+                item.refunded_at = pm.refunded_at
+        else:
+            item.payment_status = "paid" if a.status in ("confirmed", "completed") else "pending"
+            item.refund_status = a.refund_status or ("completed" if a.refund_amount else None)
+
         res.append(item)
     return res
 
@@ -912,7 +937,29 @@ def appointment_detail(appointment_id: int, db: Session = Depends(get_db), user:
     if not appt:
         raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
     check_appointment_access(appt, user)
-    return appt
+    
+    item = AppointmentOut.model_validate(appt)
+    doctor = db.get(User, appt.doctor_id)
+    patient = db.get(User, appt.patient_id)
+    dept = db.get(Department, appt.department_id) if appt.department_id else None
+    pm = db.query(Payment).filter_by(appointment_id=appt.id).first()
+    
+    item.doctor_name = doctor.full_name if doctor else "Bác sĩ"
+    item.patient_name = patient.full_name if patient else "Bệnh nhân"
+    item.department_name = dept.name if dept else "Khoa Khám Bệnh"
+    if pm:
+        item.payment_status = pm.status
+        item.refund_status = pm.refund_status or appt.refund_status
+        item.bank_name = pm.bank_name or appt.bank_name
+        item.bank_account = pm.bank_account or appt.bank_account
+        item.account_holder_name = pm.account_holder_name or appt.account_holder_name
+        item.refund_reason = pm.refund_reason or appt.refund_reason
+        item.refund_requested_at = pm.refund_requested_at or appt.refund_requested_at
+        item.refunded_at = pm.refunded_at or appt.refunded_at
+    else:
+        item.payment_status = "paid" if appt.status in ("confirmed", "completed") else "pending"
+        item.refund_status = appt.refund_status or ("completed" if appt.refund_amount else None)
+    return item
 
 @app.patch("/api/v1/appointments/{appointment_id}/cancel", response_model=AppointmentOut)
 def cancel_appointment(appointment_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
@@ -2165,6 +2212,164 @@ def simulate_payment_success(appointment_id: int, db: Session = Depends(get_db),
     db.commit()
     
     return {"success": True, "message": "Giả lập thanh toán VietQR thành công! Lịch hẹn đã được xác nhận."}
+
+@app.post("/api/v1/payments/{appointment_id}/request-refund", response_model=RefundRequestOut)
+def request_appointment_refund(
+    appointment_id: int,
+    data: RefundRequestIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Bệnh nhân gửi yêu cầu hoàn tiền viện phí qua tài khoản ngân hàng Napas 247.
+    Áp dụng 100% viện phí thực trả khi ca khám chưa diễn ra hoặc hủy lịch hợp lệ.
+    """
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
+    check_appointment_access(appt, user)
+    
+    if appt.status == "completed":
+        raise HTTPException(status_code=400, detail="Ca khám đã hoàn tất và kết luận hồ sơ bệnh án, không thể yêu cầu hoàn tiền")
+        
+    payment = db.query(Payment).filter_by(appointment_id=appt.id).first()
+    has_paid = (payment and payment.status == "paid") or (appt.status in ("confirmed", "completed") and (appt.paid_at or appt.fee_amount > 0))
+    
+    if not has_paid:
+        raise HTTPException(status_code=400, detail="Lịch hẹn này chưa có giao dịch thanh toán thành công để yêu cầu hoàn tiền")
+        
+    if payment and payment.refund_status == "completed":
+        raise HTTPException(status_code=400, detail="Giao dịch này đã được hoàn tiền thành công từ trước")
+        
+    refund_amount = appt.patient_pay_amount if (appt.bhyt_discount and appt.patient_pay_amount > 0) else appt.fee_amount
+    now = datetime.now(timezone.utc)
+    
+    if not payment:
+        payment = Payment(
+            appointment_id=appt.id,
+            amount=refund_amount,
+            currency="VND",
+            provider="vietqr",
+            status="paid",
+            paid_at=appt.paid_at or now
+        )
+        db.add(payment)
+        
+    payment.refund_status = "requested"
+    payment.bank_name = data.bank_name.strip()
+    payment.bank_account = data.bank_account.strip()
+    payment.account_holder_name = data.account_holder_name.strip().upper()
+    payment.refund_reason = f"{data.reason} - {data.notes}".strip(" -") if data.notes else data.reason
+    payment.refund_requested_at = now
+    
+    appt.refund_status = "requested"
+    appt.refund_amount = refund_amount
+    appt.refund_reason = payment.refund_reason
+    appt.bank_name = payment.bank_name
+    appt.bank_account = payment.bank_account
+    appt.account_holder_name = payment.account_holder_name
+    appt.refund_requested_at = now
+    appt.status = "cancelled"
+    appt.cancelled_at = now
+    
+    if appt.shift_id:
+        shift = db.get(DoctorShift, appt.shift_id)
+        if shift and shift.booked_count > 0:
+            shift.booked_count -= 1
+            
+    record_appointment_event(
+        db=db,
+        appointment_id=appt.id,
+        action="patient_request_refund",
+        from_status="confirmed",
+        to_status="cancelled",
+        actor=user,
+        notes=f"Người bệnh gửi yêu cầu hoàn tiền {refund_amount:,} đ về STK {data.bank_account} ({data.bank_name}). Lý do: {data.reason}"
+    )
+    
+    notif = Notification(
+        user_id=appt.patient_id,
+        target_role="patient",
+        title="Đã tiếp nhận yêu cầu hoàn tiền viện phí",
+        message=f"Yêu cầu hoàn trả {refund_amount:,} đ cho lịch hẹn #{appt.id} đã được gửi đến Kế toán viện. Hệ thống sẽ đối soát hoàn tiền qua Napas 247.",
+        category="payment",
+        priority="high",
+        action_url="/payments"
+    )
+    db.add(notif)
+    db.add(AuditLog(actor_user_id=user.id, action="payment.refund_requested", resource_type="payment", resource_id=str(appt.id)))
+    db.commit()
+    db.refresh(payment)
+    db.refresh(appt)
+    
+    return RefundRequestOut(
+        success=True,
+        appointment_id=appt.id,
+        refund_status="requested",
+        refund_amount=refund_amount,
+        bank_name=payment.bank_name,
+        bank_account=payment.bank_account,
+        account_holder_name=payment.account_holder_name,
+        message=f"Đã gửi yêu cầu hoàn tiền {refund_amount:,} VND thành công! Kế toán viện sẽ đối soát và chuyển khoản 24/7."
+    )
+
+@app.post("/api/v1/payments/{appointment_id}/approve-refund")
+def approve_appointment_refund(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Xử lý duyệt và hoàn tất chuyển tiền hoàn trả Napas 247"""
+    appt = db.get(Appointment, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="Lịch hẹn không tồn tại")
+    check_appointment_access(appt, user)
+    
+    payment = db.query(Payment).filter_by(appointment_id=appt.id).first()
+    now = datetime.now(timezone.utc)
+    refund_amount = appt.refund_amount or (appt.patient_pay_amount if (appt.bhyt_discount and appt.patient_pay_amount > 0) else appt.fee_amount)
+    
+    if not payment:
+        payment = Payment(
+            appointment_id=appt.id,
+            amount=refund_amount,
+            currency="VND",
+            provider="vietqr",
+            status="refunded",
+            paid_at=appt.paid_at or now
+        )
+        db.add(payment)
+    else:
+        payment.status = "refunded"
+        
+    payment.refund_status = "completed"
+    payment.refunded_at = now
+    
+    appt.refund_status = "completed"
+    appt.refund_amount = refund_amount
+    appt.refunded_at = now
+    appt.status = "cancelled"
+    
+    notif = Notification(
+        user_id=appt.patient_id,
+        target_role="patient",
+        title="Hoàn tiền viện phí thành công (Napas 247)",
+        message=f"Bệnh viện đã chuyển khoản hoàn tất {refund_amount:,} đ về STK {payment.bank_account or 'ngân hàng của bạn'}. Cảm ơn bạn!",
+        category="payment",
+        priority="high",
+        action_url="/payments"
+    )
+    db.add(notif)
+    db.add(AuditLog(actor_user_id=user.id, action="payment.refund_completed", resource_type="payment", resource_id=str(appt.id)))
+    db.commit()
+    
+    return {
+        "success": True,
+        "appointment_id": appt.id,
+        "refund_status": "completed",
+        "refund_amount": refund_amount,
+        "message": f"Đã hoàn trả thành công {refund_amount:,} VND vào tài khoản người bệnh."
+    }
 
 # ----------------- PRESCRIPTION DRAFT -----------------
 
@@ -4960,6 +5165,12 @@ def auto_migrate_schema():
         ("bmi", "FLOAT"),
         ("his_encounter_id", "VARCHAR(60)"),
         ("his_synced_at", dt_type),
+        ("refund_status", "VARCHAR(30)"),
+        ("bank_name", "VARCHAR(50)"),
+        ("bank_account", "VARCHAR(50)"),
+        ("account_holder_name", "VARCHAR(150)"),
+        ("refund_requested_at", dt_type),
+        ("refunded_at", dt_type),
         ("triage_notes", "TEXT"),
         ("triaged_by", "INTEGER"),
         ("triaged_at", dt_type),
@@ -5021,6 +5232,12 @@ def auto_migrate_schema():
         ("steps", "INTEGER"),
         ("sleep_hours", "FLOAT")
     ]
+    payment_columns = [
+        ("account_holder_name", "VARCHAR(150)"),
+        ("refund_reason", "TEXT"),
+        ("refund_requested_at", dt_type),
+        ("refunded_at", dt_type)
+    ]
     doc_columns = [
         ("patient_id", "INTEGER")
     ]
@@ -5053,6 +5270,15 @@ def auto_migrate_schema():
         for col_name, col_type in rpm_columns:
             try:
                 conn.execute(text(f"ALTER TABLE rpm_vital_logs ADD COLUMN {col_name} {col_type}"))
+                conn.commit()
+            except Exception:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+        for col_name, col_type in payment_columns:
+            try:
+                conn.execute(text(f"ALTER TABLE payments ADD COLUMN {col_name} {col_type}"))
                 conn.commit()
             except Exception:
                 try:
