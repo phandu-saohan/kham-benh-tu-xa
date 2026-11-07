@@ -823,12 +823,6 @@ export function PatientDashboard({
                     (~{Math.round(glucoseDisplay * 18.018)} mg/dL)
                   </span>
                 </div>
-                <div className="ps-vital-name" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <span style={{ fontWeight: 700, color: 'var(--ps-navy)' }}>Roche Accu-Chek Instant BLE</span>
-                </div>
-                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                  Đường huyết mao mạch • Chuẩn ISO 15197:2013
-                </div>
               </div>
 
               <div className="ps-vital-tile-bottom" style={{ borderTop: '1px solid #f1f5f9', paddingTop: '8px', marginTop: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
