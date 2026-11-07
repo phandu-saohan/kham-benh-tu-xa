@@ -1,0 +1,960 @@
+/* =========================================================================
+   MEDICAL IMAGING PACS / DICOM CENTER CSS
+   Theo chuẩn thiết kế bệnh viện hiện đại: 8px card radius, 6px button radius
+   ========================================================================= */
+
+.pacs-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: inherit;
+}
+
+/* Header Banner */
+.pacs-header-card {
+  background: linear-gradient(135deg, #091e3a 0%, #1e3a8a 55%, #0369a1 100%);
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: 0 4px 16px rgba(14, 116, 144, 0.2);
+}
+
+.pacs-header-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pacs-header-subtitle {
+  font-size: 13px;
+  opacity: 0.9;
+  margin: 0;
+  max-width: 650px;
+  line-height: 1.5;
+}
+
+.pacs-badge-tag {
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.pacs-header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pacs-btn-primary {
+  background: #ffffff;
+  color: #0369a1;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.pacs-btn-primary:hover {
+  background: #f0f9ff;
+  transform: translateY(-1px);
+}
+
+.pacs-btn-secondary {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.pacs-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Patient Selector */
+.pacs-patient-selector {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pacs-selector-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0369a1;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pacs-patient-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pacs-patient-chip {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-weight: 500;
+}
+
+.pacs-patient-chip.active {
+  border: 2px solid #0284c7;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-weight: 700;
+}
+
+/* KPI Metrics Grid */
+.pacs-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.pacs-metric-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pacs-metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.pacs-metric-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pacs-metric-icon.blue {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.pacs-metric-icon.amber {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.pacs-metric-icon.purple {
+  background: #f3e8ff;
+  color: #9333ea;
+}
+
+.pacs-metric-icon.teal {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.pacs-metric-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.pacs-metric-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.pacs-metric-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.pacs-metric-subtext {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+/* Tabs Navigation */
+.pacs-nav-tabs {
+  display: flex;
+  gap: 10px;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 2px;
+  overflow-x: auto;
+}
+
+.pacs-tab-btn {
+  padding: 10px 18px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -4px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.pacs-tab-btn:hover {
+  color: #0284c7;
+}
+
+.pacs-tab-btn.active {
+  color: #0284c7;
+  border-bottom-color: #0284c7;
+}
+
+/* Tab 1: Studies List View */
+.pacs-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.pacs-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 12px;
+  flex: 1;
+  min-width: 250px;
+}
+
+.pacs-search-box input {
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  width: 100%;
+  outline: none;
+  color: #1e293b;
+}
+
+.pacs-filter-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.pacs-chip {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+  transition: all 0.15s ease;
+}
+
+.pacs-chip:hover {
+  background: #e2e8f0;
+}
+
+.pacs-chip.active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+}
+
+/* Study Card */
+.pacs-study-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pacs-study-card:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.08);
+}
+
+.pacs-study-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 12px;
+}
+
+.pacs-modality-badge {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.pacs-modality-badge.cr {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.pacs-modality-badge.ct {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.pacs-modality-badge.mri {
+  background: #f3e8ff;
+  color: #7e22ce;
+  border: 1px solid #e9d5ff;
+}
+
+.pacs-modality-badge.us {
+  background: #ccfbf1;
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+}
+
+.pacs-study-title {
+  margin: 4px 0 0 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.pacs-study-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  font-size: 12px;
+  color: #475569;
+  background: #f8fafc;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px solid #f1f5f9;
+}
+
+.pacs-meta-item strong {
+  color: #1e293b;
+}
+
+.pacs-clinical-boxes {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.pacs-findings-box {
+  background: #f8fafc;
+  padding: 12px 14px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  font-size: 13px;
+}
+
+.pacs-findings-box h5 {
+  margin: 0 0 6px 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.pacs-findings-box p {
+  margin: 0;
+  color: #1e293b;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.pacs-impression-box {
+  background: #ecfdf5;
+  padding: 12px 14px;
+  border-radius: 6px;
+  border-left: 3px solid #10b981;
+  font-size: 13px;
+}
+
+.pacs-impression-box h5 {
+  margin: 0 0 4px 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #047857;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.pacs-impression-box p {
+  margin: 0;
+  color: #064e3b;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* Card Actions */
+.pacs-study-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.pacs-action-btn {
+  padding: 7px 13px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+}
+
+.pacs-action-btn:hover {
+  background: #f1f5f9;
+}
+
+.pacs-action-btn.primary {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+}
+
+.pacs-action-btn.primary:hover {
+  background: #0369a1;
+}
+
+.pacs-action-btn.ai {
+  background: #f0fdf4;
+  color: #166534;
+  border-color: #86efac;
+}
+
+.pacs-action-btn.ai:hover {
+  background: #dcfce7;
+}
+
+.pacs-action-btn.viewer {
+  background: #0f172a;
+  color: #38bdf8;
+  border-color: #334155;
+}
+
+.pacs-action-btn.viewer:hover {
+  background: #1e293b;
+}
+
+/* =========================================================================
+   TAB 2: INTERACTIVE DICOM STUDIO & VIEWER
+   ========================================================================= */
+
+.pacs-studio-container {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 16px;
+  background: #0b1120;
+  border-radius: 8px;
+  border: 1px solid #1e293b;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+@media (max-width: 960px) {
+  .pacs-studio-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pacs-viewport-panel {
+  display: flex;
+  flex-direction: column;
+  background: #020617;
+  min-height: 540px;
+}
+
+/* Viewport Toolbar */
+.pacs-viewport-toolbar {
+  background: #0f172a;
+  border-bottom: 1px solid #1e293b;
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pacs-tools-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pacs-tool-btn {
+  background: #1e293b;
+  color: #94a3b8;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.pacs-tool-btn:hover {
+  background: #334155;
+  color: #f8fafc;
+}
+
+.pacs-tool-btn.active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+}
+
+/* Viewport Canvas Stage */
+.pacs-canvas-stage {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: radial-gradient(circle at center, #0a0f1d 0%, #000000 100%);
+  user-select: none;
+}
+
+.pacs-dicom-canvas {
+  max-width: 100%;
+  max-height: 480px;
+  transition: filter 0.15s ease, transform 0.1s ease-out;
+}
+
+/* HUD Overlay on Viewport */
+.pacs-hud-overlay {
+  position: absolute;
+  pointer-events: none;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 11px;
+  color: #38bdf8;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  line-height: 1.4;
+  z-index: 10;
+}
+
+.pacs-hud-top-left {
+  top: 12px;
+  left: 14px;
+}
+
+.pacs-hud-top-right {
+  top: 12px;
+  right: 14px;
+  text-align: right;
+}
+
+.pacs-hud-bottom-left {
+  bottom: 12px;
+  left: 14px;
+}
+
+.pacs-hud-bottom-right {
+  bottom: 12px;
+  right: 14px;
+  text-align: right;
+}
+
+/* Slice Scrubber & Cine Controls */
+.pacs-slice-bar {
+  background: #0f172a;
+  border-top: 1px solid #1e293b;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pacs-slice-slider {
+  flex: 1;
+  accent-color: #0284c7;
+  cursor: pointer;
+}
+
+/* Studio Sidebar (DICOM Tags & Study Info) */
+.pacs-studio-sidebar {
+  background: #0f172a;
+  border-left: 1px solid #1e293b;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: #e2e8f0;
+  overflow-y: auto;
+  max-height: 600px;
+}
+
+.pacs-sidebar-section h4 {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #38bdf8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pacs-tag-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-family: 'Consolas', monospace;
+}
+
+.pacs-tag-table td {
+  padding: 5px 6px;
+  border-bottom: 1px solid #1e293b;
+}
+
+.pacs-tag-table td.tag-name {
+  color: #94a3b8;
+  width: 45%;
+}
+
+.pacs-tag-table td.tag-val {
+  color: #f1f5f9;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+/* =========================================================================
+   TAB 3: AI VISION SECOND OPINION
+   ========================================================================= */
+
+.pacs-ai-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pacs-ai-header-card {
+  background: linear-gradient(135deg, #064e3b 0%, #0f766e 100%);
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.pacs-ai-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 860px) {
+  .pacs-ai-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pacs-ai-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.pacs-ai-card h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pacs-condition-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #f8fafc;
+  margin-bottom: 8px;
+  border: 1px solid #f1f5f9;
+  font-size: 13px;
+}
+
+.pacs-condition-prob {
+  font-weight: 700;
+  color: #0284c7;
+}
+
+/* =========================================================================
+   MODAL DIALOGS (PRINTABLE REPORT & AI CONSULTATION)
+   ========================================================================= */
+
+.pacs-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.pacs-modal-container {
+  background: #ffffff;
+  border-radius: 8px;
+  max-width: 820px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.pacs-modal-header {
+  padding: 16px 20px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pacs-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.pacs-modal-footer {
+  padding: 14px 20px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Printable Medical Imaging Report */
+.pacs-print-paper {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  padding: 32px;
+  border-radius: 4px;
+  font-family: 'Times New Roman', serif;
+  color: #111827;
+  line-height: 1.45;
+}
+
+.pacs-print-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2px solid #0f766e;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+}
+
+.pacs-print-hospital-info h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #0f766e;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.pacs-print-hospital-info p {
+  margin: 2px 0 0 0;
+  font-size: 12px;
+  color: #374151;
+}
+
+.pacs-print-title {
+  text-align: center;
+  margin: 16px 0 20px 0;
+}
+
+.pacs-print-title h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  color: #111827;
+  text-transform: uppercase;
+}
+
+.pacs-print-title span {
+  font-size: 12px;
+  font-style: italic;
+  color: #4b5563;
+}
+
+.pacs-print-patient-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  font-size: 13px;
+  margin-bottom: 18px;
+  background: #f9fafb;
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+}
+
+.pacs-print-section {
+  margin-bottom: 16px;
+}
+
+.pacs-print-section h4 {
+  margin: 0 0 6px 0;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #0f766e;
+  border-bottom: 1px dashed #cbd5e1;
+  padding-bottom: 4px;
+}
+
+.pacs-print-section p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.pacs-print-signatures {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 24px;
+  padding-top: 10px;
+}
+
+.pacs-signature-box {
+  text-align: center;
+  width: 220px;
+}
+
+.pacs-seal-stamp {
+  margin: 10px auto;
+  padding: 8px;
+  border: 2px dashed #059669;
+  border-radius: 6px;
+  background: #ecfdf5;
+  color: #065f46;
+  font-size: 11px;
+  font-family: inherit;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .pacs-print-paper, .pacs-print-paper * {
+    visibility: visible;
+  }
+  .pacs-print-paper {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none;
+    padding: 0;
+  }
+}

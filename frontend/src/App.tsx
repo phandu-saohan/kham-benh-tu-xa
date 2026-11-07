@@ -51,6 +51,7 @@ import { FamilyMemberModal } from './FamilyMemberModal'
 import { PatientPaymentManager } from './PatientPaymentManager'
 import { PatientPrescriptionCabinet } from './PatientPrescriptionCabinet'
 import { PatientParaclinicalCenter } from './PatientParaclinicalCenter'
+import { PatientPacsCenter } from './PatientPacsCenter'
 import { formatDateVN, formatDateTimeVN } from './dateFormatters'
 
 const money = (n: number) =>
@@ -1333,148 +1334,15 @@ export default function App() {
 
         {/* Tab 2: Chẩn đoán hình ảnh PACS / DICOM */}
         {view === 'pacs' && (
-          <section className="panel page-panel">
-            <div className="panel-heading">
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <ScanLine size={22} color="#0284c7" />
-                  <h3 style={{ margin: 0 }}>Kết quả Chẩn đoán Hình ảnh PACS / DICOM</h3>
-                </div>
-                <p>Xem phim X-Quang, Siêu âm, CT Scanner trực tuyến qua trình đọc ảnh y khoa OHIF Viewer</p>
-              </div>
-            </div>
-
-            {/* Thanh chọn Bệnh nhân dành cho Bác sĩ & Điều dưỡng */}
-            {!isPatient && (
-              <div className="patient-selector-panel" style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '14px 16px', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#0369a1', textTransform: 'uppercase', marginBottom: '4px' }}>
-                      🩻 Chọn Bệnh nhân để xem phim PACS:
-                    </label>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {uniquePatients.map(p => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => setSelectedPatientId(p.id)}
-                          style={{
-                            padding: '6px 14px',
-                            borderRadius: '6px',
-                            border: selectedPatientId === p.id ? '2px solid #0284c7' : '1px solid #cbd5e1',
-                            background: selectedPatientId === p.id ? '#e0f2fe' : '#fff',
-                            color: selectedPatientId === p.id ? '#0369a1' : '#334155',
-                            fontWeight: selectedPatientId === p.id ? 700 : 500,
-                            fontSize: '13px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                          }}
-                        >
-                          <UserRound size={14} />
-                          <span>{p.name}</span>
-                          {p.bhyt && <small style={{ opacity: 0.75, fontSize: '11px' }}>({p.bhyt})</small>}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Filter Modality chips */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', overflowX: 'auto', paddingBottom: '4px' }}>
-              {[
-                ['all', `Tất cả (${patientPacsData?.studies?.length || 0})`],
-                ['CR', 'X-Quang (CR)'],
-                ['US', 'Siêu âm (US)'],
-                ['CT', 'Cắt lớp vi tính (CT)']
-              ].map(([key, label]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setAppPacsFilter(key)}
-                  style={{
-                    padding: '5px 14px',
-                    borderRadius: '20px',
-                    border: appPacsFilter === key ? '1px solid #0284c7' : '1px solid #cbd5e1',
-                    background: appPacsFilter === key ? '#0284c7' : '#f8fafc',
-                    color: appPacsFilter === key ? '#fff' : '#475569',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer'
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {loadingPatientPacs && <p className="muted">Đang tải danh sách phim chụp PACS của bệnh nhân...</p>}
-
-            {patientPacsData && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {patientPacsData.studies
-                  .filter(s => appPacsFilter === 'all' || s.modality === appPacsFilter)
-                  .map(study => (
-                    <div key={study.study_id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px', marginBottom: '12px' }}>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{
-                              background: study.modality === 'CT' ? '#fef3c7' : study.modality === 'US' ? '#f3e8ff' : '#e0f2fe',
-                              color: study.modality === 'CT' ? '#b45309' : study.modality === 'US' ? '#7e22ce' : '#0369a1',
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              fontSize: '11px',
-                              fontWeight: 800
-                            }}>
-                              {study.modality}
-                            </span>
-                            <h4 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>{study.description}</h4>
-                          </div>
-                          <small style={{ color: '#64748b', fontSize: '11px', marginTop: '4px', display: 'block' }}>
-                            Mã ca: <strong>{study.study_id}</strong> · Bộ phận: <strong>{study.body_part}</strong> · Ngày chụp: <strong>{study.date}</strong> · Đơn vị: {study.institution}
-                          </small>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <span style={{ fontSize: '11px', color: '#64748b' }}>BS CĐHA:</span>
-                          <div style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>{study.radiologist}</div>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px', marginBottom: '14px' }}>
-                        <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '6px', fontSize: '12px' }}>
-                          <strong style={{ color: '#475569', display: 'block', marginBottom: '4px' }}>📝 Mô tả hình ảnh (Findings):</strong>
-                          <p style={{ margin: 0, color: '#1e293b', lineHeight: 1.5 }}>{study.findings}</p>
-                        </div>
-
-                        <div style={{ background: '#ecfdf5', padding: '10px 12px', borderRadius: '6px', borderLeft: '3px solid #10b981', fontSize: '12px' }}>
-                          <strong style={{ color: '#047857', display: 'block', marginBottom: '4px' }}>🎯 Kết luận (Impression):</strong>
-                          <p style={{ margin: 0, color: '#064e3b', fontWeight: 600, lineHeight: 1.5 }}>{study.impression}</p>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
-                        <button
-                          type="button"
-                          className="primary small-primary"
-                          onClick={() => window.open(study.viewer_url, '_blank')}
-                          style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', background: '#0284c7', borderColor: '#0284c7' }}
-                        >
-                          <ExternalLink size={14} /> Mở phim DICOM (OHIF Viewer)
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            )}
-
-            <div className="notice" style={{ marginTop: '16px' }}>
-              <ShieldCheck size={18} />
-              {patientPacsData?.notice || 'Hệ thống PACS hỗ trợ giao thức DICOMweb WADO-RS hiển thị trực tiếp trên trình duyệt.'}
-            </div>
+          <section className="panel page-panel" style={{ padding: 0, background: 'transparent', border: 'none', boxShadow: 'none' }}>
+            <PatientPacsCenter
+              user={user}
+              selectedPatientId={selectedPatientId}
+              uniquePatients={uniquePatients}
+              onSelectPatient={(pid) => setSelectedPatientId(pid)}
+              onToast={(msg) => setToast(msg)}
+              onNavigate={(v) => setView(v as any)}
+            />
           </section>
         )}
 
