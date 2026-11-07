@@ -1888,7 +1888,11 @@ def sync_patient_his_emr(
     completed_appts = [a for a in appts if a.status == "completed"]
     
     # Đồng bộ thông tin ca khám và tạo encounter draft trong HIS nếu có
+    now_utc = datetime.now(timezone.utc)
+    user.last_his_sync_at = now_utc
     for appt in completed_appts[:3]:
+        appt.his_synced_at = now_utc
+        appt.his_encounter_id = f"ENC-{appt.id}"
         record = db.query(ClinicalRecord).filter_by(appointment_id=appt.id).first()
         doctor = db.get(User, appt.doctor_id)
         if hasattr(his_adapter, "create_encounter_draft"):
@@ -1971,6 +1975,14 @@ def get_my_patient_profile(
         "family_history_notes": getattr(user, "family_history_notes", None) or "",
         "epidemiological_history": getattr(user, "epidemiological_history", None) or "",
         "avatar_url": getattr(user, "avatar_url", None) or "",
+        "height": getattr(user, "height", None),
+        "weight": getattr(user, "weight", None),
+        "blood_pressure": getattr(user, "blood_pressure", None),
+        "heart_rate": getattr(user, "heart_rate", None),
+        "temperature": getattr(user, "temperature", None),
+        "spo2": getattr(user, "spo2", None),
+        "blood_glucose": getattr(user, "blood_glucose", None),
+        "last_his_sync_at": getattr(user, "last_his_sync_at", None),
         "consent_agreed": bool(consent) if consent else True,
         "consent_agreed_at": consent.consented_at if consent else datetime.now(timezone.utc),
         "total_appointments": total_appts,
@@ -2036,6 +2048,20 @@ def update_my_patient_profile(
         user.avatar_url = data.avatar_url
     if data.epidemiological_history is not None:
         user.epidemiological_history = data.epidemiological_history.strip()
+    if data.height is not None:
+        user.height = data.height
+    if data.weight is not None:
+        user.weight = data.weight
+    if data.blood_pressure is not None:
+        user.blood_pressure = data.blood_pressure.strip()
+    if data.heart_rate is not None:
+        user.heart_rate = data.heart_rate
+    if data.temperature is not None:
+        user.temperature = data.temperature
+    if data.spo2 is not None:
+        user.spo2 = data.spo2
+    if data.blood_glucose is not None:
+        user.blood_glucose = data.blood_glucose
 
     db.add(AuditLog(actor_user_id=user.id, action="patient.update_profile", resource_type="user", resource_id=str(user.id)))
     db.commit()
@@ -2859,14 +2885,23 @@ def update_patient_vitals_in_waiting_room(
         if latest_vital:
             if latest_vital.blood_pressure:
                 appt.blood_pressure = latest_vital.blood_pressure
-            if latest_vital.heart_rate:
-                appt.pulse = latest_vital.heart_rate
+            elif latest_vital.systolic and latest_vital.diastolic:
+                appt.blood_pressure = f"{latest_vital.systolic}/{latest_vital.diastolic}"
+            if latest_vital.pulse or latest_vital.heart_rate:
+                appt.pulse = latest_vital.pulse or latest_vital.heart_rate
             if latest_vital.temperature_celsius:
                 appt.temperature = latest_vital.temperature_celsius
-            if latest_vital.spo2:
-                appt.spo2 = latest_vital.spo2
+            if latest_vital.spo2 or latest_vital.spo2_percent:
+                appt.spo2 = int(latest_vital.spo2 or latest_vital.spo2_percent)
             if latest_vital.weight_kg:
                 appt.weight = latest_vital.weight_kg
+            if latest_vital.height_cm:
+                appt.height = latest_vital.height_cm
+            if latest_vital.glucose_value:
+                appt.blood_glucose = latest_vital.glucose_value
+                appt.glucose_context = latest_vital.glucose_context
+            if latest_vital.bmi:
+                appt.bmi = latest_vital.bmi
 
         # Đồng bộ từ user profile nếu appointment còn thiếu
         patient = db.get(User, appt.patient_id)
@@ -2875,14 +2910,24 @@ def update_patient_vitals_in_waiting_room(
                 appt.weight = patient.weight
             if not appt.height and getattr(patient, "height", None):
                 appt.height = patient.height
-            if not appt.blood_pressure:
+            if not appt.blood_pressure and getattr(patient, "blood_pressure", None):
+                appt.blood_pressure = patient.blood_pressure
+            elif not appt.blood_pressure:
                 appt.blood_pressure = "120/80"
-            if not appt.pulse:
+            if not appt.pulse and getattr(patient, "heart_rate", None):
+                appt.pulse = patient.heart_rate
+            elif not appt.pulse:
                 appt.pulse = 76
-            if not appt.temperature:
+            if not appt.temperature and getattr(patient, "temperature", None):
+                appt.temperature = patient.temperature
+            elif not appt.temperature:
                 appt.temperature = 36.8
-            if not appt.spo2:
+            if not appt.spo2 and getattr(patient, "spo2", None):
+                appt.spo2 = patient.spo2
+            elif not appt.spo2:
                 appt.spo2 = 98
+            if not appt.blood_glucose and getattr(patient, "blood_glucose", None):
+                appt.blood_glucose = patient.blood_glucose
     else:
         # Cập nhật theo dữ liệu tự nhập thủ công
         if data.blood_pressure is not None and data.blood_pressure.strip():
@@ -2897,13 +2942,42 @@ def update_patient_vitals_in_waiting_room(
             appt.weight = data.weight
         if data.height is not None:
             appt.height = data.height
+        if data.blood_glucose is not None:
+            appt.blood_glucose = data.blood_glucose
+        if data.glucose_context is not None:
+            appt.glucose_context = data.glucose_context
+        if data.bmi is not None:
+            appt.bmi = data.bmi
+
+    # Tự động tính BMI nếu có chiều cao và cân nặng
+    if not appt.bmi and appt.height and appt.weight and appt.height > 0:
+        h_m = appt.height / 100.0
+        appt.bmi = round(appt.weight / (h_m * h_m), 1)
+
+    # Đồng bộ các chỉ số mới nhất vào hồ sơ người bệnh (User)
+    patient = db.get(User, appt.patient_id)
+    if patient:
+        if appt.height:
+            patient.height = appt.height
+        if appt.weight:
+            patient.weight = appt.weight
+        if appt.blood_pressure:
+            patient.blood_pressure = appt.blood_pressure
+        if appt.pulse:
+            patient.heart_rate = appt.pulse
+        if appt.temperature:
+            patient.temperature = appt.temperature
+        if appt.spo2:
+            patient.spo2 = appt.spo2
+        if appt.blood_glucose:
+            patient.blood_glucose = appt.blood_glucose
 
     if data.notes:
         existing_notes = appt.triage_notes or ""
         appt.triage_notes = f"{existing_notes} | [Người bệnh ghi nhận]: {data.notes}".strip(" |")
 
     # Lưu lại chỉ số vào RPM Vital Log để làm giàu dữ liệu sức khỏe người bệnh
-    if appt.patient_id and (appt.blood_pressure or appt.pulse or appt.temperature):
+    if appt.patient_id and (appt.blood_pressure or appt.pulse or appt.temperature or appt.blood_glucose or appt.weight):
         sysNum = None
         diaNum = None
         if appt.blood_pressure and "/" in appt.blood_pressure:
@@ -2920,10 +2994,18 @@ def update_patient_vitals_in_waiting_room(
             connection_method="manual",
             systolic=sysNum,
             diastolic=diaNum,
+            blood_pressure=appt.blood_pressure,
+            pulse=appt.pulse,
             heart_rate=appt.pulse,
+            glucose_value=appt.blood_glucose,
+            glucose_context=appt.glucose_context,
+            spo2_percent=float(appt.spo2) if appt.spo2 else None,
             spo2=appt.spo2,
             temperature_celsius=appt.temperature,
-            weight_kg=appt.weight
+            weight_kg=appt.weight,
+            height_cm=appt.height,
+            bmi=appt.bmi,
+            measured_at=datetime.now(timezone.utc)
         ))
 
     # Ghi nhận sự kiện lượt khám
@@ -3017,6 +3099,7 @@ def upload_appointment_document(
     doc = AppointmentDocument(
         appointment_id=appt.id,
         uploaded_by=user.id,
+        patient_id=appt.patient_id,
         document_type=data.document_type,
         title=data.title.strip(),
         description=data.description.strip() if data.description else None,
@@ -4244,6 +4327,11 @@ def record_rpm_vitals(
         is_warning = True
         warning_msg = f"CẢNH BÁO THIẾU OXY MÁU (SpO2 {data.spo2_percent}%) - Cần hỗ trợ y tế khẩn cấp!"
 
+    bp_formatted = data.blood_pressure or (f"{data.systolic}/{data.diastolic}" if data.systolic and data.diastolic else None)
+    pulse_val = data.pulse or data.heart_rate
+    spo2_val = data.spo2 or (int(data.spo2_percent) if data.spo2_percent else None)
+    spo2_pct = data.spo2_percent or (float(data.spo2) if data.spo2 else None)
+
     vital = RPMVitalLog(
         patient_id=target_patient_id,
         device_type=data.device_type,
@@ -4251,12 +4339,21 @@ def record_rpm_vitals(
         connection_method=data.connection_method,
         systolic=data.systolic,
         diastolic=data.diastolic,
-        pulse=data.pulse,
+        blood_pressure=bp_formatted,
+        pulse=pulse_val,
+        heart_rate=pulse_val,
         glucose_value=data.glucose_value,
         glucose_context=data.glucose_context,
-        spo2_percent=data.spo2_percent,
+        spo2_percent=spo2_pct,
+        spo2=spo2_val,
         temperature_celsius=data.temperature_celsius,
         weight_kg=data.weight_kg,
+        height_cm=data.height_cm,
+        bmi=data.bmi,
+        bp_mean=data.bp_mean,
+        battery_level=data.battery_level,
+        steps=data.steps,
+        sleep_hours=data.sleep_hours,
         is_warning=is_warning,
         warning_message=warning_msg,
         measured_at=datetime.now(timezone.utc)
@@ -4858,6 +4955,11 @@ def auto_migrate_schema():
         ("spo2", "INTEGER"),
         ("weight", "FLOAT"),
         ("height", "FLOAT"),
+        ("blood_glucose", "FLOAT"),
+        ("glucose_context", "VARCHAR(30)"),
+        ("bmi", "FLOAT"),
+        ("his_encounter_id", "VARCHAR(60)"),
+        ("his_synced_at", dt_type),
         ("triage_notes", "TEXT"),
         ("triaged_by", "INTEGER"),
         ("triaged_at", dt_type),
@@ -4898,7 +5000,29 @@ def auto_migrate_schema():
         ("family_history_icd10", "VARCHAR(300)"),
         ("family_history_notes", "TEXT"),
         ("epidemiological_history", "TEXT"),
-        ("avatar_url", "TEXT")
+        ("avatar_url", "TEXT"),
+        ("height", "FLOAT"),
+        ("weight", "FLOAT"),
+        ("blood_pressure", "VARCHAR(30)"),
+        ("heart_rate", "INTEGER"),
+        ("temperature", "FLOAT"),
+        ("spo2", "INTEGER"),
+        ("blood_glucose", "FLOAT"),
+        ("last_his_sync_at", dt_type)
+    ]
+    rpm_columns = [
+        ("blood_pressure", "VARCHAR(30)"),
+        ("heart_rate", "INTEGER"),
+        ("spo2", "INTEGER"),
+        ("height_cm", "FLOAT"),
+        ("bmi", "FLOAT"),
+        ("bp_mean", "FLOAT"),
+        ("battery_level", "INTEGER"),
+        ("steps", "INTEGER"),
+        ("sleep_hours", "FLOAT")
+    ]
+    doc_columns = [
+        ("patient_id", "INTEGER")
     ]
     clinical_columns = [
         ("clinical_examination", "TEXT"),
@@ -4926,6 +5050,15 @@ def auto_migrate_schema():
                     conn.rollback()
                 except Exception:
                     pass
+        for col_name, col_type in rpm_columns:
+            try:
+                conn.execute(text(f"ALTER TABLE rpm_vital_logs ADD COLUMN {col_name} {col_type}"))
+                conn.commit()
+            except Exception:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
     family_columns = [
         ("avatar_url", "TEXT"),
         ("ethnicity", "VARCHAR(50)"),
@@ -4942,7 +5075,9 @@ def auto_migrate_schema():
         ("medical_history_notes", "TEXT"),
         ("family_history_icd10", "VARCHAR(300)"),
         ("family_history_notes", "TEXT"),
-        ("epidemiological_history", "TEXT")
+        ("epidemiological_history", "TEXT"),
+        ("height", "FLOAT"),
+        ("weight", "FLOAT")
     ]
     with engine.connect() as conn:
         try:
@@ -4970,6 +5105,15 @@ def auto_migrate_schema():
         for col_name, col_type in family_columns:
             try:
                 conn.execute(text(f"ALTER TABLE family_member_profiles ADD COLUMN {col_name} {col_type}"))
+                conn.commit()
+            except Exception:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+        for col_name, col_type in doc_columns:
+            try:
+                conn.execute(text(f"ALTER TABLE appointment_documents ADD COLUMN {col_name} {col_type}"))
                 conn.commit()
             except Exception:
                 try:

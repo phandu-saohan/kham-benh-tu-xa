@@ -76,6 +76,11 @@ class AppointmentOut(BaseModel):
     spo2: int | None = None
     weight: float | None = None
     height: float | None = None
+    blood_glucose: float | None = None
+    glucose_context: str | None = None
+    bmi: float | None = None
+    his_encounter_id: str | None = None
+    his_synced_at: datetime | None = None
     triage_notes: str | None = None
     waiting_room_entered_at: datetime | None = None
     waiting_room_called_at: datetime | None = None
@@ -457,6 +462,11 @@ class TriageQueueItem(BaseModel):
     spo2: int | None = None
     weight: float | None = None
     height: float | None = None
+    blood_glucose: float | None = None
+    glucose_context: str | None = None
+    bmi: float | None = None
+    his_encounter_id: str | None = None
+    his_synced_at: datetime | None = None
     triage_notes: str | None = None
     waiting_room_entered_at: datetime | None = None
     model_config = ConfigDict(from_attributes=True)
@@ -585,6 +595,14 @@ class PatientProfileOut(BaseModel):
     family_history_notes: str | None = None
     epidemiological_history: str | None = None
     avatar_url: str | None = None
+    height: float | None = None
+    weight: float | None = None
+    blood_pressure: str | None = None
+    heart_rate: int | None = None
+    temperature: float | None = None
+    spo2: int | None = None
+    blood_glucose: float | None = None
+    last_his_sync_at: datetime | None = None
     consent_agreed: bool = False
     consent_agreed_at: datetime | None = None
     total_appointments: int = 0
@@ -618,6 +636,13 @@ class PatientProfileUpdateIn(BaseModel):
     family_history_notes: str | None = None
     epidemiological_history: str | None = None
     avatar_url: str | None = None
+    height: float | None = None
+    weight: float | None = None
+    blood_pressure: str | None = None
+    heart_rate: int | None = None
+    temperature: float | None = None
+    spo2: int | None = None
+    blood_glucose: float | None = None
 
 class PatientHisCheckIn(BaseModel):
     identity_card: str = Field(min_length=9, max_length=15)  # Số CCCD 9 hoặc 12 số
@@ -971,12 +996,21 @@ class RPMVitalLogIn(BaseModel):
     connection_method: str = "bluetooth_ble"  # bluetooth_ble, manual
     systolic: Optional[int] = None
     diastolic: Optional[int] = None
+    blood_pressure: Optional[str] = None
     pulse: Optional[int] = None
+    heart_rate: Optional[int] = None
     glucose_value: Optional[float] = None
     glucose_context: Optional[str] = "fasting"
     spo2_percent: Optional[float] = None
+    spo2: Optional[int] = None
     temperature_celsius: Optional[float] = None
     weight_kg: Optional[float] = None
+    height_cm: Optional[float] = None
+    bmi: Optional[float] = None
+    bp_mean: Optional[float] = None
+    battery_level: Optional[int] = None
+    steps: Optional[int] = None
+    sleep_hours: Optional[float] = None
 
 class RPMVitalLogOut(BaseModel):
     id: int
@@ -986,12 +1020,21 @@ class RPMVitalLogOut(BaseModel):
     connection_method: str
     systolic: Optional[int] = None
     diastolic: Optional[int] = None
+    blood_pressure: Optional[str] = None
     pulse: Optional[int] = None
+    heart_rate: Optional[int] = None
     glucose_value: Optional[float] = None
     glucose_context: Optional[str] = None
     spo2_percent: Optional[float] = None
+    spo2: Optional[int] = None
     temperature_celsius: Optional[float] = None
     weight_kg: Optional[float] = None
+    height_cm: Optional[float] = None
+    bmi: Optional[float] = None
+    bp_mean: Optional[float] = None
+    battery_level: Optional[int] = None
+    steps: Optional[int] = None
+    sleep_hours: Optional[float] = None
     is_warning: bool
     warning_message: Optional[str] = None
     measured_at: datetime
@@ -1104,6 +1147,7 @@ class AppointmentDocumentOut(BaseModel):
     id: int
     appointment_id: int
     uploaded_by: int
+    patient_id: Optional[int] = None
     document_type: str
     title: str
     description: Optional[str] = None
@@ -1120,6 +1164,9 @@ class PatientVitalsUpdateIn(BaseModel):
     spo2: Optional[int] = None
     weight: Optional[float] = None
     height: Optional[float] = None
+    blood_glucose: Optional[float] = None
+    glucose_context: Optional[str] = None
+    bmi: Optional[float] = None
     notes: Optional[str] = None
     sync_from_profile: bool = False
 

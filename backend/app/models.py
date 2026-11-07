@@ -50,6 +50,17 @@ class User(Base):
     family_history_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     epidemiological_history: Mapped[str | None] = mapped_column(Text, nullable=True)       # Tiền sử dịch tễ (lao, truyền nhiễm...)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)  # Ảnh đại diện
+
+    # Chỉ số sức khỏe & Sinh hiệu mới nhất
+    height: Mapped[float | None] = mapped_column(Float, nullable=True)                      # Chiều cao (cm)
+    weight: Mapped[float | None] = mapped_column(Float, nullable=True)                      # Cân nặng (kg)
+    blood_pressure: Mapped[str | None] = mapped_column(String(30), nullable=True)          # Huyết áp (mmHg)
+    heart_rate: Mapped[int | None] = mapped_column(Integer, nullable=True)                 # Nhịp tim (bpm)
+    temperature: Mapped[float | None] = mapped_column(Float, nullable=True)                # Thân nhiệt (°C)
+    spo2: Mapped[int | None] = mapped_column(Integer, nullable=True)                       # SpO2 (%)
+    blood_glucose: Mapped[float | None] = mapped_column(Float, nullable=True)             # Đường huyết (mmol/L)
+    last_his_sync_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True) # Mốc đồng bộ Bệnh án HIS/EMR
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -142,6 +153,11 @@ class Appointment(Base):
     spo2: Mapped[int | None] = mapped_column(Integer, nullable=True)            # SpO2 (%)
     weight: Mapped[float | None] = mapped_column(Float, nullable=True)          # Cân nặng (kg)
     height: Mapped[float | None] = mapped_column(Float, nullable=True)          # Chiều cao (cm)
+    blood_glucose: Mapped[float | None] = mapped_column(Float, nullable=True)   # Đường huyết (mmol/L)
+    glucose_context: Mapped[str | None] = mapped_column(String(30), nullable=True) # Lúc đói / sau ăn
+    bmi: Mapped[float | None] = mapped_column(Float, nullable=True)              # Chỉ số khối cơ thể (BMI)
+    his_encounter_id: Mapped[str | None] = mapped_column(String(60), nullable=True) # Mã đợt khám trên HIS/EMR
+    his_synced_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True) # Mốc đồng bộ HIS
     triage_notes: Mapped[str | None] = mapped_column(Text, nullable=True)      # Nhận định sơ bộ điều dưỡng
     triaged_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     triaged_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -345,12 +361,21 @@ class RPMVitalLog(Base):
     connection_method: Mapped[str] = mapped_column(String(50), default="bluetooth_ble")  # bluetooth_ble, manual, api_sync
     systolic: Mapped[int | None] = mapped_column(Integer, nullable=True)  # mmHg
     diastolic: Mapped[int | None] = mapped_column(Integer, nullable=True)  # mmHg
+    blood_pressure: Mapped[str | None] = mapped_column(String(30), nullable=True) # "120/80"
     pulse: Mapped[int | None] = mapped_column(Integer, nullable=True)  # bpm
+    heart_rate: Mapped[int | None] = mapped_column(Integer, nullable=True)  # bpm (đồng bộ với pulse)
     glucose_value: Mapped[float | None] = mapped_column(Float, nullable=True)  # mmol/L
     glucose_context: Mapped[str | None] = mapped_column(String(30), nullable=True)  # fasting, 2h_postprandial
     spo2_percent: Mapped[float | None] = mapped_column(Float, nullable=True)  # %
+    spo2: Mapped[int | None] = mapped_column(Integer, nullable=True)  # % (đồng bộ với spo2_percent)
     temperature_celsius: Mapped[float | None] = mapped_column(Float, nullable=True)  # °C
     weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)  # kg
+    height_cm: Mapped[float | None] = mapped_column(Float, nullable=True)  # cm
+    bmi: Mapped[float | None] = mapped_column(Float, nullable=True)
+    bp_mean: Mapped[float | None] = mapped_column(Float, nullable=True)  # Huyết áp trung bình
+    battery_level: Mapped[int | None] = mapped_column(Integer, nullable=True)  # % Pin thiết bị BLE
+    steps: Mapped[int | None] = mapped_column(Integer, nullable=True)  # Bước chân
+    sleep_hours: Mapped[float | None] = mapped_column(Float, nullable=True)  # Thời gian ngủ (giờ)
     is_warning: Mapped[bool] = mapped_column(Boolean, default=False)
     warning_message: Mapped[str | None] = mapped_column(String(255), nullable=True)
     measured_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -392,6 +417,8 @@ class FamilyMemberProfile(Base):
     family_history_icd10: Mapped[str | None] = mapped_column(String(300), nullable=True)
     family_history_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     epidemiological_history: Mapped[str | None] = mapped_column(Text, nullable=True)
+    height: Mapped[float | None] = mapped_column(Float, nullable=True)  # Chiều cao (cm)
+    weight: Mapped[float | None] = mapped_column(Float, nullable=True)  # Cân nặng (kg)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 class AIPACSConsultation(Base):
@@ -415,6 +442,7 @@ class AppointmentDocument(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     appointment_id: Mapped[int] = mapped_column(ForeignKey("appointments.id"), index=True)
     uploaded_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    patient_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     document_type: Mapped[str] = mapped_column(String(50))  # "prescription", "lab_test", "cdha", "other"
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
