@@ -1022,8 +1022,14 @@
 
 .db-patient-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 10px;
+}
+
+@media (min-width: 768px) {
+  .db-patient-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .db-patient-item {
