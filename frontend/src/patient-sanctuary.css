@@ -624,7 +624,7 @@
 
 .ps-vitals-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 14px;
 }
 
@@ -666,6 +666,8 @@
 .ps-vital-icon-wrap.teal { background: #f0fdfa; color: #0e7490; }
 .ps-vital-icon-wrap.blue { background: #eff6ff; color: #0284c7; }
 .ps-vital-icon-wrap.amber { background: #fffbeb; color: #f59e0b; }
+.ps-vital-icon-wrap.purple { background: #f5f3ff; color: #7c3aed; }
+.ps-vital-icon-wrap.green { background: #f0fdf4; color: #16a34a; }
 
 .ps-vital-status-pill {
   font-size: 11px;
@@ -1318,6 +1320,12 @@
 /* --------------------------------------------------------------------------
    8. RESPONSIVE BREAKPOINTS (MOBILE FIRST ADAPTATION)
    -------------------------------------------------------------------------- */
+@media (max-width: 1080px) {
+  .ps-vitals-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 900px) {
   .ps-vitals-grid,
   .ps-services-grid {

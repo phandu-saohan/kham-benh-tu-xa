@@ -809,7 +809,7 @@ export function PatientDashboard({
                   >
                     <Bluetooth size={12} color="#2563eb" /> Accu-Chek BLE
                   </span>
-                  <span className="ps-vital-status-pill normal" style={{ borderRadius: '4px' }}>
+                  <span className="ps-vital-status-pill normal" style={{ borderRadius: '4px', whiteSpace: 'nowrap' }}>
                     {glucoseDisplay < 3.9 ? 'Hạ đường huyết' : glucoseDisplay > 7.2 ? 'Đường huyết cao' : 'Ổn định'}
                   </span>
                 </div>
@@ -852,7 +852,9 @@ export function PatientDashboard({
                     fontSize: '11px',
                     fontWeight: 700,
                     cursor: 'pointer',
-                    transition: 'all 0.15s ease'
+                    transition: 'all 0.15s ease',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
                   }}
                   title="Kết nối đọc kết quả từ máy đo đường huyết Roche Accu-Chek Instant qua Bluetooth"
                 >
@@ -882,7 +884,7 @@ export function PatientDashboard({
               </div>
             </div>
 
-            {/* Thể trạng (Chiều cao & Cân nặng / BMI) */}
+            {/* Cân nặng hiện tại */}
             <div className="ps-vital-tile">
               <div className="ps-vital-tile-top">
                 <div className="ps-vital-icon-wrap teal">
@@ -892,12 +894,52 @@ export function PatientDashboard({
               </div>
               <div className="ps-vital-tile-middle">
                 <div className="ps-vital-val-display">
-                  {manualWeight || user.weight || 60} <small>kg</small> / {manualHeight || user.height || 165} <small>cm</small>
+                  {manualWeight || user.weight || 62} <small>kg</small>
                 </div>
-                <div className="ps-vital-name">Chiều cao & Cân nặng</div>
+                <div className="ps-vital-name">Cân nặng hiện tại</div>
               </div>
               <div className="ps-vital-tile-bottom">
-                <span>BMI: <b>{bmiInfo ? `${bmiInfo.bmi}` : '22.0'}</b></span>
+                <span>Mục tiêu: <b>±1.5 kg</b></span>
+                <span style={{ color: 'var(--ps-mint-dark)' }}>Theo dõi</span>
+              </div>
+            </div>
+
+            {/* Chiều cao */}
+            <div className="ps-vital-tile">
+              <div className="ps-vital-tile-top">
+                <div className="ps-vital-icon-wrap blue">
+                  <Ruler size={18} />
+                </div>
+                <span className="ps-vital-status-pill normal">Cố định</span>
+              </div>
+              <div className="ps-vital-tile-middle">
+                <div className="ps-vital-val-display">
+                  {manualHeight || user.height || 168} <small>cm</small>
+                </div>
+                <div className="ps-vital-name">Chiều cao</div>
+              </div>
+              <div className="ps-vital-tile-bottom">
+                <span>Hồ sơ y tế số</span>
+                <span style={{ color: 'var(--ps-primary)' }}>QĐ 2682</span>
+              </div>
+            </div>
+
+            {/* Chỉ số khối cơ thể (BMI) */}
+            <div className="ps-vital-tile">
+              <div className="ps-vital-tile-top">
+                <div className="ps-vital-icon-wrap green">
+                  <Activity size={18} />
+                </div>
+                <span className="ps-vital-status-pill normal">{bmiInfo?.category || 'Cân đối'}</span>
+              </div>
+              <div className="ps-vital-tile-middle">
+                <div className="ps-vital-val-display">
+                  {bmiInfo ? `${bmiInfo.bmi}` : '22.0'} <small>kg/m²</small>
+                </div>
+                <div className="ps-vital-name">Chỉ số khối cơ thể (BMI)</div>
+              </div>
+              <div className="ps-vital-tile-bottom">
+                <span>Thể trạng: <b>{bmiInfo?.category || 'Cân đối'}</b></span>
                 <span style={{ color: 'var(--ps-mint-dark)' }}>Hợp lý</span>
               </div>
             </div>
