@@ -20,7 +20,15 @@ import {
   CreditCard,
   QrCode,
   ShieldCheck,
-  HelpCircle
+  HelpCircle,
+  Database,
+  RefreshCw,
+  Edit3,
+  Save,
+  Check,
+  Phone,
+  MapPin,
+  HeartPulse
 } from 'lucide-react'
 import {
   User,
@@ -33,6 +41,9 @@ import {
   createFamilyMember,
   getDoctorShifts,
   checkTriageSymptoms,
+  getMyProfile,
+  updateMyProfile,
+  PatientProfile,
   request
 } from './api'
 import './booking-flow.css'
@@ -82,6 +93,66 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
     phone_number: ''
   })
   const [savingFamily, setSavingFamily] = useState(false)
+
+  // Database Profile of current patient
+  const [profile, setProfile] = useState<PatientProfile | null>(null)
+  const [loadingProfile, setLoadingProfile] = useState(true)
+  const [isEditingProfile, setIsEditingProfile] = useState(false)
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [profileEditForm, setProfileEditForm] = useState({
+    identity_card: '',
+    bhyt_code: '',
+    phone_number: '',
+    address: '',
+    blood_type: '',
+    allergies: '',
+    medical_history_notes: '',
+    companion_name: '',
+    companion_phone: '',
+    companion_relationship: ''
+  })
+
+  const fetchPatientProfile = async () => {
+    try {
+      setLoadingProfile(true)
+      const data = await getMyProfile()
+      setProfile(data)
+      setProfileEditForm({
+        identity_card: data.identity_card || user.identity_card || user.national_id || '',
+        bhyt_code: data.bhyt_code || user.bhyt_code || '',
+        phone_number: data.phone_number || user.phone_number || '',
+        address: data.address || '',
+        blood_type: data.blood_type || '',
+        allergies: data.allergies || '',
+        medical_history_notes: data.medical_history_notes || '',
+        companion_name: data.companion_name || '',
+        companion_phone: data.companion_phone || '',
+        companion_relationship: data.companion_relationship || ''
+      })
+    } catch (err) {
+      console.warn('Could not load patient profile from DB:', err)
+    } finally {
+      setLoadingProfile(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchPatientProfile()
+  }, [])
+
+  const handleSaveProfileEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSavingProfile(true)
+    try {
+      const updated = await updateMyProfile(profileEditForm)
+      setProfile(updated)
+      setIsEditingProfile(false)
+    } catch (err: any) {
+      alert(err.message || 'Không thể lưu thông tin hồ sơ')
+    } finally {
+      setSavingProfile(false)
+    }
+  }
 
   // Step 2: Symptoms & AI MedGemma Triage
   const [symptoms, setSymptoms] = useState(initialReason || '')
@@ -282,17 +353,41 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
     setUploadedDocs(prev => prev.filter(d => d.id !== id))
   }
 
-  // Get active patient display details
+  // Get active patient display details (Database integrated)
   const getSelectedPatientInfo = () => {
     if (targetType === 'self') {
+      const activeName = profile?.full_name || user.full_name
+      const activeGender = profile?.gender || user.gender || 'Nam'
+      const activeDob = profile?.date_of_birth || user.date_of_birth || 'Chưa cập nhật'
+      const activeIdCard = profile?.identity_card || user.identity_card || user.national_id || 'Chưa cập nhật'
+      const activeBhyt = profile?.bhyt_code || user.bhyt_code || 'Chưa liên kết'
+      const activePhone = profile?.phone_number || user.phone_number || 'Chưa cập nhật'
+      const activeAddress = profile?.address || 'Chưa cập nhật'
+      const activeBloodType = profile?.blood_type || 'Chưa xác định'
+      const activeAllergies = profile?.allergies || 'Không ghi nhận'
+      const activeMedicalHistory = profile?.medical_history_notes || 'Không ghi nhận tiền sử mãn tính'
+      const activeCompanionName = profile?.companion_name || ''
+      const activeCompanionPhone = profile?.companion_phone || ''
+      const activeCompanionIdCard = profile?.companion_id_card || ''
+      const activeCompanionRelationship = profile?.companion_relationship || ''
+
       return {
-        name: user.full_name,
+        name: activeName,
         relationship: 'Chính tôi',
-        gender: user.gender || 'Nam',
-        dob: user.date_of_birth || 'Chưa cập nhật',
-        idCard: user.national_id || 'Chưa cập nhật',
-        bhyt: user.bhyt_code || 'Chưa cập nhật',
-        phone: user.phone_number || ''
+        gender: activeGender,
+        dob: activeDob,
+        idCard: activeIdCard,
+        bhyt: activeBhyt,
+        phone: activePhone,
+        address: activeAddress,
+        bloodType: activeBloodType,
+        allergies: activeAllergies,
+        medicalHistory: activeMedicalHistory,
+        companionName: activeCompanionName,
+        companionPhone: activeCompanionPhone,
+        companionIdCard: activeCompanionIdCard,
+        companionRelationship: activeCompanionRelationship,
+        isFromDatabase: true
       }
     }
     const member = familyMembers.find(m => m.id === selectedFamilyId)
@@ -304,7 +399,16 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
         dob: member.date_of_birth,
         idCard: member.national_id || 'Chưa cập nhật',
         bhyt: member.bhyt_code || 'Chưa cập nhật',
-        phone: member.phone_number || user.phone_number || ''
+        phone: member.phone_number || user.phone_number || '',
+        address: profile?.address || 'Theo địa chỉ chủ hộ',
+        bloodType: 'Chưa rõ',
+        allergies: 'Không ghi nhận',
+        medicalHistory: 'Hồ sơ sức khỏe gia đình',
+        companionName: profile?.full_name || user.full_name,
+        companionPhone: profile?.phone_number || user.phone_number || '',
+        companionIdCard: profile?.identity_card || user.identity_card || '',
+        companionRelationship: `Người giám hộ (${member.relationship})`,
+        isFromDatabase: true
       }
     }
     return {
@@ -314,7 +418,16 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
       dob: '',
       idCard: '',
       bhyt: '',
-      phone: ''
+      phone: '',
+      address: '',
+      bloodType: '',
+      allergies: '',
+      medicalHistory: '',
+      companionName: '',
+      companionPhone: '',
+      companionIdCard: '',
+      companionRelationship: '',
+      isFromDatabase: false
     }
   }
 
@@ -357,11 +470,19 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
         payment_source: currentPatient.bhyt !== 'Chưa cập nhật' ? 'Quỹ Bảo hiểm y tế' : 'Tự túc'
       }
 
-      if (targetType === 'family' && selectedFamilyId) {
-        payload.companion_name = currentPatient.name
-        payload.companion_relationship = currentPatient.relationship
-        payload.companion_id_card = currentPatient.idCard !== 'Chưa cập nhật' ? currentPatient.idCard : undefined
-        payload.companion_phone = currentPatient.phone
+      if (targetType === 'self') {
+        if (currentPatient.companionName) {
+          payload.companion_name = currentPatient.companionName
+          payload.companion_relationship = currentPatient.companionRelationship || 'Người thân'
+          payload.companion_phone = currentPatient.companionPhone
+          payload.companion_id_card = currentPatient.companionIdCard || undefined
+        }
+      } else if (targetType === 'family' && selectedFamilyId) {
+        payload.companion_name = profile?.full_name || user.full_name
+        payload.companion_relationship = `Người bảo hộ (${currentPatient.relationship})`
+        const compId = profile?.identity_card || user.identity_card
+        payload.companion_id_card = (compId && compId !== 'Chưa cập nhật') ? compId : undefined
+        payload.companion_phone = profile?.phone_number || user.phone_number
       }
 
       const res = await request<Appointment>('/api/v1/appointments', {
@@ -472,17 +593,17 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
                   </div>
                   <div className="patient-info-list">
                     <div>
-                      Họ và tên: <strong>{user.full_name}</strong>
+                      Họ và tên: <strong>{currentPatient.name}</strong>
                     </div>
                     <div>
-                      Giới tính: <strong>{user.gender || 'Nam'}</strong> · Ngày sinh:{' '}
-                      <strong>{user.date_of_birth || 'Chưa cập nhật'}</strong>
+                      Giới tính: <strong>{currentPatient.gender}</strong> · Ngày sinh:{' '}
+                      <strong>{currentPatient.dob}</strong>
                     </div>
                     <div>
-                      CCCD / Định danh: <strong>{user.national_id || 'Chưa cập nhật'}</strong>
+                      CCCD / Định danh: <strong>{currentPatient.idCard}</strong>
                     </div>
                     <div>
-                      Thẻ BHYT: <strong>{user.bhyt_code || 'Chưa liên kết'}</strong>
+                      Thẻ BHYT: <strong>{currentPatient.bhyt}</strong>
                     </div>
                   </div>
                 </div>
@@ -506,6 +627,246 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
                   </p>
                 </div>
               </div>
+
+              {/* Database Patient Profile Auto-Fill Box */}
+              {targetType === 'self' && (
+                <div className="db-patient-info-box">
+                  <div className="db-patient-box-header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div className="db-sync-icon-badge">
+                        <Database size={16} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span>Thông tin người khám đã lưu trữ trên cơ sở dữ liệu</span>
+                          <span className="db-status-badge">
+                            <CheckCircle2 size={12} /> Tự động cập nhật
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                          Hệ thống đã tự động trích xuất thông tin hành chính & y bạ từ cơ sở dữ liệu bệnh nhân.
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={fetchPatientProfile}
+                        disabled={loadingProfile}
+                        className="btn-db-action"
+                        title="Tải lại từ cơ sở dữ liệu"
+                      >
+                        <RefreshCw size={12} className={loadingProfile ? 'spin-icon' : ''} />
+                        Làm mới
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingProfile(!isEditingProfile)}
+                        className="btn-db-action primary"
+                      >
+                        <Edit3 size={12} />
+                        {isEditingProfile ? 'Đóng chỉnh sửa' : 'Cập nhật CSDL'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Inline quick edit form */}
+                  {isEditingProfile ? (
+                    <form onSubmit={handleSaveProfileEdit} className="db-profile-edit-form">
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#0284c7', marginBottom: '2px' }}>
+                        Chỉnh sửa và đồng bộ trực tiếp vào cơ sở dữ liệu y tế:
+                      </div>
+                      <div className="db-edit-grid">
+                        <label style={{ fontSize: '12px' }}>
+                          Số CCCD / Mã định danh:
+                          <input
+                            type="text"
+                            value={profileEditForm.identity_card}
+                            onChange={e => setProfileEditForm({ ...profileEditForm, identity_card: e.target.value })}
+                            placeholder="12 chữ số CCCD"
+                            style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                          />
+                        </label>
+                        <label style={{ fontSize: '12px' }}>
+                          Mã thẻ BHYT (15 ký tự):
+                          <input
+                            type="text"
+                            value={profileEditForm.bhyt_code}
+                            onChange={e => setProfileEditForm({ ...profileEditForm, bhyt_code: e.target.value })}
+                            placeholder="VD: GD4790123456789"
+                            style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                          />
+                        </label>
+                        <label style={{ fontSize: '12px' }}>
+                          Số điện thoại liên hệ:
+                          <input
+                            type="text"
+                            value={profileEditForm.phone_number}
+                            onChange={e => setProfileEditForm({ ...profileEditForm, phone_number: e.target.value })}
+                            placeholder="Số điện thoại di động"
+                            style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                          />
+                        </label>
+                        <label style={{ fontSize: '12px' }}>
+                          Địa chỉ thường trú:
+                          <input
+                            type="text"
+                            value={profileEditForm.address}
+                            onChange={e => setProfileEditForm({ ...profileEditForm, address: e.target.value })}
+                            placeholder="Số nhà, đường, phường, quận..."
+                            style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                          />
+                        </label>
+                        <label style={{ fontSize: '12px' }}>
+                          Nhóm máu:
+                          <input
+                            type="text"
+                            value={profileEditForm.blood_type}
+                            onChange={e => setProfileEditForm({ ...profileEditForm, blood_type: e.target.value })}
+                            placeholder="A+, B+, O+, AB+..."
+                            style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                          />
+                        </label>
+                        <label style={{ fontSize: '12px' }}>
+                          Tiền sử dị ứng thuốc / thực phẩm:
+                          <input
+                            type="text"
+                            value={profileEditForm.allergies}
+                            onChange={e => setProfileEditForm({ ...profileEditForm, allergies: e.target.value })}
+                            placeholder="Không dị ứng hoặc Penicillin, phấn hoa..."
+                            style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                          />
+                        </label>
+                        <label style={{ fontSize: '12px', gridColumn: '1 / -1' }}>
+                          Tiền sử bệnh lý EMR đã ghi nhận:
+                          <input
+                            type="text"
+                            value={profileEditForm.medical_history_notes}
+                            onChange={e => setProfileEditForm({ ...profileEditForm, medical_history_notes: e.target.value })}
+                            placeholder="Tiền sử tăng huyết áp, đái tháo đường..."
+                            style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                          />
+                        </label>
+                        <label style={{ fontSize: '12px' }}>
+                          Người đi cùng / Giám hộ (nếu có):
+                          <input
+                            type="text"
+                            value={profileEditForm.companion_name}
+                            onChange={e => setProfileEditForm({ ...profileEditForm, companion_name: e.target.value })}
+                            placeholder="Họ tên người đi cùng"
+                            style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                          />
+                        </label>
+                        <label style={{ fontSize: '12px' }}>
+                          SĐT người đi cùng:
+                          <input
+                            type="text"
+                            value={profileEditForm.companion_phone}
+                            onChange={e => setProfileEditForm({ ...profileEditForm, companion_phone: e.target.value })}
+                            placeholder="Số điện thoại"
+                            style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                          />
+                        </label>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingProfile(false)}
+                          style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', fontSize: '12px', cursor: 'pointer' }}
+                        >
+                          Hủy
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={savingProfile}
+                          style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', background: '#0284c7', color: '#ffffff', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                        >
+                          {savingProfile ? 'Đang lưu...' : 'Lưu vào cơ sở dữ liệu'}
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="db-patient-grid">
+                      <div className="db-patient-item">
+                        <div className="db-patient-label">Mã bệnh nhân (PID):</div>
+                        <div className="db-patient-value">
+                          <span>{profile?.external_patient_id || `PAT-${String(user.id).padStart(4, '0')}`}</span>
+                          <span className="db-pill-verified">Hồ sơ điện tử</span>
+                        </div>
+                      </div>
+
+                      <div className="db-patient-item">
+                        <div className="db-patient-label">Số CCCD / Định danh:</div>
+                        <div className="db-patient-value">
+                          <span>{currentPatient.idCard}</span>
+                          {currentPatient.idCard !== 'Chưa cập nhật' ? (
+                            <span className="db-pill-verified">VNeID Mức 2</span>
+                          ) : (
+                            <span className="db-pill-warning">Chưa có CCCD</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="db-patient-item">
+                        <div className="db-patient-label">Thẻ BHYT Quốc gia:</div>
+                        <div className="db-patient-value">
+                          <span>{currentPatient.bhyt}</span>
+                          {currentPatient.bhyt !== 'Chưa cập nhật' && currentPatient.bhyt !== 'Chưa liên kết' ? (
+                            <span className="db-pill-verified">Hưởng 80%</span>
+                          ) : (
+                            <span className="db-pill-warning">Khám tự túc</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="db-patient-item">
+                        <div className="db-patient-label">Họ tên & Ngày sinh & Giới tính:</div>
+                        <div className="db-patient-value">
+                          {currentPatient.name} · {currentPatient.dob} ({currentPatient.gender})
+                        </div>
+                      </div>
+
+                      <div className="db-patient-item">
+                        <div className="db-patient-label">Số điện thoại liên hệ:</div>
+                        <div className="db-patient-value">
+                          {currentPatient.phone || 'Chưa cập nhật'}
+                        </div>
+                      </div>
+
+                      <div className="db-patient-item">
+                        <div className="db-patient-label">Địa chỉ cư trú thường trú:</div>
+                        <div className="db-patient-value">
+                          {currentPatient.address || 'Chưa cập nhật'}
+                        </div>
+                      </div>
+
+                      <div className="db-patient-item">
+                        <div className="db-patient-label">Nhóm máu & Tiền sử dị ứng:</div>
+                        <div className="db-patient-value">
+                          Nhóm máu: <strong>{currentPatient.bloodType}</strong> · Dị ứng: <strong>{currentPatient.allergies}</strong>
+                        </div>
+                      </div>
+
+                      <div className="db-patient-item">
+                        <div className="db-patient-label">Người đi cùng / Giám hộ:</div>
+                        <div className="db-patient-value">
+                          {currentPatient.companionName
+                            ? `${currentPatient.companionName} (${currentPatient.companionRelationship || 'Người thân'}) - ${currentPatient.companionPhone || ''}`
+                            : 'Tự đi khám'}
+                        </div>
+                      </div>
+
+                      <div className="db-patient-item full-width">
+                        <div className="db-patient-label">Tiền sử bệnh án lưu trên hệ thống (EMR/HIS):</div>
+                        <div className="db-patient-value" style={{ fontWeight: 500, color: '#334155' }}>
+                          {currentPatient.medicalHistory || 'Không ghi nhận tiền sử mãn tính'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Sub-section if Family Member Selected */}
               {targetType === 'family' && (
@@ -1160,6 +1521,20 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
                     )}
                   </span>
                 </div>
+                <div className="summary-row">
+                  <span className="summary-row-label">Số điện thoại liên hệ:</span>
+                  <span className="summary-row-value">{currentPatient.phone || 'Chưa cập nhật'}</span>
+                </div>
+                <div className="summary-row">
+                  <span className="summary-row-label">Địa chỉ thường trú:</span>
+                  <span className="summary-row-value">{currentPatient.address || 'Chưa cập nhật'}</span>
+                </div>
+                {currentPatient.companionName ? (
+                  <div className="summary-row">
+                    <span className="summary-row-label">Người đi cùng / Giám hộ:</span>
+                    <span className="summary-row-value">{currentPatient.companionName} ({currentPatient.companionRelationship}) - {currentPatient.companionPhone}</span>
+                  </div>
+                ) : null}
                 <div className="summary-row">
                   <span className="summary-row-label">Bác sĩ chuyên khoa:</span>
                   <span className="summary-row-value">
