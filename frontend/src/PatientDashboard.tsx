@@ -26,9 +26,8 @@ import {
   Ruler,
   Weight
 } from 'lucide-react'
-import { Appointment, RPMVitalItem, recordRPMVitals } from './api'
+import { Appointment, RPMVitalItem, recordRPMVitals, uploadUserAvatar, updateMyProfile } from './api'
 import { cameraPpgService, PPGMeasurementResult, PPGFrameData } from './cameraPpgService'
-import { NotificationCenter } from './NotificationCenter'
 import { SmartDevicesHub } from './SmartDevicesHub'
 import './patient-sanctuary.css'
 
@@ -43,6 +42,7 @@ interface PatientDashboardProps {
   onPay: (appointment: Appointment) => void
   onDownloadPdf?: (id: number) => void
   onRefreshVitals?: () => Promise<void> | void
+  onUpdateUser?: (updated: any) => void
 }
 
 export function PatientDashboard({
@@ -55,7 +55,8 @@ export function PatientDashboard({
   onNavigate,
   onPay,
   onDownloadPdf,
-  onRefreshVitals
+  onRefreshVitals,
+  onUpdateUser
 }: PatientDashboardProps) {
   // Lọc lịch khám
   const upcomingAppointments = appointments.filter(a =>
@@ -63,6 +64,75 @@ export function PatientDashboard({
   )
   const nextAppt = upcomingAppointments[0] || null
   const completedAppointments = appointments.filter(a => a.status === 'completed')
+
+  // Avatar Upload State
+  const [localAvatar, setLocalAvatar] = useState<string | null>(null)
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+  const displayAvatar = localAvatar || user?.avatar_url
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setIsUploadingAvatar(true)
+    try {
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        const rawBase64 = ev.target?.result as string
+        const img = new Image()
+        img.onload = async () => {
+          const canvas = document.createElement('canvas')
+          const maxDim = 320
+          let width = img.width
+          let height = img.height
+          if (width > height) {
+            if (width > maxDim) {
+              height = Math.round((height * maxDim) / width)
+              width = maxDim
+            }
+          } else {
+            if (height > maxDim) {
+              width = Math.round((width * maxDim) / height)
+              height = maxDim
+            }
+          }
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          ctx?.drawImage(img, 0, 0, width, height)
+          const compressed = canvas.toDataURL('image/jpeg', 0.85)
+
+          setLocalAvatar(compressed)
+          try {
+            await Promise.allSettled([
+              uploadUserAvatar(compressed),
+              updateMyProfile({ avatar_url: compressed } as any)
+            ])
+            if (onUpdateUser) {
+              onUpdateUser({ ...user, avatar_url: compressed })
+            }
+            showToast('success', 'Đã cập nhật ảnh đại diện thành công!')
+          } catch (err: any) {
+            showToast('error', 'Lỗi khi lưu ảnh: ' + (err.message || ''))
+          } finally {
+            setIsUploadingAvatar(false)
+          }
+        }
+        img.onerror = () => {
+          showToast('error', 'Không thể đọc tệp hình ảnh')
+          setIsUploadingAvatar(false)
+        }
+        img.src = rawBase64
+      }
+      reader.onerror = () => {
+        showToast('error', 'Lỗi khi đọc file ảnh')
+        setIsUploadingAvatar(false)
+      }
+      reader.readAsDataURL(file)
+    } catch (err: any) {
+      showToast('error', 'Lỗi: ' + (err.message || ''))
+      setIsUploadingAvatar(false)
+    }
+  }
 
   // Toast notification
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'info' | 'error'; text: string } | null>(null)
@@ -313,15 +383,80 @@ export function PatientDashboard({
         {/* 1. HERO HEADER CARD (CLINICAL IDENTITY) */}
         <section className="ps-hero-card">
           <div className="ps-hero-left">
-            <div className="ps-avatar-wrap">
-              <div className="ps-avatar" style={{ overflow: 'hidden' }}>
-                {user.avatar_url ? (
-                  <img src={user.avatar_url} alt={user.full_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  user.full_name ? user.full_name.charAt(0).toUpperCase() : 'BN'
-                )}
+            <div className="ps-avatar-col" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+              <div className="ps-avatar-wrap" style={{ position: 'relative' }}>
+                <div className="ps-avatar" style={{ overflow: 'hidden' }}>
+                  {displayAvatar ? (
+                    <img src={displayAvatar} alt={user.full_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    user.full_name ? user.full_name.charAt(0).toUpperCase() : 'BN'
+                  )}
+                </div>
+                <div
+                  className="ps-online-dot"
+                  title="Tài khoản đang trực tuyến"
+                  style={{ top: '2px', right: '2px', bottom: 'auto' }}
+                />
+                <label
+                  className="ps-avatar-upload-badge"
+                  style={{
+                    position: 'absolute',
+                    bottom: '-2px',
+                    right: '-2px',
+                    background: 'var(--ps-primary, #0e7490)',
+                    color: '#ffffff',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: isUploadingAvatar ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+                    border: '2px solid #ffffff',
+                    transition: 'all 0.15s ease',
+                    zIndex: 2
+                  }}
+                  title="Thay đổi ảnh đại diện"
+                >
+                  <Camera size={12} />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={handleAvatarUpload}
+                    disabled={isUploadingAvatar}
+                  />
+                </label>
               </div>
-              <div className="ps-online-dot" title="Tài khoản đang trực tuyến" />
+              <label
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: 'var(--ps-primary, #0e7490)',
+                  cursor: isUploadingAvatar ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  background: 'rgba(14, 116, 144, 0.08)',
+                  transition: 'background 0.15s ease',
+                  border: 'none',
+                  whiteSpace: 'nowrap'
+                }}
+                title="Thay đổi ảnh đại diện"
+              >
+                <Camera size={11} />
+                <span>{isUploadingAvatar ? 'Đang tải...' : 'Đổi ảnh'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleAvatarUpload}
+                  disabled={isUploadingAvatar}
+                />
+              </label>
             </div>
 
             <div className="ps-user-meta">
@@ -346,9 +481,6 @@ export function PatientDashboard({
           </div>
 
           <div className="ps-hero-actions">
-            <div style={{ display: 'inline-flex' }}>
-              <NotificationCenter />
-            </div>
             <button className="ps-btn-primary" onClick={onBook}>
               <Plus size={16} /> Đặt lịch khám
             </button>

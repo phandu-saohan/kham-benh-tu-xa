@@ -1022,6 +1022,7 @@ export default function App() {
                 onPay={(appt) => setQrAppointment(appt)}
                 onDownloadPdf={(id) => handleDownloadPdf(id)}
                 onRefreshVitals={loadVitals}
+                onUpdateUser={(updated) => setUser(updated)}
               />
             )}
 
