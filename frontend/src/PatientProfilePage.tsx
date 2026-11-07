@@ -680,18 +680,6 @@ export function PatientProfilePage({
                   </select>
                 </div>
 
-                <div className="ps-input-group">
-                  <label>Mã Xã / Phường nơi ở hiện tại</label>
-                  <input
-                    type="text"
-                    className="ps-form-input"
-                    value={wardCode}
-                    onChange={e => setWardCode(e.target.value)}
-                    disabled={!editing}
-                    placeholder="Ví dụ: 26740, 00012..."
-                  />
-                </div>
-
                 <div className="ps-input-group full-width">
                   <label>Nơi ở hiện tại (Địa chỉ chi tiết)</label>
                   <input
