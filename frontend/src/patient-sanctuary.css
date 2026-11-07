@@ -326,12 +326,12 @@
 .ps-spotlight-card {
   background: #ffffff;
   border: 1px solid var(--ps-border);
-  border-radius: var(--ps-radius-xl);
-  padding: 24px 28px;
-  box-shadow: var(--ps-shadow-md);
+  border-radius: 8px;
+  padding: 16px 20px;
+  box-shadow: var(--ps-shadow-sm);
   position: relative;
   overflow: hidden;
-  border-left: 6px solid var(--ps-primary);
+  border-left: 4px solid var(--ps-primary);
 }
 
 .ps-spotlight-card.waiting {
@@ -347,8 +347,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
-  padding-bottom: 14px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
   border-bottom: 1px solid rgba(226, 232, 240, 0.6);
 }
 
@@ -356,12 +356,70 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
-  border-radius: var(--ps-radius-pill);
-  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+/* Calendar Date Badge */
+.ps-calendar-date-badge {
+  width: 88px;
+  min-width: 88px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 6px 7px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.ps-cal-weekday {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #334155;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+}
+
+.ps-cal-day {
+  font-size: 26px;
+  font-weight: 900;
+  color: #0f172a;
+  line-height: 1.1;
+  margin: 1px 0;
+  font-feature-settings: "tnum";
+}
+
+.ps-cal-month-year {
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+  line-height: 1.2;
+}
+
+.ps-cal-divider {
+  width: 85%;
+  border-top: 1px dashed #cbd5e1;
+  margin: 5px 0 4px;
+}
+
+.ps-cal-time {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0891b2;
+  line-height: 1;
 }
 
 .ps-spotlight-tag.ready {
@@ -415,13 +473,12 @@
 
 .ps-doc-meta .specialty {
   display: inline-block;
-  margin-top: 4px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--ps-primary);
   background: var(--ps-primary-light);
-  padding: 2px 10px;
-  border-radius: var(--ps-radius-pill);
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 
 .ps-slot-time-pill {
@@ -450,15 +507,15 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 14px 24px;
-  border-radius: var(--ps-radius-pill);
+  padding: 10px 18px;
+  border-radius: 6px;
   background: linear-gradient(135deg, #0e7490 0%, #0891b2 100%);
   color: #ffffff;
-  font-size: 15px;
+  font-size: 13.5px;
   font-weight: 700;
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(14, 116, 144, 0.35);
+  box-shadow: 0 3px 10px rgba(14, 116, 144, 0.25);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -472,12 +529,12 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 18px;
-  border-radius: var(--ps-radius-pill);
+  padding: 8px 14px;
+  border-radius: 6px;
   background: #ffffff;
   color: #0369a1;
   border: 1.5px solid #0284c7;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;

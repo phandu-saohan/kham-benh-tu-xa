@@ -371,31 +371,42 @@ export function PatientDashboard({
 
             <div className="ps-spotlight-body">
               <div className="ps-doctor-block">
-                <div className="ps-doc-avatar">
-                  🩺
-                </div>
+                {(() => {
+                  const d = new Date(nextAppt.starts_at)
+                  const weekday = d.toLocaleDateString('vi-VN', { weekday: 'long' }).toUpperCase()
+                  const dayNum = String(d.getDate()).padStart(2, '0')
+                  const monthNum = d.getMonth() + 1
+                  const yearNum = d.getFullYear()
+                  const timeStr = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+
+                  return (
+                    <div className="ps-calendar-date-badge">
+                      <span className="ps-cal-weekday">{weekday}</span>
+                      <span className="ps-cal-day">{dayNum}</span>
+                      <span className="ps-cal-month-year">
+                        Tháng {monthNum},<br />{yearNum}
+                      </span>
+                      <div className="ps-cal-divider" />
+                      <div className="ps-cal-time">
+                        <Clock size={13} />
+                        <span>{timeStr}</span>
+                      </div>
+                    </div>
+                  )
+                })()}
+
                 <div className="ps-doc-meta">
-                  <h3>{(nextAppt as any).doctor_name || 'Bác sĩ chuyên khoa phụ trách'}</h3>
-                  <span className="specialty">
-                    {(nextAppt as any).department_name || (nextAppt as any).department || 'Khoa Nội Tổng Quát'}
-                  </span>
-                  <div>
-                    <span className="ps-slot-time-pill">
-                      <Clock size={14} color="var(--ps-primary)" />
-                      {new Date(nextAppt.starts_at).toLocaleDateString('vi-VN', {
-                        weekday: 'long',
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric'
-                      })} lúc {new Date(nextAppt.starts_at).toLocaleTimeString('vi-VN', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: 'var(--ps-navy)' }}>
+                      {(nextAppt as any).doctor_name || 'Bác sĩ chuyên khoa phụ trách'}
+                    </h3>
+                    <span className="specialty">
+                      {(nextAppt as any).department_name || (nextAppt as any).department || 'Khoa Nội Tổng Quát'}
                     </span>
                   </div>
                   {nextAppt.reason && (
-                    <p style={{ margin: '8px 0 0', fontSize: '13px', color: 'var(--ps-slate)' }}>
-                      <b>Lý do khám:</b> {nextAppt.reason}
+                    <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--ps-slate)', lineHeight: 1.5 }}>
+                      <b style={{ color: 'var(--ps-navy)' }}>Lý do khám:</b> {nextAppt.reason}
                     </p>
                   )}
                 </div>
