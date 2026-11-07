@@ -50,6 +50,7 @@ import { BookingFlowModal } from './BookingFlowModal'
 import { FamilyMemberModal } from './FamilyMemberModal'
 import { PatientPaymentManager } from './PatientPaymentManager'
 import { PatientPrescriptionCabinet } from './PatientPrescriptionCabinet'
+import { PatientParaclinicalCenter } from './PatientParaclinicalCenter'
 import { formatDateVN, formatDateTimeVN } from './dateFormatters'
 
 const money = (n: number) =>
@@ -823,6 +824,7 @@ export default function App() {
     ['overview', 'Tổng quan', HeartPulse],
     ['appointments', 'Lịch khám của tôi', CalendarDays],
     ['prescriptions', 'Đơn thuốc & Tủ thuốc', Pill],
+    ['paraclinical', 'Xét nghiệm Cận lâm sàng', FlaskConical],
     ['records', 'Hồ sơ bệnh án EMR', FileText],
     ['family', 'Hồ sơ Gia đình', Users],
     ['devices', 'Kết nối thiết bị', Cpu],
@@ -859,6 +861,7 @@ export default function App() {
   const mobileNavItems = isPatient ? [
     ['overview', 'Tổng quan', HeartPulse],
     ['appointments', 'Lịch khám', CalendarDays],
+    ['paraclinical', 'Xét nghiệm', FlaskConical],
     ['devices', 'Thiết bị', Cpu],
     ['family', 'Gia đình', Users],
     ['vitals', 'Sinh hiệu', Activity],
@@ -1314,173 +1317,17 @@ export default function App() {
           </section>
         )}
 
-        {/* Tab 1: Cận lâm sàng & Xét nghiệm */}
-        {(view === 'lab' || view === 'results') && (
-          <section className="panel page-panel">
-            <div className="panel-heading">
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <FlaskConical size={22} color="#0f766e" />
-                  <h3 style={{ margin: 0 }}>Phiếu Cận lâm sàng & Kết quả Xét nghiệm</h3>
-                </div>
-                <p>Theo dõi chỉ số sinh hóa máu, công thức máu và tổng phân tích nước tiểu</p>
-              </div>
-            </div>
-
-            {/* Thanh chọn Bệnh nhân dành cho Bác sĩ & Điều dưỡng */}
-            {!isPatient && (
-              <div className="patient-selector-panel" style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '14px 16px', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
-                      👤 Chọn Bệnh nhân để xem Cận lâm sàng:
-                    </label>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {uniquePatients.map(p => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => setSelectedPatientId(p.id)}
-                          style={{
-                            padding: '6px 14px',
-                            borderRadius: '6px',
-                            border: selectedPatientId === p.id ? '2px solid #0f766e' : '1px solid #cbd5e1',
-                            background: selectedPatientId === p.id ? '#ccfbf1' : '#fff',
-                            color: selectedPatientId === p.id ? '#0f766e' : '#334155',
-                            fontWeight: selectedPatientId === p.id ? 700 : 500,
-                            fontSize: '13px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                          }}
-                        >
-                          <UserRound size={14} />
-                          <span>{p.name}</span>
-                          {p.bhyt && <small style={{ opacity: 0.75, fontSize: '11px' }}>({p.bhyt})</small>}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Filter Category chips */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', overflowX: 'auto', paddingBottom: '4px' }}>
-              {[
-                ['all', `Tất cả (${patientLabData?.reports?.length || 0})`],
-                ['biochemistry', 'Sinh hóa máu'],
-                ['hematology', 'Huyết học & Tế bào'],
-                ['urinalysis', 'Nước tiểu']
-              ].map(([key, label]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setAppLabFilter(key)}
-                  style={{
-                    padding: '5px 14px',
-                    borderRadius: '20px',
-                    border: appLabFilter === key ? '1px solid #0f766e' : '1px solid #cbd5e1',
-                    background: appLabFilter === key ? '#0f766e' : '#f8fafc',
-                    color: appLabFilter === key ? '#fff' : '#475569',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer'
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {loadingPatientLab && <p className="muted">Đang tải kết quả cận lâm sàng của bệnh nhân...</p>}
-
-            {patientLabData && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {patientLabData.reports
-                  .filter(r => appLabFilter === 'all' || r.category === appLabFilter)
-                  .map(report => (
-                    <div key={report.report_id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px', marginBottom: '12px' }}>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ background: '#ccfbf1', color: '#0f766e', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>
-                              {report.category_name}
-                            </span>
-                            <h4 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>{report.title}</h4>
-                          </div>
-                          <small style={{ color: '#64748b', fontSize: '11px', marginTop: '4px', display: 'block' }}>
-                            Mã: <strong>{report.report_id}</strong> · Lấy mẫu: {report.sampled_at} · Trả KQ: {report.result_at}
-                          </small>
-                        </div>
-                        <div style={{ textAlign: 'right', fontSize: '11px', color: '#64748b' }}>
-                          <div>KTV: <strong>{report.performed_by}</strong></div>
-                          <div>BS chỉ định: {report.doctor_order}</div>
-                        </div>
-                      </div>
-
-                      <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
-                          <thead>
-                            <tr style={{ background: '#f8fafc', color: '#475569', textAlign: 'left', borderBottom: '2px solid #e2e8f0' }}>
-                              <th style={{ padding: '8px 10px' }}>Tên xét nghiệm / Chỉ số</th>
-                              <th style={{ padding: '8px 10px', textAlign: 'right' }}>Kết quả</th>
-                              <th style={{ padding: '8px 10px' }}>Đơn vị</th>
-                              <th style={{ padding: '8px 10px' }}>Khoảng tham chiếu</th>
-                              <th style={{ padding: '8px 10px', textAlign: 'center' }}>Đánh giá</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {report.indicators.map((ind, idx) => (
-                              <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: ind.flag !== 'NORMAL' ? '#fffbeb' : 'transparent' }}>
-                                <td style={{ padding: '8px 10px' }}>
-                                  <strong style={{ color: '#1e293b' }}>{ind.name}</strong>
-                                  <code style={{ marginLeft: 6, fontSize: '11px', color: '#64748b', background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>{ind.code}</code>
-                                  {ind.note && <div style={{ fontSize: '11px', color: '#94a3b8' }}>{ind.note}</div>}
-                                </td>
-                                <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, fontSize: '13px', color: ind.flag === 'HIGH' ? '#dc2626' : ind.flag === 'LOW' ? '#d97706' : '#0f172a' }}>
-                                  {ind.value}
-                                </td>
-                                <td style={{ padding: '8px 10px', color: '#64748b' }}>{ind.unit}</td>
-                                <td style={{ padding: '8px 10px', color: '#475569' }}>{ind.ref_range}</td>
-                                <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                                  {ind.flag === 'HIGH' && (
-                                    <span style={{ background: '#fee2e2', color: '#dc2626', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 700 }}>
-                                      ▲ Tăng cao
-                                    </span>
-                                  )}
-                                  {ind.flag === 'LOW' && (
-                                    <span style={{ background: '#ffedd5', color: '#c2410c', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 700 }}>
-                                      ▼ Giảm thấp
-                                    </span>
-                                  )}
-                                  {ind.flag === 'NORMAL' && (
-                                    <span style={{ background: '#dcfce7', color: '#16a34a', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
-                                      Bình thường
-                                    </span>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {report.conclusion && (
-                        <div style={{ marginTop: '12px', padding: '10px 12px', background: '#f8fafc', borderRadius: '6px', borderLeft: '3px solid #0f766e', fontSize: '12px' }}>
-                          <strong style={{ color: '#0f766e' }}>Kết luận chuyên môn:</strong> {report.conclusion}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-              </div>
-            )}
-
-            <div className="notice" style={{ marginTop: '16px' }}>
-              <ShieldCheck size={18} />
-              Dữ liệu cận lâm sàng được kết nối trực tiếp từ hệ thống LIS bệnh viện theo chuẩn HL7 FHIR bảo vệ quyền riêng tư bệnh nhân.
-            </div>
+        {/* Tab: Xét nghiệm Cận lâm sàng (LIS & Paraclinical) */}
+        {(view === 'lab' || view === 'results' || view === 'paraclinical') && (
+          <section className="panel page-panel" style={{ padding: 0, border: 'none', background: 'transparent', boxShadow: 'none' }}>
+            <PatientParaclinicalCenter
+              user={user}
+              selectedPatientId={selectedPatientId}
+              uniquePatients={uniquePatients}
+              onSelectPatient={setSelectedPatientId}
+              onToast={(msg) => setToast(msg)}
+              onNavigate={(v) => setView(v as any)}
+            />
           </section>
         )}
 

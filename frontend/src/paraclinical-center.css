@@ -1,0 +1,632 @@
+/* =========================================================================
+   PARACLINICAL & LABORATORY RESULTS CENTER CSS
+   Theo chuẩn thiết kế bệnh viện hiện đại: 8px card radius, 6px button radius
+   ========================================================================= */
+
+.plc-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: inherit;
+}
+
+/* Header Banner */
+.plc-header-card {
+  background: linear-gradient(135deg, #042f2e 0%, #0f766e 100%);
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: 0 4px 14px rgba(15, 118, 110, 0.18);
+}
+
+.plc-header-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.plc-header-subtitle {
+  font-size: 13px;
+  opacity: 0.9;
+  margin: 0;
+  max-width: 650px;
+  line-height: 1.5;
+}
+
+.plc-badge-tag {
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.plc-header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.plc-btn-primary {
+  background: #ffffff;
+  color: #0f766e;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.plc-btn-primary:hover {
+  background: #f0fdfa;
+  transform: translateY(-1px);
+}
+
+.plc-btn-secondary {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.plc-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Metric Stats Row */
+.plc-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.plc-stat-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.plc-stat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.plc-stat-icon.teal {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.plc-stat-icon.red {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.plc-stat-icon.green {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.plc-stat-icon.sky {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.plc-stat-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.plc-stat-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.plc-stat-hint {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+/* Tab Navigation */
+.plc-tab-nav {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 2px;
+}
+
+.plc-tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+  margin-bottom: -2px;
+}
+
+.plc-tab-btn:hover {
+  color: #0f766e;
+}
+
+.plc-tab-btn.active {
+  color: #0f766e;
+  border-bottom-color: #0f766e;
+}
+
+.plc-tab-badge {
+  background: #e2e8f0;
+  color: #475569;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.plc-tab-btn.active .plc-tab-badge {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+/* Control Bar: Search & Filter */
+.plc-controls-bar {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.plc-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 12px;
+  min-width: 280px;
+  flex: 1;
+  max-width: 450px;
+}
+
+.plc-search-box input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+  color: #0f172a;
+  width: 100%;
+}
+
+.plc-filter-pills {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.plc-filter-chip {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.plc-filter-chip:hover {
+  background: #f1f5f9;
+}
+
+.plc-filter-chip.active {
+  background: #0f766e;
+  color: #ffffff;
+  border-color: #0f766e;
+}
+
+.plc-flag-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #c2410c;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.plc-flag-toggle.active {
+  background: #ea580c;
+  color: #ffffff;
+  border-color: #ea580c;
+}
+
+/* Lab Report Card */
+.plc-report-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.15s ease;
+}
+
+.plc-report-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.plc-report-header {
+  padding: 16px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.plc-category-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.plc-category-badge.biochemistry {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.plc-category-badge.hematology {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.plc-category-badge.urinalysis {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.plc-category-badge.immunology {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+
+.plc-report-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 4px 0 2px 0;
+}
+
+.plc-report-meta {
+  font-size: 12px;
+  color: #64748b;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+/* Indicators Table & Visual Gauge */
+.plc-table-wrap {
+  overflow-x: auto;
+}
+
+.plc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.plc-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+  font-size: 12px;
+  text-align: left;
+  padding: 10px 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.plc-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.plc-table tr.abnormal-row {
+  background: #fffbeb;
+}
+
+.plc-table tr.abnormal-high-row {
+  background: #fef2f2;
+}
+
+.plc-code-pill {
+  font-family: monospace;
+  font-size: 11px;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 6px;
+}
+
+.plc-val-cell {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.plc-val-cell.high {
+  color: #dc2626;
+}
+
+.plc-val-cell.low {
+  color: #d97706;
+}
+
+.plc-val-cell.normal {
+  color: #0f172a;
+}
+
+/* Reference Range Visual Gauge Bar */
+.plc-range-bar-wrap {
+  width: 130px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.plc-range-bar {
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  position: relative;
+  overflow: visible;
+}
+
+.plc-range-normal-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: #86efac;
+  border-radius: 2px;
+}
+
+.plc-range-indicator-dot {
+  position: absolute;
+  top: -3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.plc-range-indicator-dot.high {
+  background: #dc2626;
+}
+
+.plc-range-indicator-dot.low {
+  background: #d97706;
+}
+
+.plc-range-indicator-dot.normal {
+  background: #16a34a;
+}
+
+/* Flag Pills */
+.plc-flag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.plc-flag-pill.high {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.plc-flag-pill.low {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.plc-flag-pill.normal {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+/* Conclusion & Footer */
+.plc-conclusion-box {
+  margin: 14px 20px 16px 20px;
+  background: #f0fdf4;
+  border-left: 4px solid #16a34a;
+  border-radius: 0 6px 6px 0;
+  padding: 12px 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #166534;
+}
+
+.plc-conclusion-box.abnormal {
+  background: #fffbeb;
+  border-left-color: #d97706;
+  color: #92400e;
+}
+
+.plc-card-footer {
+  padding: 10px 20px;
+  background: #fafafa;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.plc-btn-outline {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.plc-btn-outline:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.plc-btn-ai {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1d4ed8;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.plc-btn-ai:hover {
+  background: #dbeafe;
+}
+
+/* Modal styles */
+.plc-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+}
+
+.plc-modal-box {
+  background: #ffffff;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 680px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.plc-modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.plc-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plc-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.plc-modal-footer {
+  padding: 12px 20px;
+  background: #fafafa;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
