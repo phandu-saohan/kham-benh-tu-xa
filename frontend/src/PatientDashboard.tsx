@@ -358,17 +358,6 @@ export function PatientDashboard({
         {/* 2. UPCOMING / ACTIVE CONSULTATION SPOTLIGHT CARD */}
         {nextAppt ? (
           <section className={`ps-spotlight-card ${nextAppt.status}`}>
-            <div className="ps-spotlight-header">
-              <span className={`ps-spotlight-tag ${['in_progress', 'waiting'].includes(nextAppt.status) ? 'ready' : 'scheduled'}`}>
-                {nextAppt.status === 'in_progress' ? '🟢 Bác sĩ đã mở phòng khám' :
-                 nextAppt.status === 'waiting' ? '🟡 Đang ở phòng chờ (Điều dưỡng điều phối)' :
-                 nextAppt.status === 'confirmed' ? '🔵 Đã xác nhận lịch hẹn' : '🟠 Chờ thanh toán viện phí'}
-              </span>
-              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ps-slate-muted)' }}>
-                Mã ca khám: #{nextAppt.id}
-              </span>
-            </div>
-
             <div className="ps-spotlight-body">
               <div className="ps-doctor-block">
                 {(() => {
@@ -409,6 +398,10 @@ export function PatientDashboard({
                       <b style={{ color: 'var(--ps-navy)' }}>Lý do khám:</b> {nextAppt.reason}
                     </p>
                   )}
+                  <div style={{ margin: '6px 0 0', fontSize: '12.5px', color: 'var(--ps-slate-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>Mã ca khám:</span>
+                    <span style={{ fontWeight: 700, color: 'var(--ps-navy)' }}>#{nextAppt.id}</span>
+                  </div>
                 </div>
               </div>
 
