@@ -461,3 +461,27 @@ class AppointmentDocument(Base):
     file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+
+
+class PatientCabinetItem(Base):
+    __tablename__ = "patient_cabinet_items"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    patient_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    active_ingredient: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    dosage: Mapped[str] = mapped_column(String(100), default="1 viên/lần")
+    frequency: Mapped[str] = mapped_column(String(100), default="1 lần/ngày")
+    timing: Mapped[str] = mapped_column(String(150), default="Sau ăn sáng 30 phút")
+    schedule_slot: Mapped[str] = mapped_column(String(50), default="morning")
+    quantity_remaining: Mapped[int] = mapped_column(Integer, default=30)
+    total_quantity: Mapped[int] = mapped_column(Integer, default=30)
+    unit: Mapped[str] = mapped_column(String(50), default="viên")
+    source_type: Mapped[str] = mapped_column(String(50), default="prescription")
+    appointment_id: Mapped[int | None] = mapped_column(ForeignKey("appointments.id"), nullable=True)
+    doctor_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default="active")
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    start_date: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    end_date: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    last_taken_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())

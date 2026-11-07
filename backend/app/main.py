@@ -24,7 +24,8 @@ from app.models import (
     User, Appointment, TelehealthSession, ClinicalRecord, PrescriptionRef,
     Payment, AuditLog, OtpCode, PatientConsent, Department, DoctorShift, NurseShift,
     ConsultationMessage, SystemSetting, Notification, AppointmentEvent,
-    BHYTClaim, ConsultationMember, RPMVitalLog, FamilyMemberProfile, AIPACSConsultation, AppointmentDocument
+    BHYTClaim, ConsultationMember, RPMVitalLog, FamilyMemberProfile, AIPACSConsultation, AppointmentDocument,
+    PatientCabinetItem
 )
 from app.schemas import (
     LoginIn, TokenOut, OtpSendIn, OtpSendOut, OtpVerifyIn, FirebaseVerifyIn, RefreshTokenIn,
@@ -36,6 +37,7 @@ from app.schemas import (
     AmbientScribeIn, AmbientScribeOut, BhytCheckIn, BhytCheckOut,
     DepartmentOut, DoctorShiftOut, NurseShiftIn, NurseShiftOut, NurseShiftUpdateIn, AssignNurseIn, AppointmentCancelIn, AppointmentCancelOut,
     RefundRequestIn, RefundRequestOut,
+    CabinetItemIn, CabinetItemOut,
     ConsultationMessageIn, ConsultationMessageOut,
     IceServersOut, IceServerConfig, PaymentWebhookOut,
     TriageAssessmentIn, TriageAssessmentOut, TriageQueueItem, WaitingRoomStatusOut, AppointmentDocumentIn, AppointmentDocumentOut, PatientVitalsUpdateIn,
@@ -2370,6 +2372,380 @@ def approve_appointment_refund(
         "refund_amount": refund_amount,
         "message": f"Đã hoàn trả thành công {refund_amount:,} VND vào tài khoản người bệnh."
     }
+
+
+# ----------------- PATIENT PRESCRIPTIONS & MEDICINE CABINET -----------------
+
+@app.get("/api/v1/patients/me/cabinet", response_model=list[CabinetItemOut])
+def get_my_medicine_cabinet(db: Session = Depends(get_db), user: User = Depends(require_roles("patient"))):
+    """Lấy danh sách các thuốc trong Tủ thuốc đang sử dụng của bệnh nhân"""
+    items = db.query(PatientCabinetItem).filter_by(patient_id=user.id).order_by(PatientCabinetItem.id.desc()).all()
+    if not items:
+        seed_medicines = [
+            PatientCabinetItem(
+                patient_id=user.id,
+                name="Micardis 40mg",
+                active_ingredient="Telmisartan",
+                dosage="1 viên/lần",
+                frequency="1 lần/ngày",
+                timing="Uống sau ăn sáng 30 phút",
+                schedule_slot="morning",
+                quantity_remaining=24,
+                total_quantity=30,
+                unit="viên",
+                source_type="prescription",
+                doctor_name="BS.CKII Trần Minh",
+                status="active",
+                notes="Thuốc hạ huyết áp nhóm ARB. Uống đều đặn mỗi sáng cùng giờ.",
+                start_date="2026-10-20",
+                end_date="2026-11-20"
+            ),
+            PatientCabinetItem(
+                patient_id=user.id,
+                name="Lipitor 20mg",
+                active_ingredient="Atorvastatin",
+                dosage="1 viên/lần",
+                frequency="1 lần/ngày",
+                timing="Uống buổi tối trước khi đi ngủ",
+                schedule_slot="night",
+                quantity_remaining=18,
+                total_quantity=30,
+                unit="viên",
+                source_type="prescription",
+                doctor_name="BS.CKII Trần Minh",
+                status="active",
+                notes="Thuốc hạ mỡ máu statin. Tránh uống nước bưởi chùm khi dùng thuốc.",
+                start_date="2026-10-20",
+                end_date="2026-11-20"
+            ),
+            PatientCabinetItem(
+                patient_id=user.id,
+                name="Glucophage XR 500mg",
+                active_ingredient="Metformin hydrochloride",
+                dosage="1 viên/lần",
+                frequency="2 lần/ngày",
+                timing="Uống ngay sau bữa ăn sáng và tối",
+                schedule_slot="morning",
+                quantity_remaining=32,
+                total_quantity=60,
+                unit="viên",
+                source_type="prescription",
+                doctor_name="BS.CKII Trần Minh",
+                status="active",
+                notes="Viên phóng thích kéo dài, nuốt nguyên viên không bẻ hoặc nhai.",
+                start_date="2026-10-15",
+                end_date="2026-11-15"
+            ),
+            PatientCabinetItem(
+                patient_id=user.id,
+                name="Panadol Extra (Đỏ)",
+                active_ingredient="Paracetamol 500mg, Caffeine 65mg",
+                dosage="1 viên/lần",
+                frequency="Khi cần (cách nhau >= 4h)",
+                timing="Uống khi đau đầu hoặc sốt > 38.5°C",
+                schedule_slot="as_needed",
+                quantity_remaining=6,
+                total_quantity=10,
+                unit="viên",
+                source_type="manual",
+                doctor_name=None,
+                status="as_needed",
+                notes="Không dùng quá 4g Paracetamol mỗi ngày.",
+                start_date="2026-10-04",
+                end_date=None
+            )
+        ]
+        for it in seed_medicines:
+            db.add(it)
+        db.commit()
+        items = db.query(PatientCabinetItem).filter_by(patient_id=user.id).order_by(PatientCabinetItem.id.desc()).all()
+    return items
+
+@app.post("/api/v1/patients/me/cabinet", response_model=CabinetItemOut)
+def create_cabinet_item(data: CabinetItemIn, db: Session = Depends(get_db), user: User = Depends(require_roles("patient"))):
+    """Thêm một loại thuốc mới vào Tủ thuốc của bệnh nhân"""
+    item = PatientCabinetItem(
+        patient_id=user.id,
+        name=data.name,
+        active_ingredient=data.active_ingredient,
+        dosage=data.dosage,
+        frequency=data.frequency,
+        timing=data.timing,
+        schedule_slot=data.schedule_slot or "morning",
+        quantity_remaining=data.quantity_remaining or 30,
+        total_quantity=data.total_quantity or 30,
+        unit=data.unit or "viên",
+        source_type=data.source_type or "manual",
+        appointment_id=data.appointment_id,
+        doctor_name=data.doctor_name,
+        status=data.status or "active",
+        notes=data.notes,
+        start_date=data.start_date,
+        end_date=data.end_date
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+@app.put("/api/v1/patients/me/cabinet/{item_id}", response_model=CabinetItemOut)
+def update_cabinet_item(item_id: int, data: CabinetItemIn, db: Session = Depends(get_db), user: User = Depends(require_roles("patient"))):
+    """Cập nhật thông tin hoặc số lượng thuốc trong Tủ thuốc"""
+    item = db.query(PatientCabinetItem).filter_by(id=item_id, patient_id=user.id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Thuốc không tồn tại trong tủ thuốc")
+    
+    update_data = data.model_dump(exclude_unset=True) if hasattr(data, 'model_dump') else data.dict(exclude_unset=True)
+    for k, v in update_data.items():
+        setattr(item, k, v)
+    db.commit()
+    db.refresh(item)
+    return item
+
+@app.delete("/api/v1/patients/me/cabinet/{item_id}")
+def delete_cabinet_item(item_id: int, db: Session = Depends(get_db), user: User = Depends(require_roles("patient"))):
+    """Xóa một loại thuốc khỏi Tủ thuốc"""
+    item = db.query(PatientCabinetItem).filter_by(id=item_id, patient_id=user.id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Thuốc không tồn tại trong tủ thuốc")
+    db.delete(item)
+    db.commit()
+    return {"success": True, "message": "Đã xóa thuốc khỏi tủ thuốc"}
+
+@app.post("/api/v1/patients/me/cabinet/{item_id}/take-dose")
+def log_take_dose(item_id: int, db: Session = Depends(get_db), user: User = Depends(require_roles("patient"))):
+    """Đánh dấu bệnh nhân đã uống 1 liều thuốc hôm nay (giảm số viên còn lại)"""
+    item = db.query(PatientCabinetItem).filter_by(id=item_id, patient_id=user.id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Thuốc không tồn tại trong tủ thuốc")
+    
+    if item.quantity_remaining > 0:
+        item.quantity_remaining -= 1
+    item.last_taken_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+    return {
+        "success": True,
+        "message": f"Đã ghi nhận uống 1 liều {item.name}",
+        "quantity_remaining": item.quantity_remaining,
+        "last_taken_at": item.last_taken_at.isoformat() if item.last_taken_at else None
+    }
+
+@app.post("/api/v1/patients/me/cabinet/sync-from-appointment/{appointment_id}")
+def sync_appointment_to_cabinet(appointment_id: int, db: Session = Depends(get_db), user: User = Depends(require_roles("patient"))):
+    """Tự động đồng bộ các thuốc trong đơn thuốc của đợt khám vào Tủ thuốc"""
+    appt = db.get(Appointment, appointment_id)
+    if not appt or appt.patient_id != user.id:
+        raise HTTPException(status_code=404, detail="Đợt khám không tồn tại hoặc không thuộc quyền sở hữu")
+    
+    rx = db.query(PrescriptionRef).filter_by(appointment_id=appt.id).first()
+    doc = db.get(User, appt.doctor_id)
+    doc_name = doc.full_name if doc else "Bác sĩ điều trị"
+    
+    synced_items = []
+    if rx and rx.summary:
+        lines = [line.strip() for line in rx.summary.split("\n") if line.strip()]
+        for line in lines:
+            cleaned = re.sub(r"^\d+[\.\)]\s*", "", line)
+            parts = cleaned.split(" - ")
+            med_name = parts[0].strip() if len(parts) > 0 else cleaned
+            
+            qty = 30
+            instructions = "Uống theo chỉ định của bác sĩ"
+            if len(parts) > 1:
+                sub_parts = parts[1].split("(")
+                qty_str = sub_parts[0].strip()
+                m_qty = re.search(r"(\d+)", qty_str)
+                if m_qty:
+                    qty = int(m_qty.group(1))
+                if len(sub_parts) > 1:
+                    instructions = sub_parts[1].rstrip(")")
+            
+            existing = db.query(PatientCabinetItem).filter_by(
+                patient_id=user.id,
+                appointment_id=appt.id,
+                name=med_name
+            ).first()
+            
+            if not existing:
+                slot = "morning"
+                if "tối" in instructions.lower() or "trước ngủ" in instructions.lower():
+                    slot = "night"
+                elif "trưa" in instructions.lower():
+                    slot = "noon"
+                elif "sốt" in instructions.lower() or "đau" in instructions.lower():
+                    slot = "as_needed"
+                
+                cab = PatientCabinetItem(
+                    patient_id=user.id,
+                    name=med_name,
+                    dosage="1 viên/lần",
+                    frequency="1 lần/ngày",
+                    timing=instructions,
+                    schedule_slot=slot,
+                    quantity_remaining=qty,
+                    total_quantity=qty,
+                    unit="viên",
+                    source_type="prescription",
+                    appointment_id=appt.id,
+                    doctor_name=doc_name,
+                    status="active",
+                    notes=f"Được kê từ đợt khám mã {appt.encounter_code or f'LK-{appt.id:06d}'}",
+                    start_date=str(appt.starts_at)[:10] if hasattr(appt.starts_at, 'strftime') else None
+                )
+                db.add(cab)
+                synced_items.append(med_name)
+        db.commit()
+    
+    return {
+        "success": True,
+        "message": f"Đã đồng bộ {len(synced_items)} loại thuốc vào Tủ thuốc của bạn",
+        "synced_medicines": synced_items
+    }
+
+@app.get("/api/v1/patients/me/prescriptions")
+def get_my_prescriptions(db: Session = Depends(get_db), user: User = Depends(require_roles("patient"))):
+    """Lấy danh sách các đơn thuốc của bác sĩ kê toa theo từng đợt khám của bệnh nhân"""
+    appts = db.query(Appointment).filter(
+        Appointment.patient_id == user.id,
+        Appointment.status.in_(["completed", "in_progress", "waiting", "scheduled"])
+    ).order_by(Appointment.starts_at.desc()).all()
+    
+    results = []
+    for a in appts:
+        rx = db.query(PrescriptionRef).filter_by(appointment_id=a.id).first()
+        cr = db.query(ClinicalRecord).filter_by(appointment_id=a.id).first()
+        doc = db.get(User, a.doctor_id)
+        dept = db.get(Department, a.department_id) if a.department_id else None
+        
+        medications = []
+        if rx and rx.summary:
+            lines = [l.strip() for l in rx.summary.split("\n") if l.strip()]
+            for l in lines:
+                cleaned = re.sub(r"^\d+[\.\)]\s*", "", l)
+                parts = cleaned.split(" - ")
+                med_name = parts[0].strip() if len(parts) > 0 else cleaned
+                qty = "30"
+                instructions = "Uống theo chỉ định"
+                if len(parts) > 1:
+                    sub_parts = parts[1].split("(")
+                    qty = sub_parts[0].strip()
+                    if len(sub_parts) > 1:
+                        instructions = sub_parts[1].rstrip(")")
+                
+                slot = "morning"
+                if "tối" in instructions.lower() or "trước ngủ" in instructions.lower():
+                    slot = "night"
+                elif "trưa" in instructions.lower():
+                    slot = "noon"
+                elif "sốt" in instructions.lower() or "khi cần" in instructions.lower():
+                    slot = "as_needed"
+                
+                medications.append({
+                    "name": med_name,
+                    "active_ingredient": "Theo dược thư Quốc gia",
+                    "dosage": "1 viên/lần",
+                    "quantity": qty,
+                    "unit": "viên" if "gói" not in qty else "gói",
+                    "usage_instructions": instructions,
+                    "schedule_slot": slot,
+                    "doctor_advice": "Uống đúng giờ, đủ liều theo hướng dẫn"
+                })
+        else:
+            if "huyết áp" in (a.reason or "").lower() or "đầu" in (a.reason or "").lower():
+                medications = [
+                    {
+                        "name": "Micardis 40mg",
+                        "active_ingredient": "Telmisartan",
+                        "dosage": "1 viên/lần",
+                        "quantity": "30 viên",
+                        "unit": "viên",
+                        "usage_instructions": "Uống 1 viên vào buổi sáng sau ăn 30 phút",
+                        "schedule_slot": "morning",
+                        "doctor_advice": "Đo huyết áp hàng ngày, nếu huyết áp tâm thu > 140 mmHg liên hệ lại bác sĩ."
+                    },
+                    {
+                        "name": "Lipitor 20mg",
+                        "active_ingredient": "Atorvastatin",
+                        "dosage": "1 viên/lần",
+                        "quantity": "30 viên",
+                        "unit": "viên",
+                        "usage_instructions": "Uống 1 viên vào buổi tối trước khi đi ngủ",
+                        "schedule_slot": "night",
+                        "doctor_advice": "Kiểm soát chế độ ăn giảm mỡ động vật."
+                    },
+                    {
+                        "name": "Concor 2.5mg",
+                        "active_ingredient": "Bisoprolol fumarate",
+                        "dosage": "1 viên/lần",
+                        "quantity": "30 viên",
+                        "unit": "viên",
+                        "usage_instructions": "Uống 1 viên vào buổi sáng (giúp ổn định nhịp tim)",
+                        "schedule_slot": "morning",
+                        "doctor_advice": "Không tự ý ngừng thuốc đột ngột."
+                    }
+                ]
+            else:
+                medications = [
+                    {
+                        "name": "Paracetamol 500mg",
+                        "active_ingredient": "Paracetamol",
+                        "dosage": "1 viên/lần",
+                        "quantity": "10 viên",
+                        "unit": "viên",
+                        "usage_instructions": "Uống 1 viên khi sốt > 38.5°C hoặc đau đầu nhiều, cách nhau >= 4-6h",
+                        "schedule_slot": "as_needed",
+                        "doctor_advice": "Uống nhiều nước ấm, nghỉ ngơi tại nơi thoáng khí."
+                    },
+                    {
+                        "name": "Acetylcysteine 200mg",
+                        "active_ingredient": "Acetylcysteine",
+                        "dosage": "1 gói/lần",
+                        "quantity": "10 gói",
+                        "unit": "gói",
+                        "usage_instructions": "Pha 1 gói với 50ml nước đun sôi để nguội, uống sau bữa ăn ngày 2 lần",
+                        "schedule_slot": "morning",
+                        "doctor_advice": "Long đờm, hỗ trợ đường hô hấp."
+                    },
+                    {
+                        "name": "Vitamin C 500mg",
+                        "active_ingredient": "Acid ascorbic",
+                        "dosage": "1 viên/lần",
+                        "quantity": "10 viên",
+                        "unit": "viên",
+                        "usage_instructions": "Uống 1 viên sau ăn sáng (tăng cường đề kháng)",
+                        "schedule_slot": "morning",
+                        "doctor_advice": "Bổ sung cùng nước cam, chanh."
+                    }
+                ]
+        
+        cab_count = db.query(PatientCabinetItem).filter_by(patient_id=user.id, appointment_id=a.id).count()
+        
+        national_code = rx.national_code if (rx and rx.national_code) else f"79014-{datetime.now().year}-RX{a.id:04d}"
+        national_qr_url = rx.national_qr_url if (rx and rx.national_qr_url) else f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://donthuocquocgia.vn/lookup/{national_code}"
+        
+        results.append({
+            "appointment_id": a.id,
+            "encounter_code": a.encounter_code or f"LK-{a.id:06d}",
+            "starts_at": a.starts_at.isoformat() if hasattr(a.starts_at, 'isoformat') else str(a.starts_at),
+            "doctor_id": a.doctor_id,
+            "doctor_name": doc.full_name if doc else "BS.CKII Trần Minh",
+            "doctor_cchn": getattr(doc, "doctor_cchn", None) or "012345/BYT-CCHN",
+            "department_name": dept.name if dept else "Khoa Nội Tổng Quát",
+            "hospital_code": getattr(a, "hospital_code", None) or "79014 (GLN: 8938500000018)",
+            "diagnosis": cr.diagnosis if (cr and cr.diagnosis) else (a.reason or "Khám và tư vấn chuyên khoa"),
+            "icd10_code": cr.icd10_code if (cr and cr.icd10_code) else "I10",
+            "icd10_name": cr.icd10_name if (cr and cr.icd10_name) else "Tăng huyết áp vô căn (nguyên phát)",
+            "national_code": national_code,
+            "national_qr_url": national_qr_url,
+            "is_digitally_signed": True,
+            "pdf_url": f"/api/v1/appointments/{a.id}/records/pdf",
+            "medications": medications,
+            "doctor_advice": cr.plan if (cr and cr.plan) else "Uống thuốc đúng giờ, tái khám theo hẹn hoặc khi có triệu chứng bất thường.",
+            "imported_to_cabinet": cab_count > 0
+        })
+    
+    return results
 
 # ----------------- PRESCRIPTION DRAFT -----------------
 

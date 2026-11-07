@@ -1194,3 +1194,29 @@ class PatientVitalsUpdateIn(BaseModel):
     notes: Optional[str] = None
     sync_from_profile: bool = False
 
+
+
+class CabinetItemIn(BaseModel):
+    name: str
+    active_ingredient: Optional[str] = None
+    dosage: str = "1 viên/lần"
+    frequency: str = "1 lần/ngày"
+    timing: str = "Sau ăn sáng 30 phút"
+    schedule_slot: Optional[str] = "morning"
+    quantity_remaining: Optional[int] = 30
+    total_quantity: Optional[int] = 30
+    unit: str = "viên"
+    source_type: str = "manual"
+    appointment_id: Optional[int] = None
+    doctor_name: Optional[str] = None
+    status: str = "active"
+    notes: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+class CabinetItemOut(CabinetItemIn):
+    id: int
+    patient_id: int
+    last_taken_at: Optional[datetime] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)

@@ -1977,3 +1977,137 @@ export async function updatePatientWaitingVitals(
   )
 }
 
+
+// ----------------- PATIENT PRESCRIPTIONS & MEDICINE CABINET -----------------
+
+export interface CabinetItem {
+  id: number
+  patient_id: number
+  name: string
+  active_ingredient?: string
+  dosage: string
+  frequency: string
+  timing: string
+  schedule_slot: 'morning' | 'noon' | 'evening' | 'night' | 'as_needed'
+  quantity_remaining: number
+  total_quantity: number
+  unit: string
+  source_type: 'prescription' | 'manual' | 'chronic'
+  appointment_id?: number
+  doctor_name?: string
+  status: 'active' | 'as_needed' | 'low_stock' | 'paused' | 'stopped'
+  notes?: string
+  start_date?: string
+  end_date?: string
+  last_taken_at?: string
+  created_at: string
+}
+
+export interface CabinetItemInput {
+  name: string
+  active_ingredient?: string
+  dosage?: string
+  frequency?: string
+  timing?: string
+  schedule_slot?: 'morning' | 'noon' | 'evening' | 'night' | 'as_needed'
+  quantity_remaining?: number
+  total_quantity?: number
+  unit?: string
+  source_type?: string
+  appointment_id?: number
+  doctor_name?: string
+  status?: string
+  notes?: string
+  start_date?: string
+  end_date?: string
+}
+
+export interface PrescriptionMedicine {
+  name: string
+  active_ingredient?: string
+  dosage: string
+  quantity: string | number
+  unit: string
+  usage_instructions: string
+  schedule_slot: 'morning' | 'noon' | 'evening' | 'night' | 'as_needed'
+  doctor_advice?: string
+}
+
+export interface PatientPrescription {
+  appointment_id: number
+  encounter_code: string
+  starts_at: string
+  doctor_id: number
+  doctor_name: string
+  doctor_cchn?: string
+  department_name?: string
+  hospital_code?: string
+  diagnosis?: string
+  icd10_code?: string
+  icd10_name?: string
+  national_code?: string
+  national_qr_url?: string
+  is_digitally_signed: boolean
+  pdf_url?: string
+  medications: PrescriptionMedicine[]
+  doctor_advice?: string
+  imported_to_cabinet: boolean
+}
+
+export async function getMyMedicineCabinet(): Promise<CabinetItem[]> {
+  return request<CabinetItem[]>('/api/v1/patients/me/cabinet')
+}
+
+export async function createCabinetItem(data: CabinetItemInput): Promise<CabinetItem> {
+  return request<CabinetItem>('/api/v1/patients/me/cabinet', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function updateCabinetItem(itemId: number, data: Partial<CabinetItemInput>): Promise<CabinetItem> {
+  return request<CabinetItem>(`/api/v1/patients/me/cabinet/${itemId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function deleteCabinetItem(itemId: number): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>(`/api/v1/patients/me/cabinet/${itemId}`, {
+    method: 'DELETE'
+  })
+}
+
+export async function logTakeCabinetDose(itemId: number): Promise<{
+  success: boolean
+  message: string
+  quantity_remaining: number
+  last_taken_at?: string
+}> {
+  return request<{
+    success: boolean
+    message: string
+    quantity_remaining: number
+    last_taken_at?: string
+  }>(`/api/v1/patients/me/cabinet/${itemId}/take-dose`, {
+    method: 'POST'
+  })
+}
+
+export async function syncAppointmentToCabinet(appointmentId: number): Promise<{
+  success: boolean
+  message: string
+  synced_medicines: string[]
+}> {
+  return request<{
+    success: boolean
+    message: string
+    synced_medicines: string[]
+  }>(`/api/v1/patients/me/cabinet/sync-from-appointment/${appointmentId}`, {
+    method: 'POST'
+  })
+}
+
+export async function getMyPrescriptions(): Promise<PatientPrescription[]> {
+  return request<PatientPrescription[]>('/api/v1/patients/me/prescriptions')
+}

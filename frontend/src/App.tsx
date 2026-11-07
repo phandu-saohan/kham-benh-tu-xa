@@ -49,6 +49,7 @@ import { MedicalRecordModal } from './MedicalRecordModal'
 import { BookingFlowModal } from './BookingFlowModal'
 import { FamilyMemberModal } from './FamilyMemberModal'
 import { PatientPaymentManager } from './PatientPaymentManager'
+import { PatientPrescriptionCabinet } from './PatientPrescriptionCabinet'
 
 const money = (n: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n)
@@ -101,6 +102,7 @@ export default function App() {
   const [checkingBhyt, setCheckingBhyt] = useState(false)
   const [applyingBhytId, setApplyingBhytId] = useState<number | null>(null)
 
+  const [prescriptionRecordApptId, setPrescriptionRecordApptId] = useState<number | null>(null)
   const [cancelModalAppt, setCancelModalAppt] = useState<Appointment | null>(null)
   const [cancelReasonText, setCancelReasonText] = useState('Bận lịch đột xuất, xin hủy hẹn khám')
   const [cancelling, setCancelling] = useState(false)
@@ -820,10 +822,11 @@ export default function App() {
   const navItems = isPatient ? [
     ['overview', 'Tổng quan', HeartPulse],
     ['appointments', 'Lịch khám của tôi', CalendarDays],
+    ['prescriptions', 'Đơn thuốc & Tủ thuốc', Pill],
+    ['records', 'Hồ sơ bệnh án EMR', FileText],
     ['family', 'Hồ sơ Gia đình', Users],
     ['devices', 'Kết nối thiết bị', Cpu],
     ['vitals', 'Sinh hiệu RPM IoT', Activity],
-    ['records', 'Hồ sơ bệnh án EMR', FileText],
     ['insurance', 'Bảo hiểm Y tế & XML 4210', ShieldCheck],
     ['payments', 'Thanh toán VietQR', CreditCard],
     ['profile', 'Hồ sơ cá nhân & CCCD', UserRound]
@@ -1628,39 +1631,23 @@ export default function App() {
           </section>
         )}
 
-        {/* Tab: Đơn thuốc Quốc gia */}
+        {/* Tab: Đơn thuốc và Tủ thuốc của bạn */}
         {view === 'prescriptions' && (
-          <section className="panel page-panel">
-            <div className="panel-heading">
-              <div>
-                <h3>Toa thuốc điện tử Quốc gia</h3>
-                <p>Đơn thuốc được kê từ các buổi khám trực tuyến có mã QR liên kết Cổng Quốc gia</p>
-              </div>
-            </div>
-            <div className="prescription-demo-card">
-              <div className="rx-badge">Rx</div>
-              <div>
-                <b>Hệ thống Quản lý Kê đơn thuốc điện tử Quốc gia (Bộ Y tế)</b>
-                <p className="muted">
-                  Bác sĩ sau khi khám có thể kê đơn thuốc điện tử và bấm "Đẩy lên Cổng Quốc gia" để nhận mã đơn thuốc chuẩn <code>{`{Mã CSKCB}-{Năm}-{Mã đơn}`}</code> kèm mã QR quét tại các nhà thuốc đạt chuẩn GPP trên toàn quốc.
-                </p>
-              </div>
-            </div>
-
-            <div style={{ marginTop: '24px' }}>
-              <h4 style={{ margin: '0 0 14px', fontSize: '15px', color: '#1e293b', fontWeight: 700 }}>
-                📋 Danh sách đơn thuốc từ các đợt khám của bạn:
-              </h4>
-              <AppointmentList
-                items={appointments.filter(a => a.status === 'completed' || a.status === 'in_progress')}
-                doctors={doctors}
-                isDoctor={isDoctor}
-                onJoin={handleJoinConsultation}
-                onPay={setQrAppointment}
-                onCancel={handleCancelAppointment}
-                onDownloadPdf={handleDownloadPdf}
+          <section className="panel page-panel" style={{ padding: 0, background: 'transparent', border: 'none', boxShadow: 'none' }}>
+            <PatientPrescriptionCabinet
+              onViewRecord={(appointmentId) => {
+                setPrescriptionRecordApptId(appointmentId)
+              }}
+              onDownloadPdf={(appointmentId) => {
+                handleDownloadPdf(appointmentId)
+              }}
+            />
+            {prescriptionRecordApptId && (
+              <MedicalRecordModal
+                appointmentId={prescriptionRecordApptId}
+                onClose={() => setPrescriptionRecordApptId(null)}
               />
-            </div>
+            )}
           </section>
         )}
 
