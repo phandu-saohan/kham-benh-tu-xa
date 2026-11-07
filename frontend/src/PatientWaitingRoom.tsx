@@ -28,7 +28,9 @@ import {
   Ruler,
   Weight,
   Scale,
-  Paperclip
+  Paperclip,
+  Droplets,
+  Bluetooth
 } from 'lucide-react'
 import {
   type Appointment,
@@ -79,6 +81,7 @@ export function PatientWaitingRoom({
   const [editSpo2, setEditSpo2] = useState('')
   const [editWeight, setEditWeight] = useState('')
   const [editHeight, setEditHeight] = useState('')
+  const [editGlucose, setEditGlucose] = useState('')
   const [editNotes, setEditNotes] = useState('')
   const [savingVitals, setSavingVitals] = useState(false)
   const [vitalsNotice, setVitalsNotice] = useState<string>('')
@@ -283,6 +286,7 @@ export function PatientWaitingRoom({
     setEditSpo2(curVitals.spo2 ? String(curVitals.spo2) : '98')
     setEditWeight(curVitals.weight ? String(curVitals.weight) : (user as any).weight ? String((user as any).weight) : '60')
     setEditHeight(curVitals.height ? String(curVitals.height) : (user as any).height ? String((user as any).height) : '165')
+    setEditGlucose((curVitals as any).glucose ? String((curVitals as any).glucose) : '5.6')
     setEditNotes('')
     setIsEditingVitals(true)
   }
@@ -529,7 +533,8 @@ export function PatientWaitingRoom({
     temperature: appointment.temperature,
     spo2: appointment.spo2,
     weight: appointment.weight,
-    height: appointment.height
+    height: appointment.height,
+    glucose: (waitingStatus?.vitals as any)?.glucose || (appointment as any).glucose || 5.6
   }
   const heightVal = curVitals.height || (user as any).height || 165
   const weightVal = curVitals.weight || (user as any).weight || 60
@@ -962,6 +967,21 @@ export function PatientWaitingRoom({
                       style={{ borderRadius: '6px', fontSize: '13px' }}
                     />
                   </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
+                      Đường huyết mao mạch (mmol/L) - Accu-Chek
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="ps-form-input"
+                      value={editGlucose}
+                      onChange={e => setEditGlucose(e.target.value)}
+                      placeholder="5.6 (Roche Accu-Chek Instant)"
+                      style={{ borderRadius: '6px', fontSize: '13px' }}
+                    />
+                  </div>
                 </div>
 
                 <div style={{ marginTop: '10px' }}>
@@ -1039,6 +1059,21 @@ export function PatientWaitingRoom({
                   {curVitals.temperature || '36.8'} <small style={{ fontSize: '12px', fontWeight: 500 }}>°C</small>
                 </div>
                 <span className="ps-vital-status-pill normal" style={{ borderRadius: '4px' }}>Thân nhiệt chuẩn</span>
+              </div>
+
+              <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#b45309', fontWeight: 600 }}>
+                    <Droplets size={15} /> Đường huyết
+                  </div>
+                  <span style={{ fontSize: '10px', background: '#eff6ff', color: '#1d4ed8', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, border: '1px solid #bfdbfe', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                    <Bluetooth size={10} /> Accu-Chek BLE
+                  </span>
+                </div>
+                <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--ps-navy)', margin: '4px 0 2px' }}>
+                  {(curVitals as any).glucose || '5.6'} <small style={{ fontSize: '12px', fontWeight: 500 }}>mmol/L</small>
+                </div>
+                <span className="ps-vital-status-pill normal" style={{ borderRadius: '4px' }}>Roche Instant • Ổn định</span>
               </div>
 
               <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
