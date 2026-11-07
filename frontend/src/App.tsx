@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import {
   login, sendOtp, verifyOtp, loginWithFirebaseToken, getFirebaseConfig, request, cancelAppointment, enterWaitingRoom,
-  getConsentStatus, downloadMedicalRecordPdf, getPacsDicomStudies,
+  getConsentStatus, downloadMedicalRecordPdf, getPacsDicomStudies, syncPatientHisEmr,
   checkBhyt, applyBhyt, getDepartments, getDoctorShifts,
   checkIncomingCall, declineIncomingCall,
   checkTriageSymptoms, type TriageSymptomResult,
@@ -646,6 +646,29 @@ export default function App() {
     }
   }
 
+  // Đồng bộ Bệnh án điện tử HIS/EMR
+  const [isSyncingHisEmr, setIsSyncingHisEmr] = useState(false)
+  const [lastHisSync, setLastHisSync] = useState<string | null>(null)
+  const [syncHisResult, setSyncHisResult] = useState<any>(null)
+
+  async function handleSyncHisEmr() {
+    setIsSyncingHisEmr(true)
+    try {
+      const res = await syncPatientHisEmr()
+      setSyncHisResult(res)
+      const nowStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+      setLastHisSync(nowStr)
+      setToast('Đồng bộ dữ liệu Bệnh án HIS/EMR thành công!')
+      if (user) {
+        await loadDashboard(user)
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Lỗi đồng bộ HIS/EMR')
+    } finally {
+      setIsSyncingHisEmr(false)
+    }
+  }
+
   // Tải file PDF
   async function handleDownloadPdf(appointmentId: number) {
     try {
@@ -1186,12 +1209,91 @@ export default function App() {
         {/* Tab: Hồ sơ bệnh án */}
         {view === 'records' && (
           <section className="panel page-panel">
-            <div className="panel-heading">
+            <div className="panel-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <h3>Hồ sơ bệnh án điện tử</h3>
-                <p>Hồ sơ đã hoàn tất, ký số SmartCA và có thể trích xuất PDF</p>
+                <h3 style={{ margin: 0 }}>Hồ sơ bệnh án điện tử</h3>
+                <p style={{ margin: '4px 0 0' }}>Hồ sơ đã hoàn tất, ký số SmartCA và có thể trích xuất PDF</p>
+              </div>
+
+              {/* Vị trí khoanh đỏ: Nút tính năng đồng bộ Bệnh án HIS/EMR */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {lastHisSync && (
+                  <span style={{ fontSize: '12px', color: '#0f766e', background: '#f0fdfa', padding: '5px 10px', borderRadius: '6px', border: '1px solid #ccfbf1', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                    <CheckCircle2 size={14} color="#0d9488" />
+                    <span>Đã đồng bộ {lastHisSync}</span>
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSyncHisEmr}
+                  disabled={isSyncingHisEmr}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '7px',
+                    background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '8px 16px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: isSyncingHisEmr ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 2px 6px rgba(15, 118, 110, 0.2)',
+                    transition: 'all 0.2s ease',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title="Đồng bộ hồ sơ bệnh án hai chiều với Hệ thống thông tin Bệnh viện HIS/EMR theo chuẩn HL7 FHIR R4"
+                >
+                  <RefreshCw size={15} className={isSyncingHisEmr ? 'spin' : ''} />
+                  <span>{isSyncingHisEmr ? 'Đang đồng bộ HIS/EMR...' : 'Đồng bộ Bệnh án HIS/EMR'}</span>
+                </button>
               </div>
             </div>
+
+            {/* Banner hiển thị chi tiết liên thông HIS/EMR */}
+            {syncHisResult && (
+              <div style={{
+                background: '#f0fdfa',
+                border: '1px solid #99f6e4',
+                borderRadius: '8px',
+                padding: '12px 16px',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#ccfbf1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
+                    <CheckCircle2 size={18} color="#0f766e" />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 700, color: '#0f766e', fontSize: '14px' }}>
+                        {syncHisResult.message}
+                      </span>
+                      <span style={{ fontSize: '11px', background: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                        Mã PID HIS: {syncHisResult.his_pid}
+                      </span>
+                      <span style={{ fontSize: '11px', background: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                        HL7 FHIR R4 & QĐ 2682/QĐ-BYT
+                      </span>
+                    </div>
+                    <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#334155' }}>
+                      Đã liên thông <b>{syncHisResult.encounters_synced || syncHisResult.synced_records_count}</b> lượt khám trực tuyến với hệ thống <b>{syncHisResult.hospital_name || syncHisResult.system}</b>.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSyncHisResult(null)}
+                  style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
             <AppointmentList
               items={appointments.filter(a => a.status === 'completed' || a.status === 'in_progress')}
               doctors={doctors}

@@ -552,6 +552,25 @@ export async function getFhirBundle(appointmentId: number) {
   return request<any>(`/api/v1/appointments/${appointmentId}/fhir`)
 }
 
+export interface HisEmrSyncResponse {
+  success: boolean
+  message: string
+  synced_at: string
+  his_pid: string
+  system: string
+  hospital_name: string
+  synced_records_count: number
+  encounters_synced: number
+  conditions: Array<{ code: string; display: string }>
+  allergies: any[]
+}
+
+export async function syncPatientHisEmr(): Promise<HisEmrSyncResponse> {
+  return request<HisEmrSyncResponse>('/api/v1/patients/me/sync-his-emr', {
+    method: 'POST'
+  })
+}
+
 export async function getPacsDicomStudies() {
   return request<any>('/api/v1/patients/me/pacs-studies')
 }
