@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import {
-  ArrowLeft, ShieldCheck, Save, CheckCircle2, Lock, FileText,
+  ArrowLeft, ShieldCheck, Save, CheckCircle2, Lock, FileText, Edit3,
   Pill, User, Search, AlertCircle, Stethoscope, Video, VideoOff, X,
   FileDown, PenTool, Share2, Code2, QrCode, Sparkles, Mic, MicOff, Bot, PhoneCall, Volume2,
   ScreenShare, ScreenShareOff, MessageSquare, FlaskConical, ScanLine, ExternalLink, Activity, Clock,
@@ -121,6 +121,19 @@ export function DoctorWorkspace({
   const [soapResult, setSoapResult] = useState<any>(null)
   const [isListening, setIsListening] = useState(false)
   const recognitionRef = useRef<any>(null)
+
+  // Modal Popup xem và chỉnh sửa toàn bộ thông tin SOAP trước khi tạo phiếu khám
+  const [showSoapModal, setShowSoapModal] = useState(false)
+  const [soapEditState, setSoapEditState] = useState({
+    subjective: '',
+    objective: '',
+    assessment: '',
+    icd10Code: '',
+    icd10Name: '',
+    plan: '',
+    prescriptionDraft: '',
+    allergiesWarning: ''
+  })
 
   // Tự động nhận diện giọng nói tiếng Việt từ micro Web Speech API
   useEffect(() => {
@@ -784,10 +797,10 @@ export function DoctorWorkspace({
     }
   }
 
-  // Xử lý AI Ambient Scribe
+  // Xử lý AI Ambient Scribe - Tự động tóm tắt & mở Popup đầy đủ thông tin để Bác sĩ xem lại & chỉnh sửa
   async function handleAnalyzeAiScribe() {
     if (!scribeTranscript.trim()) {
-      setError('Vui lòng nhập hoặc ghi âm nội dung hội thoại khám bệnh')
+      setError('Vui lòng bật Mic "Tự động nghe" hoặc bấm "Mẫu thoại" để có nội dung hội thoại khám bệnh')
       return
     }
     setGeneratingSoap(true)
@@ -799,7 +812,18 @@ export function DoctorWorkspace({
         35
       )
       setSoapResult(res)
-      setToast('AI đã phân tích hội thoại và tạo SOAP Notes thành công!')
+      setSoapEditState({
+        subjective: res.soap?.subjective || res.extracted_symptoms || '',
+        objective: res.soap?.objective || '',
+        assessment: res.soap?.assessment || '',
+        icd10Code: res.suggested_icd10_code || '',
+        icd10Name: res.suggested_icd10_name || '',
+        plan: res.soap?.plan || '',
+        prescriptionDraft: res.prescription_draft || '',
+        allergiesWarning: res.allergies_warning || 'Không ghi nhận tiền sử dị ứng'
+      })
+      setShowSoapModal(true) // Mở Popup đầy đủ thông tin cho bác sĩ đọc lại và chỉnh sửa thêm
+      setToast('AI đã tóm tắt SOAP thành công. Đang hiển thị bản thảo chi tiết để Bác sĩ kiểm tra!')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không thể phân tích AI Scribe')
     } finally {
@@ -807,17 +831,44 @@ export function DoctorWorkspace({
     }
   }
 
-  function handleApplySoapToRecord() {
+  function handleOpenSoapModal() {
+    if (soapResult) {
+      setShowSoapModal(true)
+    } else {
+      handleAnalyzeAiScribe()
+    }
+  }
+
+  function handleResetOriginalSoap() {
     if (!soapResult) return
-    if (soapResult.extracted_symptoms) setSymptoms(soapResult.extracted_symptoms)
-    if (soapResult.soap?.assessment) setDiagnosis(soapResult.soap.assessment)
-    if (soapResult.suggested_icd10_code) setIcd10Code(soapResult.suggested_icd10_code)
-    if (soapResult.suggested_icd10_name) setIcd10Name(soapResult.suggested_icd10_name)
-    if (soapResult.soap?.plan) setPlan(soapResult.soap.plan)
-    if (soapResult.prescription_draft) setPrescription(soapResult.prescription_draft)
-    if (soapResult.allergies_warning) setAllergies(soapResult.allergies_warning)
+    setSoapEditState({
+      subjective: soapResult.soap?.subjective || soapResult.extracted_symptoms || '',
+      objective: soapResult.soap?.objective || '',
+      assessment: soapResult.soap?.assessment || '',
+      icd10Code: soapResult.suggested_icd10_code || '',
+      icd10Name: soapResult.suggested_icd10_name || '',
+      plan: soapResult.soap?.plan || '',
+      prescriptionDraft: soapResult.prescription_draft || '',
+      allergiesWarning: soapResult.allergies_warning || 'Không ghi nhận tiền sử dị ứng'
+    })
+    setToast('Đã khôi phục lại bản thảo tóm tắt gốc từ AI.')
+  }
+
+  function handleConfirmApplySoapModal() {
+    if (soapEditState.subjective) setSymptoms(soapEditState.subjective)
+    if (soapEditState.assessment) setDiagnosis(soapEditState.assessment)
+    if (soapEditState.icd10Code) setIcd10Code(soapEditState.icd10Code)
+    if (soapEditState.icd10Name) setIcd10Name(soapEditState.icd10Name)
+    if (soapEditState.plan) setPlan(soapEditState.plan)
+    if (soapEditState.prescriptionDraft) setPrescription(soapEditState.prescriptionDraft)
+    if (soapEditState.allergiesWarning) setAllergies(soapEditState.allergiesWarning)
+    setShowSoapModal(false)
     setActiveTab('record')
-    setToast('Đã tự động điền toàn bộ kết quả SOAP Notes vào Phiếu khám & Đơn thuốc!')
+    setToast('✅ Đã xác nhận & tự động điền toàn bộ thông tin vào Phiếu khám lâm sàng & Đơn thuốc!')
+  }
+
+  function handleApplySoapToRecord() {
+    handleOpenSoapModal()
   }
 
   function handleLoadSampleDialog() {
@@ -1149,20 +1200,20 @@ export function DoctorWorkspace({
                   className="btn-ai-analyze"
                   onClick={handleAnalyzeAiScribe}
                   disabled={generatingSoap || !scribeTranscript.trim()}
-                  title="AI phân tích hội thoại và biên soạn SOAP Notes"
+                  title="AI phân tích hội thoại và mở Popup đầy đủ thông tin để Bác sĩ xem & chỉnh sửa"
                 >
                   <Sparkles size={13} className={generatingSoap ? 'spin-icon' : ''} />
-                  {generatingSoap ? 'Đang tóm tắt...' : 'AI Tóm tắt & Tạo SOAP'}
+                  {generatingSoap ? 'Đang tóm tắt...' : '✨ AI Tóm tắt & Tạo SOAP'}
                 </button>
 
                 {soapResult && (
                   <button
                     type="button"
                     className="btn-ai-apply"
-                    onClick={handleApplySoapToRecord}
-                    title="Tự động điền dữ liệu vào Phiếu khám lâm sàng bên cột phải"
+                    onClick={() => setShowSoapModal(true)}
+                    title="Mở popup xem đầy đủ và chỉnh sửa thông tin SOAP trước khi tạo phiếu khám"
                   >
-                    <FileCheck size={13} /> Đưa vào Phiếu khám EMR
+                    <Edit3 size={13} /> Xem & Sửa SOAP (Popup)
                   </button>
                 )}
 
@@ -1212,9 +1263,10 @@ export function DoctorWorkspace({
                   <button
                     type="button"
                     className="btn-apply-soap-inline"
-                    onClick={handleApplySoapToRecord}
+                    onClick={() => setShowSoapModal(true)}
+                    title="Mở popup đầy đủ thông tin để kiểm tra và chỉnh sửa trước khi tạo phiếu khám"
                   >
-                    <FileCheck size={12} /> Đưa vào Phiếu khám & Đơn thuốc &rarr;
+                    <Edit3 size={12} /> Xem chi tiết & Chỉnh sửa (Popup) &rarr;
                   </button>
                 </div>
 
@@ -3244,6 +3296,190 @@ export function DoctorWorkspace({
           </div>
         </div>
       </div>
+
+      {/* Popup đầy đủ thông tin AI Scribe SOAP cho Bác sĩ xem lại & chỉnh sửa trước khi tạo phiếu khám */}
+      {showSoapModal && (
+        <div className="soap-modal-overlay">
+          <div className="soap-modal-content">
+            <div className="soap-modal-header">
+              <div className="soap-modal-header-left">
+                <div className="soap-modal-icon-badge">
+                  <Sparkles size={20} />
+                </div>
+                <div>
+                  <h3>Biên bản Tóm tắt Lâm sàng SOAP & Đơn thuốc (AI Clinical Scribe)</h3>
+                  <p>Bác sĩ kiểm tra, chỉnh sửa trực tiếp nội dung các mục bên dưới trước khi đồng bộ vào Bệnh án EMR (QĐ 130/Bộ Y tế).</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="soap-modal-close-btn"
+                onClick={() => setShowSoapModal(false)}
+                title="Đóng popup"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="soap-modal-body">
+              <div className="soap-patient-info-strip">
+                <div>
+                  Người bệnh: <strong>{patientData?.full_name || 'Bệnh nhân'}</strong> &bull; Tuổi: <strong>35</strong> &bull; Lượt khám: <strong>#{appointment.id}</strong>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ShieldCheck size={14} /> Chuẩn hóa SOAP Y tế &bull; Đề xuất ICD-10
+                </div>
+              </div>
+
+              {/* S: Triệu chứng cơ năng */}
+              <div className="soap-field-group">
+                <label className="soap-field-label">
+                  <span className="soap-badge-label s">S</span>
+                  Lý do khám & Triệu chứng cơ năng (Subjective):
+                </label>
+                <textarea
+                  className="soap-field-textarea"
+                  rows={3}
+                  value={soapEditState.subjective}
+                  onChange={e => setSoapEditState({ ...soapEditState, subjective: e.target.value })}
+                  placeholder="Diễn giải triệu chứng, khởi phát, thời gian đau/sốt, mức độ..."
+                />
+              </div>
+
+              {/* O: Khám khách quan */}
+              <div className="soap-field-group">
+                <label className="soap-field-label">
+                  <span className="soap-badge-label o">O</span>
+                  Khám khách quan & Đánh giá qua Telehealth Video (Objective):
+                </label>
+                <textarea
+                  className="soap-field-textarea"
+                  rows={3}
+                  value={soapEditState.objective}
+                  onChange={e => setSoapEditState({ ...soapEditState, objective: e.target.value })}
+                  placeholder="Thể trạng, tri giác, niêm mạc qua video, nhịp thở, sinh hiệu..."
+                />
+              </div>
+
+              {/* A: Chẩn đoán & ICD-10 */}
+              <div className="soap-two-col-grid">
+                <div className="soap-field-group">
+                  <label className="soap-field-label">
+                    <span className="soap-badge-label a">A</span>
+                    Chẩn đoán sơ bộ của Bác sĩ (Assessment):
+                  </label>
+                  <textarea
+                    className="soap-field-textarea"
+                    rows={2}
+                    value={soapEditState.assessment}
+                    onChange={e => setSoapEditState({ ...soapEditState, assessment: e.target.value })}
+                    placeholder="Chẩn đoán xác định hoặc sơ bộ của bác sĩ..."
+                  />
+                </div>
+
+                <div className="soap-field-group">
+                  <label className="soap-field-label">
+                    <span className="soap-badge-label a">ICD-10</span>
+                    Mã bệnh đề xuất (Bộ Y tế):
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="text"
+                      className="soap-field-input"
+                      style={{ width: '90px', fontWeight: 700, color: '#047857' }}
+                      value={soapEditState.icd10Code}
+                      onChange={e => setSoapEditState({ ...soapEditState, icd10Code: e.target.value })}
+                      placeholder="Mã ICD"
+                    />
+                    <input
+                      type="text"
+                      className="soap-field-input"
+                      style={{ flex: 1 }}
+                      value={soapEditState.icd10Name}
+                      onChange={e => setSoapEditState({ ...soapEditState, icd10Name: e.target.value })}
+                      placeholder="Tên bệnh lý theo danh mục Bộ Y tế"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* P: Phác đồ điều trị */}
+              <div className="soap-field-group">
+                <label className="soap-field-label">
+                  <span className="soap-badge-label p">P</span>
+                  Phác đồ điều trị & Dặn dò theo dõi (Plan):
+                </label>
+                <textarea
+                  className="soap-field-textarea"
+                  rows={3}
+                  value={soapEditState.plan}
+                  onChange={e => setSoapEditState({ ...soapEditState, plan: e.target.value })}
+                  placeholder="Kế hoạch dùng thuốc, chế độ dinh dưỡng, tái khám..."
+                />
+              </div>
+
+              {/* Đơn thuốc dự thảo */}
+              <div className="soap-field-group">
+                <label className="soap-field-label">
+                  <span className="soap-badge-label rx">ĐƠN THUỐC</span>
+                  Toa thuốc dự thảo (Thuốc, hàm lượng, liều dùng):
+                </label>
+                <textarea
+                  className="soap-field-textarea"
+                  style={{ fontFamily: 'monospace', fontSize: '11.5px', background: '#fafafa' }}
+                  rows={4}
+                  value={soapEditState.prescriptionDraft}
+                  onChange={e => setSoapEditState({ ...soapEditState, prescriptionDraft: e.target.value })}
+                  placeholder="1. Paracetamol 500mg - Uống 1 viên khi sốt > 38.5 độ..."
+                />
+              </div>
+
+              {/* Tiền sử dị ứng */}
+              <div className="soap-field-group">
+                <label className="soap-field-label">
+                  <span className="soap-badge-label warn">DỊ ỨNG</span>
+                  Cảnh báo tiền sử dị ứng thuốc & Chống chỉ định:
+                </label>
+                <input
+                  type="text"
+                  className="soap-field-input"
+                  value={soapEditState.allergiesWarning}
+                  onChange={e => setSoapEditState({ ...soapEditState, allergiesWarning: e.target.value })}
+                  placeholder="Ghi nhận tiền sử dị ứng thuốc hoặc 'Không ghi nhận'..."
+                />
+              </div>
+            </div>
+
+            <div className="soap-modal-footer">
+              <button
+                type="button"
+                className="btn-soap-cancel"
+                onClick={handleResetOriginalSoap}
+                title="Khôi phục lại nội dung gốc được sinh bởi AI"
+              >
+                ↺ Nạp lại bản gốc từ AI
+              </button>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="btn-soap-cancel"
+                  onClick={() => setShowSoapModal(false)}
+                >
+                  Hủy bỏ / Giữ nguyên
+                </button>
+                <button
+                  type="button"
+                  className="btn-soap-confirm"
+                  onClick={handleConfirmApplySoapModal}
+                >
+                  <FileCheck size={16} /> Xác nhận & Tạo Phiếu khám EMR
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal xác nhận hoàn tất buổi khám */}
       {showConfirmModal && (
