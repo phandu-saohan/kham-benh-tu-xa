@@ -508,7 +508,7 @@ class SupportTicket(Base):
     department_id: Mapped[str] = mapped_column(String(50), index=True) # pacs, pharmacy, lab, it, insurance, nursing
     department_icon: Mapped[str | None] = mapped_column(String(50), default="HelpCircle", nullable=True)
     title: Mapped[str] = mapped_column(String(255))
-    patient_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    patient_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     patient_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     priority: Mapped[str] = mapped_column(String(20), default="normal") # urgent, high, normal
     status: Mapped[str] = mapped_column(String(30), default="pending") # pending, in_progress, resolved, closed

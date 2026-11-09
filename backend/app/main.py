@@ -5857,6 +5857,15 @@ def auto_migrate_schema():
                     conn.rollback()
                 except Exception:
                     pass
+        if is_postgres:
+            try:
+                conn.execute(text("ALTER TABLE support_tickets DROP CONSTRAINT IF EXISTS support_tickets_patient_id_fkey"))
+                conn.commit()
+            except Exception:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
         for col_name, col_type in rpm_columns:
             try:
                 conn.execute(text(f"ALTER TABLE rpm_vital_logs ADD COLUMN {col_name} {col_type}"))
