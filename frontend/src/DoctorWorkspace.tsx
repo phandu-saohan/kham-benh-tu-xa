@@ -115,10 +115,73 @@ export function DoctorWorkspace({
   const [isLocked, setIsLocked] = useState(false)
   const [patientData, setPatientData] = useState<any>(null)
 
-  // AI Ambient Medical Scribe (SOAP Notes)
+  // AI Ambient Medical Scribe (SOAP Notes) with Speech Recognition
   const [scribeTranscript, setScribeTranscript] = useState('')
   const [generatingSoap, setGeneratingSoap] = useState(false)
   const [soapResult, setSoapResult] = useState<any>(null)
+  const [isListening, setIsListening] = useState(false)
+  const recognitionRef = useRef<any>(null)
+
+  // Tự động nhận diện giọng nói tiếng Việt từ micro Web Speech API
+  useEffect(() => {
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (SpeechRec) {
+      try {
+        const rec = new SpeechRec()
+        rec.continuous = true
+        rec.interimResults = true
+        rec.lang = 'vi-VN'
+
+        rec.onresult = (event: any) => {
+          let text = ''
+          for (let i = 0; i < event.results.length; i++) {
+            text += event.results[i][0].transcript + ' '
+          }
+          if (text.trim()) {
+            setScribeTranscript(text.trim())
+          }
+        }
+
+        rec.onerror = (event: any) => {
+          console.warn('AI Scribe Speech recognition error:', event.error)
+          if (event.error !== 'no-speech') {
+            setIsListening(false)
+          }
+        }
+
+        rec.onend = () => {
+          setIsListening(false)
+        }
+
+        recognitionRef.current = rec
+      } catch (e) {
+        console.warn('SpeechRecognition init failed:', e)
+      }
+    }
+  }, [])
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) {
+      setToast('Trình duyệt chưa hỗ trợ Web Speech trực tiếp. Bạn có thể gõ nội dung hoặc bấm "Mẫu thoại"!')
+      return
+    }
+    if (isListening) {
+      try {
+        recognitionRef.current.stop()
+      } catch (e) {}
+      setIsListening(false)
+      setToast('Đã dừng lắng nghe cuộc trò chuyện.')
+    } else {
+      try {
+        recognitionRef.current.start()
+        setIsListening(true)
+        setToast('🎙️ AI Scribe đang tự động nghe cuộc hội thoại khám bệnh...')
+      } catch (err) {
+        console.warn('Could not start recognition:', err)
+        setIsListening(false)
+      }
+    }
+  }
   const [isRecording, setIsRecording] = useState(false)
 
   // Thông tin Chữ ký số & Đơn thuốc Quốc gia
@@ -350,10 +413,11 @@ export function DoctorWorkspace({
   async function loadRpmVitals() {
     try {
       setLoadingRpm(true)
-      const data = await getPatientRPMVitals(appointment.patient_id)
-      setRpmVitals(data)
+      const patientId = appointment.patient_id || 1
+      const data = await getPatientRPMVitals(patientId)
+      setRpmVitals(data || [])
     } catch (err: any) {
-      setError(err.message || 'Lỗi tải chỉ số sinh hiệu RPM')
+      console.warn('Could not load RPM vitals:', err)
     } finally {
       setLoadingRpm(false)
     }
@@ -1041,7 +1105,152 @@ export function DoctorWorkspace({
             </div>
           </div>
 
-          {/* Khối Sinh hiệu RPM IoT đặt trực tiếp dưới màn hình video khám */}
+          {/* 2. Trợ lý Y tế AI Scribe (Đặt trực tiếp trên Sinh hiệu RPM IoT) */}
+          <div className="doctor-ai-scribe-dock">
+            <div className="doctor-ai-scribe-header">
+              <div className="doctor-ai-scribe-title">
+                <div className="doctor-ai-scribe-badge">
+                  <Sparkles size={16} color="#ffffff" />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
+                      Trợ lý AI Scribe (Lắng nghe & Tạo bệnh án)
+                    </h4>
+                    {isListening ? (
+                      <span className="scribe-live-pill recording">
+                        <span className="live-dot" /> Đang nghe trực tiếp...
+                      </span>
+                    ) : (
+                      <span className="scribe-live-pill ready">
+                        <span className="live-dot" /> Sẵn sàng
+                      </span>
+                    )}
+                  </div>
+                  <span className="doctor-ai-scribe-sub">
+                    Tự động nghe hội thoại khám, trích xuất triệu chứng & tạo Phiếu khám chuẩn SOAP (QĐ 130/Bộ Y tế)
+                  </span>
+                </div>
+              </div>
+
+              <div className="doctor-ai-scribe-actions">
+                <button
+                  type="button"
+                  className={`btn-ai-listen ${isListening ? 'listening' : ''}`}
+                  onClick={toggleListening}
+                  title={isListening ? 'Bấm để dừng nghe' : 'Bật tự động nghe từ Mic cuộc gọi'}
+                >
+                  {isListening ? <MicOff size={13} /> : <Mic size={13} />}
+                  {isListening ? 'Dừng nghe' : 'Tự động nghe'}
+                </button>
+
+                <button
+                  type="button"
+                  className="btn-ai-analyze"
+                  onClick={handleAnalyzeAiScribe}
+                  disabled={generatingSoap || !scribeTranscript.trim()}
+                  title="AI phân tích hội thoại và biên soạn SOAP Notes"
+                >
+                  <Sparkles size={13} className={generatingSoap ? 'spin-icon' : ''} />
+                  {generatingSoap ? 'Đang tóm tắt...' : 'AI Tóm tắt & Tạo SOAP'}
+                </button>
+
+                {soapResult && (
+                  <button
+                    type="button"
+                    className="btn-ai-apply"
+                    onClick={handleApplySoapToRecord}
+                    title="Tự động điền dữ liệu vào Phiếu khám lâm sàng bên cột phải"
+                  >
+                    <FileCheck size={13} /> Đưa vào Phiếu khám EMR
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="btn-ai-sample"
+                  onClick={handleLoadSampleDialog}
+                  title="Tải kịch bản hội thoại mẫu bác sĩ - bệnh nhân"
+                >
+                  Mẫu thoại
+                </button>
+
+                {scribeTranscript && (
+                  <button
+                    type="button"
+                    className="btn-ai-clear"
+                    onClick={() => { setScribeTranscript(''); setSoapResult(null); }}
+                    title="Xóa hội thoại để nghe lượt mới"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Khung văn bản hội thoại trực tiếp */}
+            <div className="scribe-transcript-box">
+              <textarea
+                className="scribe-transcript-input"
+                rows={2}
+                placeholder="Hội thoại giữa Bác sĩ và Bệnh nhân sẽ tự động xuất hiện ở đây khi bật 'Tự động nghe' (hoặc bấm 'Mẫu thoại' để nạp cuộc trò chuyện mẫu)..."
+                value={scribeTranscript}
+                onChange={e => setScribeTranscript(e.target.value)}
+              />
+            </div>
+
+            {/* Khung tóm tắt SOAP & Gợi ý ICD-10 sau khi AI phân tích */}
+            {soapResult && (
+              <div className="scribe-soap-result-card">
+                <div className="scribe-soap-top">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <CheckCircle2 size={15} color="#16a34a" />
+                    <strong style={{ fontSize: '11.5px', color: '#0f172a' }}>
+                      Biên bản tóm tắt chuẩn SOAP (Đã phân tích từ hội thoại)
+                    </strong>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-apply-soap-inline"
+                    onClick={handleApplySoapToRecord}
+                  >
+                    <FileCheck size={12} /> Đưa vào Phiếu khám & Đơn thuốc &rarr;
+                  </button>
+                </div>
+
+                <div className="scribe-soap-grid">
+                  <div className="soap-block s">
+                    <span className="soap-tag">S - Triệu chứng cơ năng</span>
+                    <p>{soapResult.soap?.subjective || 'Chưa ghi nhận'}</p>
+                  </div>
+                  <div className="soap-block o">
+                    <span className="soap-tag">O - Khám khách quan / Video</span>
+                    <p>{soapResult.soap?.objective || 'Chưa ghi nhận'}</p>
+                  </div>
+                  <div className="soap-block a">
+                    <span className="soap-tag">A - Chẩn đoán & ICD-10</span>
+                    <p>
+                      <strong>{soapResult.soap?.assessment || 'Chưa rõ'}</strong>
+                      {soapResult.suggested_icd10_code && (
+                        <span className="icd-tag">
+                          [{soapResult.suggested_icd10_code}] {soapResult.suggested_icd10_name}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="soap-block p">
+                    <span className="soap-tag">P - Phác đồ & Đơn thuốc</span>
+                    <p>{soapResult.soap?.plan || 'Theo dõi'}</p>
+                    {soapResult.prescription_draft && (
+                      <div className="rx-preview">{soapResult.prescription_draft}</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Khối Sinh hiệu RPM IoT đặt trực tiếp dưới AI Scribe */}
           <div className="doctor-rpm-dock">
             <div className="doctor-rpm-header">
               <div className="doctor-rpm-title">
@@ -1196,13 +1405,7 @@ export function DoctorWorkspace({
             >
               <FileText size={16} /> Phiếu khám lâm sàng
             </button>
-            <button
-              className={`tab-btn ${activeTab === 'ai_scribe' ? 'active' : ''}`}
-              onClick={() => setActiveTab('ai_scribe')}
-              style={{ background: activeTab === 'ai_scribe' ? '#0f766e' : '#f0fdfa', color: activeTab === 'ai_scribe' ? '#fff' : '#0f766e', fontWeight: 600 }}
-            >
-              <Sparkles size={16} /> Trợ lý AI Scribe
-            </button>
+
             <button
               className={`tab-btn ${activeTab === 'chat' ? 'active' : ''}`}
               onClick={() => {
@@ -2013,139 +2216,6 @@ export function DoctorWorkspace({
               </div>
             )}
 
-            {/* TAB TRỢ LÝ Y TẾ AI (AMBIENT SCRIBE & SOAP NOTES) */}
-            {activeTab === 'ai_scribe' && (
-              <div className="form-section">
-                <div style={{ background: '#f0fdfa', border: '1px solid #99f6e4', padding: '16px', borderRadius: '8px', marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0f766e', fontWeight: 600 }}>
-                    <Sparkles size={20} />
-                    <span>Trợ lý Y tế AI (Ambient Clinical Scribe)</span>
-                  </div>
-                  <p style={{ margin: '6px 0 12px', fontSize: '13px', color: '#115e59' }}>
-                    Tự động nhận diện cuộc trò chuyện giữa Bác sĩ và Bệnh nhân, trích xuất triệu chứng và biên soạn biên bản khám chuẩn <strong>SOAP Notes</strong> (Subjective - Objective - Assessment - Plan) kèm gợi ý mã ICD-10.
-                  </p>
-                  
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      onClick={handleLoadSampleDialog}
-                      style={{ padding: '6px 12px', fontSize: '13px', background: '#fff', border: '1px solid #14b8a6', color: '#0f766e', borderRadius: '6px', cursor: 'pointer', fontWeight: 500 }}
-                    >
-                      📝 Nạp hội thoại mẫu (Sốt, ho đờm, rát họng)
-                    </button>
-                    {scribeTranscript && (
-                      <button
-                        type="button"
-                        onClick={() => { setScribeTranscript(''); setSoapResult(null); }}
-                        style={{ padding: '6px 12px', fontSize: '13px', background: '#fee2e2', border: '1px solid #f87171', color: '#b91c1c', borderRadius: '6px', cursor: 'pointer' }}
-                      >
-                        Xóa hội thoại
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="field-group">
-                  <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>Nội dung hội thoại bác sĩ - bệnh nhân:</span>
-                    <span style={{ fontSize: '12px', color: '#64748b' }}>Hỗ trợ nhận dạng giọng nói hoặc dán văn bản</span>
-                  </label>
-                  <textarea
-                    rows={6}
-                    placeholder="Nhập hoặc paste nội dung trao đổi lâm sàng giữa bác sĩ và bệnh nhân tại đây..."
-                    value={scribeTranscript}
-                    onChange={e => setScribeTranscript(e.target.value)}
-                    style={{ fontFamily: 'inherit', fontSize: '13px', lineHeight: 1.6 }}
-                  />
-                </div>
-
-                <div style={{ margin: '14px 0' }}>
-                  <button
-                    type="button"
-                    onClick={handleAnalyzeAiScribe}
-                    disabled={generatingSoap || !scribeTranscript.trim()}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: generatingSoap ? '#94a3b8' : '#0f766e',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: '8px',
-                      fontWeight: 600,
-                      cursor: generatingSoap ? 'not-allowed' : 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      boxShadow: '0 2px 4px rgba(15,118,110,0.2)'
-                    }}
-                  >
-                    <Sparkles size={18} />
-                    {generatingSoap ? 'Đang phân tích lâm sàng & tạo SOAP Notes...' : '✨ Phân tích AI & Tạo SOAP Notes'}
-                  </button>
-                </div>
-
-                {soapResult && (
-                  <div style={{ marginTop: '20px', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
-                    <div style={{ background: '#0f766e', color: '#fff', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 600 }}>Biên bản khám lâm sàng chuẩn SOAP (AI Generated)</span>
-                      <button
-                        type="button"
-                        onClick={handleApplySoapToRecord}
-                        style={{
-                          background: '#fef08a',
-                          color: '#854d0e',
-                          border: 'none',
-                          padding: '6px 14px',
-                          borderRadius: '6px',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          fontSize: '13px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        ⚡ Áp dụng vào bệnh án & đơn thuốc
-                      </button>
-                    </div>
-
-                    <div style={{ padding: '16px', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <div style={{ background: '#fff', padding: '12px', borderRadius: '6px', borderLeft: '4px solid #3b82f6' }}>
-                        <strong style={{ color: '#1d4ed8' }}>S (Subjective - Triệu chứng cơ năng):</strong>
-                        <p style={{ margin: '6px 0 0', fontSize: '13px', whiteSpace: 'pre-wrap' }}>{soapResult.soap.subjective}</p>
-                      </div>
-
-                      <div style={{ background: '#fff', padding: '12px', borderRadius: '6px', borderLeft: '4px solid #10b981' }}>
-                        <strong style={{ color: '#047857' }}>O (Objective - Triệu chứng thực thể qua Telehealth):</strong>
-                        <p style={{ margin: '6px 0 0', fontSize: '13px', whiteSpace: 'pre-wrap' }}>{soapResult.soap.objective}</p>
-                      </div>
-
-                      <div style={{ background: '#fff', padding: '12px', borderRadius: '6px', borderLeft: '4px solid #f59e0b' }}>
-                        <strong style={{ color: '#b45309' }}>A (Assessment - Đánh giá & Chẩn đoán):</strong>
-                        <p style={{ margin: '6px 0 6px', fontSize: '13px' }}>{soapResult.soap.assessment}</p>
-                        {soapResult.suggested_icd10_code && (
-                          <span style={{ background: '#fef3c7', color: '#92400e', padding: '3px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600 }}>
-                            Mã ICD-10 đề xuất: [{soapResult.suggested_icd10_code}] {soapResult.suggested_icd10_name}
-                          </span>
-                        )}
-                      </div>
-
-                      <div style={{ background: '#fff', padding: '12px', borderRadius: '6px', borderLeft: '4px solid #8b5cf6' }}>
-                        <strong style={{ color: '#6d28d9' }}>P (Plan - Hướng xử trí & Toa thuốc):</strong>
-                        <p style={{ margin: '6px 0 8px', fontSize: '13px', whiteSpace: 'pre-wrap' }}>{soapResult.soap.plan}</p>
-                        {soapResult.prescription_draft && (
-                          <div style={{ background: '#f5f3ff', padding: '8px', borderRadius: '4px', fontSize: '12px', color: '#4c1d95', border: '1px dashed #c4b5fd' }}>
-                            <b>Đơn thuốc khuyến nghị:</b>
-                            <pre style={{ margin: '4px 0 0', fontFamily: 'inherit', whiteSpace: 'pre-wrap' }}>{soapResult.prescription_draft}</pre>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
 
             {activeTab === 'prescription' && (
               <PrescriptionBuilder

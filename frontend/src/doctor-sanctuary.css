@@ -2375,3 +2375,331 @@
     flex: 0 0 240px;
   }
 }
+
+
+/* =========================================================================
+   AI SCRIBE DOCK (IN LEFT COLUMN ABOVE RPM IOT)
+   ========================================================================= */
+
+.doctor-ai-scribe-dock {
+  background: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+}
+
+.doctor-ai-scribe-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.doctor-ai-scribe-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.doctor-ai-scribe-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(15, 118, 110, 0.25);
+}
+
+.doctor-ai-scribe-sub {
+  display: block;
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+.scribe-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.scribe-live-pill.ready {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.scribe-live-pill.ready .live-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+
+.scribe-live-pill.recording {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.scribe-live-pill.recording .live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #dc2626;
+  box-shadow: 0 0 6px #dc2626;
+  animation: pulse-red 1.2s infinite;
+}
+
+@keyframes pulse-red {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.8; }
+}
+
+.doctor-ai-scribe-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btn-ai-listen {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-ai-listen:hover {
+  background: #0369a1;
+}
+
+.btn-ai-listen.listening {
+  background: #dc2626;
+}
+
+.btn-ai-analyze {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #0f766e;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-ai-analyze:hover {
+  background: #115e59;
+}
+
+.btn-ai-analyze:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
+.btn-ai-apply {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #4338ca;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-ai-apply:hover {
+  background: #3730a3;
+}
+
+.btn-ai-sample {
+  display: inline-flex;
+  align-items: center;
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-ai-sample:hover {
+  background: #f1f5f9;
+}
+
+.btn-ai-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-ai-clear:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+/* Transcript Box */
+.scribe-transcript-box {
+  position: relative;
+  width: 100%;
+}
+
+.scribe-transcript-input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: #1e293b;
+  font-family: inherit;
+  resize: vertical;
+  background: #ffffff;
+  box-sizing: border-box;
+  min-height: 52px;
+}
+
+.scribe-transcript-input:focus {
+  outline: none;
+  border-color: #0f766e;
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.15);
+}
+
+/* SOAP Result Card */
+.scribe-soap-result-card {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.scribe-soap-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 6px;
+}
+
+.btn-apply-soap-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #0f766e;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-apply-soap-inline:hover {
+  background: #115e59;
+}
+
+/* 4 SOAP Blocks */
+.scribe-soap-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.soap-block {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.soap-block.s { border-left: 3px solid #0284c7; }
+.soap-block.o { border-left: 3px solid #f59e0b; }
+.soap-block.a { border-left: 3px solid #10b981; }
+.soap-block.p { border-left: 3px solid #8b5cf6; }
+
+.soap-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.soap-block p {
+  margin: 0;
+  font-size: 11px;
+  color: #1e293b;
+  line-height: 1.35;
+}
+
+.icd-tag {
+  display: inline-block;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-left: 4px;
+  border: 1px solid #a7f3d0;
+}
+
+.rx-preview {
+  margin-top: 4px;
+  background: #f1f5f9;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  color: #334155;
+  white-space: pre-wrap;
+  font-family: monospace;
+}
