@@ -1017,7 +1017,7 @@
 
 .workspace-split {
   display: grid;
-  grid-template-columns: 44% 56%;
+  grid-template-columns: 6fr 4fr;
   height: calc(100vh - 64px);
   overflow: hidden;
   background: #f1f5f9;
@@ -2183,11 +2183,23 @@
   color: #0f172a;
 }
 
-/* 4 Metrics Grid (2x2) */
+/* 4 Metrics Grid (4 columns across) */
 .doctor-rpm-metrics-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
+}
+
+@media (max-width: 1200px) {
+  .doctor-rpm-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .doctor-rpm-metrics-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .doctor-rpm-card {
