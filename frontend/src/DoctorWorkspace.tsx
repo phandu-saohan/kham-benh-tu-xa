@@ -1040,6 +1040,151 @@ export function DoctorWorkspace({
               </div>
             </div>
           </div>
+
+          {/* Khối Sinh hiệu RPM IoT đặt trực tiếp dưới màn hình video khám */}
+          <div className="doctor-rpm-dock">
+            <div className="doctor-rpm-header">
+              <div className="doctor-rpm-title">
+                <div className="doctor-rpm-icon-badge">
+                  <HeartPulse size={18} color="#ffffff" />
+                </div>
+                <div>
+                  <h4>Sinh hiệu RPM IoT (Theo dõi từ xa)</h4>
+                  <span className="doctor-rpm-sub">
+                    Kết nối trực tiếp thiết bị Bluetooth của bệnh nhân (Omron, Accu-Chek, SpO2)
+                  </span>
+                </div>
+              </div>
+              <div className="doctor-rpm-actions">
+                <button
+                  type="button"
+                  className="btn-apply-rpm"
+                  onClick={handleApplyRpmToRecord}
+                  title="Đưa toàn bộ chỉ số sinh hiệu vào Bệnh án EMR"
+                >
+                  <FileCheck size={13} /> Đưa vào Bệnh án
+                </button>
+                <button
+                  type="button"
+                  className="btn-refresh-rpm"
+                  onClick={loadRpmVitals}
+                  disabled={loadingRpm}
+                  title="Tải lại chỉ số mới nhất"
+                >
+                  <RefreshCw size={13} className={loadingRpm ? 'spin-icon' : ''} />
+                </button>
+              </div>
+            </div>
+
+            {/* Dashboard 4 chỉ số sinh hiệu thời gian thực */}
+            <div className="doctor-rpm-metrics-grid">
+              {/* Huyết áp */}
+              <div className="doctor-rpm-card bp">
+                <div className="rpm-card-top">
+                  <span className="rpm-card-label">Huyết áp (Omron BLE)</span>
+                  <span className="rpm-card-badge">Tự động</span>
+                </div>
+                <div className="rpm-card-val">
+                  {rpmVitals.find(v => v.systolic)?.systolic || 128} / {rpmVitals.find(v => v.diastolic)?.diastolic || 82}
+                  <small> mmHg</small>
+                </div>
+                <div className="rpm-card-status good">
+                  🟢 Mạch: <strong>{rpmVitals.find(v => v.pulse)?.pulse || 74}</strong> bpm · Ổn định
+                </div>
+              </div>
+
+              {/* Đường huyết */}
+              <div className="doctor-rpm-card glucose">
+                <div className="rpm-card-top">
+                  <span className="rpm-card-label">Đường huyết (Accu-Chek)</span>
+                  <span className="rpm-card-badge">Mao mạch</span>
+                </div>
+                <div className="rpm-card-val">
+                  {rpmVitals.find(v => v.glucose_value)?.glucose_value || 5.8}
+                  <small> mmol/L</small>
+                </div>
+                <div className="rpm-card-status good">🟢 Đường huyết đói tốt</div>
+              </div>
+
+              {/* SpO2 */}
+              <div className="doctor-rpm-card spo2">
+                <div className="rpm-card-top">
+                  <span className="rpm-card-label">Bão hòa Oxy (SpO2)</span>
+                  <span className="rpm-card-badge">Oximeter</span>
+                </div>
+                <div className="rpm-card-val">
+                  {rpmVitals.find(v => v.spo2_percent)?.spo2_percent || 98.5}
+                  <small> %</small>
+                </div>
+                <div className="rpm-card-status good">🟢 Bão hòa oxy tối ưu</div>
+              </div>
+
+              {/* Nhịp tim */}
+              <div className="doctor-rpm-card hr">
+                <div className="rpm-card-top">
+                  <span className="rpm-card-label">Nhịp tim (Pulse)</span>
+                  <span className="rpm-card-badge">ECG/Vòng</span>
+                </div>
+                <div className="rpm-card-val">
+                  {rpmVitals.find(v => v.pulse)?.pulse || 74}
+                  <small> bpm</small>
+                </div>
+                <div className="rpm-card-status good">🟢 Nhịp xoang đều</div>
+              </div>
+            </div>
+
+            {/* Bảng lịch sử đo sinh hiệu rút gọn */}
+            <div className="doctor-rpm-history-box">
+              <div className="doctor-rpm-history-header">
+                <span className="history-title">
+                  Lịch sử đo gần nhất ({rpmVitals.length} bản ghi):
+                </span>
+                <span className="rpm-live-dot-tag">
+                  <span className="live-dot" /> Đồng bộ BLE
+                </span>
+              </div>
+              <div className="doctor-rpm-table-scroll">
+                <table className="doctor-rpm-mini-table">
+                  <thead>
+                    <tr>
+                      <th>Thời gian</th>
+                      <th>Thiết bị</th>
+                      <th>Chỉ số</th>
+                      <th>Đánh giá</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rpmVitals.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} style={{ textAlign: 'center', color: '#94a3b8', padding: '12px' }}>
+                          Chưa có bản ghi sinh hiệu nào từ thiết bị bệnh nhân.
+                        </td>
+                      </tr>
+                    ) : (
+                      rpmVitals.slice(0, 10).map(v => (
+                        <tr key={v.id}>
+                          <td>{new Date(v.measured_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} {new Date(v.measured_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}</td>
+                          <td><strong>{v.device_name?.replace(' Smart BP (Đo tại nhà)', '')?.replace(' (Đo tại nhà)', '') || 'Omron BLE'}</strong></td>
+                          <td>
+                            {v.systolic && <span>HA: <strong>{v.systolic}/{v.diastolic}</strong> </span>}
+                            {v.glucose_value && <span>ĐH: <strong>{v.glucose_value}</strong> </span>}
+                            {v.spo2_percent && <span>SpO2: <strong>{v.spo2_percent}%</strong> </span>}
+                          </td>
+                          <td>
+                            {v.is_warning ? (
+                              <span className="rpm-badge-warning">⚠️ {v.warning_message || 'Bất thường'}</span>
+                            ) : (
+                              <span className="rpm-badge-normal">✅ Tốt</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Right Pane: Clinical Documentation Workspace */}
@@ -1144,16 +1289,7 @@ export function DoctorWorkspace({
             >
               <Users size={16} /> Hội chẩn Liên viện
             </button>
-            <button
-              className={`tab-btn ${activeTab === 'rpm' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab('rpm')
-                loadRpmVitals()
-              }}
-              style={{ background: activeTab === 'rpm' ? '#be185d' : undefined, color: activeTab === 'rpm' ? '#fff' : undefined }}
-            >
-              <HeartPulse size={16} /> Sinh hiệu RPM IoT
-            </button>
+
           </div>
 
           <div className="clinical-content">
@@ -3035,115 +3171,6 @@ export function DoctorWorkspace({
               </div>
             )}
 
-            {/* TAB GIÁM SÁT SINH HIỆU TỪ XA (RPM IoT) */}
-            {activeTab === 'rpm' && (
-              <div className="form-section rpm-section">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fdf2f8', border: '1px solid #fbcfe8', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ background: '#be185d', color: '#fff', borderRadius: '10px', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <HeartPulse size={24} />
-                    </div>
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: '17px', color: '#831843' }}>Giám sát Sinh hiệu Từ xa (RPM IoT)</h3>
-                      <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#9d174d' }}>
-                        Dữ liệu truyền theo thời gian thực từ thiết bị Bluetooth đo tại nhà của bệnh nhân (Omron, Accu-Chek, SpO2)
-                      </p>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      className="primary"
-                      onClick={handleApplyRpmToRecord}
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', background: '#be185d' }}
-                    >
-                      <FileCheck size={14} /> Đưa Sinh Hiệu Vào Bệnh Án
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={loadRpmVitals}
-                      disabled={loadingRpm}
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
-                    >
-                      <RefreshCw size={14} /> Làm mới
-                    </button>
-                  </div>
-                </div>
-
-                {/* Dashboard chỉ số mới nhất */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '18px' }}>
-                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', borderLeft: '4px solid #ef4444' }}>
-                    <span style={{ fontSize: '11px', color: '#64748b' }}>Huyết áp (Omron BLE)</span>
-                    <div style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>
-                      {rpmVitals.find(v => v.systolic)?.systolic || 128} / {rpmVitals.find(v => v.diastolic)?.diastolic || 82} <small style={{ fontSize: '12px', fontWeight: 500 }}>mmHg</small>
-                    </div>
-                    <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600 }}>🟢 Tiền tăng huyết áp nhẹ - Ổn định</span>
-                  </div>
-
-                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', borderLeft: '4px solid #f59e0b' }}>
-                    <span style={{ fontSize: '11px', color: '#64748b' }}>Đường huyết (Accu-Chek)</span>
-                    <div style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>
-                      {rpmVitals.find(v => v.glucose_value)?.glucose_value || 5.8} <small style={{ fontSize: '12px', fontWeight: 500 }}>mmol/L</small>
-                    </div>
-                    <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600 }}>🟢 Đường huyết đói tốt</span>
-                  </div>
-
-                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', borderLeft: '4px solid #0284c7' }}>
-                    <span style={{ fontSize: '11px', color: '#64748b' }}>Nồng độ Oxy (SpO2)</span>
-                    <div style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>
-                      {rpmVitals.find(v => v.spo2_percent)?.spo2_percent || 98.5} <small style={{ fontSize: '12px', fontWeight: 500 }}>%</small>
-                    </div>
-                    <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600 }}>🟢 Bão hòa oxy tối ưu</span>
-                  </div>
-
-                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', borderLeft: '4px solid #8b5cf6' }}>
-                    <span style={{ fontSize: '11px', color: '#64748b' }}>Nhịp tim (Pulse)</span>
-                    <div style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>
-                      {rpmVitals.find(v => v.pulse)?.pulse || 74} <small style={{ fontSize: '12px', fontWeight: 500 }}>bpm</small>
-                    </div>
-                    <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600 }}>🟢 Nhịp xoang đều</span>
-                  </div>
-                </div>
-
-                {/* Bảng lịch sử đo */}
-                <h4 style={{ margin: '0 0 10px', fontSize: '14px', color: '#1e293b' }}>Lịch sử đo sinh hiệu của bệnh nhân ({rpmVitals.length} lần đo)</h4>
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                    <thead>
-                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#64748b' }}>
-                        <th style={{ padding: '8px 12px' }}>Thời gian</th>
-                        <th style={{ padding: '8px 12px' }}>Thiết bị</th>
-                        <th style={{ padding: '8px 12px' }}>Chỉ số đo</th>
-                        <th style={{ padding: '8px 12px' }}>Phương thức</th>
-                        <th style={{ padding: '8px 12px' }}>Đánh giá an toàn</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rpmVitals.map(v => (
-                        <tr key={v.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '8px 12px', color: '#334155' }}>{new Date(v.measured_at).toLocaleString('vi-VN')}</td>
-                          <td style={{ padding: '8px 12px', fontWeight: 600 }}>{v.device_name}</td>
-                          <td style={{ padding: '8px 12px' }}>
-                            {v.systolic && <span>Huyết áp: <strong>{v.systolic}/{v.diastolic}</strong> mmHg (Mạch: {v.pulse} bpm) </span>}
-                            {v.glucose_value && <span>Đường huyết: <strong>{v.glucose_value}</strong> mmol/L </span>}
-                            {v.spo2_percent && <span>SpO2: <strong>{v.spo2_percent}</strong>% </span>}
-                          </td>
-                          <td style={{ padding: '8px 12px', color: '#0369a1' }}>📱 Bluetooth BLE</td>
-                          <td style={{ padding: '8px 12px' }}>
-                            {v.is_warning ? (
-                              <span style={{ color: '#dc2626', fontWeight: 700 }}>⚠️ {v.warning_message || 'Bất thường'}</span>
-                            ) : (
-                              <span style={{ color: '#16a34a', fontWeight: 600 }}>✅ Bình thường</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
