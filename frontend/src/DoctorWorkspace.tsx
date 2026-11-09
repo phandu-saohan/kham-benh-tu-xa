@@ -1661,20 +1661,6 @@ export function DoctorWorkspace({
                   </div>
                 </div>
 
-                {/* Banner Chữ ký số nếu đã ký */}
-                {signatureInfo && (
-                  <div className="smartca-signature-card">
-                    <div className="ca-icon">
-                      <ShieldCheck size={28} color="#0f766e" />
-                    </div>
-                    <div className="ca-details">
-                      <b>Đã ký số bằng chứng thư số VNPT SmartCA</b>
-                      <small>Người ký: {signatureInfo.signer_name} (CCHN: {signatureInfo.signer_cchn})</small>
-                      <small>Serial: {signatureInfo.cert_serial} · Thời gian: {new Date(signatureInfo.signed_at || signatureInfo.timestamp).toLocaleString('vi-VN')}</small>
-                    </div>
-                  </div>
-                )}
-
                 <div className="field-group">
                   <label>1. Lý do khám & Triệu chứng cơ năng (Chief Complaint)</label>
                   <textarea
