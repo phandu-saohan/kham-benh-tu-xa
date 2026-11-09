@@ -568,74 +568,10 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
 
   return (
     <div className="pr-viewport">
-      <div className="pr-container">
-        {/* CỘT TRÁI: Nhận diện thương hiệu Y tế & Tiêu chuẩn Quốc gia */}
-        <div className="pr-sidebar">
-          <div>
-            <div className="pr-brand-lockup">
-              <div className="pr-brand-icon">
-                <HeartPulse size={24} color="#ffffff" />
-              </div>
-              <div>
-                <span className="pr-brand-name">CareConnect</span>
-                <span className="pr-brand-sub">HỒ SƠ SỨC KHỎE ĐIỆN TỬ</span>
-              </div>
-            </div>
-
-            <div className="pr-hero">
-              <div className="pr-badge-pill">
-                <Sparkles size={12} />
-                <span>LIÊN THÔNG HIS & ĐỀ ÁN 06/CP</span>
-              </div>
-              <h2>Hồ Sơ Y Tế Số Điện Tử Chuẩn QĐ 2682/QĐ-BYT</h2>
-              <p>
-                Tự động quét mã QR trên CCCD, đối soát với HIS/EMR bệnh viện, đồng bộ lịch sử khám chữa bệnh và quyền lợi BHYT.
-              </p>
-            </div>
-
-            <div className="pr-features-list">
-              <div className="pr-feature-item">
-                <div className="pr-feature-icon">
-                  <QrCode size={16} />
-                </div>
-                <div>
-                  <strong>Quét Mã QR Trên Thẻ CCCD</strong>
-                  <span>Tự động giải mã và điền đầy đủ Họ tên, CCCD, Ngày sinh, Giới tính, Địa chỉ.</span>
-                </div>
-              </div>
-
-              <div className="pr-feature-item">
-                <div className="pr-feature-icon">
-                  <ShieldCheck size={16} />
-                </div>
-                <div>
-                  <strong>Bảo vệ dữ liệu Nghị định 13/2023</strong>
-                  <span>Hồ sơ y bạ được mã hóa an toàn, phân quyền và xác thực đa lớp.</span>
-                </div>
-              </div>
-
-              <div className="pr-feature-item">
-                <div className="pr-feature-icon">
-                  <Building2 size={16} />
-                </div>
-                <div>
-                  <strong>Cấp Mã PID Y Tế Bệnh Viện</strong>
-                  <span>Đồng bộ thẻ BHYT và kết nối phòng khám Telehealth với bác sĩ chuyên khoa.</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="pr-sidebar-footer">
-            <button type="button" className="pr-btn-sidebar-login" onClick={onBackToLogin}>
-              <ArrowLeft size={15} />
-              <span>Đã có tài khoản? Đăng nhập ngay</span>
-            </button>
-          </div>
-        </div>
-
-        {/* CỘT PHẢI: Form Đăng Ký 3 Bước */}
-        <div className="pr-main">
+      <div className="pr-single-column">
+        
+        {/* Top Header & Brand Lockup (Single Column Centered) */}
+        <header className="pr-single-header">
           <div className="pr-topbar">
             <button type="button" className="pr-back-link" onClick={onBackToLogin}>
               <ArrowLeft size={15} />
@@ -647,11 +583,32 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
             </div>
           </div>
 
-          <div className="pr-header">
+          <div className="pr-brand-banner">
+            <div className="pr-brand-lockup">
+              <div className="pr-brand-icon">
+                <HeartPulse size={24} color="#ffffff" />
+              </div>
+              <div className="pr-brand-text">
+                <span className="pr-brand-name">CareConnect</span>
+                <span className="pr-brand-sub">HỒ SƠ SỨC KHỎE ĐIỆN TỬ</span>
+              </div>
+            </div>
+            
+            <div className="pr-compliance-pills">
+              <span className="pr-pill"><Sparkles size={12} color="#0d9488" /> Đề án 06/CP</span>
+              <span className="pr-pill"><ShieldCheck size={12} color="#059669" /> Chuẩn QĐ 2682 & QĐ 130</span>
+              <span className="pr-pill"><Shield size={12} color="#0284c7" /> NĐ 13/2023/NĐ-CP</span>
+            </div>
+          </div>
+
+          <div className="pr-header-title-box">
             <h1>Đăng Ký Hồ Sơ Sức Khỏe Điện Tử</h1>
             <p>Khởi tạo hồ sơ bệnh nhân liên thông hệ thống HIS Bệnh viện & Cổng BHYT Quốc gia</p>
           </div>
+        </header>
 
+        {/* Main Single Column Card */}
+        <main className="pr-single-card">
           {/* Stepper Bar 3 Bước */}
           <div className="pr-stepper">
             <div
@@ -1351,7 +1308,19 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
               </div>
             </form>
           )}
-        </div>
+        </main>
+
+        {/* Single Column Footer */}
+        <footer className="pr-single-footer">
+          <button type="button" className="pr-btn-link-login" onClick={onBackToLogin}>
+            <ArrowLeft size={14} />
+            <span>Đã có tài khoản y bạ? <strong>Đăng nhập ngay</strong></span>
+          </button>
+          <div className="pr-footer-info">
+            <span>Hotline hỗ trợ kỹ thuật: <strong>1900 8888</strong> &bull; CareConnect Telemedicine</span>
+          </div>
+        </footer>
+
       </div>
     </div>
   )

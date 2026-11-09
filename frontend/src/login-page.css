@@ -1,221 +1,166 @@
 /* =========================================================================
-   Clinical Sanctuary - Comprehensive Login Page Styles
-   Standard: c:\Users\design1saohan\Downloads\stitch_mobile_app_ui_design\DESIGN.md
+   Clinical Sanctuary - Single Column Login Page Styles
+   Layout: 1 Column Centered Card
+   Standard: 8px Card Radius | 6px Button/Input Radius | 'Plus Jakarta Sans'
    ========================================================================= */
+
+:root {
+  --cs-font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --cs-primary: #0f766e;
+  --cs-primary-hover: #0d9488;
+  --cs-primary-dark: #115e59;
+  --cs-primary-light: #f0fdfa;
+  --cs-primary-border: #99f6e4;
+  --cs-bg: #f8fafc;
+  --cs-surface: #ffffff;
+  --cs-border: #e2e8f0;
+  --cs-text-main: #0f172a;
+  --cs-text-body: #334155;
+  --cs-text-muted: #64748b;
+  --cs-radius-card: 8px;
+  --cs-radius-control: 6px;
+  --cs-radius-pill: 9999px;
+}
 
 .cs-login-viewport {
   min-height: 100vh;
-  background-color: var(--cs-background, #f8f9ff);
+  background-color: var(--cs-bg);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(15, 118, 110, 0.06) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(2, 132, 199, 0.06) 0px, transparent 50%);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px 20px;
+  padding: 32px 16px;
   box-sizing: border-box;
-  font-family: var(--cs-font-family, 'Plus Jakarta Sans', system-ui, sans-serif);
-  color: var(--cs-on-surface, #0b1c30);
-  position: relative;
-  overflow-x: hidden;
+  font-family: var(--cs-font-family);
+  color: var(--cs-text-body);
 }
 
-.cs-login-layout {
-  width: 100%;
-  max-width: 1080px;
-  min-height: 660px;
-  background: var(--cs-surface-container-lowest, #ffffff);
-  border-radius: var(--cs-radius-xl, 24px);
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 16px 40px -10px rgba(15, 23, 42, 0.08), 0 0 1px 1px rgba(14, 116, 144, 0.04);
-  display: grid;
-  grid-template-columns: 380px 1fr;
-  overflow: hidden;
+.cs-login-viewport * {
+  box-sizing: border-box;
+  font-family: var(--cs-font-family);
 }
 
 /* =========================================================================
-   LEFT COLUMN: Clinical Brand & Reassurance Sanctuary Sidebar
+   SINGLE COLUMN WRAPPER (Max 480px, Centered)
    ========================================================================= */
-
-.cs-login-sidebar {
-  background: linear-gradient(165deg, #004d62 0%, #005a71 45%, #0e7490 100%);
-  color: #ffffff;
-  padding: 40px 32px;
+.cs-login-single-column {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  position: relative;
-  overflow: hidden;
+  gap: 18px;
 }
 
-.cs-login-sidebar::after {
-  content: '';
-  position: absolute;
-  right: -60px;
-  top: -60px;
-  width: 220px;
-  height: 220px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(129, 209, 240, 0.25) 0%, transparent 70%);
-  pointer-events: none;
+/* Brand Header */
+.cs-login-brand-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
 }
 
 .cs-brand-lockup {
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: center;
+  gap: 12px;
 }
 
 .cs-brand-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+  box-shadow: 0 4px 12px rgba(15, 118, 110, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.cs-brand-text {
+  text-align: left;
 }
 
 .cs-brand-name {
   display: block;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.4px;
-  color: #ffffff;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #0f172a;
+  line-height: 1.1;
 }
 
 .cs-brand-sub {
   display: block;
-  font-size: 11.5px;
-  color: var(--cs-primary-fixed, #b9eaff);
-  font-weight: 500;
+  font-size: 12px;
+  color: #0f766e;
+  font-weight: 600;
   letter-spacing: 0.2px;
 }
 
-.cs-reassurance-hero {
-  margin: 32px 0 24px;
-}
-
-.cs-reassurance-hero h2 {
-  font-size: 23px;
-  font-weight: 700;
-  line-height: 1.32;
-  margin: 0 0 12px 0;
-  color: #ffffff;
-  letter-spacing: -0.3px;
-}
-
-.cs-reassurance-hero p {
-  font-size: 13px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.85);
-  margin: 0;
-}
-
-.cs-pillars-list {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-bottom: 24px;
-}
-
-.cs-pillar-item {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: var(--cs-radius-md, 12px);
-  padding: 12px 14px;
-}
-
-.cs-pillar-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.18);
+.cs-login-badge-row {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  color: #ffffff;
-}
-
-.cs-pillar-item strong {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: #ffffff;
-  margin-bottom: 2px;
-}
-
-.cs-pillar-item p {
-  font-size: 11.5px;
-  line-height: 1.45;
-  color: rgba(255, 255, 255, 0.78);
-  margin: 0;
-}
-
-.cs-sidebar-footer {
-  display: flex;
-  flex-direction: column;
   gap: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
-  padding-top: 16px;
+  flex-wrap: wrap;
+  margin-top: 2px;
 }
 
-.cs-hotline-pill {
+.cs-badge-compliance {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12.5px;
-  color: #ffffff;
-}
-
-.cs-hotline-pill strong {
-  color: var(--cs-tertiary-fixed, #6ffbbe);
-}
-
-.cs-version-tag {
+  gap: 5px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+  color: #475569;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--cs-radius-pill);
+  padding: 3px 10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 /* =========================================================================
-   RIGHT COLUMN: Interactive Clinical Sanctuary Login Portal
+   LOGIN CARD (Single Column Focus)
    ========================================================================= */
-
-.cs-login-main {
-  padding: 36px 40px;
+.cs-login-card {
+  width: 100%;
+  background: var(--cs-surface);
+  border-radius: var(--cs-radius-card);
+  border: 1px solid var(--cs-border);
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  padding: 24px 26px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  overflow-y: auto;
-  max-height: 88vh;
-  box-sizing: border-box;
+  gap: 16px;
 }
 
 /* Dual Portal Switcher Tabs */
 .cs-portal-switcher {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  background: var(--cs-surface-container-low, #eff4ff);
-  border: 1px solid var(--cs-surface-container-high, #dce9ff);
-  border-radius: var(--cs-radius-md, 12px);
-  padding: 5px;
-  margin-bottom: 24px;
+  gap: 6px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--cs-radius-control);
+  padding: 4px;
 }
 
 .cs-portal-tab {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 10px 14px;
+  gap: 8px;
+  padding: 8px 10px;
   background: transparent;
   border: none;
-  border-radius: var(--cs-radius-default, 8px);
+  border-radius: var(--cs-radius-control);
   cursor: pointer;
   color: #64748b;
   transition: all 0.2s ease;
@@ -223,13 +168,14 @@
 }
 
 .cs-portal-tab:hover {
-  color: var(--cs-primary, #005a71);
+  color: var(--cs-primary);
 }
 
 .cs-portal-tab.active {
   background: #ffffff;
-  color: var(--cs-primary, #005a71);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  color: var(--cs-primary);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+  font-weight: 700;
 }
 
 .cs-tab-labels {
@@ -239,44 +185,44 @@
 }
 
 .cs-tab-title {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
   line-height: 1.2;
 }
 
 .cs-tab-sub {
-  font-size: 10.5px;
+  font-size: 10px;
   color: #64748b;
   font-weight: 500;
 }
 
 .cs-portal-tab.active .cs-tab-sub {
-  color: var(--cs-primary-container, #0e7490);
+  color: var(--cs-primary);
 }
 
 /* Portal Content & Header */
 .cs-portal-content {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 
 .cs-portal-header {
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .cs-portal-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: var(--cs-surface-container-low, #eff4ff);
-  padding: 4px 12px;
-  border-radius: var(--cs-radius-full, 9999px);
-  font-size: 11.5px;
+  background: #f0fdfa;
+  padding: 3px 10px;
+  border-radius: var(--cs-radius-pill);
+  font-size: 11px;
   font-weight: 600;
-  color: var(--cs-primary-container, #0e7490);
-  border: 1px solid var(--cs-surface-container-high, #dce9ff);
-  margin-bottom: 10px;
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+  margin-bottom: 6px;
 }
 
 .cs-portal-badge.staff {
@@ -286,10 +232,10 @@
 }
 
 .cs-dot-live {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background-color: var(--cs-tertiary-container, #007a53);
+  background-color: #0d9488;
   animation: csPulse 2s infinite ease-in-out;
 }
 
@@ -304,40 +250,42 @@
 }
 
 .cs-portal-header h1 {
-  font-size: 24px;
+  font-size: 19px;
   font-weight: 700;
-  color: var(--cs-on-surface, #0b1c30);
-  letter-spacing: -0.4px;
-  margin: 0 0 6px 0;
+  color: var(--cs-text-main);
+  letter-spacing: -0.3px;
+  margin: 0 0 4px 0;
 }
 
 .cs-portal-header p {
-  font-size: 13px;
-  color: var(--cs-on-surface-variant, #3f484c);
+  font-size: 12.5px;
+  color: var(--cs-text-muted);
   margin: 0;
   line-height: 1.45;
 }
 
 /* Patient Mode Switch: OTP vs Password */
 .cs-mode-switch {
-  display: inline-flex;
-  background: var(--cs-surface-container-low, #eff4ff);
-  border: 1px solid var(--cs-surface-container-high, #dce9ff);
-  border-radius: var(--cs-radius-default, 8px);
+  display: flex;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--cs-radius-control);
   padding: 3px;
-  width: fit-content;
+  width: 100%;
   gap: 4px;
 }
 
 .cs-mode-btn {
+  flex: 1;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 6px 14px;
+  padding: 6px 10px;
   border: none;
   background: transparent;
-  border-radius: 6px;
-  font-size: 12px;
+  border-radius: var(--cs-radius-control);
+  font-size: 11.5px;
   font-weight: 600;
   color: #64748b;
   cursor: pointer;
@@ -346,16 +294,16 @@
 }
 
 .cs-mode-btn:hover {
-  color: var(--cs-primary, #005a71);
+  color: var(--cs-primary);
 }
 
 .cs-mode-btn.active {
   background: #ffffff;
-  color: var(--cs-primary, #005a71);
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+  color: var(--cs-primary);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 
-/* Login Form & Input Boxes */
+/* Form Fields */
 .cs-login-form {
   display: flex;
   flex-direction: column;
@@ -365,13 +313,13 @@
 .cs-field-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .cs-field-group label {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--cs-on-surface, #0b1c30);
+  color: var(--cs-text-main);
 }
 
 .cs-input-box {
@@ -382,29 +330,28 @@
 
 .cs-input-icon {
   position: absolute;
-  left: 14px;
-  color: #64748b;
+  left: 12px;
+  color: #94a3b8;
   pointer-events: none;
 }
 
 .cs-input-box input {
   width: 100%;
-  height: 46px;
-  padding: 0 14px 0 42px;
-  font-size: 14px;
+  height: 42px;
+  padding: 0 12px 0 38px;
+  font-size: 13.5px;
   font-family: inherit;
-  color: var(--cs-on-surface, #0b1c30);
+  color: var(--cs-text-main);
   background: #ffffff;
   border: 1px solid #cbd5e1;
-  border-radius: var(--cs-radius-default, 8px);
-  box-sizing: border-box;
+  border-radius: var(--cs-radius-control);
   transition: all 0.2s ease;
 }
 
 .cs-input-box input:focus {
   outline: none;
-  border-color: var(--cs-primary-container, #0e7490);
-  box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.15);
+  border-color: var(--cs-primary);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
 }
 
 .cs-input-otp {
@@ -412,24 +359,28 @@
   letter-spacing: 4px;
   font-weight: 700;
   text-align: center;
-  padding-left: 42px !important;
+  padding-left: 38px !important;
 }
 
 .cs-btn-eye {
   position: absolute;
-  right: 12px;
+  right: 10px;
   background: transparent;
   border: none;
-  color: #64748b;
+  color: #94a3b8;
   cursor: pointer;
   padding: 4px;
   display: flex;
   align-items: center;
 }
 
+.cs-btn-eye:hover {
+  color: #475569;
+}
+
 .cs-input-with-btn {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .cs-input-with-btn .cs-input-box {
@@ -440,14 +391,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 0 18px;
-  height: 46px;
-  border-radius: var(--cs-radius-default, 8px);
+  gap: 5px;
+  padding: 0 14px;
+  height: 42px;
+  border-radius: var(--cs-radius-control);
   background: #f0fdfa;
-  border: 1px solid var(--cs-primary, #005a71);
-  color: var(--cs-primary, #005a71);
-  font-size: 13px;
+  border: 1px solid var(--cs-primary);
+  color: var(--cs-primary);
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -473,46 +424,45 @@
 .cs-otp-verify-group {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   background: #f0fdf4;
   border: 1px solid #bbf7d0;
-  padding: 14px 16px;
-  border-radius: var(--cs-radius-md, 12px);
-  margin-top: 4px;
+  padding: 12px 14px;
+  border-radius: var(--cs-radius-card);
 }
 
-/* Submit CTA Button */
+/* Submit Button */
 .cs-btn-submit-main {
   width: 100%;
-  height: 48px;
+  height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  border-radius: var(--cs-radius-default, 8px);
-  background: linear-gradient(135deg, #005a71 0%, #0e7490 100%);
+  gap: 8px;
+  border-radius: var(--cs-radius-control);
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
   color: #ffffff;
   border: none;
-  font-size: 14.5px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 90, 113, 0.25);
+  box-shadow: 0 4px 10px rgba(15, 118, 110, 0.2);
   transition: all 0.2s ease;
   font-family: inherit;
 }
 
 .cs-btn-submit-main:hover:not(:disabled) {
-  background: linear-gradient(135deg, #00475a 0%, #0c647c 100%);
-  box-shadow: 0 6px 16px rgba(0, 90, 113, 0.35);
+  background: linear-gradient(135deg, #115e59 0%, #0f766e 100%);
+  box-shadow: 0 6px 14px rgba(15, 118, 110, 0.3);
 }
 
 .cs-btn-submit-main.staff-submit {
-  background: linear-gradient(135deg, #006398 0%, #0284c7 100%);
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.2);
 }
 
 .cs-btn-submit-main.staff-submit:hover:not(:disabled) {
-  background: linear-gradient(135deg, #004f7a 0%, #0369a1 100%);
+  background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
 }
 
 .cs-btn-submit-main:disabled {
@@ -520,29 +470,29 @@
   cursor: not-allowed;
 }
 
-/* Demo quick fill strip */
+/* Demo Fast Fill Strip */
 .cs-demo-strip {
-  background: var(--cs-surface-container-low, #eff4ff);
-  border: 1px solid var(--cs-surface-container-high, #dce9ff);
-  border-radius: var(--cs-radius-default, 8px);
-  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--cs-radius-control);
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .cs-demo-strip-label {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
   color: #64748b;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
 }
 
 .cs-demo-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .cs-demo-chip {
@@ -552,38 +502,36 @@
   padding: 6px 10px;
   background: #ffffff;
   border: 1px solid #cbd5e1;
-  border-radius: 6px;
+  border-radius: var(--cs-radius-control);
   font-size: 11.5px;
   font-weight: 600;
   color: #334155;
   cursor: pointer;
   transition: all 0.2s ease;
   font-family: inherit;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-align: left;
 }
 
 .cs-demo-chip:hover {
-  background: #f8fafc;
-  border-color: var(--cs-primary, #005a71);
-  color: var(--cs-primary, #005a71);
+  background: #f0fdfa;
+  border-color: #0d9488;
+  color: #0f766e;
 }
 
 /* Registration Invitation Banner */
 .cs-register-invitation {
   background: linear-gradient(135deg, #f0fdfa 0%, #e6fffa 100%);
   border: 1px solid #99f6e4;
-  border-radius: var(--cs-radius-md, 12px);
-  padding: 14px 16px;
+  border-radius: var(--cs-radius-card);
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .cs-invitation-head {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: flex-start;
 }
 
@@ -595,29 +543,29 @@
 
 .cs-invitation-head strong {
   display: block;
-  font-size: 13px;
+  font-size: 12.5px;
   color: #115e59;
   margin-bottom: 2px;
 }
 
 .cs-invitation-head p {
-  font-size: 12px;
+  font-size: 11.5px;
   color: #134e4a;
   margin: 0;
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 .cs-btn-register-cta {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  height: 40px;
+  gap: 6px;
+  height: 38px;
   background: #0d9488;
   color: #ffffff;
   border: none;
-  border-radius: var(--cs-radius-default, 8px);
-  font-size: 13px;
+  border-radius: var(--cs-radius-control);
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -632,10 +580,10 @@
 .cs-staff-security-box {
   background: #f0f9ff;
   border: 1px solid #bae6fd;
-  border-radius: var(--cs-radius-md, 12px);
-  padding: 12px 14px;
+  border-radius: var(--cs-radius-card);
+  padding: 10px 12px;
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: flex-start;
 }
 
@@ -647,34 +595,33 @@
 
 .cs-staff-security-box strong {
   display: block;
-  font-size: 12.5px;
+  font-size: 12px;
   color: #0369a1;
   margin-bottom: 2px;
 }
 
 .cs-staff-security-box p {
-  font-size: 11.5px;
+  font-size: 11px;
   color: #075985;
   margin: 0;
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 /* Feedback Alerts */
 .cs-login-alert {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: var(--cs-radius-default, 8px);
-  font-size: 13px;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--cs-radius-control);
+  font-size: 12px;
   font-weight: 500;
-  margin-top: 6px;
 }
 
 .cs-login-alert.error {
   background: #fff1f2;
   border: 1px solid #fecdd3;
-  color: var(--cs-error, #ba1a1a);
+  color: #b91c1c;
 }
 
 .cs-login-alert.success {
@@ -683,17 +630,45 @@
   color: #166534;
 }
 
-/* Footer Trust Bar */
+/* Trust Bar inside card */
 .cs-login-trust-bar {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding-top: 16px;
+  gap: 6px;
+  padding-top: 12px;
   border-top: 1px solid #f1f5f9;
-  font-size: 11px;
+  font-size: 10.5px;
   color: #64748b;
   text-align: center;
+  line-height: 1.4;
+}
+
+/* Single Column Footer */
+.cs-login-single-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.cs-footer-hotline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #475569;
+}
+
+.cs-footer-hotline strong {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.cs-footer-cert {
+  font-size: 11px;
+  color: #94a3b8;
 }
 
 .cs-spin {
@@ -704,44 +679,14 @@
   100% { transform: rotate(360deg); }
 }
 
-/* =========================================================================
-   RESPONSIVE DESIGN (Tablets & Mobile)
-   ========================================================================= */
-
-@media (max-width: 900px) {
-  .cs-login-layout {
-    grid-template-columns: 1fr;
-    max-width: 540px;
-  }
-
-  .cs-login-sidebar {
-    padding: 24px;
-  }
-
-  .cs-pillars-list {
-    display: none;
-  }
-
-  .cs-reassurance-hero {
-    margin: 16px 0 10px;
-  }
-
-  .cs-reassurance-hero h2 {
-    font-size: 19px;
-  }
-
-  .cs-login-main {
-    padding: 24px 20px;
-  }
-
-  .cs-demo-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 480px) {
+/* Responsive adjustments */
+@media (max-width: 520px) {
   .cs-login-viewport {
-    padding: 12px;
+    padding: 16px 12px;
+  }
+
+  .cs-login-card {
+    padding: 18px 16px;
   }
 
   .cs-input-with-btn {

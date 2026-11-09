@@ -162,73 +162,37 @@ export function LoginPage({
 
   return (
     <div className="cs-login-viewport">
-      <div className="cs-login-layout">
+      <div className="cs-login-single-column">
         
         {/* =================================================================
-            LEFT COLUMN: Clinical Brand & Reassurance Sanctuary
+            BRAND HEADER (Single Column Centered)
             ================================================================= */}
-        <aside className="cs-login-sidebar">
-          <div>
-            <div className="cs-brand-lockup">
-              <div className="cs-brand-icon">
-                <HeartPulse size={26} color="#ffffff" />
-              </div>
-              <div>
-                <span className="cs-brand-name">CareConnect</span>
-                <span className="cs-brand-sub">Bệnh Viện Số & Telemedicine</span>
-              </div>
+        <header className="cs-login-brand-header">
+          <div className="cs-brand-lockup">
+            <div className="cs-brand-icon">
+              <HeartPulse size={26} color="#ffffff" />
             </div>
-
-            <div className="cs-reassurance-hero">
-              <h2>Nền Tảng Y Tế Số & Khám Chữa Bệnh Từ Xa</h2>
-              <p>
-                Không gian chăm sóc sức khỏe chuẩn mực: Hội chẩn video bảo mật độ trễ cực thấp, 
-                liên thông hồ sơ bệnh án EMR bệnh viện và quản lý thẻ BHYT toàn diện.
-              </p>
-            </div>
-
-            <div className="cs-pillars-list">
-              <div className="cs-pillar-item">
-                <div className="cs-pillar-icon"><Stethoscope size={18} /></div>
-                <div>
-                  <strong>Phòng Khám Video HD Trực Tuyến</strong>
-                  <p>Hội chẩn 2 chiều bảo mật với bác sĩ chuyên khoa, tích hợp xem sinh hiệu và ảnh y khoa PACS.</p>
-                </div>
-              </div>
-
-              <div className="cs-pillar-item">
-                <div className="cs-pillar-icon"><ShieldCheck size={18} /></div>
-                <div>
-                  <strong>Bảo Mật Y Tế & Nghị Định 13</strong>
-                  <p>Toàn bộ hồ sơ lâm sàng được mã hóa AES-256 cấp độ cột, tuân thủ nghiêm ngặt bảo vệ dữ liệu cá nhân.</p>
-                </div>
-              </div>
-
-              <div className="cs-pillar-item">
-                <div className="cs-pillar-icon"><KeyRound size={18} /></div>
-                <div>
-                  <strong>Kê Đơn Thuốc & Ký Số SmartCA</strong>
-                  <p>Cấp mã đơn thuốc quốc gia hợp chuẩn Bộ Y Tế, ký số điện tử SmartCA và giao thuốc tận nơi.</p>
-                </div>
-              </div>
+            <div className="cs-brand-text">
+              <span className="cs-brand-name">CareConnect</span>
+              <span className="cs-brand-sub">Bệnh Viện Số & Telemedicine</span>
             </div>
           </div>
-
-          <div className="cs-sidebar-footer">
-            <div className="cs-hotline-pill">
-              <Phone size={14} />
-              <span>Cấp cứu & Hỗ trợ 24/7: <strong>1900 8888</strong></span>
-            </div>
-            <span className="cs-version-tag">CareConnect HIS Core v4.2 • BYT Certified</span>
+          <div className="cs-login-badge-row">
+            <span className="cs-badge-compliance">
+              <ShieldCheck size={13} color="#059669" /> Chuẩn QĐ 130/QĐ-BYT
+            </span>
+            <span className="cs-badge-compliance">
+              <Lock size={13} color="#0284c7" /> Bảo Mật Nghị Định 13
+            </span>
           </div>
-        </aside>
+        </header>
 
         {/* =================================================================
-            RIGHT COLUMN: Interactive Clinical Sanctuary Login Portal
+            MAIN LOGIN CARD (Single Column Card)
             ================================================================= */}
-        <main className="cs-login-main">
+        <main className="cs-login-card">
           
-          {/* Dual Portal Switcher Tabs (Clinical Sanctuary Standard) */}
+          {/* Dual Portal Switcher Tabs */}
           <div className="cs-portal-switcher">
             <button
               type="button"
@@ -254,6 +218,21 @@ export function LoginPage({
               </div>
             </button>
           </div>
+
+          {/* Feedback Alerts */}
+          {error && (
+            <div className="cs-login-alert error">
+              <AlertCircle size={16} style={{ flexShrink: 0 }} />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {successNotice && (
+            <div className="cs-login-alert success">
+              <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
+              <span>{successNotice}</span>
+            </div>
+          )}
 
           {/* =============================================================
               PORTAL 1: BỆNH NHÂN (PATIENT PORTAL)
@@ -449,17 +428,30 @@ export function LoginPage({
               {/* Fast Fill Demo Chip for Patient */}
               <div className="cs-demo-strip">
                 <span className="cs-demo-strip-label">Tài khoản trải nghiệm mẫu:</span>
-                <button
-                  type="button"
-                  className="cs-demo-chip"
-                  onClick={() => {
-                    setPatientAuthMode('password')
-                    fillDemoAccount('patient@example.test', 'Bệnh nhân')
-                  }}
-                >
-                  <UserRound size={13} />
-                  <span>patient@example.test (Bệnh nhân)</span>
-                </button>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="cs-demo-chip"
+                    onClick={() => {
+                      setPatientAuthMode('password')
+                      fillDemoAccount('patient@example.test', 'Bệnh nhân')
+                    }}
+                  >
+                    <UserRound size={13} />
+                    <span>patient@example.test (Bệnh nhân)</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="cs-demo-chip"
+                    onClick={() => {
+                      setPatientAuthMode('otp')
+                      fillDemoPatientOtp()
+                    }}
+                  >
+                    <Phone size={13} />
+                    <span>0912345678 (OTP Bệnh nhân)</span>
+                  </button>
+                </div>
               </div>
 
               {/* Registration Invitation Box */}
@@ -596,28 +588,25 @@ export function LoginPage({
             </div>
           )}
 
-          {/* Feedback Alerts */}
-          {error && (
-            <div className="cs-login-alert error">
-              <AlertCircle size={16} />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {successNotice && (
-            <div className="cs-login-alert success">
-              <CheckCircle2 size={16} />
-              <span>{successNotice}</span>
-            </div>
-          )}
-
           {/* Footer Compliance Standards */}
           <footer className="cs-login-trust-bar">
-            <ShieldCheck size={14} />
+            <ShieldCheck size={14} color="#059669" />
             <span>Đạt chuẩn Nghị định 13/2023/NĐ-CP • Ký số SmartCA PKI Bộ Y Tế • Tra cứu BHYT Quốc Gia</span>
           </footer>
 
         </main>
+
+        {/* Footer Reassurance & Hotline */}
+        <footer className="cs-login-single-footer">
+          <div className="cs-footer-hotline">
+            <Phone size={14} />
+            <span>Cấp cứu & Hỗ trợ y tế 24/7: <strong>1900 8888</strong></span>
+          </div>
+          <div className="cs-footer-cert">
+            <span>CareConnect HIS Core v4.2 &bull; BYT Certified</span>
+          </div>
+        </footer>
+
       </div>
     </div>
   )

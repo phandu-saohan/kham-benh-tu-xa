@@ -947,3 +947,163 @@
   color: var(--pr-text-main);
   font-size: 13px;
 }
+
+/* =========================================================================
+   SINGLE COLUMN REGISTRATION LAYOUT (Max 760px, Centered Card)
+   Standard: 8px Card Radius | 6px Button Radius
+   ========================================================================= */
+
+.pr-single-column {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pr-single-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pr-brand-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: var(--pr-surface);
+  padding: 12px 18px;
+  border: 1px solid var(--pr-border);
+  border-radius: var(--pr-radius-card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.pr-brand-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--pr-radius-control);
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(15, 118, 110, 0.2);
+}
+
+.pr-brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.pr-brand-name {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: var(--pr-text-main);
+  line-height: 1.1;
+}
+
+.pr-brand-sub {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--pr-primary);
+  letter-spacing: 0.3px;
+}
+
+.pr-compliance-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pr-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  padding: 3px 10px;
+}
+
+.pr-header-title-box {
+  padding: 0 4px;
+}
+
+.pr-header-title-box h1 {
+  font-size: 21px;
+  font-weight: 800;
+  color: var(--pr-text-main);
+  letter-spacing: -0.3px;
+  margin: 0 0 4px 0;
+}
+
+.pr-header-title-box p {
+  font-size: 13px;
+  color: var(--pr-text-muted);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.pr-single-card {
+  width: 100%;
+  background: var(--pr-surface);
+  border-radius: var(--pr-radius-card);
+  border: 1px solid var(--pr-border);
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  padding: 26px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.pr-single-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 4px 6px;
+}
+
+.pr-btn-link-login {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: var(--pr-primary);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+
+.pr-btn-link-login strong {
+  text-decoration: underline;
+  color: var(--pr-primary-dark);
+}
+
+.pr-footer-info {
+  font-size: 11.5px;
+  color: var(--pr-text-muted);
+}
+
+@media (max-width: 768px) {
+  .pr-single-card {
+    padding: 18px 16px;
+  }
+  .pr-brand-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .pr-header-title-box h1 {
+    font-size: 18px;
+  }
+}
