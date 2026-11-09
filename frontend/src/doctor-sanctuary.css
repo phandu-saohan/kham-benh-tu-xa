@@ -3544,3 +3544,24 @@
   color: #0f766e;
   font-weight: 700;
 }
+
+.btn-rpm-history-popup {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #ffffff;
+  color: #be185d;
+  border: 1px solid #f43f5e;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-rpm-history-popup:hover {
+  background: #fff1f2;
+  border-color: #be185d;
+}
