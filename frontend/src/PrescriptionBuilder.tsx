@@ -23,7 +23,8 @@ import {
   PrescriptionItem,
   VIETNAM_DRUG_CATALOG,
   PRESCRIPTION_TEMPLATES,
-  compilePrescriptionToText
+  compilePrescriptionToText,
+  parsePrescriptionFromText
 } from './medicationData'
 
 interface PrescriptionBuilderProps {
@@ -78,6 +79,19 @@ export const PrescriptionBuilder: React.FC<PrescriptionBuilderProps> = ({
   const [note, setNote] = useState('')
   const [safetyChecking, setSafetyChecking] = useState(false)
   const [safetyResult, setSafetyResult] = useState<DrugSafetyResult | null>(null)
+
+  // Khởi tạo danh sách thuốc từ văn bản đơn thuốc đã có (nếu có)
+  useEffect(() => {
+    if (prescriptionText && prescriptionText.trim() && items.length === 0) {
+      const parsed = parsePrescriptionFromText(prescriptionText)
+      if (parsed.items.length > 0) {
+        setItems(parsed.items)
+      }
+      if (parsed.advice) {
+        setDoctorAdvice(parsed.advice)
+      }
+    }
+  }, [prescriptionText])
 
   const handleCheckSafety = async () => {
     const medNames = items.map(i => `${i.drugName} ${i.activeIngredient || ''}`.trim())
@@ -242,7 +256,7 @@ export const PrescriptionBuilder: React.FC<PrescriptionBuilderProps> = ({
               type="button"
               className="primary"
               onClick={onSyncNational}
-              disabled={isSyncing || isLocked || !prescriptionText.trim()}
+              disabled={isSyncing || (!items.length && !prescriptionText.trim())}
               title="Đẩy đơn thuốc lên Cổng quản lý Kê đơn điện tử Quốc gia"
             >
               <Share2 size={16} /> {isSyncing ? 'Đang đồng bộ...' : 'Đẩy lên Cổng Quốc gia'}
@@ -298,7 +312,7 @@ export const PrescriptionBuilder: React.FC<PrescriptionBuilderProps> = ({
             type="button"
             className="btn-rx-action save-btn"
             onClick={onSave}
-            disabled={isSaving || isLocked || !prescriptionText.trim()}
+            disabled={isSaving || (!items.length && !prescriptionText.trim())}
             title="Lưu đơn thuốc vào hồ sơ khám"
           >
             <Save size={15} /> {isSaving ? 'Đang lưu...' : 'Lưu đơn thuốc'}
@@ -309,14 +323,14 @@ export const PrescriptionBuilder: React.FC<PrescriptionBuilderProps> = ({
               type="button"
               className="btn-rx-action pdf-btn"
               onClick={onDownloadPdf}
-              disabled={isDownloadingPdf || !prescriptionText.trim()}
+              disabled={isDownloadingPdf || (!items.length && !prescriptionText.trim())}
               title="Tải xuống phiếu khám & đơn thuốc định dạng PDF"
             >
               <Download size={15} /> {isDownloadingPdf ? 'Đang xuất PDF...' : 'Xuất PDF'}
             </button>
           )}
 
-          {items.length > 0 && !isLocked && (
+          {items.length > 0 && (
             <button
               type="button"
               className="btn-rx-action reset-btn"
@@ -332,35 +346,32 @@ export const PrescriptionBuilder: React.FC<PrescriptionBuilderProps> = ({
       {mode === 'structured' ? (
         <div className="structured-prescription-workspace">
           {/* Section 1: Clinical Presets */}
-          {!isLocked && (
-            <div className="rx-presets-card">
-              <div className="presets-header">
-                <span className="presets-title">⚡ Đơn thuốc mẫu chuẩn lâm sàng (1-click):</span>
-                <span className="tiny muted">Ngoại trú theo phác đồ Bộ Y Tế</span>
-              </div>
-              <div className="presets-pill-list">
-                {PRESCRIPTION_TEMPLATES.map(tpl => (
-                  <button
-                    key={tpl.id}
-                    type="button"
-                    className="preset-pill-btn"
-                    onClick={() => handleApplyTemplate(tpl)}
-                    title={`${tpl.title} (${tpl.specialty})`}
-                  >
-                    <span>{tpl.title}</span>
-                    <small className="tpl-count">{tpl.items.length} thuốc</small>
-                  </button>
-                ))}
-              </div>
+          <div className="rx-presets-card">
+            <div className="presets-header">
+              <span className="presets-title">⚡ Đơn thuốc mẫu chuẩn lâm sàng (1-click):</span>
+              <span className="tiny muted">Ngoại trú theo phác đồ Bộ Y Tế</span>
             </div>
-          )}
+            <div className="presets-pill-list">
+              {PRESCRIPTION_TEMPLATES.map(tpl => (
+                <button
+                  key={tpl.id}
+                  type="button"
+                  className="preset-pill-btn"
+                  onClick={() => handleApplyTemplate(tpl)}
+                  title={`${tpl.title} (${tpl.specialty})`}
+                >
+                  <span>{tpl.title}</span>
+                  <small className="tpl-count">{tpl.items.length} thuốc</small>
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Section 2: Add Medication Form */}
-          {!isLocked && (
-            <div className="add-drug-card">
-              <h4 className="card-sub-title">
-                <Plus size={16} /> Thêm thuốc vào đơn điều trị
-              </h4>
+          <div className="add-drug-card">
+            <h4 className="card-sub-title">
+              <Plus size={16} /> Thêm thuốc vào đơn điều trị
+            </h4>
 
               {/* Drug Search / Autocomplete */}
               <div className="drug-search-wrapper">
@@ -556,7 +567,6 @@ export const PrescriptionBuilder: React.FC<PrescriptionBuilderProps> = ({
                 </div>
               </form>
             </div>
-          )}
 
           {/* Section 3: Prescribed Medications List */}
           <div className="prescribed-list-card">
@@ -655,7 +665,7 @@ export const PrescriptionBuilder: React.FC<PrescriptionBuilderProps> = ({
                       <th style={{ width: '100px' }}>Đường dùng</th>
                       <th>Cách dùng & Liều lượng</th>
                       <th style={{ width: '90px' }}>Thời gian</th>
-                      {!isLocked && <th style={{ width: '60px' }}>Xóa</th>}
+                      <th style={{ width: '60px' }}>Xóa</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -690,18 +700,16 @@ export const PrescriptionBuilder: React.FC<PrescriptionBuilderProps> = ({
                         <td>
                           {item.durationDays ? `${item.durationDays} ngày` : '—'}
                         </td>
-                        {!isLocked && (
-                          <td className="text-center">
-                            <button
-                              type="button"
-                              className="btn-delete-item"
-                              onClick={() => handleRemoveItem(item.id)}
-                              title="Xóa thuốc này khỏi đơn"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </td>
-                        )}
+                        <td className="text-center">
+                          <button
+                            type="button"
+                            className="btn-delete-item"
+                            onClick={() => handleRemoveItem(item.id)}
+                            title="Xóa thuốc này khỏi đơn"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -720,11 +728,9 @@ export const PrescriptionBuilder: React.FC<PrescriptionBuilderProps> = ({
               placeholder="Chế độ ăn uống, sinh hoạt, theo dõi nhiệt độ, tái khám khi có dấu hiệu bất thường..."
               value={doctorAdvice}
               onChange={e => handleAdviceChange(e.target.value)}
-              disabled={isLocked}
             />
-            {!isLocked && (
-              <div className="advice-chips-container">
-                <span className="tiny muted">Gợi ý lời dặn nhanh:</span>
+            <div className="advice-chips-container">
+              <span className="tiny muted">Gợi ý lời dặn nhanh:</span>
                 <button
                   type="button"
                   className="chip-btn"
@@ -759,7 +765,6 @@ export const PrescriptionBuilder: React.FC<PrescriptionBuilderProps> = ({
                   + Tái khám sau 5-7 ngày
                 </button>
               </div>
-            )}
           </div>
 
           {/* Section 5: Standard Prescription Preview */}
@@ -790,7 +795,6 @@ export const PrescriptionBuilder: React.FC<PrescriptionBuilderProps> = ({
               placeholder="1. Augmentin 1000mg - SL: 14 Viên&#10;   HDSD: Uống 1 viên x 2 lần/ngày sau ăn&#10;2. Paracetamol 500mg - SL: 10 Viên..."
               value={prescriptionText}
               onChange={e => onChange(e.target.value)}
-              disabled={isLocked}
               style={{ fontFamily: 'monospace', fontSize: '13px', lineHeight: 1.6 }}
             />
           </div>

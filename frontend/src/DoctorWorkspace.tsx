@@ -2647,7 +2647,7 @@ export function DoctorWorkspace({
                 onSave={handleSaveDraft}
                 onSyncNational={handleSyncNational}
                 onDownloadPdf={handleDownloadPdf}
-                isLocked={isLocked}
+                isLocked={false}
                 isSaving={saving}
                 isSyncing={syncingPres}
                 isDownloadingPdf={downloadingPdf}

@@ -773,3 +773,116 @@ export function compilePrescriptionToText(
 
   return lines.join('\n').trim()
 }
+
+// Hàm phân tích văn bản đơn thuốc thành danh sách có cấu trúc
+export function parsePrescriptionFromText(text: string): { items: PrescriptionItem[]; advice: string } {
+  if (!text || !text.trim()) return { items: [], advice: '' }
+
+  const lines = text.split('\n')
+  const items: PrescriptionItem[] = []
+  let advice = ''
+  let currentItem: Partial<PrescriptionItem> | null = null
+  let inAdvice = false
+
+  function finalizeItem(it: Partial<PrescriptionItem>): PrescriptionItem {
+    return {
+      id: it.id || `rx-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      drugName: it.drugName || 'Thuốc điều trị',
+      activeIngredient: it.activeIngredient,
+      strength: it.strength,
+      quantity: it.quantity && it.quantity > 0 ? it.quantity : 1,
+      unit: it.unit || 'Viên',
+      route: it.route || 'Uống',
+      instructions: it.instructions || 'Dùng theo chỉ định của bác sĩ',
+      durationDays: it.durationDays,
+      note: it.note
+    }
+  }
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim()
+    if (!line) continue
+
+    if (line.includes('* Lời dặn') || line.includes('Lời dặn của Bác sĩ') || line.includes('Lời dặn:')) {
+      if (currentItem && currentItem.drugName) {
+        items.push(finalizeItem(currentItem))
+        currentItem = null
+      }
+      inAdvice = true
+      continue
+    }
+
+    if (inAdvice) {
+      advice = advice ? `${advice}\n${line}` : line
+      continue
+    }
+
+    if (line.startsWith('ĐƠN THUỐC') || line.startsWith('DON THUOC') || line.startsWith('----')) {
+      continue
+    }
+
+    // Nhận diện dòng số thứ tự thuốc: "1. Tên thuốc..." hoặc "1/ Tên thuốc..."
+    const numMatch = line.match(/^(\d+)[\.\/\)]\s*(.+)$/)
+    if (numMatch) {
+      if (currentItem && currentItem.drugName) {
+        items.push(finalizeItem(currentItem))
+      }
+      const rawTitle = numMatch[2]
+      const parenMatch = rawTitle.match(/^([^\(]+)(?:\((.+)\))?$/)
+      const drugName = parenMatch ? parenMatch[1].trim() : rawTitle
+      const activeIngredient = parenMatch && parenMatch[2] ? parenMatch[2].trim() : undefined
+
+      currentItem = {
+        id: `rx-${Date.now()}-${items.length}-${Math.random().toString(36).substring(2, 6)}`,
+        drugName,
+        activeIngredient,
+        quantity: 1,
+        unit: 'Viên',
+        route: 'Uống',
+        instructions: ''
+      }
+      continue
+    }
+
+    if (currentItem) {
+      if (line.includes('Số lượng:') || line.includes('So luong:')) {
+        const qMatch = line.match(/Số lượng:\s*(\d+)\s*(.*)/i) || line.match(/So luong:\s*(\d+)\s*(.*)/i)
+        if (qMatch) {
+          currentItem.quantity = parseInt(qMatch[1], 10) || 1
+          if (qMatch[2] && qMatch[2].trim()) {
+            currentItem.unit = qMatch[2].trim()
+          }
+        }
+      } else if (line.includes('Đường dùng') || line.includes('Cách dùng') || line.includes('Cach dung')) {
+        const routeMatch = line.match(/\[([^\]]+)\]\s*(.*)/)
+        if (routeMatch) {
+          currentItem.route = routeMatch[1].trim()
+          currentItem.instructions = routeMatch[2].trim()
+        } else {
+          const parts = line.split(':')
+          if (parts.length > 1) {
+            currentItem.instructions = parts.slice(1).join(':').trim()
+          }
+        }
+      } else if (line.includes('Thời gian sử dụng') || line.includes('Dùng trong')) {
+        const dMatch = line.match(/(\d+)\s*ngày/i) || line.match(/(\d+)\s*ngay/i)
+        if (dMatch) {
+          currentItem.durationDays = parseInt(dMatch[1], 10)
+        }
+      } else if (line.includes('Lưu ý:') || line.includes('Luu y:')) {
+        const parts = line.split(':')
+        if (parts.length > 1) {
+          currentItem.note = parts.slice(1).join(':').trim()
+        }
+      } else if (!currentItem.instructions && line.startsWith('-')) {
+        currentItem.instructions = line.replace(/^-\s*/, '')
+      }
+    }
+  }
+
+  if (currentItem && currentItem.drugName) {
+    items.push(finalizeItem(currentItem))
+  }
+
+  return { items, advice }
+}
