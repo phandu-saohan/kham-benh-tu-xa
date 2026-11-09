@@ -25,7 +25,7 @@ from app.models import (
     Payment, AuditLog, OtpCode, PatientConsent, Department, DoctorShift, NurseShift,
     ConsultationMessage, SystemSetting, Notification, AppointmentEvent,
     BHYTClaim, ConsultationMember, RPMVitalLog, FamilyMemberProfile, AIPACSConsultation, AppointmentDocument,
-    PatientCabinetItem
+    PatientCabinetItem, SupportTicket, SupportTicketMessage
 )
 from app.schemas import (
     LoginIn, TokenOut, OtpSendIn, OtpSendOut, OtpVerifyIn, FirebaseVerifyIn, RefreshTokenIn,
@@ -35,7 +35,7 @@ from app.schemas import (
     ConsentAgreeIn, ConsentStatusOut, DigitalSignRequest, DigitalSignResponse,
     NationalPrescriptionSyncOut, PACSViewerOut,
     AmbientScribeIn, AmbientScribeOut, BhytCheckIn, BhytCheckOut,
-    DepartmentOut, DoctorShiftOut, NurseShiftIn, NurseShiftOut, NurseShiftUpdateIn, AssignNurseIn, AppointmentCancelIn, AppointmentCancelOut,
+    DepartmentOut, DoctorShiftIn, DoctorShiftOut, DoctorProfileIn, DoctorProfileOut, SupportTicketIn, SupportTicketStatusUpdate, SupportTicketOut, SupportTicketMessageIn, SupportTicketMessageOut, NurseShiftIn, NurseShiftOut, NurseShiftUpdateIn, AssignNurseIn, AppointmentCancelIn, AppointmentCancelOut,
     RefundRequestIn, RefundRequestOut,
     CabinetItemIn, CabinetItemOut,
     ConsultationMessageIn, ConsultationMessageOut,
@@ -3051,7 +3051,7 @@ def get_doctor_shifts(doctor_id: int, db: Session = Depends(get_db)):
     """
     Lấy danh sách ca trực của bác sĩ kèm kiểm tra giới hạn chống quá tải (anti-overload quota).
     """
-    shifts = db.query(DoctorShift).filter_by(doctor_id=doctor_id, is_active=True).all()
+    shifts = db.query(DoctorShift).filter_by(doctor_id=doctor_id, is_active=True).order_by(DoctorShift.shift_date.desc(), DoctorShift.start_time.asc()).all()
     results = []
     doctor = db.get(User, doctor_id)
     for s in shifts:
@@ -3070,9 +3070,80 @@ def get_doctor_shifts(doctor_id: int, db: Session = Depends(get_db)):
             max_patients=s.max_patients,
             booked_count=s.booked_count,
             available_slots=avail,
-            is_overloaded=(avail <= 0)
+            is_overloaded=(avail <= 0),
+            room_name=s.room_name or "Phòng khám Telemedicine #07",
+            notes=s.notes
         ))
     return results
+
+@app.post("/api/v1/doctors/{doctor_id}/shifts", response_model=DoctorShiftOut)
+def create_doctor_shift(
+    doctor_id: int,
+    data: DoctorShiftIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Bác sĩ đăng ký ca trực mới và mở slot phòng khám trực tuyến vào database.
+    """
+    doctor = db.get(User, doctor_id)
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Bác sĩ không tồn tại")
+    
+    # Tính giờ theo ca
+    start_t = data.start_time or ("07:30" if data.shift_type == "morning" else ("13:30" if data.shift_type == "afternoon" else "18:00"))
+    end_t = data.end_time or ("11:30" if data.shift_type == "morning" else ("17:00" if data.shift_type == "afternoon" else "21:00"))
+    
+    shift = DoctorShift(
+        doctor_id=doctor.id,
+        department_id=doctor.department_id,
+        shift_date=data.shift_date,
+        shift_type=data.shift_type,
+        start_time=start_t,
+        end_time=end_t,
+        room_name=data.room_name or "Phòng khám Telemedicine #07",
+        max_patients=data.max_patients,
+        booked_count=0,
+        notes=data.notes,
+        is_active=True
+    )
+    db.add(shift)
+    db.commit()
+    db.refresh(shift)
+    dept = db.get(Department, shift.department_id) if shift.department_id else None
+    return DoctorShiftOut(
+        id=shift.id,
+        doctor_id=shift.doctor_id,
+        doctor_name=doctor.full_name,
+        department_id=shift.department_id,
+        department_name=dept.name if dept else "Đa khoa",
+        shift_date=shift.shift_date,
+        shift_type=shift.shift_type,
+        start_time=shift.start_time,
+        end_time=shift.end_time,
+        max_patients=shift.max_patients,
+        booked_count=shift.booked_count,
+        available_slots=shift.max_patients,
+        is_overloaded=False,
+        room_name=shift.room_name,
+        notes=shift.notes
+    )
+
+@app.delete("/api/v1/doctors/shifts/{shift_id}")
+def delete_doctor_shift(
+    shift_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Hủy hoặc đóng ca trực của bác sĩ trong database.
+    """
+    shift = db.get(DoctorShift, shift_id)
+    if not shift:
+        raise HTTPException(status_code=404, detail="Ca trực không tồn tại")
+    shift.is_active = False
+    db.commit()
+    return {"success": True, "message": "Đã hủy ca trực thành công"}
 
 @app.post("/api/v1/appointments/{appointment_id}/cancel", response_model=AppointmentCancelOut)
 def cancel_appointment(
@@ -5415,6 +5486,79 @@ def seed_demo():
                 ])
                 db.commit()
 
+        # Khởi tạo yêu cầu hỗ trợ phòng ban (Support Tickets) nếu chưa có
+        if db.query(SupportTicket).count() == 0:
+            doc = db.query(User).filter_by(role="doctor").first()
+            doc_name = doc.full_name if doc else "BS.CKII Trần Minh"
+            doc_id = doc.id if doc else 1
+            t1 = SupportTicket(
+                code="REQ-2026-092",
+                department="Khoa CĐHA & Thăm dò chức năng",
+                department_id="pacs",
+                department_icon="ScanLine",
+                title="Hỗ trợ đọc khẩn kết quả X-quang tim phổi cho ca nghi viêm phổi kẽ",
+                patient_id=9,
+                patient_name="Demo Patient (BN #9)",
+                priority="urgent",
+                status="in_progress",
+                doctor_id=doc_id,
+                doctor_name=doc_name,
+                assigned_to="BS.CKI Nguyễn Văn Hùng (Khoa CĐHA)",
+                description="Bệnh nhân có triệu chứng sốt cao, khó thở nhẹ, SpO2 94%. Đã chụp X-quang tại cơ sở vệ tinh. Kính đề nghị Khoa CĐHA hội chẩn và đọc khẩn để kịp thời kê đơn."
+            )
+            t2 = SupportTicket(
+                code="REQ-2026-088",
+                department="Khoa Dược lâm sàng",
+                department_id="pharmacy",
+                department_icon="Pill",
+                title="Tư vấn duyệt tương tác thuốc Metformin + Rosuvastatin cho bệnh nhân cao tuổi",
+                patient_id=1,
+                patient_name="Phan Hoàng Phúc",
+                priority="normal",
+                status="resolved",
+                doctor_id=doc_id,
+                doctor_name=doc_name,
+                assigned_to="DS.CKI Lê Thị Mai (Khoa Dược)",
+                description="Bệnh nhân 68 tuổi tiền sử đái tháo đường typ 2 kèm rối loạn lipid máu, eGFR 58 mL/min. Đề nghị Dược lâm sàng kiểm tra liều lượng và cảnh báo tương tác."
+            )
+            db.add_all([t1, t2])
+            db.commit()
+            db.refresh(t1)
+            db.refresh(t2)
+            db.add_all([
+                SupportTicketMessage(
+                    ticket_id=t1.id,
+                    sender_id=doc_id,
+                    sender_name=doc_name,
+                    sender_role="Bác sĩ lâm sàng",
+                    content="Kính gửi Khoa CĐHA, nhờ bác sĩ đọc khẩn giúp ca này vì bệnh nhân đang chờ tại phòng khám Telemedicine #07.",
+                    is_doctor=True
+                ),
+                SupportTicketMessage(
+                    ticket_id=t1.id,
+                    sender_name="BS.CKI Nguyễn Văn Hùng",
+                    sender_role="Khoa CĐHA",
+                    content="Đã nhận yêu cầu. Hình ảnh DICOM đã đồng bộ lên PACS Viewer. Phế trường 2 bên thông khí tốt, có nốt mờ nhẹ vùng đáy phổi phải. Sẽ ký trả kết quả EMR trong 10 phút.",
+                    is_doctor=False
+                ),
+                SupportTicketMessage(
+                    ticket_id=t2.id,
+                    sender_id=doc_id,
+                    sender_name=doc_name,
+                    sender_role="Bác sĩ lâm sàng",
+                    content="Nhờ Dược sĩ kiểm tra liều Metformin 850mg 2 lần/ngày trên bệnh nhân có suy giảm chức năng thận nhẹ.",
+                    is_doctor=True
+                ),
+                SupportTicketMessage(
+                    ticket_id=t2.id,
+                    sender_name="DS.CKI Lê Thị Mai",
+                    sender_role="Dược sĩ lâm sàng",
+                    content="Khoa Dược đã rà soát: eGFR 58 mL/min có thể duy trì liều Metformin tối đa 1000mg/ngày. Khuyến nghị giảm xuống 500mg x 2 lần/ngày và theo dõi thêm Creatinine máu sau 3 tháng.",
+                    is_doctor=False
+                )
+            ])
+            db.commit()
+
         # Khởi tạo ca trực cho điều dưỡng nếu chưa có
         nurse_user = db.query(User).filter_by(role="nurse").first()
         if nurse_user and db.query(NurseShift).count() == 0:
@@ -5643,7 +5787,20 @@ def auto_migrate_schema():
         ("temperature", "FLOAT"),
         ("spo2", "INTEGER"),
         ("blood_glucose", "FLOAT"),
-        ("last_his_sync_at", dt_type)
+        ("last_his_sync_at", dt_type),
+        ("academic_title", "VARCHAR(100) DEFAULT 'BS.CKII'"),
+        ("specialty", "VARCHAR(200) DEFAULT 'Nội Tổng Quát & Tim Mạch Chuyển Hóa'"),
+        ("bio", "TEXT"),
+        ("work_room", "VARCHAR(150) DEFAULT 'Phòng 308 - Khu Khám Quốc tế CareConnect'"),
+        ("smartca_serial", "VARCHAR(100) DEFAULT '5404B6789A120EFA'"),
+        ("smartca_provider", "VARCHAR(100) DEFAULT 'VNPT SmartCA (Level 4)'"),
+        ("consult_duration", "INTEGER DEFAULT 30"),
+        ("max_patients_per_shift", "INTEGER DEFAULT 12")
+    ]
+    doctor_shift_columns = [
+        ("room_name", "VARCHAR(150) DEFAULT 'Phòng khám Telemedicine #07'"),
+        ("notes", "TEXT"),
+        ("created_at", dt_type)
     ]
     rpm_columns = [
         ("blood_pressure", "VARCHAR(30)"),
@@ -5685,6 +5842,15 @@ def auto_migrate_schema():
         for col_name, col_type in user_columns:
             try:
                 conn.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}"))
+                conn.commit()
+            except Exception:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+        for col_name, col_type in doctor_shift_columns:
+            try:
+                conn.execute(text(f"ALTER TABLE doctor_shifts ADD COLUMN {col_name} {col_type}"))
                 conn.commit()
             except Exception:
                 try:
@@ -5914,11 +6080,254 @@ if frontend_dist:
     if os.path.exists(assets_dir):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
-    @app.get("/{full_path:path}")
-    def serve_spa(full_path: str):
-        if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("openapi.json"):
-            raise HTTPException(status_code=404, detail="Not Found")
-        file_path = os.path.join(frontend_dist, full_path)
-        if full_path and os.path.exists(file_path) and os.path.isfile(file_path):
-            return FileResponse(file_path)
-        return FileResponse(os.path.join(frontend_dist, "index.html"))
+    
+# ----------------- PHÂN HỆ BÁC SĨ: HỒ SƠ & HỖ TRỢ PHÒNG BAN -----------------
+
+@app.get("/api/v1/doctors/me/profile", response_model=DoctorProfileOut)
+def get_doctor_profile(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    dept = db.get(Department, user.department_id) if user.department_id else None
+    return DoctorProfileOut(
+        id=user.id,
+        full_name=user.full_name,
+        email=user.email,
+        phone_number=user.phone_number,
+        doctor_cchn=user.doctor_cchn or "008912/BYT-CCHN",
+        academic_title=user.academic_title or "BS.CKII",
+        specialty=user.specialty or "Nội Tổng Quát & Tim Mạch Chuyển Hóa",
+        bio=user.bio or "Hơn 15 năm kinh nghiệm trong chẩn đoán và điều trị bệnh lý Tim mạch, Tăng huyết áp, Đái tháo đường và Rối loạn chuyển hóa.",
+        work_room=user.work_room or "Phòng 308 - Khu Khám Quốc tế CareConnect",
+        department_id=user.department_id,
+        department_name=dept.name if dept else "Khoa Nội Tổng Quát & Phòng khám Telemedicine",
+        smartca_serial=user.smartca_serial or "5404B6789A120EFA",
+        smartca_provider=user.smartca_provider or "VNPT SmartCA (Level 4)",
+        consult_duration=user.consult_duration or 30,
+        max_patients_per_shift=user.max_patients_per_shift or 12,
+        avatar_url=user.avatar_url
+    )
+
+@app.put("/api/v1/doctors/me/profile", response_model=DoctorProfileOut)
+def update_doctor_profile(
+    data: DoctorProfileIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    user.full_name = data.full_name
+    if data.doctor_cchn is not None:
+        user.doctor_cchn = data.doctor_cchn
+    if data.phone_number is not None:
+        user.phone_number = data.phone_number
+    if data.academic_title is not None:
+        user.academic_title = data.academic_title
+    if data.specialty is not None:
+        user.specialty = data.specialty
+    if data.bio is not None:
+        user.bio = data.bio
+    if data.work_room is not None:
+        user.work_room = data.work_room
+    if data.smartca_serial is not None:
+        user.smartca_serial = data.smartca_serial
+    if data.smartca_provider is not None:
+        user.smartca_provider = data.smartca_provider
+    if data.consult_duration is not None:
+        user.consult_duration = data.consult_duration
+    if data.max_patients_per_shift is not None:
+        user.max_patients_per_shift = data.max_patients_per_shift
+    db.commit()
+    db.refresh(user)
+    dept = db.get(Department, user.department_id) if user.department_id else None
+    return DoctorProfileOut(
+        id=user.id,
+        full_name=user.full_name,
+        email=user.email,
+        phone_number=user.phone_number,
+        doctor_cchn=user.doctor_cchn,
+        academic_title=user.academic_title,
+        specialty=user.specialty,
+        bio=user.bio,
+        work_room=user.work_room,
+        department_id=user.department_id,
+        department_name=dept.name if dept else "Khoa Nội Tổng Quát & Phòng khám Telemedicine",
+        smartca_serial=user.smartca_serial,
+        smartca_provider=user.smartca_provider,
+        consult_duration=user.consult_duration or 30,
+        max_patients_per_shift=user.max_patients_per_shift or 12,
+        avatar_url=user.avatar_url
+    )
+
+@app.get("/api/v1/support-tickets", response_model=list[SupportTicketOut])
+def list_support_tickets(
+    department_id: Optional[str] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    q = db.query(SupportTicket)
+    if user.role == "doctor":
+        q = q.filter(SupportTicket.doctor_id == user.id)
+    if department_id and department_id != "all":
+        q = q.filter(SupportTicket.department_id == department_id)
+    if status and status != "all":
+        q = q.filter(SupportTicket.status == status)
+    tickets = q.order_by(SupportTicket.created_at.desc()).all()
+    
+    ticket_ids = [t.id for t in tickets]
+    messages_by_ticket = {}
+    if ticket_ids:
+        msgs = db.query(SupportTicketMessage).filter(SupportTicketMessage.ticket_id.in_(ticket_ids)).order_by(SupportTicketMessage.created_at.asc()).all()
+        for m in msgs:
+            messages_by_ticket.setdefault(m.ticket_id, []).append(SupportTicketMessageOut.model_validate(m))
+    
+    results = []
+    for t in tickets:
+        out = SupportTicketOut(
+            id=t.id,
+            code=t.code,
+            department=t.department,
+            department_id=t.department_id,
+            department_icon=t.department_icon,
+            title=t.title,
+            patient_id=t.patient_id,
+            patient_name=t.patient_name,
+            priority=t.priority,
+            status=t.status,
+            doctor_id=t.doctor_id,
+            doctor_name=t.doctor_name,
+            assigned_to=t.assigned_to,
+            description=t.description,
+            created_at=t.created_at,
+            updated_at=t.updated_at,
+            messages=messages_by_ticket.get(t.id, [])
+        )
+        results.append(out)
+    return results
+
+@app.post("/api/v1/support-tickets", response_model=SupportTicketOut)
+def create_support_ticket(
+    data: SupportTicketIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    count = db.query(SupportTicket).count() + 1
+    code = f"REQ-2026-{count:03d}"
+    
+    ticket = SupportTicket(
+        code=code,
+        department=data.department,
+        department_id=data.department_id,
+        department_icon=data.department_icon or "HelpCircle",
+        title=data.title,
+        patient_id=data.patient_id,
+        patient_name=data.patient_name,
+        priority=data.priority,
+        status="pending",
+        doctor_id=user.id,
+        doctor_name=user.full_name,
+        description=data.description
+    )
+    db.add(ticket)
+    db.commit()
+    db.refresh(ticket)
+    
+    first_msg = SupportTicketMessage(
+        ticket_id=ticket.id,
+        sender_id=user.id,
+        sender_name=user.full_name,
+        sender_role="Bác sĩ lâm sàng",
+        content=data.description,
+        is_doctor=True
+    )
+    db.add(first_msg)
+    db.commit()
+    db.refresh(first_msg)
+    
+    return SupportTicketOut(
+        id=ticket.id,
+        code=ticket.code,
+        department=ticket.department,
+        department_id=ticket.department_id,
+        department_icon=ticket.department_icon,
+        title=ticket.title,
+        patient_id=ticket.patient_id,
+        patient_name=ticket.patient_name,
+        priority=ticket.priority,
+        status=ticket.status,
+        doctor_id=ticket.doctor_id,
+        doctor_name=ticket.doctor_name,
+        assigned_to=ticket.assigned_to,
+        description=ticket.description,
+        created_at=ticket.created_at,
+        updated_at=ticket.updated_at,
+        messages=[SupportTicketMessageOut.model_validate(first_msg)]
+    )
+
+@app.patch("/api/v1/support-tickets/{ticket_id}/status", response_model=SupportTicketOut)
+def update_support_ticket_status(
+    ticket_id: int,
+    data: SupportTicketStatusUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    ticket = db.get(SupportTicket, ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Yêu cầu hỗ trợ không tồn tại")
+    ticket.status = data.status
+    if data.assigned_to is not None:
+        ticket.assigned_to = data.assigned_to
+    db.commit()
+    db.refresh(ticket)
+    
+    msgs = db.query(SupportTicketMessage).filter_by(ticket_id=ticket.id).order_by(SupportTicketMessage.created_at.asc()).all()
+    return SupportTicketOut(
+        id=ticket.id,
+        code=ticket.code,
+        department=ticket.department,
+        department_id=ticket.department_id,
+        department_icon=ticket.department_icon,
+        title=ticket.title,
+        patient_id=ticket.patient_id,
+        patient_name=ticket.patient_name,
+        priority=ticket.priority,
+        status=ticket.status,
+        doctor_id=ticket.doctor_id,
+        doctor_name=ticket.doctor_name,
+        assigned_to=ticket.assigned_to,
+        description=ticket.description,
+        created_at=ticket.created_at,
+        updated_at=ticket.updated_at,
+        messages=[SupportTicketMessageOut.model_validate(m) for m in msgs]
+    )
+
+@app.post("/api/v1/support-tickets/{ticket_id}/messages", response_model=SupportTicketMessageOut)
+def add_support_ticket_message(
+    ticket_id: int,
+    data: SupportTicketMessageIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    ticket = db.get(SupportTicket, ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Yêu cầu hỗ trợ không tồn tại")
+    
+    is_doc = (user.role == "doctor")
+    msg = SupportTicketMessage(
+        ticket_id=ticket.id,
+        sender_id=user.id,
+        sender_name=user.full_name,
+        sender_role="Bác sĩ lâm sàng" if is_doc else "Chuyên viên phụ trách",
+        content=data.content,
+        is_doctor=is_doc
+    )
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+    return SupportTicketMessageOut.model_validate(msg)
+
+@app.get("/{full_path:path}")
+def serve_spa(full_path: str):
+    if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("openapi.json"):
+        raise HTTPException(status_code=404, detail="Not Found")
+    file_path = os.path.join(frontend_dist, full_path)
+    if full_path and os.path.exists(file_path) and os.path.isfile(file_path):
+        return FileResponse(file_path)
+    return FileResponse(os.path.join(frontend_dist, "index.html"))
+

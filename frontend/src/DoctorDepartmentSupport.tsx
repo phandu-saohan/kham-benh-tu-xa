@@ -5,7 +5,14 @@ import {
   FlaskConical, Cpu, ShieldCheck, ChevronRight, X, ArrowRight,
   Paperclip, Flame
 } from 'lucide-react'
-import { Appointment } from './api'
+import {
+  Appointment,
+  getSupportTickets,
+  createSupportTicket,
+  updateSupportTicketStatus,
+  addSupportTicketMessage,
+  SupportTicketItem
+} from './api'
 import { formatDateTimeVN } from './dateFormatters'
 
 export interface SupportTicket {
@@ -46,6 +53,34 @@ const DEPARTMENTS = [
   { id: 'insurance', name: 'Phòng KHTH & Giám định BHYT', icon: 'ShieldCheck', desc: 'Hỗ trợ giải trình xuất toán XML 4210, xác thực thẻ BHYT' },
   { id: 'nursing', name: 'Đội Điều dưỡng Telehealth', icon: 'Stethoscope', desc: 'Điều phối lấy mẫu tại nhà, hỗ trợ đo sinh hiệu RPM' }
 ]
+
+
+function mapItemToSupportTicket(item: SupportTicketItem): SupportTicket {
+  return {
+    id: item.id.toString(),
+    code: item.code,
+    department: item.department,
+    departmentIcon: item.department_icon || 'HelpCircle',
+    title: item.title,
+    patientId: item.patient_id,
+    patientName: item.patient_name,
+    priority: item.priority,
+    status: item.status,
+    doctorName: item.doctor_name,
+    createdAt: item.created_at,
+    updatedAt: item.updated_at,
+    description: item.description,
+    assignedTo: item.assigned_to,
+    messages: (item.messages || []).map(m => ({
+      id: m.id.toString(),
+      sender: m.sender_name,
+      senderRole: m.sender_role,
+      content: m.content,
+      timestamp: new Date(m.created_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
+      isDoctor: m.is_doctor
+    }))
+  }
+}
 
 export const DoctorDepartmentSupport: React.FC<DoctorDepartmentSupportProps> = ({
   doctor,
@@ -210,69 +245,125 @@ export const DoctorDepartmentSupport: React.FC<DoctorDepartmentSupportProps> = (
     setTimeout(() => setToastMsg(null), 3000)
   }
 
-  const handleCreateTicket = (e: React.FormEvent) => {
+  const [submittingTicket, setSubmittingTicket] = useState(false)
+
+  const [loadingTickets, setLoadingTickets] = useState(false)
+
+  React.useEffect(() => {
+    let isMounted = true
+    setLoadingTickets(true)
+    getSupportTickets()
+      .then(items => {
+        if (!isMounted || !items) return
+        if (items.length > 0) {
+          setTickets(items.map(mapItemToSupportTicket))
+        }
+      })
+      .catch(err => console.warn('Lỗi tải yêu cầu hỗ trợ từ DB:', err))
+      .finally(() => { if (isMounted) setLoadingTickets(false) })
+    return () => { isMounted = false }
+  }, [])
+
+
+  const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newTitle.trim() || !newDescription.trim()) return
 
     const selectedPatient = appointments.find(a => a.patient_id === Number(newPatientId))
     const deptObj = DEPARTMENTS.find(d => d.name === newDept) || DEPARTMENTS[0]
+    const pName = selectedPatient ? (selectedPatient as any).patient_name : (newPatientId ? `Bệnh nhân #${newPatientId}` : undefined)
 
-    const newTicket: SupportTicket = {
-      id: Date.now().toString(),
-      code: `REQ-2026-0${Math.floor(Math.random() * 90) + 10}`,
-      department: newDept,
-      departmentIcon: deptObj.icon,
-      title: newTitle.trim(),
-      patientId: newPatientId ? Number(newPatientId) : undefined,
-      patientName: selectedPatient ? (selectedPatient as any).patient_name : (newPatientId ? `Bệnh nhân #${newPatientId}` : undefined),
-      priority: newPriority,
-      status: 'pending',
-      doctorName: doctor?.full_name || 'BS.CKII Trần Minh',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      description: newDescription.trim(),
-      assignedTo: `Trực ban ${newDept}`,
-      messages: [
-        {
+    setSubmittingTicket(true)
+    try {
+      const createdItem = await createSupportTicket({
+        department: newDept,
+        department_id: deptObj.id,
+        department_icon: deptObj.icon,
+        title: newTitle.trim(),
+        patient_id: newPatientId ? Number(newPatientId) : undefined,
+        patient_name: pName,
+        priority: newPriority,
+        description: newDescription.trim()
+      })
+      const mapped = mapItemToSupportTicket(createdItem)
+      setTickets(prev => [mapped, ...prev])
+      setShowCreateModal(false)
+      setNewTitle('')
+      setNewDescription('')
+      setNewPatientId('')
+      showToast(`🎉 Đã lưu yêu cầu ${mapped.code} vào Database và gửi tới ${newDept}!`)
+    } catch (err) {
+      console.error('Lỗi tạo yêu cầu:', err)
+      showToast('Lỗi gửi yêu cầu: ' + (err instanceof Error ? err.message : 'Không xác định'))
+    } finally {
+      setSubmittingTicket(false)
+    }
+  }
+
+  const handleSendReply = async () => {
+    if (!replyText.trim() || !selectedTicket) return
+
+    try {
+      const ticketNumId = Number(selectedTicket.id)
+      if (!isNaN(ticketNumId)) {
+        const msgItem = await addSupportTicketMessage(ticketNumId, replyText.trim())
+        const newMsg = {
+          id: msgItem.id.toString(),
+          sender: msgItem.sender_name,
+          senderRole: msgItem.sender_role,
+          content: msgItem.content,
+          timestamp: new Date(msgItem.created_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
+          isDoctor: msgItem.is_doctor
+        }
+        const updated = {
+          ...selectedTicket,
+          updatedAt: new Date().toISOString(),
+          messages: [...selectedTicket.messages, newMsg]
+        }
+        setSelectedTicket(updated)
+        setTickets(prev => prev.map(t => t.id === updated.id ? updated : t))
+      } else {
+        const newMsg = {
           id: 'm_' + Date.now(),
           sender: doctor?.full_name || 'BS.CKII Trần Minh',
-          senderRole: 'Bác sĩ phụ trách',
-          content: newDescription.trim(),
+          senderRole: 'Bác sĩ lâm sàng',
+          content: replyText.trim(),
           timestamp: new Date().toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
           isDoctor: true
         }
-      ]
+        const updated = {
+          ...selectedTicket,
+          updatedAt: new Date().toISOString(),
+          messages: [...selectedTicket.messages, newMsg]
+        }
+        setSelectedTicket(updated)
+        setTickets(prev => prev.map(t => t.id === updated.id ? updated : t))
+      }
+      setReplyText('')
+    } catch (err) {
+      console.error('Lỗi gửi tin nhắn phản hồi:', err)
+      showToast('Không gửi được phản hồi: ' + (err instanceof Error ? err.message : 'Lỗi kết nối'))
     }
-
-    setTickets(prev => [newTicket, ...prev])
-    setShowCreateModal(false)
-    setNewTitle('')
-    setNewDescription('')
-    setNewPatientId('')
-    showToast(`Đã gửi yêu cầu ${newTicket.code} tới ${newDept} thành công!`)
   }
 
-  const handleSendReply = () => {
-    if (!replyText.trim() || !selectedTicket) return
-
-    const newMsg = {
-      id: 'm_' + Date.now(),
-      sender: doctor?.full_name || 'BS.CKII Trần Minh',
-      senderRole: 'Bác sĩ lâm sàng',
-      content: replyText.trim(),
-      timestamp: new Date().toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
-      isDoctor: true
+  const handleToggleResolve = async (ticket: SupportTicket) => {
+    const newSt = ticket.status === 'resolved' ? 'in_progress' : 'resolved'
+    try {
+      const ticketNumId = Number(ticket.id)
+      if (!isNaN(ticketNumId)) {
+        const res = await updateSupportTicketStatus(ticketNumId, { status: newSt })
+        const mapped = mapItemToSupportTicket(res)
+        setSelectedTicket(mapped)
+        setTickets(prev => prev.map(t => t.id === mapped.id ? mapped : t))
+      } else {
+        const updated = { ...ticket, status: newSt as any }
+        setSelectedTicket(updated)
+        setTickets(prev => prev.map(t => t.id === updated.id ? updated : t))
+      }
+      showToast(newSt === 'resolved' ? 'Đã đánh dấu xử lý xong yêu cầu!' : 'Đã mở lại tiến trình xử lý!')
+    } catch (err) {
+      console.error('Lỗi cập nhật trạng thái:', err)
     }
-
-    const updated = {
-      ...selectedTicket,
-      updatedAt: new Date().toISOString(),
-      messages: [...selectedTicket.messages, newMsg]
-    }
-
-    setSelectedTicket(updated)
-    setTickets(prev => prev.map(t => t.id === updated.id ? updated : t))
-    setReplyText('')
   }
 
   // Filtered tickets

@@ -61,6 +61,16 @@ class User(Base):
     blood_glucose: Mapped[float | None] = mapped_column(Float, nullable=True)             # Đường huyết (mmol/L)
     last_his_sync_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True) # Mốc đồng bộ Bệnh án HIS/EMR
 
+    # Thông tin chuyên môn & Thiết lập Bác sĩ (Doctor Subsystem)
+    academic_title: Mapped[str | None] = mapped_column(String(100), default="BS.CKII", nullable=True) # Học hàm / Học vị
+    specialty: Mapped[str | None] = mapped_column(String(200), default="Nội Tổng Quát & Tim Mạch Chuyển Hóa", nullable=True) # Chuyên khoa
+    bio: Mapped[str | None] = mapped_column(Text, nullable=True) # Giới thiệu bác sĩ
+    work_room: Mapped[str | None] = mapped_column(String(150), default="Phòng 308 - Khu Khám Quốc tế CareConnect", nullable=True)
+    smartca_serial: Mapped[str | None] = mapped_column(String(100), default="5404B6789A120EFA", nullable=True) # Serial chứng thư số SmartCA
+    smartca_provider: Mapped[str | None] = mapped_column(String(100), default="VNPT SmartCA (Level 4)", nullable=True) # Nhà cấp SmartCA
+    consult_duration: Mapped[int | None] = mapped_column(Integer, default=30, nullable=True) # Thời lượng tư vấn tiêu chuẩn (phút)
+    max_patients_per_shift: Mapped[int | None] = mapped_column(Integer, default=12, nullable=True) # Định mức ca tối đa
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -93,7 +103,10 @@ class DoctorShift(Base):
     end_time: Mapped[str] = mapped_column(String(10), default="11:30")
     max_patients: Mapped[int] = mapped_column(Integer, default=12) # Giới hạn chống quá tải
     booked_count: Mapped[int] = mapped_column(Integer, default=0)
+    room_name: Mapped[str | None] = mapped_column(String(150), default="Phòng khám Telemedicine #07", nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 class NurseShift(Base):
     __tablename__ = "nurse_shifts"
@@ -484,4 +497,35 @@ class PatientCabinetItem(Base):
     start_date: Mapped[str | None] = mapped_column(String(50), nullable=True)
     end_date: Mapped[str | None] = mapped_column(String(50), nullable=True)
     last_taken_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SupportTicket(Base):
+    __tablename__ = "support_tickets"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(50), unique=True, index=True) # e.g. REQ-2026-092
+    department: Mapped[str] = mapped_column(String(150)) # e.g. Khoa CĐHA & Thăm dò chức năng
+    department_id: Mapped[str] = mapped_column(String(50), index=True) # pacs, pharmacy, lab, it, insurance, nursing
+    department_icon: Mapped[str | None] = mapped_column(String(50), default="HelpCircle", nullable=True)
+    title: Mapped[str] = mapped_column(String(255))
+    patient_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    patient_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    priority: Mapped[str] = mapped_column(String(20), default="normal") # urgent, high, normal
+    status: Mapped[str] = mapped_column(String(30), default="pending") # pending, in_progress, resolved, closed
+    doctor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    doctor_name: Mapped[str] = mapped_column(String(200))
+    assigned_to: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    description: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class SupportTicketMessage(Base):
+    __tablename__ = "support_ticket_messages"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ticket_id: Mapped[int] = mapped_column(ForeignKey("support_tickets.id", ondelete="CASCADE"), index=True)
+    sender_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    sender_name: Mapped[str] = mapped_column(String(200))
+    sender_role: Mapped[str] = mapped_column(String(100)) # "Bác sĩ lâm sàng", "Khoa CĐHA", etc.
+    content: Mapped[str] = mapped_column(Text)
+    is_doctor: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -689,6 +689,18 @@ export type DoctorShift = {
   booked_count: number
   available_slots: number
   is_overloaded: boolean
+  room_name?: string
+  notes?: string
+}
+
+export type DoctorShiftIn = {
+  shift_date: string
+  shift_type: string
+  start_time?: string
+  end_time?: string
+  room_name?: string
+  max_patients?: number
+  notes?: string
 }
 
 export type AppointmentCancelOut = {
@@ -2130,4 +2142,122 @@ export async function syncAppointmentToCabinet(appointmentId: number): Promise<{
 
 export async function getMyPrescriptions(): Promise<PatientPrescription[]> {
   return request<PatientPrescription[]>('/api/v1/patients/me/prescriptions')
+}
+
+
+// ==================== PHÂN HỆ BÁC SĨ (DOCTOR SUBSYSTEM REAL DATABASE API) ====================
+
+export interface DoctorProfile {
+  id: number
+  full_name: string
+  email: string
+  phone_number?: string
+  doctor_cchn?: string
+  academic_title?: string
+  specialty?: string
+  bio?: string
+  work_room?: string
+  department_id?: number
+  department_name?: string
+  smartca_serial?: string
+  smartca_provider?: string
+  consult_duration: number
+  max_patients_per_shift: number
+  avatar_url?: string
+}
+
+export interface SupportTicketMessageItem {
+  id: number
+  ticket_id: number
+  sender_id?: number
+  sender_name: string
+  sender_role: string
+  content: string
+  is_doctor: boolean
+  created_at: string
+}
+
+export interface SupportTicketItem {
+  id: number
+  code: string
+  department: string
+  department_id: string
+  department_icon?: string
+  title: string
+  patient_id?: number
+  patient_name?: string
+  priority: 'urgent' | 'high' | 'normal'
+  status: 'pending' | 'in_progress' | 'resolved' | 'closed'
+  doctor_id: number
+  doctor_name: string
+  assigned_to?: string
+  description: string
+  created_at: string
+  updated_at: string
+  messages: SupportTicketMessageItem[]
+}
+
+export async function createDoctorShift(doctorId: number, data: DoctorShiftIn): Promise<DoctorShift> {
+  return request<DoctorShift>(`/api/v1/doctors/${doctorId}/shifts`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function deleteDoctorShift(shiftId: number): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>(`/api/v1/doctors/shifts/${shiftId}`, {
+    method: 'DELETE'
+  })
+}
+
+export async function getDoctorProfile(): Promise<DoctorProfile> {
+  return request<DoctorProfile>('/api/v1/doctors/me/profile')
+}
+
+export async function updateDoctorProfile(data: Partial<DoctorProfile>): Promise<DoctorProfile> {
+  return request<DoctorProfile>('/api/v1/doctors/me/profile', {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function getSupportTickets(params?: { department_id?: string; status?: string }): Promise<SupportTicketItem[]> {
+  const q = new URLSearchParams()
+  if (params?.department_id && params.department_id !== 'all') q.set('department_id', params.department_id)
+  if (params?.status && params.status !== 'all') q.set('status', params.status)
+  const qs = q.toString() ? `?${q.toString()}` : ''
+  return request<SupportTicketItem[]>(`/api/v1/support-tickets${qs}`)
+}
+
+export async function createSupportTicket(data: {
+  department: string
+  department_id: string
+  department_icon?: string
+  title: string
+  patient_id?: number
+  patient_name?: string
+  priority?: 'urgent' | 'high' | 'normal'
+  description: string
+}): Promise<SupportTicketItem> {
+  return request<SupportTicketItem>('/api/v1/support-tickets', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function updateSupportTicketStatus(ticketId: number, data: {
+  status: 'pending' | 'in_progress' | 'resolved' | 'closed'
+  assigned_to?: string
+}): Promise<SupportTicketItem> {
+  return request<SupportTicketItem>(`/api/v1/support-tickets/${ticketId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function addSupportTicketMessage(ticketId: number, content: string): Promise<SupportTicketMessageItem> {
+  return request<SupportTicketMessageItem>(`/api/v1/support-tickets/${ticketId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ content })
+  })
 }

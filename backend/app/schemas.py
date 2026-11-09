@@ -314,6 +314,15 @@ class DepartmentOut(BaseModel):
     description: str | None = None
     is_active: bool
 
+class DoctorShiftIn(BaseModel):
+    shift_date: str
+    shift_type: str = "morning"
+    start_time: str = "07:30"
+    end_time: str = "11:30"
+    room_name: Optional[str] = "Phòng khám Telemedicine #07"
+    max_patients: int = 12
+    notes: Optional[str] = None
+
 class DoctorShiftOut(BaseModel):
     id: int
     doctor_id: int
@@ -328,6 +337,8 @@ class DoctorShiftOut(BaseModel):
     booked_count: int
     available_slots: int
     is_overloaded: bool
+    room_name: Optional[str] = None
+    notes: Optional[str] = None
 
 class NurseShiftIn(BaseModel):
     nurse_id: int
@@ -1219,4 +1230,87 @@ class CabinetItemOut(CabinetItemIn):
     patient_id: int
     last_taken_at: Optional[datetime] = None
     created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ----------------- DOCTOR SUBSYSTEM SCHEMAS -----------------
+
+class DoctorProfileIn(BaseModel):
+    full_name: str
+    doctor_cchn: Optional[str] = None
+    phone_number: Optional[str] = None
+    email: Optional[str] = None
+    academic_title: Optional[str] = "BS.CKII"
+    specialty: Optional[str] = "Nội Tổng Quát & Tim Mạch Chuyển Hóa"
+    bio: Optional[str] = None
+    work_room: Optional[str] = "Phòng 308 - Khu Khám Quốc tế CareConnect"
+    smartca_serial: Optional[str] = None
+    smartca_provider: Optional[str] = None
+    consult_duration: Optional[int] = 30
+    max_patients_per_shift: Optional[int] = 12
+
+class DoctorProfileOut(BaseModel):
+    id: int
+    full_name: str
+    email: str
+    phone_number: Optional[str] = None
+    doctor_cchn: Optional[str] = None
+    academic_title: Optional[str] = None
+    specialty: Optional[str] = None
+    bio: Optional[str] = None
+    work_room: Optional[str] = None
+    department_id: Optional[int] = None
+    department_name: Optional[str] = None
+    smartca_serial: Optional[str] = None
+    smartca_provider: Optional[str] = None
+    consult_duration: int = 30
+    max_patients_per_shift: int = 12
+    avatar_url: Optional[str] = None
+
+class SupportTicketMessageIn(BaseModel):
+    content: str
+
+class SupportTicketMessageOut(BaseModel):
+    id: int
+    ticket_id: int
+    sender_id: Optional[int] = None
+    sender_name: str
+    sender_role: str
+    content: str
+    is_doctor: bool
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class SupportTicketIn(BaseModel):
+    department: str
+    department_id: str
+    department_icon: Optional[str] = "HelpCircle"
+    title: str
+    patient_id: Optional[int] = None
+    patient_name: Optional[str] = None
+    priority: str = "normal"
+    description: str
+
+class SupportTicketStatusUpdate(BaseModel):
+    status: str
+    assigned_to: Optional[str] = None
+
+class SupportTicketOut(BaseModel):
+    id: int
+    code: str
+    department: str
+    department_id: str
+    department_icon: Optional[str] = None
+    title: str
+    patient_id: Optional[int] = None
+    patient_name: Optional[str] = None
+    priority: str
+    status: str
+    doctor_id: int
+    doctor_name: str
+    assigned_to: Optional[str] = None
+    description: str
+    created_at: datetime
+    updated_at: datetime
+    messages: list[SupportTicketMessageOut] = []
     model_config = ConfigDict(from_attributes=True)

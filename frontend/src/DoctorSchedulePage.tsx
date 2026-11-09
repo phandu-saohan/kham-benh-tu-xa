@@ -4,7 +4,7 @@ import {
   Plus, ChevronLeft, ChevronRight, Stethoscope, Building2,
   Calendar as CalendarIcon, ShieldCheck, X, RefreshCw
 } from 'lucide-react'
-import { Appointment, Department, DoctorShift } from './api'
+import { Appointment, Department, DoctorShift, getDoctorShifts, createDoctorShift, deleteDoctorShift } from './api'
 import { formatDateTimeVN, formatDateVN } from './dateFormatters'
 
 interface DoctorSchedulePageProps {
@@ -59,20 +59,52 @@ export const DoctorSchedulePage: React.FC<DoctorSchedulePageProps> = ({
   // Filter doctor's appointments
   const myAppointments = appointments.filter(a => a.doctor_id === doctor.id || doctor.role === 'doctor')
 
-  const handleSaveShift = (e: React.FormEvent) => {
+  React.useEffect(() => {
+    let isMounted = true
+    if (doctor?.id) {
+      getDoctorShifts(doctor.id)
+        .then(shifts => {
+          if (!isMounted || !shifts) return
+          if (shifts.length > 0) {
+            setSavedShifts(shifts.map(s => ({
+              id: s.id.toString(),
+              date: s.shift_date,
+              shift: s.shift_type,
+              room: s.room_name || 'Phòng khám Telemedicine #07',
+              max: s.max_patients
+            })))
+          }
+        })
+        .catch(err => console.warn('Tải ca trực từ database:', err))
+    }
+    return () => { isMounted = false }
+  }, [doctor?.id])
+
+  const handleSaveShift = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSavedShifts(prev => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        date: newShiftDate,
-        shift: newShiftType,
-        room: newShiftRoom,
-        max: newShiftMax
-      }
-    ])
-    setShowAddSlotModal(false)
-    showToast('Đã đăng ký ca trực và mở slot khám trực tuyến thành công!')
+    try {
+      const created = await createDoctorShift(doctor.id, {
+        shift_date: newShiftDate,
+        shift_type: newShiftType,
+        room_name: newShiftRoom,
+        max_patients: newShiftMax
+      })
+      setSavedShifts(prev => [
+        ...prev,
+        {
+          id: created.id.toString(),
+          date: created.shift_date,
+          shift: created.shift_type,
+          room: created.room_name || newShiftRoom,
+          max: created.max_patients
+        }
+      ])
+      setShowAddSlotModal(false)
+      showToast('🎉 Đã đăng ký ca trực và lưu vào Database thành công!')
+    } catch (err) {
+      console.error('Lỗi đăng ký ca trực:', err)
+      showToast('Lỗi đăng ký: ' + (err instanceof Error ? err.message : 'Không xác định'))
+    }
   }
 
   return (

@@ -4,7 +4,7 @@ import {
   Award, KeyRound, CheckCircle2, Lock, Save, Edit3, Camera,
   Clock, Video, Sparkles, RefreshCw, FileText
 } from 'lucide-react'
-import { User } from './api'
+import { User, getDoctorProfile, updateDoctorProfile } from './api'
 
 interface DoctorProfilePageProps {
   currentUser: User
@@ -43,17 +43,60 @@ export const DoctorProfilePage: React.FC<DoctorProfilePageProps> = ({
     setTimeout(() => setToastMsg(null), 3000)
   }
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const [savingProfile, setSavingProfile] = useState(false)
+
+  React.useEffect(() => {
+    let isMounted = true
+    getDoctorProfile()
+      .then(prof => {
+        if (!isMounted) return
+        if (prof.full_name) setFullName(prof.full_name)
+        if (prof.doctor_cchn) setCchn(prof.doctor_cchn)
+        if (prof.specialty) setSpecialty(prof.specialty)
+        if (prof.phone_number) setPhone(prof.phone_number)
+        if (prof.email) setEmail(prof.email)
+        if (prof.department_name) setDepartment(prof.department_name)
+        if (prof.work_room) setRoom(prof.work_room)
+        if (prof.bio) setBio(prof.bio)
+        if (prof.consult_duration) setConsultDuration(prof.consult_duration.toString())
+        if (prof.max_patients_per_shift) setMaxPatients(prof.max_patients_per_shift.toString())
+      })
+      .catch(err => {
+        console.warn('Lấy hồ sơ từ API:', err)
+      })
+    return () => { isMounted = false }
+  }, [])
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault()
-    const updated = {
-      ...currentUser,
-      full_name: fullName,
-      doctor_cchn: cchn,
-      phone_number: phone,
-      email
+    setSavingProfile(true)
+    try {
+      const updatedProf = await updateDoctorProfile({
+        full_name: fullName,
+        doctor_cchn: cchn,
+        phone_number: phone,
+        email,
+        specialty,
+        bio,
+        work_room: room,
+        consult_duration: parseInt(consultDuration) || 30,
+        max_patients_per_shift: parseInt(maxPatients) || 12
+      })
+      const updated = {
+        ...currentUser,
+        full_name: updatedProf.full_name,
+        doctor_cchn: updatedProf.doctor_cchn,
+        phone_number: updatedProf.phone_number,
+        email: updatedProf.email
+      }
+      onUpdateUser(updated)
+      showToast('🎉 Đã lưu và đồng bộ Hồ sơ Bác sĩ vào Database thành công!')
+    } catch (err) {
+      console.error('Lỗi cập nhật hồ sơ:', err)
+      showToast('Lỗi cập nhật: ' + (err instanceof Error ? err.message : 'Không xác định'))
+    } finally {
+      setSavingProfile(false)
     }
-    onUpdateUser(updated)
-    showToast('Đã lưu và cập nhật Hồ sơ Bác sĩ thành công!')
   }
 
   const handleChangePassword = (e: React.FormEvent) => {
