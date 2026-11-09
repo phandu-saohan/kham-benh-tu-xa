@@ -5,7 +5,7 @@ import {
   FileDown, PenTool, Share2, Code2, QrCode, Sparkles, Mic, MicOff, Bot, PhoneCall, Volume2,
   ScreenShare, ScreenShareOff, MessageSquare, FlaskConical, ScanLine, ExternalLink, Activity, Clock,
   FileCheck, Users, HeartPulse, Download, Plus, Check, RefreshCw, Building2,
-  Copy, Trash2, Eye
+  Copy, Trash2, Eye, CalendarCheck, MoreHorizontal
 } from 'lucide-react'
 import {
   type Appointment, type User as CurrentUser, type ICD10Item,
@@ -127,6 +127,7 @@ export function DoctorWorkspace({
   const [showSoapModal, setShowSoapModal] = useState(false)
   // Modal Popup xem và chỉnh sửa Hội thoại Bác sĩ - Bệnh nhân
   const [showTranscriptModal, setShowTranscriptModal] = useState(false)
+  const [showMoreTabs, setShowMoreTabs] = useState(false)
   const [soapEditState, setSoapEditState] = useState({
     subjective: '',
     objective: '',
@@ -1505,13 +1506,54 @@ export function DoctorWorkspace({
         {/* Right Pane: Clinical Documentation Workspace */}
         <div className="clinical-pane">
           <div className="clinical-tabs">
+            {/* 1. Thông tin đặt khám */}
             <button
               className={`tab-btn ${activeTab === 'record' ? 'active' : ''}`}
               onClick={() => setActiveTab('record')}
+              title="Thông tin đăng ký đặt khám & Phiếu khám lâm sàng EMR"
             >
-              <FileText size={16} /> Phiếu khám lâm sàng
+              <FileText size={15} /> Thông tin đặt khám
             </button>
 
+            {/* 2. CLS */}
+            <button
+              className={`tab-btn ${activeTab === 'lab' ? 'active' : ''}`}
+              onClick={() => setActiveTab('lab')}
+              style={{ position: 'relative' }}
+              title="Kết quả xét nghiệm & Cận lâm sàng (CLS)"
+            >
+              <FlaskConical size={15} /> CLS
+              {labData && labData.abnormal_indicators_count > 0 && (
+                <span className="tab-unread-badge" style={{ background: '#ef4444' }}>
+                  {labData.abnormal_indicators_count} !
+                </span>
+              )}
+            </button>
+
+            {/* 3. PACS */}
+            <button
+              className={`tab-btn ${activeTab === 'pacs' ? 'active' : ''}`}
+              onClick={() => setActiveTab('pacs')}
+              title="Phim X-Quang, CT, MRI, Siêu âm chuẩn DICOM PACS"
+            >
+              <ScanLine size={15} /> PACS
+              {pacsData?.total_studies ? (
+                <span style={{ marginLeft: 5, fontSize: '11px', background: activeTab === 'pacs' ? 'rgba(255,255,255,0.3)' : '#e0f2fe', color: activeTab === 'pacs' ? '#fff' : '#0369a1', padding: '1px 6px', borderRadius: '10px', fontWeight: 700 }}>
+                  {pacsData.total_studies}
+                </span>
+              ) : null}
+            </button>
+
+            {/* 4. Đơn thuốc */}
+            <button
+              className={`tab-btn ${activeTab === 'prescription' ? 'active' : ''}`}
+              onClick={() => setActiveTab('prescription')}
+              title="Kê đơn thuốc & Đơn thuốc Quốc gia"
+            >
+              <Pill size={15} /> Đơn thuốc
+            </button>
+
+            {/* 5. Chat */}
             <button
               className={`tab-btn ${activeTab === 'chat' ? 'active' : ''}`}
               onClick={() => {
@@ -1519,91 +1561,106 @@ export function DoctorWorkspace({
                 setUnreadChatCount(0)
               }}
               style={{ position: 'relative' }}
+              title="Nhắn tin & Tệp gửi giữa Bác sĩ và Bệnh nhân"
             >
-              <MessageSquare size={16} /> Chat & Tệp gửi
+              <MessageSquare size={15} /> Chat
               {unreadChatCount > 0 && <span className="tab-unread-badge">{unreadChatCount}</span>}
             </button>
-            <button
-              className={`tab-btn ${activeTab === 'lab' ? 'active' : ''}`}
-              onClick={() => setActiveTab('lab')}
-              style={{ position: 'relative' }}
-              title="Kết quả xét nghiệm máu, sinh hóa, nước tiểu của bệnh nhân này"
-            >
-              <FlaskConical size={16} /> Cận lâm sàng
-              {labData && labData.abnormal_indicators_count > 0 && (
-                <span className="tab-unread-badge" style={{ background: '#ef4444' }}>
-                  {labData.abnormal_indicators_count} !
-                </span>
-              )}
-            </button>
-            <button
-              className={`tab-btn ${activeTab === 'pacs' ? 'active' : ''}`}
-              onClick={() => setActiveTab('pacs')}
-              title="Phim X-Quang, CT, MRI, Siêu âm chuẩn DICOMweb OHIF Viewer"
-            >
-              <ScanLine size={16} /> Phim PACS
-              {pacsData?.total_studies ? (
-                <span style={{ marginLeft: 5, fontSize: '11px', background: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '10px', fontWeight: 700 }}>
-                  {pacsData.total_studies}
-                </span>
-              ) : null}
-            </button>
-            <button
-              className={`tab-btn ${activeTab === 'prescription' ? 'active' : ''}`}
-              onClick={() => setActiveTab('prescription')}
-            >
-              <Pill size={16} /> Đơn thuốc Quốc gia
-            </button>
-            <button
-              className={`tab-btn ${activeTab === 'patient_info' ? 'active' : ''}`}
-              onClick={() => setActiveTab('patient_info')}
-            >
-              <User size={16} /> Tiền sử bệnh nhân
-            </button>
-            <button
-              className={`tab-btn ${activeTab === 'fhir' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab('fhir')
-                loadFhir()
-              }}
-            >
-              <Code2 size={16} /> Chuẩn HL7 FHIR
-            </button>
-            <button
-              className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab('history')
-                loadHistory()
-              }}
-            >
-              <Clock size={16} /> Lịch sử lượt khám & Timeline
-            </button>
-            <button
-              className={`tab-btn ${activeTab === 'bhyt' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab('bhyt')
-                loadBhytData()
-              }}
-              style={{ background: activeTab === 'bhyt' ? '#047857' : undefined, color: activeTab === 'bhyt' ? '#fff' : undefined }}
-            >
-              <FileCheck size={16} /> Giám định BHYT (XML 4210)
-            </button>
-            <button
-              className={`tab-btn ${activeTab === 'multidoctor' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab('multidoctor')
-                loadConsultationMembers()
-              }}
-              style={{ background: activeTab === 'multidoctor' ? '#4338ca' : undefined, color: activeTab === 'multidoctor' ? '#fff' : undefined }}
-            >
-              <Users size={16} /> Hội chẩn Liên viện
-            </button>
 
+            {/* Tiện ích mở rộng khác (BHYT, Hội chẩn, Tiền sử, Lịch sử, FHIR) */}
+            <div className="tab-dropdown-wrapper" style={{ marginLeft: 'auto', position: 'relative' }}>
+              <button
+                type="button"
+                className={`tab-btn tab-btn-more ${['bhyt', 'multidoctor', 'patient_info', 'history', 'fhir'].includes(activeTab) ? 'active' : ''}`}
+                onClick={() => setShowMoreTabs(!showMoreTabs)}
+                title="Tiện ích mở rộng khác (BHYT, Hội chẩn, Tiền sử, Lịch sử, FHIR)"
+              >
+                <MoreHorizontal size={15} />
+                <span>Tiện ích ▾</span>
+              </button>
+              {showMoreTabs && (
+                <div className="tab-dropdown-menu">
+                  <button
+                    type="button"
+                    className={`dropdown-item ${activeTab === 'patient_info' ? 'active' : ''}`}
+                    onClick={() => { setActiveTab('patient_info'); setShowMoreTabs(false); }}
+                  >
+                    <User size={14} /> Tiền sử & Hành chính bệnh nhân
+                  </button>
+                  <button
+                    type="button"
+                    className={`dropdown-item ${activeTab === 'bhyt' ? 'active' : ''}`}
+                    onClick={() => { setActiveTab('bhyt'); loadBhytData(); setShowMoreTabs(false); }}
+                  >
+                    <FileCheck size={14} /> Giám định BHYT (XML 4210)
+                  </button>
+                  <button
+                    type="button"
+                    className={`dropdown-item ${activeTab === 'multidoctor' ? 'active' : ''}`}
+                    onClick={() => { setActiveTab('multidoctor'); loadConsultationMembers(); setShowMoreTabs(false); }}
+                  >
+                    <Users size={14} /> Hội chẩn Liên viện
+                  </button>
+                  <button
+                    type="button"
+                    className={`dropdown-item ${activeTab === 'history' ? 'active' : ''}`}
+                    onClick={() => { setActiveTab('history'); loadHistory(); setShowMoreTabs(false); }}
+                  >
+                    <Clock size={14} /> Lịch sử ca khám & Timeline
+                  </button>
+                  <button
+                    type="button"
+                    className={`dropdown-item ${activeTab === 'fhir' ? 'active' : ''}`}
+                    onClick={() => { setActiveTab('fhir'); loadFhir(); setShowMoreTabs(false); }}
+                  >
+                    <Code2 size={14} /> Chuẩn HL7 FHIR
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="clinical-content">
             {activeTab === 'record' && (
               <div className="form-section">
+                {/* Thẻ tóm tắt Thông tin đặt khám & Tiếp nhận ban đầu */}
+                <div className="appointment-booking-summary-card">
+                  <div className="booking-summary-header">
+                    <div className="booking-summary-title">
+                      <CalendarCheck size={16} color="#0f766e" />
+                      <strong>Thông tin đặt khám trực tuyến #{appointment.id}</strong>
+                    </div>
+                    <span className="booking-status-tag">
+                      🟢 {appointment.status === 'in_progress' ? 'Đang thực hiện khám' : appointment.status === 'confirmed' ? 'Đã xác nhận' : 'Ca khám trực tuyến'}
+                    </span>
+                  </div>
+
+                  <div className="booking-summary-grid">
+                    <div className="booking-item">
+                      <span className="booking-item-label">Lý do đăng ký khám ban đầu:</span>
+                      <strong className="booking-item-val highlight">{appointment.reason || 'Khám bệnh trực tuyến'}</strong>
+                    </div>
+                    <div className="booking-item">
+                      <span className="booking-item-label">Thời gian hẹn khám:</span>
+                      <span className="booking-item-val">
+                        {appointment.starts_at ? new Date(appointment.starts_at).toLocaleString('vi-VN', {
+                          weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                        }) : 'Hôm nay'}
+                      </span>
+                    </div>
+                    <div className="booking-item">
+                      <span className="booking-item-label">Chuyên khoa & Bác sĩ tiếp nhận:</span>
+                      <span className="booking-item-val">Khoa Nội Tổng Quát (K01) &bull; {user.full_name || 'BS. CKII Trần Minh'}</span>
+                    </div>
+                    <div className="booking-item">
+                      <span className="booking-item-label">Bảo hiểm & Chi phí khám:</span>
+                      <span className="booking-item-val">
+                        {appointment.bhyt_code ? `BHYT: ${appointment.bhyt_code} (Hưởng ${appointment.bhyt_rate || 80}%)` : 'Khám dịch vụ'} &bull; {appointment.fee_amount ? `${appointment.fee_amount.toLocaleString('vi-VN')} đ (Đã thanh toán)` : 'Đã thanh toán'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Banner Chữ ký số nếu đã ký */}
                 {signatureInfo && (
                   <div className="smartca-signature-card">

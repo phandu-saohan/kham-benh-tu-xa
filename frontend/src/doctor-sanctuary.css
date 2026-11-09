@@ -3155,3 +3155,135 @@
   background: #e2e8f0;
   color: #0f172a;
 }
+
+
+/* Right Column 5-Item Menu & Booking Summary */
+.appointment-booking-summary-card {
+  background: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.booking-summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e6fffa;
+  padding-bottom: 6px;
+}
+
+.booking-summary-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #0f766e;
+}
+
+.booking-status-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.booking-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  font-size: 12px;
+}
+
+.booking-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.booking-item-label {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.booking-item-val {
+  color: #1e293b;
+  font-size: 12px;
+}
+
+.booking-item-val.highlight {
+  color: #0f766e;
+  font-weight: 700;
+}
+
+.tab-dropdown-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.clinical-tabs .tab-btn-more {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+.clinical-tabs .tab-btn-more:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.clinical-tabs .tab-btn-more.active {
+  background: #4338ca;
+  color: #ffffff;
+  border-color: #4338ca;
+}
+
+.tab-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  min-width: 240px;
+  z-index: 100;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+}
+
+.tab-dropdown-menu .dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tab-dropdown-menu .dropdown-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.tab-dropdown-menu .dropdown-item.active {
+  background: #f0fdfa;
+  color: #0f766e;
+  font-weight: 700;
+}
