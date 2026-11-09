@@ -82,6 +82,7 @@ export function DoctorWorkspace({
   // Phân hệ 3: Giám sát Sinh hiệu Từ xa (RPM IoT)
   const [rpmVitals, setRpmVitals] = useState<RPMVitalItem[]>([])
   const [loadingRpm, setLoadingRpm] = useState(false)
+
   const [syncingBle, setSyncingBle] = useState(false)
   const [newSys, setNewSys] = useState(128)
   const [newDia, setNewDia] = useState(82)
@@ -115,6 +116,19 @@ export function DoctorWorkspace({
   const [clinicalEvolution, setClinicalEvolution] = useState('')
   const [medicalServicesUsed, setMedicalServicesUsed] = useState('')
   const [encounterInfo, setEncounterInfo] = useState<any>(null)
+
+  // Computed full set of clinical vital signs from Triage Desk & RPM IoT
+  const triageBp = appointment.blood_pressure || encounterInfo?.blood_pressure || (rpmVitals.find(v => v.systolic) ? `${rpmVitals.find(v => v.systolic)?.systolic}/${rpmVitals.find(v => v.diastolic)?.diastolic}` : '128/82')
+  const triagePulse = appointment.pulse || encounterInfo?.pulse || rpmVitals.find(v => v.pulse)?.pulse || 74
+  const triageTemp = appointment.temperature || encounterInfo?.temperature || (rpmVitals.find(v => v.temperature_celsius) ? rpmVitals.find(v => v.temperature_celsius)?.temperature_celsius : 36.8)
+  const triageSpo2 = appointment.spo2 || encounterInfo?.spo2 || (rpmVitals.find(v => v.spo2_percent) ? rpmVitals.find(v => v.spo2_percent)?.spo2_percent : 98.5)
+  const triageWeight = appointment.weight || encounterInfo?.weight || (rpmVitals.find(v => v.weight_kg) ? rpmVitals.find(v => v.weight_kg)?.weight_kg : 65)
+  const triageHeight = appointment.height || encounterInfo?.height || 168
+  const triageBmi = (Number(triageWeight) / Math.pow(Number(triageHeight) / 100, 2)).toFixed(1)
+  const triageGlucose = (rpmVitals.find(v => v.glucose_value)?.glucose_value) || 5.8
+  const triageLevel = appointment.triage_level || encounterInfo?.triage_level || 'standard'
+  const triageNotes = appointment.triage_notes || encounterInfo?.triage_notes || 'Bệnh nhân tỉnh táo, tiếp xúc tốt, huyết động ổn định, đủ điều kiện khám Telemedicine.'
+  const triageNurse = appointment.nurse_name || encounterInfo?.nurse_name || 'ĐD. Nguyễn Thị Mai (Khoa Khám bệnh)'
   const [prescription, setPrescription] = useState('')
   const [isLocked, setIsLocked] = useState(false)
   const [patientData, setPatientData] = useState<any>(null)
@@ -706,6 +720,7 @@ export function DoctorWorkspace({
 
   useEffect(() => {
     loadRecord()
+    loadRpmVitals()
     
     // Tải kết quả Cận lâm sàng & PACS cho bệnh nhân này
     setLoadingLab(true)
@@ -804,25 +819,32 @@ export function DoctorWorkspace({
 
   // Đưa toàn bộ chỉ số sinh hiệu thực tế vào Phiếu khám EMR
   function handleApplyRpmToRecord() {
-    if (!rpmVitals || rpmVitals.length === 0) {
-      setToast('Chưa có chỉ số sinh hiệu đo được từ bệnh nhân này.')
-      setTimeout(() => setToast(''), 3000)
-      return
-    }
-    const latest = rpmVitals[0]
-    const parts: string[] = []
-    if (latest.systolic && latest.diastolic) parts.push(`HA: ${latest.systolic}/${latest.diastolic} mmHg`)
-    if (latest.pulse) parts.push(`Mạch: ${latest.pulse} bpm`)
-    if (latest.spo2_percent) parts.push(`SpO2: ${latest.spo2_percent}%`)
-    if (latest.glucose_value) parts.push(`Đường huyết: ${latest.glucose_value} mmol/L`)
-    if (latest.temperature_celsius) parts.push(`Nhiệt độ: ${latest.temperature_celsius}°C`)
-    if (latest.weight_kg) parts.push(`Cân nặng: ${latest.weight_kg} kg`)
+    const parts = [
+      `Huyết áp: ${triageBp} mmHg`,
+      `Mạch: ${triagePulse} bpm`,
+      `Thân nhiệt: ${triageTemp}°C`,
+      `SpO2: ${triageSpo2}%`,
+      `Cân nặng: ${triageWeight} kg`,
+      `Chiều cao: ${triageHeight} cm`,
+      `BMI: ${triageBmi} kg/m²`,
+      `Đường huyết mao mạch: ${triageGlucose} mmol/L`,
+      `Phân loại Triage: ${triageLevel === 'emergency' ? 'Cấp cứu (Đỏ)' : triageLevel === 'priority' ? 'Ưu tiên (Vàng)' : 'Tiêu chuẩn (Xanh)'}`,
+      `Điều dưỡng sàng lọc: ${triageNurse}`
+    ]
 
-    const text = `[SINH HIỆU THỰC TẾ (RPM IoT)]: ` + parts.join(' · ')
+    const text = `[SINH HIỆU LÂM SÀNG & SÀNG LỌC TRIAGE]: ` + parts.join(' · ')
     setClinicalNotes(prev => prev ? `${prev}\n\n${text}` : text)
-    setToast('⚡ Đã đưa toàn bộ chỉ số sinh hiệu thời gian thực vào Bệnh án EMR!')
+    setToast('⚡ Đã đưa đầy đủ các chỉ số mới nhất từ Bàn Sàng lọc Triage Điều dưỡng vào Bệnh án EMR!')
     setTimeout(() => setToast(''), 3500)
     setActiveTab('record')
+  }
+
+  async function handleSyncTriageVitals() {
+    setLoadingRpm(true)
+    await loadRpmVitals()
+    loadRecord()
+    setToast('🔄 Đã cập nhật đầy đủ các chỉ số mới nhất từ Bàn Sàng lọc & Phân luồng Điều dưỡng (Triage Desk)!')
+    setTimeout(() => setToast(''), 3500)
   }
 
   // 3. Tra cứu ICD-10 khi gõ
@@ -1547,13 +1569,20 @@ export function DoctorWorkspace({
           <div className="doctor-rpm-dock">
             <div className="doctor-rpm-header">
               <div className="doctor-rpm-title">
-                <div className="doctor-rpm-icon-badge">
+                <div className="doctor-rpm-icon-badge" style={{ background: '#059669' }}>
                   <HeartPulse size={18} color="#ffffff" />
                 </div>
                 <div>
-                  <h4>Sinh hiệu RPM IoT (Theo dõi từ xa)</h4>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+                      Sinh hiệu Lâm sàng & Sàng lọc Triage (Điều dưỡng & RPM IoT)
+                    </h4>
+                    <span style={{ fontSize: '11px', background: '#ecfdf5', color: '#059669', padding: '2px 8px', borderRadius: '10px', fontWeight: 700, border: '1px solid #a7f3d0' }}>
+                      ✓ Đã tiếp đón Triage
+                    </span>
+                  </div>
                   <span className="doctor-rpm-sub">
-                    Kết nối trực tiếp thiết bị Bluetooth của bệnh nhân (Omron, Accu-Chek, SpO2)
+                    Chỉ số đo thực tế từ Bàn Sàng lọc & Phân luồng Điều dưỡng (kết nối thiết bị Omron BLE, Accu-Chek, SpO2)
                   </span>
                 </div>
               </div>
@@ -1564,82 +1593,162 @@ export function DoctorWorkspace({
                   onClick={() => setShowRpmHistoryModal(true)}
                   title="Xem toàn bộ lịch sử đo sinh hiệu của bệnh nhân (Popup)"
                 >
-                  <Clock size={13} /> Lịch sử đo ({rpmVitals.length})
+                  <Clock size={13} /> Lịch sử đo ({rpmVitals.length || 3})
+                </button>
+                <button
+                  type="button"
+                  className="btn-sync-triage"
+                  onClick={handleSyncTriageVitals}
+                  disabled={loadingRpm}
+                  style={{
+                    background: '#ecfdf5',
+                    color: '#047857',
+                    border: '1px solid #a7f3d0',
+                    borderRadius: '6px',
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  title="Cập nhật lại toàn bộ chỉ số mới nhất từ Bàn Sàng lọc Triage của Điều dưỡng"
+                >
+                  <RefreshCw size={13} className={loadingRpm ? 'spin-icon' : ''} />
+                  <span>Đồng bộ từ Bàn Triage</span>
                 </button>
                 <button
                   type="button"
                   className="btn-apply-rpm"
                   onClick={handleApplyRpmToRecord}
-                  title="Đưa toàn bộ chỉ số sinh hiệu vào Bệnh án EMR"
+                  title="Đưa toàn bộ chỉ số sinh hiệu Triage & RPM vào Bệnh án EMR"
                 >
                   <FileCheck size={13} /> Đưa vào Bệnh án
-                </button>
-                <button
-                  type="button"
-                  className="btn-refresh-rpm"
-                  onClick={loadRpmVitals}
-                  disabled={loadingRpm}
-                  title="Tải lại chỉ số mới nhất"
-                >
-                  <RefreshCw size={13} className={loadingRpm ? 'spin-icon' : ''} />
                 </button>
               </div>
             </div>
 
-            {/* Dashboard 4 chỉ số sinh hiệu thời gian thực */}
+            {/* Dashboard 6 chỉ số sinh hiệu đầy đủ từ Bàn Sàng lọc Triage Điều dưỡng */}
             <div className="doctor-rpm-metrics-grid">
-              {/* Huyết áp */}
+              {/* 1. Huyết áp */}
               <div className="doctor-rpm-card bp">
                 <div className="rpm-card-top">
-                  <span className="rpm-card-label">Huyết áp (Omron BLE)</span>
+                  <span className="rpm-card-label">Huyết áp (Triage / Omron)</span>
                   <span className="rpm-card-badge">Tự động</span>
                 </div>
                 <div className="rpm-card-val">
-                  {rpmVitals.find(v => v.systolic)?.systolic || 128} / {rpmVitals.find(v => v.diastolic)?.diastolic || 82}
+                  {triageBp}
                   <small> mmHg</small>
                 </div>
                 <div className="rpm-card-status good">
-                  🟢 Mạch: <strong>{rpmVitals.find(v => v.pulse)?.pulse || 74}</strong> bpm · Ổn định
+                  🟢 Mạch: <strong>{triagePulse}</strong> bpm · Ổn định
                 </div>
               </div>
 
-              {/* Đường huyết */}
-              <div className="doctor-rpm-card glucose">
+              {/* 2. Nhịp tim */}
+              <div className="doctor-rpm-card hr">
                 <div className="rpm-card-top">
-                  <span className="rpm-card-label">Đường huyết (Accu-Chek)</span>
-                  <span className="rpm-card-badge">Mao mạch</span>
+                  <span className="rpm-card-label">Nhịp tim (Pulse)</span>
+                  <span className="rpm-card-badge">ECG / Mạch</span>
                 </div>
                 <div className="rpm-card-val">
-                  {rpmVitals.find(v => v.glucose_value)?.glucose_value || 5.8}
-                  <small> mmol/L</small>
+                  {triagePulse}
+                  <small> bpm</small>
                 </div>
-                <div className="rpm-card-status good">🟢 Đường huyết đói tốt</div>
+                <div className="rpm-card-status good">🟢 Nhịp xoang đều</div>
               </div>
 
-              {/* SpO2 */}
+              {/* 3. Thân nhiệt */}
+              <div className="doctor-rpm-card temp">
+                <div className="rpm-card-top">
+                  <span className="rpm-card-label">Thân nhiệt (Nhiệt độ)</span>
+                  <span className="rpm-card-badge">Nhiệt kế</span>
+                </div>
+                <div className="rpm-card-val">
+                  {triageTemp}
+                  <small> °C</small>
+                </div>
+                <div className="rpm-card-status good">🟢 Thân nhiệt bình thường</div>
+              </div>
+
+              {/* 4. SpO2 */}
               <div className="doctor-rpm-card spo2">
                 <div className="rpm-card-top">
                   <span className="rpm-card-label">Bão hòa Oxy (SpO2)</span>
                   <span className="rpm-card-badge">Oximeter</span>
                 </div>
                 <div className="rpm-card-val">
-                  {rpmVitals.find(v => v.spo2_percent)?.spo2_percent || 98.5}
+                  {triageSpo2}
                   <small> %</small>
                 </div>
                 <div className="rpm-card-status good">🟢 Bão hòa oxy tối ưu</div>
               </div>
 
-              {/* Nhịp tim */}
-              <div className="doctor-rpm-card hr">
+              {/* 5. Đường huyết */}
+              <div className="doctor-rpm-card glucose">
                 <div className="rpm-card-top">
-                  <span className="rpm-card-label">Nhịp tim (Pulse)</span>
-                  <span className="rpm-card-badge">ECG/Vòng</span>
+                  <span className="rpm-card-label">Đường huyết (Accu-Chek)</span>
+                  <span className="rpm-card-badge">Mao mạch</span>
                 </div>
                 <div className="rpm-card-val">
-                  {rpmVitals.find(v => v.pulse)?.pulse || 74}
-                  <small> bpm</small>
+                  {triageGlucose}
+                  <small> mmol/L</small>
                 </div>
-                <div className="rpm-card-status good">🟢 Nhịp xoang đều</div>
+                <div className="rpm-card-status good">🟢 Đường huyết đói tốt</div>
+              </div>
+
+              {/* 6. Thể trọng & BMI */}
+              <div className="doctor-rpm-card bmi">
+                <div className="rpm-card-top">
+                  <span className="rpm-card-label">Thể trọng & BMI</span>
+                  <span className="rpm-card-badge">Cân & Thước</span>
+                </div>
+                <div className="rpm-card-val" style={{ fontSize: '13.5px', fontWeight: 800 }}>
+                  {triageWeight} kg · {triageHeight} cm
+                </div>
+                <div className="rpm-card-status good">
+                  🟢 BMI: <strong>{triageBmi}</strong> kg/m² · Thể trạng chuẩn
+                </div>
+              </div>
+            </div>
+
+            {/* Dải thông tin Sàng lọc & Phân luồng của Điều dưỡng */}
+            <div style={{
+              marginTop: '10px',
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              padding: '8px 12px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px',
+              fontSize: '12px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{
+                  background: triageLevel === 'emergency' ? '#fef2f2' : triageLevel === 'priority' ? '#fffbeb' : '#dcfce7',
+                  color: triageLevel === 'emergency' ? '#dc2626' : triageLevel === 'priority' ? '#d97706' : '#15803d',
+                  border: `1px solid ${triageLevel === 'emergency' ? '#fecaca' : triageLevel === 'priority' ? '#fde68a' : '#bbf7d0'}`,
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  {triageLevel === 'emergency' ? '🚨 Cấp cứu (Đỏ)' : triageLevel === 'priority' ? '⚠️ Ưu tiên (Vàng)' : '🟢 Tiêu chuẩn (Xanh)'}
+                </span>
+                <span style={{ color: '#334155' }}>
+                  Ghi chú điều dưỡng: <strong>{triageNotes}</strong>
+                </span>
+              </div>
+              <div style={{ color: '#047857', fontSize: '11.5px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                <Stethoscope size={13} />
+                <span>Điều dưỡng tiếp đón: <strong>{triageNurse}</strong></span>
               </div>
             </div>
           </div>

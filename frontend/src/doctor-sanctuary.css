@@ -2379,17 +2379,23 @@
 /* 4 Metrics Grid (4 columns across) */
 .doctor-rpm-metrics-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 8px;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1400px) {
+  .doctor-rpm-metrics-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
   .doctor-rpm-metrics-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 480px) {
   .doctor-rpm-metrics-grid {
     grid-template-columns: 1fr;
   }
@@ -2415,6 +2421,8 @@
 .doctor-rpm-card.glucose { border-left: 3.5px solid #f59e0b; }
 .doctor-rpm-card.spo2 { border-left: 3.5px solid #0284c7; }
 .doctor-rpm-card.hr { border-left: 3.5px solid #8b5cf6; }
+.doctor-rpm-card.temp { border-left: 3.5px solid #10b981; }
+.doctor-rpm-card.bmi { border-left: 3.5px solid #0d9488; }
 
 .rpm-card-top {
   display: flex;
