@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import {
-  X, FileDown, ShieldCheck, CheckCircle2, UserRound, Calendar,
+  X, FileDown, ShieldCheck, CheckCircle2, UserRound, Calendar, Printer, Edit3,
   Building2, Stethoscope, Activity, FileText, Pill, FlaskConical,
   Download, Clock, Sparkles, HeartPulse, QrCode
 } from 'lucide-react'
@@ -125,7 +125,28 @@ export function MedicalRecordModal({
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: 'rgba(255, 255, 255, 0.15)',
+                color: '#ffffff',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                borderRadius: '6px',
+                padding: '6px 12px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              title="In phiếu khám bệnh"
+            >
+              <Printer size={14} /> In phiếu
+            </button>
             <button
               type="button"
               onClick={handleDownload}
@@ -138,12 +159,14 @@ export function MedicalRecordModal({
                 color: '#0f766e',
                 border: 'none',
                 borderRadius: '6px',
-                padding: '7px 14px',
-                fontSize: '13px',
+                padding: '6px 14px',
+                fontSize: '12.5px',
                 fontWeight: 700,
                 cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
                 transition: 'all 0.15s ease'
               }}
+              title="Xuất file PDF có chữ ký số"
             >
               <FileDown size={15} />
               {downloading ? 'Đang tải...' : 'Tải PDF (Ký số)'}
@@ -161,8 +184,10 @@ export function MedicalRecordModal({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
               }}
+              title="Đóng popup"
             >
               <X size={18} />
             </button>
@@ -524,32 +549,31 @@ export function MedicalRecordModal({
             borderTop: '1px solid #e2e8f0',
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center'
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '10px'
           }}
         >
           <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Sparkles size={14} color="#0f766e" />
-            Bệnh án điện tử được lưu trữ an toàn và bảo mật theo hồ sơ sức khỏe cá nhân của bạn.
+            Phiếu khám lâm sàng đã được khởi tạo thành công theo mẫu QĐ 2682/QĐ-BYT & QĐ 130/Bộ Y tế.
           </div>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="btn-modal-secondary"
+              title="In phiếu khám bệnh"
+            >
+              <Printer size={15} /> In phiếu khám
+            </button>
             <button
               type="button"
               onClick={handleDownload}
               disabled={downloading}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: '#0f766e',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '8px 16px',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer'
-              }}
+              className="btn-modal-primary"
+              title="Xuất file PDF phiếu khám bệnh điện tử có chữ ký số"
             >
               <FileDown size={15} />
               {downloading ? 'Đang xuất PDF...' : 'Tải File PDF Bệnh Án'}
@@ -557,18 +581,10 @@ export function MedicalRecordModal({
             <button
               type="button"
               onClick={onClose}
-              style={{
-                background: '#f1f5f9',
-                color: '#475569',
-                border: '1px solid #cbd5e1',
-                borderRadius: '6px',
-                padding: '8px 16px',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}
+              className="btn-modal-close"
+              title="Đóng popup và quay lại biểu mẫu chỉnh sửa"
             >
-              Đóng
+              <Edit3 size={14} /> Chỉnh sửa tiếp / Đóng
             </button>
           </div>
         </div>

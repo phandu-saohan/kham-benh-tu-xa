@@ -3765,36 +3765,35 @@ export function DoctorWorkspace({
               </div>
             </div>
 
-            <div className="soap-modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', borderTop: '1px solid #fecdd3', background: '#fff1f2' }}>
-              <div style={{ display: 'flex', gap: '8px' }}>
+            <div className="soap-modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 22px', borderTop: '1px solid #fecdd3', background: '#fff1f2' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <button
                   type="button"
-                  className="btn-apply-rpm"
+                  className="btn-modal-accent-rose"
                   onClick={() => {
                     handleApplyRpmToRecord();
                     setShowRpmHistoryModal(false);
                   }}
                 >
-                  <FileCheck size={14} /> Đưa chỉ số mới nhất vào Bệnh án EMR
+                  <FileCheck size={15} /> Đưa số đo mới nhất vào Bệnh án EMR
                 </button>
                 <button
                   type="button"
-                  className="btn-refresh-rpm"
+                  className="btn-modal-secondary"
                   onClick={loadRpmVitals}
                   disabled={loadingRpm}
-                  style={{ padding: '6px 12px', background: '#ffffff', color: '#be185d', border: '1px solid #f43f5e', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: 600 }}
                   title="Tải lại từ thiết bị bệnh nhân"
                 >
-                  <RefreshCw size={13} className={loadingRpm ? 'spin-icon' : ''} />
-                  <span>{loadingRpm ? 'Đang đồng bộ...' : 'Đồng bộ lại'}</span>
+                  <RefreshCw size={14} className={loadingRpm ? 'spin-icon' : ''} />
+                  <span>{loadingRpm ? 'Đang đồng bộ...' : 'Đồng bộ lại BLE'}</span>
                 </button>
               </div>
               <button
                 type="button"
-                className="soap-modal-cancel-btn"
+                className="btn-modal-close"
                 onClick={() => setShowRpmHistoryModal(false)}
               >
-                Đóng
+                <X size={15} /> Đóng
               </button>
             </div>
           </div>
@@ -3920,29 +3919,28 @@ export function DoctorWorkspace({
               </div>
             </div>
 
-            <div className="soap-modal-footer" style={{ padding: '12px 20px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '11.5px', color: '#64748b' }}>
+            <div className="soap-modal-footer" style={{ padding: '14px 22px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '12px', color: '#64748b' }}>
                 💡 Bấm <strong>"AI Tóm tắt & Tạo SOAP ngay"</strong> để chuyển toàn bộ hội thoại này thành Phiếu khám lâm sàng.
               </span>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <button
                   type="button"
-                  className="btn-soap-modal-secondary"
+                  className="btn-modal-close"
                   onClick={() => setShowTranscriptModal(false)}
                 >
-                  Đóng
+                  <X size={15} /> Đóng
                 </button>
                 <button
                   type="button"
-                  className="btn-soap-modal-primary"
+                  className="btn-modal-accent-blue"
                   onClick={() => {
                     setShowTranscriptModal(false);
                     handleAnalyzeAiScribe();
                   }}
                   disabled={generatingSoap || !scribeTranscript.trim()}
-                  style={{ background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)' }}
                 >
-                  <Sparkles size={14} /> {generatingSoap ? 'Đang tóm tắt...' : 'AI Tóm tắt & Tạo SOAP ngay'}
+                  <Sparkles size={15} /> {generatingSoap ? 'Đang tóm tắt...' : '✨ AI Tóm tắt & Tạo SOAP ngay'}
                 </button>
               </div>
             </div>
@@ -4106,27 +4104,27 @@ export function DoctorWorkspace({
             <div className="soap-modal-footer">
               <button
                 type="button"
-                className="btn-soap-cancel"
+                className="btn-modal-secondary"
                 onClick={handleResetOriginalSoap}
                 title="Khôi phục lại nội dung gốc được sinh bởi AI"
               >
-                ↺ Nạp lại bản gốc từ AI
+                <RefreshCw size={14} /> Nạp lại bản gốc từ AI
               </button>
 
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <button
                   type="button"
-                  className="btn-soap-cancel"
+                  className="btn-modal-close"
                   onClick={() => setShowSoapModal(false)}
                 >
-                  Hủy bỏ / Giữ nguyên
+                  <X size={15} /> Hủy bỏ / Đóng
                 </button>
                 <button
                   type="button"
-                  className="btn-soap-confirm"
+                  className="btn-modal-primary"
                   onClick={handleConfirmApplySoapModal}
                 >
-                  <FileCheck size={16} /> Xác nhận & Tạo Phiếu khám EMR
+                  <FileCheck size={16} /> Xác nhận & Đưa vào Phiếu khám EMR
                 </button>
               </div>
             </div>
@@ -4153,12 +4151,12 @@ export function DoctorWorkspace({
             <p>
               Khi xác nhận, <strong>hồ sơ bệnh án lâm sàng sẽ được khóa an toàn</strong> theo quy định lưu trữ bệnh án điện tử và phòng gọi sẽ kết thúc. Bạn vẫn có thể xem lại bệnh án bất kỳ lúc nào.
             </p>
-            <div className="confirm-actions">
-              <button className="secondary" onClick={() => setShowConfirmModal(false)}>
-                Hủy bỏ
+            <div className="confirm-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+              <button className="btn-modal-close" onClick={() => setShowConfirmModal(false)}>
+                <X size={15} /> Hủy bỏ / Tiếp tục khám
               </button>
-              <button className="primary" onClick={handleComplete}>
-                Xác nhận & Khóa bệnh án
+              <button className="btn-modal-primary" onClick={handleComplete}>
+                <CheckCircle2 size={16} /> Xác nhận & Khóa bệnh án
               </button>
             </div>
           </div>
