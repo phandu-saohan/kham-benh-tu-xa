@@ -6123,7 +6123,10 @@ def update_doctor_profile(
     user.full_name = data.full_name
     if data.doctor_cchn is not None:
         user.doctor_cchn = data.doctor_cchn
-    if data.phone_number is not None:
+    if data.phone_number and data.phone_number != user.phone_number:
+        existing_phone = db.query(User).filter(User.phone_number == data.phone_number, User.id != user.id).first()
+        if existing_phone:
+            raise HTTPException(status_code=400, detail="Số điện thoại đã được đăng ký bởi tài khoản khác trong hệ thống")
         user.phone_number = data.phone_number
     if data.academic_title is not None:
         user.academic_title = data.academic_title
