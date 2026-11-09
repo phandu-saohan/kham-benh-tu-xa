@@ -772,6 +772,26 @@ export function DoctorWorkspace({
     setActiveTab('record')
   }
 
+  // Đồng bộ kết quả chẩn đoán hình ảnh PACS vào Phiếu khám EMR
+  function handleSyncPacsStudies() {
+    if (!pacsData?.studies || pacsData.studies.length === 0) {
+      setToast('Chưa có ca chụp hình ảnh PACS để đồng bộ.')
+      setTimeout(() => setToast(''), 3000)
+      return
+    }
+
+    const latestStudies = pacsData.studies.slice(0, 3)
+    const formattedList = latestStudies.map((study, idx) => {
+      const dateStr = study.date ? ` (${study.date})` : ''
+      return `[CĐHA ${idx + 1}] ${study.description || study.modality_name} [${study.modality}]${dateStr}:\n• Mô tả: ${study.findings}\n• Kết luận: ${study.impression}`
+    }).join('\n\n')
+
+    setParaclinicalResults(prev => prev ? `${prev}\n\n${formattedList}` : formattedList)
+    setToast('✅ Đã đồng bộ 3 kết quả PACS mới nhất vào Bệnh án EMR!')
+    setTimeout(() => setToast(''), 3500)
+    setActiveTab('record')
+  }
+
   // Đưa kết luận hình ảnh PACS vào Chẩn đoán của bác sĩ
   function handleApplyImagingImpression(study: PACSStudy) {
     const textToAppend = `[CĐHA - ${study.modality_name}]: ${study.impression}`
@@ -3028,12 +3048,30 @@ export function DoctorWorkspace({
                       Bệnh nhân: <strong>{patientData?.full_name || 'Bệnh nhân'}</strong> · Mã BN: <code>{patientData?.external_patient_id || `VN-P00${appointment.patient_id}`}</code> · Tổng: <strong>{pacsData?.total_studies || 0} ca chụp</strong>
                     </p>
                   </div>
-                </div>
-
-                {/* Notice về DICOMweb */}
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 14px', margin: '12px 0', fontSize: '12px', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <ShieldCheck size={18} color="#0284c7" />
-                  <span>{pacsData?.notice || 'Hệ thống PACS hỗ trợ giao thức DICOMweb WADO-RS tích hợp bộ đọc ảnh y khoa chuyên dụng OHIF Viewer.'}</span>
+                  <div>
+                    <button
+                      type="button"
+                      onClick={handleSyncPacsStudies}
+                      style={{
+                        background: '#0284c7',
+                        color: '#ffffff',
+                        border: '1px solid #0369a1',
+                        borderRadius: '6px',
+                        padding: '6px 14px',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 1px 3px rgba(2, 132, 199, 0.25)'
+                      }}
+                      title="Đồng bộ kết luận chẩn đoán hình ảnh PACS vào Bệnh án EMR"
+                    >
+                      <RefreshCw size={14} />
+                      Đồng bộ (lấy 3 ca mới nhất)
+                    </button>
+                  </div>
                 </div>
 
                 {/* Filter Modality chips */}
