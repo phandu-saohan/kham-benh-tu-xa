@@ -721,6 +721,34 @@ export function DoctorWorkspace({
       .finally(() => setLoadingPacs(false))
   }, [appointment.id])
 
+  // Đồng bộ 3 kết quả xét nghiệm mới nhất vào Phiếu khám EMR
+  function handleSyncLatest3LabResults() {
+    if (!labData?.reports || labData.reports.length === 0) {
+      setToast('Chưa có phiếu kết quả xét nghiệm để đồng bộ.')
+      setTimeout(() => setToast(''), 3000)
+      return
+    }
+
+    const latestReports = labData.reports.slice(0, 3)
+    const formattedList = latestReports.map((report, idx) => {
+      const dateStr = report.result_at || report.sampled_at || ''
+      const indicatorsText = report.indicators.map(ind => {
+        let flagNotice = ''
+        if (ind.flag === 'HIGH') flagNotice = ' [Tăng ▲]'
+        else if (ind.flag === 'LOW') flagNotice = ' [Giảm ▼]'
+        return `• ${ind.name}: ${ind.value} ${ind.unit}${flagNotice}`
+      }).join('\n')
+      
+      const conclusionText = report.conclusion ? `\n=> Kết luận: ${report.conclusion}` : ''
+      return `[Phiếu ${idx + 1}] ${report.title || report.category_name}${dateStr ? ` (${dateStr})` : ''}:\n${indicatorsText}${conclusionText}`
+    }).join('\n\n')
+
+    setParaclinicalResults(formattedList)
+    setToast('✅ Đã đồng bộ 3 kết quả xét nghiệm mới nhất vào Bệnh án EMR!')
+    setTimeout(() => setToast(''), 3500)
+    setActiveTab('record')
+  }
+
   // Trích xuất các chỉ số cận lâm sàng bất thường vào phiếu khám
   function handleExtractAbnormalToNotes() {
     if (!labData) return
@@ -2044,28 +2072,27 @@ export function DoctorWorkspace({
                     </label>
                     <button
                       type="button"
-                      onClick={() => {
-                        const labCount = labData?.reports?.length || 0
-                        const pacsCount = pacsData?.studies?.length || 0
-                        setParaclinicalResults(`Đã liên kết ${labCount} phiếu xét nghiệm & ${pacsCount} ca chụp PACS/DICOM của người bệnh trên hệ thống.`)
-                        setToast('Đã đồng bộ tóm tắt kết quả cận lâm sàng')
-                      }}
+                      onClick={handleSyncLatest3LabResults}
                       style={{
                         background: '#f0fdfa',
                         border: '1px solid #99f6e4',
                         color: '#0f766e',
-                        padding: '2px 8px',
+                        padding: '3px 8px',
                         borderRadius: '4px',
-                        fontSize: '11px',
+                        fontSize: '11.5px',
                         cursor: 'pointer',
-                        fontWeight: 600
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
                       }}
+                      title="Đồng bộ 3 kết quả xét nghiệm mới nhất vào ô này"
                     >
-                      ⚡ Trích xuất từ XN/PACS
+                      <RefreshCw size={12} /> Trích xuất từ XN/PACS (3 KQ mới nhất)
                     </button>
                   </div>
                   <textarea
-                    rows={2}
+                    rows={4}
                     placeholder="Tóm tắt các chỉ số xét nghiệm huyết học, sinh hóa máu, nước tiểu, kết quả X-quang/CT/MRI/ECG..."
                     value={paraclinicalResults}
                     onChange={e => setParaclinicalResults(e.target.value)}
@@ -2778,12 +2805,11 @@ export function DoctorWorkspace({
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <button
                       type="button"
-                      onClick={handleInterpretLab}
-                      disabled={interpretingLab}
+                      onClick={handleSyncLatest3LabResults}
                       style={{
-                        background: '#eff6ff',
-                        color: '#1d4ed8',
-                        border: '1px solid #bfdbfe',
+                        background: '#0f766e',
+                        color: '#ffffff',
+                        border: '1px solid #0d9488',
                         borderRadius: '6px',
                         padding: '6px 12px',
                         fontSize: '13px',
@@ -2791,11 +2817,13 @@ export function DoctorWorkspace({
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '6px'
+                        gap: '6px',
+                        boxShadow: '0 1px 3px rgba(15, 118, 110, 0.2)'
                       }}
+                      title="Đồng bộ 3 kết quả xét nghiệm mới nhất vào Bệnh án EMR"
                     >
-                      <Sparkles size={14} />
-                      {interpretingLab ? 'AI đang phân tích...' : '💡 AI Diễn giải Chỉ số'}
+                      <RefreshCw size={14} />
+                      Đồng bộ (lấy 3 kết quả mới nhất)
                     </button>
                     {labData && labData.abnormal_indicators_count > 0 && (
                       <button
