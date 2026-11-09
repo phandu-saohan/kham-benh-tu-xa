@@ -28,6 +28,7 @@ import { webrtcService, type WebRTCState } from './webrtcService'
 import { ConsultationChat } from './ConsultationChat'
 import { PrescriptionBuilder } from './PrescriptionBuilder'
 import { NotificationCenter } from './NotificationCenter'
+import { MedicalRecordModal } from './MedicalRecordModal'
 import './doctor-sanctuary.css'
 
 export function DoctorWorkspace({
@@ -44,6 +45,8 @@ export function DoctorWorkspace({
   const [connection, setConnection] = useState<{ server_url: string; token: string; room_name: string } | null>(null)
   const [activeTab, setActiveTab] = useState<'record' | 'ai_scribe' | 'chat' | 'lab' | 'pacs' | 'prescription' | 'patient_info' | 'fhir' | 'history' | 'bhyt' | 'multidoctor' | 'rpm'>('record')
   const [unreadChatCount, setUnreadChatCount] = useState(0)
+  const [showClinicalSheetModal, setShowClinicalSheetModal] = useState(false)
+  const [creatingClinicalSheet, setCreatingClinicalSheet] = useState(false)
 
   // Cận lâm sàng & PACS cho từng bệnh nhân
   const [labData, setLabData] = useState<LabResultsData | null>(null)
@@ -787,8 +790,38 @@ export function DoctorWorkspace({
     setIcdSearchQuery('')
   }
 
+  // Tạo phiếu khám lâm sàng & Mở xem chi tiết
+  async function handleCreateClinicalSheet() {
+    setCreatingClinicalSheet(true)
+    setError('')
+    try {
+      await saveClinicalRecord(appointment.id, {
+        symptoms,
+        allergies,
+        diagnosis,
+        icd10_code: icd10Code,
+        icd10_name: icd10Name,
+        clinical_notes: clinicalNotes,
+        plan,
+        clinical_examination: clinicalExamination,
+        paraclinical_results: paraclinicalResults,
+        treatment_regimen: treatmentRegimen,
+        clinical_evolution: clinicalEvolution,
+        medical_services_used: medicalServicesUsed
+      })
+      if (prescription.trim()) {
+        await savePrescription(appointment.id, prescription)
+      }
+      setToast('🎉 Đã tạo Phiếu khám lâm sàng thành công!')
+      setShowClinicalSheetModal(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Không tạo được phiếu khám lâm sàng')
+    } finally {
+      setCreatingClinicalSheet(false)
+    }
+  }
+
   async function handleSaveDraft() {
-    if (isLocked) return
     setSaving(true)
     setError('')
     try {
@@ -1101,8 +1134,28 @@ export function DoctorWorkspace({
           )}
 
           {isLocked ? (
-            <div className="locked-badge">
+            <div className="locked-badge" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Lock size={15} /> Bệnh án đã khóa
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLocked(false)
+                  setToast('Đã mở khóa bệnh án để chỉnh sửa')
+                }}
+                style={{
+                  background: '#f1f5f9',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  color: '#0f172a',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  padding: '3px 8px',
+                  cursor: 'pointer'
+                }}
+                title="Bác sĩ mở khóa để chỉnh sửa lại thông tin bệnh án"
+              >
+                ✏️ Mở khóa sửa
+              </button>
             </div>
           ) : (
             <>
@@ -1809,7 +1862,6 @@ export function DoctorWorkspace({
                     placeholder="Ví dụ: Ho khan 3 ngày, sốt nhẹ về chiều, đau họng, không khó thở..."
                     value={symptoms}
                     onChange={e => setSymptoms(e.target.value)}
-                    disabled={isLocked}
                   />
                 </div>
 
@@ -1839,7 +1891,6 @@ export function DoctorWorkspace({
                     placeholder="Ví dụ: Dị ứng Penicillin, có tiền sử đau dạ dày nhẹ..."
                     value={allergies}
                     onChange={e => setAllergies(e.target.value)}
-                    disabled={isLocked}
                   />
                 </div>
 
@@ -1850,7 +1901,7 @@ export function DoctorWorkspace({
                     <button
                       type="button"
                       onClick={handleSuggestIcd}
-                      disabled={loadingIcdAi || isLocked}
+                      disabled={loadingIcdAi}
                       style={{
                         background: '#f0fdfa',
                         color: '#0f766e',
@@ -1911,12 +1962,11 @@ export function DoctorWorkspace({
                         setShowIcdList(true)
                       }}
                       onFocus={() => setShowIcdList(true)}
-                      disabled={isLocked}
                     />
                     <Search size={16} className="search-icon" />
                   </div>
 
-                  {showIcdList && !isLocked && (
+                  {showIcdList && (
                     <div className="icd-dropdown">
                       <div className="icd-dropdown-header">
                         <span>Danh mục ICD-10 thông dụng</span>
@@ -1943,17 +1993,15 @@ export function DoctorWorkspace({
                   {icd10Code && (
                     <div className="selected-icd-pill">
                       <strong>[{icd10Code}]</strong> {icd10Name}
-                      {!isLocked && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIcd10Code('')
-                            setIcd10Name('')
-                          }}
-                        >
-                          <X size={14} />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIcd10Code('')
+                          setIcd10Name('')
+                        }}
+                      >
+                        <X size={14} />
+                      </button>
                     </div>
                   )}
 
@@ -1963,7 +2011,6 @@ export function DoctorWorkspace({
                     placeholder="Diễn giải chẩn đoán chi tiết của bác sĩ..."
                     value={diagnosis}
                     onChange={e => setDiagnosis(e.target.value)}
-                    disabled={isLocked}
                   />
                 </div>
 
@@ -1975,7 +2022,6 @@ export function DoctorWorkspace({
                     placeholder="Khám thể trạng, niêm mạc, tri giác, hô hấp, tuần hoàn, bụng, da niêm..."
                     value={clinicalExamination}
                     onChange={e => setClinicalExamination(e.target.value)}
-                    disabled={isLocked}
                   />
                 </div>
 
@@ -1986,7 +2032,6 @@ export function DoctorWorkspace({
                     placeholder="Đánh giá sơ bộ của bác sĩ qua trao đổi trực tuyến..."
                     value={clinicalNotes}
                     onChange={e => setClinicalNotes(e.target.value)}
-                    disabled={isLocked}
                   />
                 </div>
 
@@ -1998,7 +2043,6 @@ export function DoctorWorkspace({
                     </label>
                     <button
                       type="button"
-                      disabled={isLocked}
                       onClick={() => {
                         const labCount = labData?.reports?.length || 0
                         const pacsCount = pacsData?.studies?.length || 0
@@ -2024,7 +2068,6 @@ export function DoctorWorkspace({
                     placeholder="Tóm tắt các chỉ số xét nghiệm huyết học, sinh hóa máu, nước tiểu, kết quả X-quang/CT/MRI/ECG..."
                     value={paraclinicalResults}
                     onChange={e => setParaclinicalResults(e.target.value)}
-                    disabled={isLocked}
                   />
                 </div>
 
@@ -2036,7 +2079,6 @@ export function DoctorWorkspace({
                     placeholder="Phác đồ điều trị nội khoa, thuốc phối hợp, chế độ dinh dưỡng và lối sống..."
                     value={treatmentRegimen}
                     onChange={e => setTreatmentRegimen(e.target.value)}
-                    disabled={isLocked}
                   />
                 </div>
 
@@ -2050,7 +2092,6 @@ export function DoctorWorkspace({
                       setClinicalEvolution(e.target.value)
                       setPlan(e.target.value)
                     }}
-                    disabled={isLocked}
                   />
                 </div>
 
@@ -2062,13 +2103,37 @@ export function DoctorWorkspace({
                     placeholder="Ví dụ: Khám bệnh từ xa chuyên khoa (01.0001); Thiết bị đo huyết áp RPM; Kết nối PKI SmartCA..."
                     value={medicalServicesUsed}
                     onChange={e => setMedicalServicesUsed(e.target.value)}
-                    disabled={isLocked}
                   />
                 </div>
 
-                {/* AI BHYT Pre-Audit Section */}
-                <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                {/* Action Bar: Tạo phiếu khám & AI Thẩm định BHYT */}
+                <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '2px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={handleCreateClinicalSheet}
+                      disabled={creatingClinicalSheet}
+                      style={{
+                        background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '10px 24px',
+                        fontSize: '14px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        boxShadow: '0 4px 12px rgba(15, 118, 110, 0.25)',
+                        transition: 'all 0.2s ease'
+                      }}
+                      title="Lưu hồ sơ và tạo Phiếu khám lâm sàng hoàn chỉnh theo chuẩn Bộ Y tế"
+                    >
+                      <FileCheck size={18} />
+                      {creatingClinicalSheet ? 'Đang tạo phiếu khám...' : '📝 Tạo phiếu khám'}
+                    </button>
+
                     <button
                       type="button"
                       onClick={handleAuditBhyt}
@@ -2077,18 +2142,19 @@ export function DoctorWorkspace({
                         background: '#eff6ff',
                         color: '#1d4ed8',
                         border: '1px solid #bfdbfe',
-                        borderRadius: '6px',
-                        padding: '6px 14px',
-                        fontSize: '13px',
+                        borderRadius: '8px',
+                        padding: '8px 14px',
+                        fontSize: '12px',
                         fontWeight: 600,
                         cursor: 'pointer',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '6px'
                       }}
+                      title="Kiểm tra tương thích danh mục BHYT và chống xuất toán trước khi ký số"
                     >
-                      <ShieldCheck size={16} />
-                      {auditingBhyt ? 'AI đang thẩm định hồ sơ BHYT...' : '📋 AI Thẩm định Hồ sơ BHYT (Chống xuất toán)'}
+                      <ShieldCheck size={15} />
+                      {auditingBhyt ? 'AI đang thẩm định...' : '🛡️ AI Thẩm định BHYT (Chống xuất toán)'}
                     </button>
                   </div>
 
@@ -4066,6 +4132,14 @@ export function DoctorWorkspace({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal xem Phiếu khám lâm sàng hoàn chỉnh */}
+      {showClinicalSheetModal && (
+        <MedicalRecordModal
+          appointmentId={appointment.id}
+          onClose={() => setShowClinicalSheetModal(false)}
+        />
       )}
 
       {/* Modal xác nhận hoàn tất buổi khám */}

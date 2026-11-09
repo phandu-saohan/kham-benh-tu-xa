@@ -1469,7 +1469,7 @@ def save_clinical_record(
     
     record = db.query(ClinicalRecord).filter_by(appointment_id=appt.id).first()
     if record and record.is_locked:
-        raise HTTPException(status_code=409, detail="Bệnh án đã được hoàn tất và khóa, không thể chỉnh sửa.")
+        record.is_locked = False  # Bác sĩ được phép chỉnh sửa và cập nhật lại nội dung
     
     if not record:
         record = ClinicalRecord(
