@@ -430,7 +430,7 @@
 
   display: grid;
 
-  grid-template-columns: 1fr 500px;
+  grid-template-columns: 6fr 4fr;
 
   height: calc(100vh - 64px);
 

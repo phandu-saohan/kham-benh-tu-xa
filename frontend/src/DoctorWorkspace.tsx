@@ -919,7 +919,7 @@ export function DoctorWorkspace({
       {error && <div className="error-banner">{error}</div>}
 
       {/* Main Split View: Left = Video, Right = Clinical Documentation */}
-      <div className="workspace-split">
+      <div className="workspace-split" style={{ gridTemplateColumns: "6fr 4fr" }}>
         {/* Left Pane: WebRTC Full-Duplex Video & Audio Workspace */}
         <div className="video-pane">
           <div className="doctor-video-stage">
