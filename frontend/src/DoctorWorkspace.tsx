@@ -1241,12 +1241,13 @@ export function DoctorWorkspace({
                 </div>
                 <button
                   type="button"
-                  className="btn btn-secondary call-recall-btn"
+                  className="doctor-call-patient-cta"
                   onClick={handleCallPatient}
                   disabled={callingPatient}
-                  style={{ marginTop: '14px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                  title="Gửi tín hiệu đổ chuông trực tiếp tới điện thoại của bệnh nhân"
                 >
-                  <PhoneCall size={16} /> {callingPatient ? 'Đang gửi tín hiệu chuông...' : '📞 Gọi lại chuông điện thoại bệnh nhân'}
+                  <PhoneCall size={18} className={callingPatient ? "spin-icon" : "phone-ring-icon"} />
+                  <span>{callingPatient ? 'Đang gửi tín hiệu chuông tới bệnh nhân...' : 'Đổ chuông gọi điện thoại bệnh nhân'}</span>
                 </button>
               </div>
             )}
