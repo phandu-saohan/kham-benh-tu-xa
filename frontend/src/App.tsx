@@ -837,7 +837,6 @@ export default function App() {
     ['profile', 'Hồ sơ cá nhân', UserRound]
   ] : isDoctor ? [
     ['overview', 'Bàn làm việc Bác sĩ', Activity],
-    ['appointments', 'Hàng đợi khám hôm nay', CalendarDays],
     ['vitals', 'Thiết bị Sinh hiệu FDA', Activity],
     ['triage', 'Bàn Tiếp đón & Sàng lọc', Stethoscope],
     ['records', 'Tra cứu Bệnh án Toàn viện', FileText],
@@ -963,7 +962,7 @@ export default function App() {
             <NotificationCenter
               userRole={user.role}
               onNavigate={(url) => {
-                if (url.includes('appointments') || url.includes('booking')) setView('appointments')
+                if (url.includes('appointments') || url.includes('booking')) setView(isDoctor ? 'overview' : 'appointments')
                 else if (url.includes('prescriptions')) setView('prescriptions')
                 else if (url.includes('paraclinical') || url.includes('labs')) setView('paraclinical')
                 else if (url.includes('profile')) setView('profile')
