@@ -210,7 +210,11 @@
 
 .workspace-header {
 
-  height: 64px;
+  min-height: 64px;
+
+  height: auto;
+
+  box-sizing: border-box;
 
   background: #fff;
 
@@ -222,9 +226,11 @@
 
   justify-content: space-between;
 
-  padding: 0 24px;
+  padding: 8px 24px;
 
   flex-shrink: 0;
+
+  overflow: hidden;
 
 }
 

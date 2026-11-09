@@ -4,7 +4,8 @@ import {
   Pill, User, Search, AlertCircle, Stethoscope, Video, VideoOff, X,
   FileDown, PenTool, Share2, Code2, QrCode, Sparkles, Mic, MicOff, Bot, PhoneCall, Volume2,
   ScreenShare, ScreenShareOff, MessageSquare, FlaskConical, ScanLine, ExternalLink, Activity, Clock,
-  FileCheck, Users, HeartPulse, Download, Plus, Check, RefreshCw, Building2
+  FileCheck, Users, HeartPulse, Download, Plus, Check, RefreshCw, Building2,
+  Copy, Trash2, Eye
 } from 'lucide-react'
 import {
   type Appointment, type User as CurrentUser, type ICD10Item,
@@ -124,6 +125,8 @@ export function DoctorWorkspace({
 
   // Modal Popup xem và chỉnh sửa toàn bộ thông tin SOAP trước khi tạo phiếu khám
   const [showSoapModal, setShowSoapModal] = useState(false)
+  // Modal Popup xem và chỉnh sửa Hội thoại Bác sĩ - Bệnh nhân
+  const [showTranscriptModal, setShowTranscriptModal] = useState(false)
   const [soapEditState, setSoapEditState] = useState({
     subjective: '',
     objective: '',
@@ -940,37 +943,21 @@ export function DoctorWorkspace({
             <ArrowLeft size={16} /> Rời phòng
           </button>
           <div className="consult-title">
-            <div className="badge-consult">
-              <Stethoscope size={16} /> Phòng khám số hóa #{appointment.id}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <h2>{patientData?.full_name || 'Bệnh nhân'}</h2>
-              <span style={{
-                background: '#fef2f2',
-                color: '#b91c1c',
-                border: '1px solid #fecaca',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                fontSize: '11px',
-                fontWeight: 800
-              }}>
-                ✓ VNeID Cấp 2
-              </span>
-              <span style={{
-                background: '#ecfdf5',
-                color: '#047857',
-                border: '1px solid #a7f3d0',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                fontSize: '11px',
-                fontWeight: 700
-              }}>
-                🟢 Bệnh nhân cũ
+            <div className="consult-title-row">
+              <h2 className="consult-patient-name">{patientData?.full_name || 'Bệnh nhân'}</h2>
+              <span className="consult-badge vneid">✓ VNeID Cấp 2</span>
+              <span className="consult-badge returning">🟢 Bệnh nhân cũ</span>
+              <span className="consult-badge room-badge">
+                <Stethoscope size={13} /> Phòng #{appointment.id}
               </span>
             </div>
-            <span className="sub-text">
-              CCCD: <strong>{patientData?.identity_card || '079092014829'}</strong> · SĐT: {patientData?.phone_number || 'Chưa cập nhật'} · Mã PID: {patientData?.external_patient_id || `CC-PAT-${appointment.patient_id.toString().padStart(4, '0')}`}
-            </span>
+            <div className="consult-meta-row">
+              <span>CCCD: <strong>{patientData?.identity_card || '079092014829'}</strong></span>
+              <span className="meta-sep">&bull;</span>
+              <span>SĐT: <strong>{patientData?.phone_number || '0988776655'}</strong></span>
+              <span className="meta-sep">&bull;</span>
+              <span>Mã PID: <strong>{patientData?.external_patient_id || `VN-${patientData?.phone_number || '0988776655'}`}</strong></span>
+            </div>
           </div>
         </div>
 
@@ -1239,6 +1226,22 @@ export function DoctorWorkspace({
                   {isListening ? 'Dừng nghe' : 'Tự động nghe'}
                 </button>
 
+                {/* Nút Popup Hội thoại giữa Bác sĩ và Bệnh nhân */}
+                <button
+                  type="button"
+                  className={`btn-ai-transcript ${scribeTranscript.trim() ? 'active-has-data' : ''}`}
+                  onClick={() => setShowTranscriptModal(true)}
+                  title="Mở popup xem đầy đủ và chỉnh sửa nội dung hội thoại cuộc khám"
+                >
+                  <MessageSquare size={13} />
+                  <span>Hội thoại</span>
+                  {scribeTranscript.trim() && (
+                    <span className="transcript-counter-badge">
+                      {scribeTranscript.trim().split('\n').filter(Boolean).length}
+                    </span>
+                  )}
+                </button>
+
                 <button
                   type="button"
                   className="btn-ai-analyze"
@@ -1261,20 +1264,11 @@ export function DoctorWorkspace({
                   </button>
                 )}
 
-                <button
-                  type="button"
-                  className="btn-ai-sample"
-                  onClick={handleLoadSampleDialog}
-                  title="Tải kịch bản hội thoại mẫu bác sĩ - bệnh nhân"
-                >
-                  Mẫu thoại
-                </button>
-
                 {scribeTranscript && (
                   <button
                     type="button"
                     className="btn-ai-clear"
-                    onClick={() => { setScribeTranscript(''); setSoapResult(null); }}
+                    onClick={() => { setScribeTranscript(''); setSoapResult(null); setToast('Đã làm mới lượt hội thoại'); }}
                     title="Xóa hội thoại để nghe lượt mới"
                   >
                     <X size={13} />
@@ -1283,15 +1277,31 @@ export function DoctorWorkspace({
               </div>
             </div>
 
-            {/* Khung văn bản hội thoại trực tiếp */}
-            <div className="scribe-transcript-box">
-              <textarea
-                className="scribe-transcript-input"
-                rows={2}
-                placeholder="Hội thoại giữa Bác sĩ và Bệnh nhân sẽ tự động xuất hiện ở đây khi bật 'Tự động nghe' (hoặc bấm 'Mẫu thoại' để nạp cuộc trò chuyện mẫu)..."
-                value={scribeTranscript}
-                onChange={e => setScribeTranscript(e.target.value)}
-              />
+            {/* Thanh trạng thái hội thoại gọn gàng (Thay thế textarea cồng kềnh) */}
+            <div className="scribe-status-strip">
+              <div className="scribe-status-left">
+                {isListening ? (
+                  <span className="scribe-listening-text">
+                    <span className="live-dot-recording" /> 🎙️ Đang nghe trực tiếp cuộc gọi khám và nhận diện lời nói...
+                  </span>
+                ) : scribeTranscript.trim() ? (
+                  <span className="scribe-has-transcript-text">
+                    💬 Đã ghi nhận hội thoại ({scribeTranscript.trim().split('\n').filter(Boolean).length} lượt thoại &bull; {scribeTranscript.length} ký tự).
+                  </span>
+                ) : (
+                  <span className="scribe-idle-text">
+                    💡 Cuộc trò chuyện được lắng nghe tự động. Bấm <strong>"Tự động nghe"</strong> khi khám hoặc bấm <strong>"Hội thoại"</strong> để xem & nạp mẫu.
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="btn-open-transcript-mini"
+                onClick={() => setShowTranscriptModal(true)}
+                title="Mở popup xem và chỉnh sửa hội thoại"
+              >
+                <Eye size={12} /> {scribeTranscript.trim() ? 'Mở xem / sửa hội thoại' : 'Nhập / Nạp mẫu thoại'}
+              </button>
             </div>
 
             {/* Khung tóm tắt SOAP & Gợi ý ICD-10 sau khi AI phân tích */}
@@ -3340,6 +3350,155 @@ export function DoctorWorkspace({
           </div>
         </div>
       </div>
+
+            {/* Popup Hội thoại giữa Bác sĩ và Bệnh nhân */}
+      {showTranscriptModal && (
+        <div className="soap-modal-overlay" style={{ zIndex: 10000 }}>
+          <div className="soap-modal-content" style={{ width: 'min(780px, 95vw)' }}>
+            <div className="soap-modal-header" style={{ background: '#f0f9ff', borderColor: '#bae6fd' }}>
+              <div className="soap-modal-header-left">
+                <div className="soap-modal-icon-badge" style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' }}>
+                  <MessageSquare size={20} color="#ffffff" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#0c4a6e' }}>
+                    Hội thoại Khám bệnh (Bác sĩ & Bệnh nhân)
+                  </h3>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#0369a1' }}>
+                    Nội dung nhận diện giọng nói tự động (Speech-to-Text). Bác sĩ có thể đọc lại, gõ bổ sung hoặc chỉnh sửa trước khi tóm tắt SOAP.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="soap-modal-close-btn"
+                onClick={() => setShowTranscriptModal(false)}
+                title="Đóng popup hội thoại"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="soap-modal-body" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* Thanh công cụ phụ trợ trong modal */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#475569' }}>
+                  {isListening ? (
+                    <span className="scribe-live-pill recording">
+                      <span className="live-dot" /> Đang lắng nghe từ Micro...
+                    </span>
+                  ) : (
+                    <span className="scribe-live-pill ready">
+                      <span className="live-dot" /> {scribeTranscript.trim() ? `Đã có ${scribeTranscript.trim().split('\n').filter(Boolean).length} đoạn thoại` : 'Chưa có dữ liệu thoại'}
+                    </span>
+                  )}
+                  <span>&bull;</span>
+                  <span>{scribeTranscript.length} ký tự</span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button
+                    type="button"
+                    className="btn-ai-sample"
+                    onClick={() => {
+                      handleLoadSampleDialog();
+                      setToast('Đã nạp kịch bản hội thoại mẫu Bác sĩ - Bệnh nhân');
+                    }}
+                    title="Nạp kịch bản mẫu khám bệnh"
+                    style={{ fontSize: '11px', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <FileText size={12} /> Nạp mẫu thoại
+                  </button>
+
+                  {scribeTranscript.trim() && (
+                    <button
+                      type="button"
+                      className="btn-ai-sample"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(scribeTranscript);
+                        setToast('Đã sao chép nội dung hội thoại vào bộ nhớ tạm');
+                      }}
+                      title="Sao chép nội dung hội thoại"
+                      style={{ fontSize: '11px', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <Copy size={12} /> Sao chép
+                    </button>
+                  )}
+
+                  {scribeTranscript.trim() && (
+                    <button
+                      type="button"
+                      className="btn-ai-clear"
+                      onClick={() => {
+                        setScribeTranscript('');
+                        setToast('Đã xóa trắng hội thoại');
+                      }}
+                      title="Xóa toàn bộ hội thoại"
+                      style={{ width: 'auto', padding: '4px 10px', fontSize: '11px', color: '#dc2626', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <Trash2 size={12} /> Xóa
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Textarea nhập/chỉnh sửa hội thoại đầy đủ */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
+                  Văn bản chi tiết cuộc trò chuyện:
+                </label>
+                <textarea
+                  className="scribe-transcript-modal-textarea"
+                  rows={13}
+                  placeholder="Nội dung hội thoại giữa Bác sĩ và Bệnh nhân sẽ tự động xuất hiện tại đây khi bật 'Tự động nghe' từ micro cuộc gọi, hoặc bác sĩ có thể gõ hoặc dán nội dung trò chuyện vào đây..."
+                  value={scribeTranscript}
+                  onChange={e => setScribeTranscript(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '13px',
+                    lineHeight: '1.6',
+                    fontFamily: 'inherit',
+                    color: '#0f172a',
+                    background: '#ffffff',
+                    resize: 'vertical',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="soap-modal-footer" style={{ padding: '12px 20px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '11.5px', color: '#64748b' }}>
+                💡 Bấm <strong>"AI Tóm tắt & Tạo SOAP ngay"</strong> để chuyển toàn bộ hội thoại này thành Phiếu khám lâm sàng.
+              </span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="btn-soap-modal-secondary"
+                  onClick={() => setShowTranscriptModal(false)}
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  className="btn-soap-modal-primary"
+                  onClick={() => {
+                    setShowTranscriptModal(false);
+                    handleAnalyzeAiScribe();
+                  }}
+                  disabled={generatingSoap || !scribeTranscript.trim()}
+                  style={{ background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)' }}
+                >
+                  <Sparkles size={14} /> {generatingSoap ? 'Đang tóm tắt...' : 'AI Tóm tắt & Tạo SOAP ngay'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Popup đầy đủ thông tin AI Scribe SOAP cho Bác sĩ xem lại & chỉnh sửa trước khi tạo phiếu khám */}
       {showSoapModal && (

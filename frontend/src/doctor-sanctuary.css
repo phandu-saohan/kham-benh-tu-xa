@@ -830,16 +830,79 @@
 
 /* Workspace Sticky Header */
 .workspace-header {
-  height: 64px;
+  min-height: 64px;
+  height: auto;
+  box-sizing: border-box;
   background: #ffffff;
   border-bottom: 1px solid var(--ds-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 20px;
+  padding: 8px 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   z-index: 20;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.consult-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.consult-patient-name {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--ds-navy, #0f172a);
+}
+
+.consult-badge {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.consult-badge.vneid {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  font-weight: 800;
+}
+
+.consult-badge.returning {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.consult-badge.room-badge {
+  background: #f0fdfa;
+  color: #0d9488;
+  border: 1px solid #99f6e4;
+}
+
+.consult-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--ds-slate-muted, #64748b);
+  flex-wrap: wrap;
+}
+
+.consult-meta-row strong {
+  color: #334155;
+}
+
+.consult-meta-row .meta-sep {
+  color: #cbd5e1;
 }
 
 .workspace-header-left {
@@ -2980,4 +3043,115 @@
 .btn-soap-confirm:hover {
   background: linear-gradient(135deg, #115e59 0%, #0f766e 100%);
   transform: translateY(-1px);
+}
+
+
+/* AI Scribe Transcript Popup & Compact Toolbar */
+.btn-ai-transcript {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f0f9ff;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-ai-transcript:hover {
+  background: #e0f2fe;
+  border-color: #38bdf8;
+  color: #0369a1;
+}
+
+.btn-ai-transcript.active-has-data {
+  background: #e0f2fe;
+  border-color: #0284c7;
+  color: #0284c7;
+  box-shadow: 0 1px 3px rgba(2, 132, 199, 0.15);
+}
+
+.transcript-counter-badge {
+  background: #0284c7;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 0 5px;
+  border-radius: 10px;
+  min-width: 14px;
+  text-align: center;
+}
+
+.scribe-status-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11.5px;
+  box-sizing: border-box;
+}
+
+.scribe-status-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scribe-listening-text {
+  color: #dc2626;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.live-dot-recording {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #dc2626;
+  box-shadow: 0 0 6px #dc2626;
+  animation: pulse-red 1.2s infinite;
+  display: inline-block;
+}
+
+.scribe-has-transcript-text {
+  color: #0369a1;
+  font-weight: 500;
+}
+
+.scribe-idle-text {
+  color: #64748b;
+}
+
+.btn-open-transcript-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.btn-open-transcript-mini:hover {
+  background: #e2e8f0;
+  color: #0f172a;
 }
