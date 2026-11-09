@@ -1417,33 +1417,88 @@
   box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.12);
 }
 
-/* Toast & Error Banners */
-.toast-banner {
-  background: #ecfdf5;
-  color: #065f46;
-  border-bottom: 1px solid #a7f3d0;
-  padding: 10px 20px;
+/* Toast & Error Banners - Floating at Bottom-Right Corner */
+.system-toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 10001;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: min(440px, calc(100vw - 48px));
+  pointer-events: none;
+}
+
+.toast-banner,
+.error-banner {
+  pointer-events: auto;
+  border-radius: 8px;
+  padding: 12px 14px;
   font-size: 13px;
   font-weight: 600;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  animation: ds-slide-down 0.3s ease;
+  justify-content: space-between;
+  gap: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.18), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  animation: toast-slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  line-height: 1.4;
+}
+
+.toast-banner {
+  background: #ffffff;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  border-left: 4.5px solid #10b981;
 }
 
 .error-banner {
-  background: #fef2f2;
+  background: #ffffff;
   color: #991b1b;
-  border-bottom: 1px solid #fecaca;
-  padding: 10px 20px;
-  font-size: 13px;
-  font-weight: 600;
-  display: flex;
+  border: 1px solid #fecaca;
+  border-left: 4.5px solid #ef4444;
+}
+
+.toast-message,
+.error-message {
+  flex: 1;
+}
+
+.toast-close-btn,
+.error-close-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  animation: ds-slide-down 0.3s ease;
+  color: #64748b;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.toast-close-btn:hover {
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.error-close-btn:hover {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @keyframes ds-slide-down {

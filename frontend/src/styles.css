@@ -394,33 +394,33 @@
 
 .toast-banner {
 
-  background: #dcfce7;
+  background: #ffffff;
 
-  color: #15803d;
+  color: #065f46;
 
-  font-size: 12px;
+  font-size: 13px;
 
-  font-weight: 700;
+  font-weight: 600;
 
-  padding: 10px 24px;
+  padding: 12px 14px;
 
-  text-align: center;
+  text-align: left;
 
 }
 
 .error-banner {
 
-  background: #fee2e2;
+  background: #ffffff;
 
-  color: #dc2626;
+  color: #991b1b;
 
-  font-size: 12px;
+  font-size: 13px;
 
-  font-weight: 700;
+  font-weight: 600;
 
-  padding: 10px 24px;
+  padding: 12px 14px;
 
-  text-align: center;
+  text-align: left;
 
 }
 

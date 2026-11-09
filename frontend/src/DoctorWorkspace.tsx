@@ -215,6 +215,21 @@ export function DoctorWorkspace({
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
   const [showConfirmModal, setShowConfirmModal] = useState(false)
+
+  // Tự động ẩn thông báo nổi ở góc dưới sau vài giây
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(''), 4000)
+      return () => clearTimeout(timer)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(''), 6000)
+      return () => clearTimeout(timer)
+    }
+  }, [error])
   const [callingPatient, setCallingPatient] = useState(false)
 
   // AI Suite States
@@ -1030,8 +1045,37 @@ export function DoctorWorkspace({
         </div>
       </header>
 
-      {toast && <div className="toast-banner">{toast}</div>}
-      {error && <div className="error-banner">{error}</div>}
+      {/* Thông báo hệ thống nổi ở góc dưới bên phải màn hình */}
+      <div className="system-toast-container">
+        {toast && (
+          <div className="toast-banner">
+            <CheckCircle2 size={16} color="#10b981" style={{ flexShrink: 0 }} />
+            <span className="toast-message">{toast}</span>
+            <button
+              type="button"
+              className="toast-close-btn"
+              onClick={() => setToast('')}
+              title="Đóng thông báo"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+        {error && (
+          <div className="error-banner">
+            <AlertCircle size={16} color="#ef4444" style={{ flexShrink: 0 }} />
+            <span className="error-message">{error}</span>
+            <button
+              type="button"
+              className="error-close-btn"
+              onClick={() => setError('')}
+              title="Đóng thông báo"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Main Split View: Left = Video, Right = Clinical Documentation */}
       <div className="workspace-split" style={{ gridTemplateColumns: "6fr 4fr" }}>
