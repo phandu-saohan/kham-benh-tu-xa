@@ -1345,6 +1345,23 @@ def get_clinical_record(appointment_id: int, db: Session = Depends(get_db), user
         shift_type_vi = "Ca sáng" if shift.shift_type == "morning" else ("Ca chiều" if shift.shift_type == "afternoon" else "Ca tối")
         shift_label = f"{shift_type_vi} ({shift.start_time} - {shift.end_time})"
     
+    # Phân tích triệu chứng bằng AI MedGemma từ thông tin đặt khám
+    symptom_text = appt.reason or "Tư vấn điều chỉnh đơn thuốc và chỉ số đường huyết mao mạch"
+    patient_age = 34
+    if patient and getattr(patient, "date_of_birth", None):
+        try:
+            birth_year = int(str(patient.date_of_birth).split("-")[0])
+            patient_age = max(1, datetime.now().year - birth_year)
+        except Exception:
+            patient_age = 34
+
+    medgemma = triage_symptom_check(
+        symptoms=symptom_text,
+        patient_age=patient_age,
+        gender=getattr(patient, "gender", "Nam") or "Nam",
+        db=db
+    )
+    
     return {
         "appointment_id": appt.id,
         "appointment": {
@@ -1367,14 +1384,15 @@ def get_clinical_record(appointment_id: int, db: Session = Depends(get_db), user
             "department_name": dept.name if dept else "Khoa Nội Tổng Quát (K01)",
             "shift_id": getattr(appt, "shift_id", None),
             "shift_name": shift_label or "Ca sáng (07:30 - 11:30)",
-            "triage_level": getattr(appt, "triage_level", "normal") or "normal",
+            "triage_level": medgemma.get("urgency_level", getattr(appt, "triage_level", "normal")),
             "triage_status": getattr(appt, "triage_status", "assessed") or "assessed",
-            "triage_notes": getattr(appt, "triage_notes", "") or "",
+            "triage_notes": medgemma.get("explanation", getattr(appt, "triage_notes", "")),
             "companion_name": getattr(appt, "companion_name", None) or (getattr(patient, "companion_name", None) if patient else "") or "",
             "companion_id_card": getattr(appt, "companion_id_card", None) or (getattr(patient, "companion_id_card", None) if patient else "") or "",
             "companion_phone": getattr(appt, "companion_phone", None) or (getattr(patient, "companion_phone", None) if patient else "") or "",
             "companion_relationship": getattr(appt, "companion_relationship", None) or (getattr(patient, "companion_relationship", None) if patient else "") or "",
-            "attached_docs_count": docs_count
+            "attached_docs_count": docs_count,
+            "medgemma_analysis": medgemma
         },
         "patient": {
             "id": patient.id if patient else None,

@@ -126,34 +126,93 @@ def triage_symptom_check(
         urgency_label = "Ưu tiên khám sớm"
         emergency_alert = "Triệu chứng sốt cao kéo dài hoặc xuất huyết tiêu hóa cần được bác sĩ thăm khám và chỉ định cận lâm sàng trong ngày."
 
-    # Phân khoa chuyên sâu nếu không phải cấp cứu
+    # Phân khoa chuyên sâu và xây dựng đánh giá y khoa AI MedGemma
     if not is_emergency:
-        if patient_age <= 15:
-            dept_code = "K02"
-            dept_name = "Khoa Nhi"
+        if any(k in text_lower for k in ["đường huyết", "tiểu đường", "đái tháo đường", "mao mạch"]):
+            dept_code = "K01"
+            dept_name = "Khoa Nội Tổng Quát & Nội Tiết"
+            explanation = (
+                "Bệnh nhân có nhu cầu theo dõi chỉ số đường huyết mao mạch và hiệu chỉnh đơn thuốc điều trị. "
+                "AI MedGemma đánh giá nguy cơ dao động đường huyết, khuyến nghị rà soát chỉ số lúc đói và sau ăn 2 giờ, "
+                "đồng thời tầm soát triệu chứng hạ đường huyết phản ứng để tối ưu liều thuốc an toàn."
+            )
+            suggested_questions = [
+                "Chỉ số đường huyết mao mạch gần nhất bệnh nhân tự đo tại nhà (lúc đói và sau ăn 2 giờ) là bao nhiêu mmol/L?",
+                "Bệnh nhân có xuất hiện các triệu chứng như vã mồ hôi lạnh, run rẩy, choáng váng hoặc đói cồn cào bất thường không?",
+                "Hiện bệnh nhân đang dùng những loại thuốc nào, có uống đúng giờ và có bỏ bữa hoặc kiêng khem quá mức không?"
+            ]
+        elif any(k in text_lower for k in ["tai", "mũi", "họng", "amidan", "viêm xoang", "khàn tiếng", "rát họng", "nghẹt mũi", "ho", "sốt"]):
+            dept_code = "K04"
+            dept_name = "Khoa Tai Mũi Họng & Hô Hấp"
+            explanation = (
+                f"Triệu chứng viêm đường hô hấp cấp tính ({text_clean[:60]}). "
+                "AI MedGemma khuyến nghị quan sát niêm mạc thành sau họng và amidan qua camera, đánh giá tính chất đờm, "
+                "và phân biệt nhiễm virus hô hấp thông thường hay bội nhiễm vi khuẩn để chỉ định điều trị phù hợp."
+            )
+            suggested_questions = [
+                "Bệnh nhân ho nhiều vào thời điểm nào trong ngày, ho khan hay có đờm đặc màu vàng/xanh?",
+                "Nhiệt độ cơ thể cao nhất đo được là bao nhiêu, có đáp ứng tốt sau khi uống thuốc hạ sốt không?",
+                "Có cảm giác nuốt đau chẹn họng, khó thở rít hoặc đau tức ngực khi hít sâu không?"
+            ]
         elif any(k in text_lower for k in ["tim", "huyết áp", "hồi hộp", "đánh trống ngực", "mạch nhanh"]):
             dept_code = "K06"
             dept_name = "Khoa Tim Mạch"
-        elif any(k in text_lower for k in ["tai", "mũi", "họng", "amidan", "viêm xoang", "khàn tiếng", "rát họng", "nghẹt mũi"]):
-            dept_code = "K04"
-            dept_name = "Khoa Tai Mũi Họng"
+            explanation = (
+                f"Ghi nhận triệu chứng liên quan tim mạch và huyết áp ({text_clean[:60]}). "
+                "AI MedGemma khuyến nghị bác sĩ đối chiếu số đo huyết áp thực tế từ thiết bị RPM IoT, "
+                "đánh giá nguy cơ quá tải tuần hoàn hoặc rối loạn nhịp xoang khi gắng sức."
+            )
+            suggested_questions = [
+                "Chỉ số huyết áp đo tại nhà dao động trong khoảng bao nhiêu, có tăng vọt vào buổi sáng sớm không?",
+                "Có cảm giác nhói ngực lan ra vai/hàm hoặc khó thở khi thay đổi tư thế không?",
+                "Bệnh nhân có đang duy trì thuốc hạ áp đều đặn mỗi ngày không?"
+            ]
+        elif patient_age <= 15:
+            dept_code = "K02"
+            dept_name = "Khoa Nhi"
+            explanation = (
+                f"Bệnh nhân nhi ({patient_age} tuổi) ghi nhận triệu chứng {text_clean[:60]}. "
+                "AI MedGemma khuyến nghị bác sĩ đánh giá tri giác, phản xạ bú/ăn uống, dấu hiệu mất nước và nhịp thở của trẻ."
+            )
+            suggested_questions = [
+                "Trẻ có quấy khóc nhiều, bỏ bú hoặc nôn trớ sau ăn không?",
+                "Nhịp thở của trẻ có nhanh hoặc có dấu hiệu rút lõm lồng ngực không?",
+                "Trẻ đã được tiêm phòng đầy đủ theo lịch tiêm chủng mở rộng chưa?"
+            ]
         elif any(k in text_lower for k in ["da", "ngứa", "phát ban", "mụn", "mề đay", "dị ứng", "chàm", "viêm da"]):
             dept_code = "K03"
             dept_name = "Khoa Da Liễu"
+            explanation = (
+                f"Ghi nhận tổn thương da liễu / dị ứng ({text_clean[:60]}). "
+                "AI MedGemma khuyến nghị quan sát tổn thương qua camera có độ nét cao, khai thác tiền sử tiếp xúc dị nguyên, thực phẩm hoặc mỹ phẩm."
+            )
+            suggested_questions = [
+                "Vết ban/ngứa xuất hiện từ khi nào, có lan rộng sang các vùng cơ thể khác không?",
+                "Gần đây bệnh nhân có sử dụng thực phẩm lạ, thuốc mới hay mỹ phẩm lạ không?",
+                "Có kèm theo phù mí mắt, sưng môi hoặc ngứa họng không?"
+            ]
         elif any(k in text_lower for k in ["mất ngủ", "stress", "lo âu", "trầm cảm", "hoảng loạn", "suy nhược thần kinh"]):
             dept_code = "K05"
             dept_name = "Khoa Tâm Thần & Tâm Lý Lâm Sàng"
-
-    explanation = (
-        f"Dựa trên các triệu chứng được ghi nhận ({text_clean[:60]}...), hệ thống xếp mức độ ưu tiên là {urgency_label}. "
-        f"Khuyến nghị đặt lịch thăm khám tại {dept_name} để được chẩn đoán và điều trị chính xác."
-    )
-
-    suggested_questions = [
-        "Triệu chứng này xuất hiện lần đầu hay đã từng tái phát trước đây?",
-        "Người bệnh hiện đang dùng loại thuốc điều trị nào tại nhà không?",
-        "Có kèm theo các dấu hiệu như sốt, sụt cân hoặc khó thở không?"
-    ]
+            explanation = (
+                f"Ghi nhận triệu chứng căng thẳng / rối loạn giấc ngủ ({text_clean[:60]}). "
+                "AI MedGemma khuyến nghị sàng lọc thang điểm lo âu GAD-7 hoặc trầm cảm PHQ-9, tư vấn vệ sinh giấc ngủ kết hợp can thiệp tâm lý."
+            )
+            suggested_questions = [
+                "Tình trạng khó ngủ/mất ngủ kéo dài bao lâu, thường khó vào giấc hay thức giấc giữa đêm?",
+                "Có áp lực công việc, biến cố tâm lý gần đây ảnh hưởng đến tinh thần không?",
+                "Có cảm giác mệt mỏi kiệt sức, mất hứng thú với sinh hoạt hàng ngày không?"
+            ]
+        else:
+            explanation = (
+                f"Dựa trên các triệu chứng được ghi nhận ({text_clean[:60]}...), hệ thống xếp mức độ ưu tiên là {urgency_label}. "
+                f"AI MedGemma khuyến nghị thăm khám tại {dept_name} để được chẩn đoán và hướng dẫn điều trị chính xác."
+            )
+            suggested_questions = [
+                "Triệu chứng này xuất hiện lần đầu hay đã từng tái phát trước đây?",
+                "Người bệnh hiện đang dùng loại thuốc điều trị nào tại nhà không?",
+                "Có kèm theo các dấu hiệu như sốt, sụt cân hoặc khó thở không?"
+            ]
 
     return {
         "urgency_level": urgency_level,

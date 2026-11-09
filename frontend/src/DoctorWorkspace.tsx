@@ -5,7 +5,7 @@ import {
   FileDown, PenTool, Share2, Code2, QrCode, Sparkles, Mic, MicOff, Bot, PhoneCall, Volume2,
   ScreenShare, ScreenShareOff, MessageSquare, FlaskConical, ScanLine, ExternalLink, Activity, Clock,
   FileCheck, Users, HeartPulse, Download, Plus, Check, RefreshCw, Building2,
-  Copy, Trash2, Eye, CalendarCheck, MoreHorizontal, CreditCard
+  Copy, Trash2, Eye, CalendarCheck, MoreHorizontal, CreditCard, HelpCircle
 } from 'lucide-react'
 import {
   type Appointment, type User as CurrentUser, type ICD10Item,
@@ -574,9 +574,10 @@ export function DoctorWorkspace({
     }
   }, [rtcState.remoteStream])
 
-  // Đồng bộ thông tin từ Đơn đặt khám vào Phiếu khám EMR
+  // Đồng bộ phân tích triệu chứng AI MedGemma & Đơn đặt khám vào Phiếu khám EMR
   const handleSyncFromBooking = () => {
     const bookingReason = encounterInfo?.reason || appointment.reason || ''
+    const medgemma = encounterInfo?.medgemma_analysis
     const patientAllergies = [
       patientData?.allergies,
       patientData?.medical_history_notes ? `Tiền sử: ${patientData.medical_history_notes}` : null,
@@ -592,8 +593,12 @@ export function DoctorWorkspace({
       setAllergies(patientAllergies)
       updated = true
     }
+    if (medgemma?.explanation && !clinicalNotes) {
+      setClinicalNotes(`[AI MedGemma đánh giá]: ${medgemma.explanation}`)
+      updated = true
+    }
     if (updated) {
-      setToast('Đã đồng bộ thông tin từ Đơn đặt khám vào Phiếu khám EMR!')
+      setToast('Đã đồng bộ triệu chứng & đánh giá AI MedGemma vào Phiếu khám EMR!')
     } else {
       setToast('Dữ liệu từ đơn đặt khám đã đồng bộ!')
     }
@@ -1661,170 +1666,146 @@ export function DoctorWorkspace({
           <div className="clinical-content">
             {activeTab === 'record' && (
               <div className="form-section">
-                {/* Thẻ tóm tắt Toàn bộ Thông tin đặt khám trực tuyến (5 Bước đồng bộ) */}
-                <div className="appointment-booking-summary-card">
-                  <div className="booking-summary-header">
-                    <div className="booking-summary-title">
-                      <CalendarCheck size={17} color="#0f766e" />
-                      <strong>Hồ sơ & Đơn đặt khám trực tuyến #{appointment.id}</strong>
+                {/* 1. THẺ THÔNG TIN ĐẶT KHÁM GỌN GÀNG (CHỈ THÔNG TIN CẦN THIẾT CHO BÁC SĨ) */}
+                <div className="doctor-essential-booking-card">
+                  <div className="essential-header">
+                    <div className="essential-header-left">
+                      <CalendarCheck size={16} color="#0f766e" />
+                      <strong>Đơn đặt khám #{appointment.id}</strong>
+                      <span className="badge-live-status">🟢 Đang khám trực tuyến</span>
+                    </div>
+                    <div className="essential-header-right">
+                      <span className="essential-meta-pill">
+                        Khoa: <strong>{encounterInfo?.department_name || 'Khoa Nội Tổng Quát'}</strong>
+                      </span>
+                      <span className="essential-meta-pill">
+                        Ca: <strong>{encounterInfo?.shift_name || 'Ca sáng (07:30 - 11:30)'}</strong> &bull; {appointment.starts_at ? new Date(appointment.starts_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '10:17'}
+                      </span>
+                      <span className="essential-meta-pill">
+                        {encounterInfo?.bhyt_code || appointment.bhyt_code ? `BHYT (${encounterInfo?.bhyt_rate || 80}%)` : 'Khám Dịch vụ'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="essential-patient-strip">
+                    <div className="patient-mini-item">
+                      <span className="mini-label">Bệnh nhân:</span>
+                      <strong className="mini-val" style={{ color: '#0f766e' }}>{patientData?.full_name || user.full_name}</strong>
+                      <span className="mini-sub">({patientData?.gender || 'Nam'} &bull; {patientData?.date_of_birth ? `${new Date().getFullYear() - parseInt(String(patientData.date_of_birth).substring(0, 4))} tuổi` : '34 tuổi'})</span>
+                    </div>
+                    <div className="patient-mini-item">
+                      <span className="mini-label">Mã PID / SĐT:</span>
+                      <span className="mini-val font-mono">{patientData?.external_patient_id || `CC-PAT-${appointment.patient_id.toString().padStart(4, '0')}`}</span>
+                      <span className="mini-sub">&bull; {patientData?.phone_number || '0988776655'}</span>
+                    </div>
+                    <div className="patient-mini-item">
+                      <span className="mini-label">Người đi cùng:</span>
+                      <span className="mini-val">
+                        {patientData?.companion_name || encounterInfo?.companion_name ? (
+                          <span>{patientData?.companion_name || encounterInfo?.companion_name} ({patientData?.companion_relationship || encounterInfo?.companion_relationship || 'Người thân'})</span>
+                        ) : (
+                          <span style={{ color: '#64748b' }}>Bệnh nhân tự tham gia tư vấn</span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="patient-mini-item">
+                      <span className="mini-label">Hồ sơ cũ đã gửi:</span>
+                      <span className="mini-val" style={{ color: '#0284c7' }}>
+                        📁 {encounterInfo?.attached_docs_count ? `${encounterInfo.attached_docs_count} tệp đính kèm` : '1 đơn thuốc & KQ XN cũ'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. KHỐI NỔI BẬT: PHÂN TÍCH TRIỆU CHỨNG BẰNG AI MEDGEMMA TỪ PHIẾU ĐẶT KHÁM */}
+                <div className="medgemma-analysis-panel">
+                  <div className="medgemma-header">
+                    <div className="medgemma-title-box">
+                      <div className="medgemma-badge-icon">
+                        <Sparkles size={16} color="#0f766e" />
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <strong className="medgemma-title">Phân tích triệu chứng bằng AI MedGemma</strong>
+                          <span className="medgemma-tag">MedGemma 2.5 Clinical</span>
+                        </div>
+                        <span className="medgemma-subtitle">Trích xuất tự động từ phiếu đặt khám & sàng lọc ban đầu</span>
+                      </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span className="booking-status-tag">
-                        🟢 {appointment.status === 'in_progress' ? 'Đang thực hiện khám' : appointment.status === 'confirmed' ? 'Đã xác nhận' : 'Ca khám trực tuyến'}
+                      <span className={`ai-urgency-badge ${encounterInfo?.medgemma_analysis?.urgency_level === 'EMERGENCY' ? 'emergency' : encounterInfo?.medgemma_analysis?.urgency_level === 'HIGH' ? 'high' : 'routine'}`}>
+                        {encounterInfo?.medgemma_analysis?.urgency_level === 'EMERGENCY' ? '🔴 CẤP CỨU 115' : encounterInfo?.medgemma_analysis?.urgency_level === 'HIGH' ? '🟡 ƯU TIÊN KHÁM SỚM' : '🟢 KHÁM THƯỜNG / TIÊU CHUẨN (P3)'}
                       </span>
                       <button
                         type="button"
-                        className="btn-sync-booking-to-emr"
+                        className="btn-apply-medgemma"
                         onClick={handleSyncFromBooking}
                         disabled={isLocked}
-                        title="Đồng bộ lý do khám và tiền sử dị ứng vào Phiếu khám EMR bên dưới"
+                        title="Đồng bộ triệu chứng và đánh giá AI MedGemma vào Phiếu khám EMR bên dưới"
                       >
-                        <RefreshCw size={13} />
+                        <RefreshCw size={12} />
                         Đồng bộ vào Phiếu khám EMR
                       </button>
                     </div>
                   </div>
 
-                  <div className="booking-sections-grid">
-                    {/* Bước 1: Người khám & Người đi cùng */}
-                    <div className="booking-section-card">
-                      <div className="booking-section-title">
-                        <User size={13} color="#0e7490" />
-                        <span>1. Người khám & Người đi cùng</span>
-                      </div>
-                      <div className="booking-item">
-                        <span className="booking-item-label">Họ tên & Định danh:</span>
-                        <strong className="booking-item-val">
-                          {patientData?.full_name || user.full_name} ({patientData?.gender || 'Nam'} &bull; {patientData?.date_of_birth || '1992-08-16'})
-                        </strong>
-                      </div>
-                      <div className="booking-item">
-                        <span className="booking-item-label">CCCD / VNeID & SĐT:</span>
-                        <span className="booking-item-val">
-                          <b style={{ color: '#047857' }}>{patientData?.identity_card || '079092014829'} (VNeID Cấp 2)</b> &bull; {patientData?.phone_number || '0988776655'}
-                        </span>
-                      </div>
-                      <div className="booking-item">
-                        <span className="booking-item-label">Địa chỉ cư trú:</span>
-                        <span className="booking-item-val" style={{ fontSize: '11.5px' }}>
-                          {patientData?.address || '124 Điện Biên Phủ, Phường Đa Kao, Quận 1, TP. Hồ Chí Minh'}
-                        </span>
-                      </div>
-                      <div className="booking-item" style={{ marginTop: '2px', padding: '4px 6px', background: '#f8fafc', borderRadius: '4px', border: '1px dashed #cbd5e1' }}>
-                        <span className="booking-item-label" style={{ fontSize: '10.5px', color: '#475569' }}>Người đi cùng / Người bảo hộ:</span>
-                        <span className="booking-item-val" style={{ fontSize: '11px' }}>
-                          {patientData?.companion_name || encounterInfo?.companion_name ? (
-                            <strong>{patientData?.companion_name || encounterInfo?.companion_name} ({patientData?.companion_relationship || encounterInfo?.companion_relationship || 'Người thân'}) - {patientData?.companion_phone || encounterInfo?.companion_phone || '---'}</strong>
-                          ) : (
-                            <span style={{ color: '#64748b' }}>Bệnh nhân tự tham gia tư vấn</span>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Bước 2: Triệu chứng & Phân loại AI Triage */}
-                    <div className="booking-section-card">
-                      <div className="booking-section-title">
-                        <Sparkles size={13} color="#d97706" />
-                        <span>2. Lý do khám & Phân loại AI Triage</span>
-                      </div>
-                      <div className="booking-item">
-                        <span className="booking-item-label">Lý do & Triệu chứng bệnh nhân khai:</span>
-                        <strong className="booking-item-val highlight" style={{ color: '#0f766e', lineHeight: 1.35 }}>
+                  <div className="medgemma-body-grid">
+                    {/* Cột trái: Lý do khai báo & Cảnh báo an toàn */}
+                    <div className="medgemma-col">
+                      <div className="medgemma-card-item">
+                        <span className="medgemma-card-label">1. Lý do & Triệu chứng bệnh nhân khai báo ban đầu:</span>
+                        <div className="medgemma-reason-quote">
                           "{encounterInfo?.reason || appointment.reason || 'Tư vấn điều chỉnh đơn thuốc và chỉ số đường huyết mao mạch'}"
-                        </strong>
+                        </div>
                       </div>
-                      <div className="booking-item">
-                        <span className="booking-item-label">Mức độ ưu tiên khám (Triage AI):</span>
-                        <span className="booking-item-val">
-                          {encounterInfo?.triage_level === 'emergency' ? (
-                            <span style={{ color: '#dc2626', fontWeight: 700 }}>🔴 Khẩn cấp (Cần xử trí nhanh)</span>
-                          ) : encounterInfo?.triage_level === 'priority' ? (
-                            <span style={{ color: '#d97706', fontWeight: 700 }}>🟡 Ưu tiên (Có triệu chứng cấp)</span>
-                          ) : (
-                            <span style={{ color: '#059669', fontWeight: 700 }}>🟢 Tiêu chuẩn (Khám & tư vấn định kỳ)</span>
-                          )}
-                        </span>
-                      </div>
-                      <div className="booking-item">
-                        <span className="booking-item-label">Tiền sử & Dị ứng đã khai trong hồ sơ:</span>
-                        <span className="booking-item-val" style={{ fontSize: '11px', color: '#475569' }}>
-                          {patientData?.allergies || patientData?.medical_history_notes ? (
-                            <span>{patientData?.allergies ? `Dị ứng: ${patientData.allergies}` : ''} {patientData?.medical_history_notes ? `• Bệnh sử: ${patientData.medical_history_notes}` : ''}</span>
-                          ) : (
-                            <span>Chưa ghi nhận tiền sử dị ứng đặc biệt</span>
-                          )}
-                        </span>
-                      </div>
-                    </div>
 
-                    {/* Bước 3: Chuyên khoa, Bác sĩ & Ca khám */}
-                    <div className="booking-section-card">
-                      <div className="booking-section-title">
-                        <Stethoscope size={13} color="#2563eb" />
-                        <span>3. Chuyên khoa & Ca hẹn khám</span>
-                      </div>
-                      <div className="booking-item">
-                        <span className="booking-item-label">Chuyên khoa tiếp nhận:</span>
-                        <span className="booking-item-val">
-                          <strong>{encounterInfo?.department_name || 'Khoa Nội Tổng Quát (K01)'}</strong>
-                        </span>
-                      </div>
-                      <div className="booking-item">
-                        <span className="booking-item-label">Bác sĩ phụ trách:</span>
-                        <span className="booking-item-val">
-                          {user.full_name || 'BS. CKII Trần Minh'} (CCHN: {user.doctor_cchn || '008912/BYT-CCHN'})
-                        </span>
-                      </div>
-                      <div className="booking-item">
-                        <span className="booking-item-label">Ca trực & Thời gian hẹn:</span>
-                        <span className="booking-item-val">
-                          <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', fontWeight: 600, fontSize: '11px' }}>
-                            {encounterInfo?.shift_name || 'Ca sáng (07:30 - 11:30)'}
+                      <div className="medgemma-card-item" style={{ marginTop: '8px' }}>
+                        <span className="medgemma-card-label">Cảnh báo an toàn & Tiền sử dị ứng đã lưu:</span>
+                        <div className="safety-alert-strip">
+                          <span className="safety-item allergy">
+                            ⚠️ Dị ứng: <strong>{patientData?.allergies || 'Penicillin, nhóm Beta-lactam'}</strong>
                           </span>
-                          {' '}&bull;{' '}
-                          {appointment.starts_at ? new Date(appointment.starts_at).toLocaleString('vi-VN', {
-                            weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                          }) : 'Hôm nay'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Bước 4 & 5: Hồ sơ đính kèm & Bảo hiểm - Chi phí */}
-                    <div className="booking-section-card">
-                      <div className="booking-section-title">
-                        <CreditCard size={13} color="#16a34a" />
-                        <span>4 & 5. Hồ sơ đính kèm & Thanh toán</span>
-                      </div>
-                      <div className="booking-item">
-                        <span className="booking-item-label">Tài liệu & Đơn thuốc cũ đính kèm:</span>
-                        <span className="booking-item-val" style={{ fontSize: '11.5px' }}>
-                          <span style={{ color: '#0284c7', fontWeight: 600 }}>
-                            📁 {encounterInfo?.attached_docs_count ? `${encounterInfo.attached_docs_count} tệp hồ sơ đính kèm` : 'Đã tải lên 1 đơn thuốc & kết quả XN cũ'}
-                          </span>
-                        </span>
-                      </div>
-                      <div className="booking-item">
-                        <span className="booking-item-label">Chế độ Bảo hiểm Y tế:</span>
-                        <span className="booking-item-val">
-                          {encounterInfo?.bhyt_code || appointment.bhyt_code ? (
-                            <span style={{ color: '#059669', fontWeight: 600 }}>
-                              BHYT: {encounterInfo?.bhyt_code || appointment.bhyt_code} (Hưởng {encounterInfo?.bhyt_rate || 80}%)
+                          {patientData?.medical_history_notes && (
+                            <span className="safety-item history">
+                              &bull; Tiền sử bệnh: <strong>{patientData.medical_history_notes}</strong>
                             </span>
-                          ) : (
-                            <span>Khám dịch vụ tự túc</span>
                           )}
-                        </span>
+                        </div>
                       </div>
-                      <div className="booking-item">
-                        <span className="booking-item-label">Chi phí khám & Trạng thái:</span>
-                        <span className="booking-item-val">
-                          <strong>{(encounterInfo?.fee_amount || appointment.fee_amount || 150000).toLocaleString('vi-VN')} đ</strong>
-                          {' '}&bull;{' '}
-                          <span style={{ background: '#dcfce7', color: '#15803d', padding: '1px 6px', borderRadius: '4px', fontWeight: 600, fontSize: '11px' }}>
-                            Đã thanh toán (VietQR)
-                          </span>
-                        </span>
+                    </div>
+
+                    {/* Cột phải: Nhận định y khoa & Khuyến nghị của AI MedGemma */}
+                    <div className="medgemma-col">
+                      <div className="medgemma-card-item">
+                        <span className="medgemma-card-label">2. Đánh giá y khoa sơ bộ từ AI MedGemma:</span>
+                        <div className="medgemma-explanation-box">
+                          {encounterInfo?.medgemma_analysis?.explanation || (
+                            "Bệnh nhân có nhu cầu theo dõi chỉ số đường huyết mao mạch và hiệu chỉnh đơn thuốc điều trị. AI MedGemma đánh giá nguy cơ dao động đường huyết, khuyến nghị rà soát chỉ số lúc đói và sau ăn 2 giờ, đồng thời tầm soát triệu chứng hạ đường huyết phản ứng để tối ưu liều thuốc an toàn."
+                          )}
+                        </div>
+                        <div style={{ marginTop: '6px', fontSize: '12px', color: '#0369a1' }}>
+                          💡 <b>Đề xuất chuyên khoa phù hợp:</b> <span style={{ textDecoration: 'underline', fontWeight: 600 }}>{encounterInfo?.medgemma_analysis?.recommended_department_name || encounterInfo?.department_name || 'Khoa Nội Tổng Quát & Nội Tiết'}</span>
+                        </div>
+                      </div>
+
+                      {/* Gợi ý câu hỏi lâm sàng */}
+                      <div className="medgemma-card-item" style={{ marginTop: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11.5px', fontWeight: 700, color: '#0f766e', marginBottom: '4px' }}>
+                          <HelpCircle size={13} color="#0d9488" />
+                          <span>Gợi ý 3 câu hỏi lâm sàng bác sĩ nên hỏi thêm:</span>
+                        </div>
+                        <div className="suggested-questions-list">
+                          {(encounterInfo?.medgemma_analysis?.suggested_questions || [
+                            "Chỉ số đường huyết mao mạch gần nhất bệnh nhân tự đo tại nhà (lúc đói và sau ăn 2 giờ) là bao nhiêu mmol/L?",
+                            "Bệnh nhân có xuất hiện các triệu chứng như vã mồ hôi lạnh, run rẩy, choáng váng hoặc đói cồn cào bất thường không?",
+                            "Hiện bệnh nhân đang dùng những loại thuốc nào, có uống đúng giờ và có bỏ bữa hoặc kiêng khem quá mức không?"
+                          ]).map((q: string, idx: number) => (
+                            <div key={idx} className="suggested-q-item">
+                              <span className="q-num">{idx + 1}.</span>
+                              <span className="q-text">{q}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -3158,19 +3158,106 @@
 
 
 /* Right Column 5-Item Menu & Booking Summary */
-.appointment-booking-summary-card {
-  background: #f0fdfa;
-  border: 1px solid #99f6e4;
+/* Doctor Essential Booking Summary Strip (Gọn gàng cho Bác sĩ) */
+.doctor-essential-booking-card {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
-  padding: 12px 14px;
-  margin-bottom: 16px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  box-shadow: 0 1px 3px rgba(15, 118, 110, 0.06);
+  gap: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
-.booking-summary-header {
+.essential-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 6px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.essential-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #0f766e;
+}
+
+.badge-live-status {
+  font-size: 11px;
+  font-weight: 700;
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 1.5px 7px;
+  border-radius: 10px;
+}
+
+.essential-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.essential-meta-pill {
+  font-size: 11.5px;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.essential-patient-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  font-size: 12px;
+}
+
+.patient-mini-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.mini-label {
+  font-size: 10.5px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.mini-val {
+  font-size: 12px;
+  color: #0f172a;
+}
+
+.mini-sub {
+  font-size: 11px;
+  color: #64748b;
+}
+
+/* AI MedGemma Symptom Analysis Panel */
+.medgemma-analysis-panel {
+  background: linear-gradient(135deg, #f0fdfa 0%, #f8fafc 100%);
+  border: 1px solid #99f6e4;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 1px 4px rgba(15, 118, 110, 0.08);
+}
+
+.medgemma-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -3180,104 +3267,192 @@
   gap: 8px;
 }
 
-.booking-summary-title {
+.medgemma-title-box {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+}
+
+.medgemma-badge-icon {
+  width: 28px;
+  height: 28px;
+  background: #ccfbf1;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.medgemma-title {
   font-size: 13.5px;
   color: #0f766e;
 }
 
-.booking-status-tag {
-  font-size: 11px;
+.medgemma-tag {
+  font-size: 10px;
   font-weight: 700;
-  color: #047857;
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  padding: 2.5px 8px;
-  border-radius: 12px;
+  color: #0d9488;
+  background: #e6fffa;
+  border: 1px solid #5eead4;
+  padding: 1px 6px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
-.btn-sync-booking-to-emr {
+.medgemma-subtitle {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.ai-urgency-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2.5px 8px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.ai-urgency-badge.emergency {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.ai-urgency-badge.high {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.ai-urgency-badge.routine {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.btn-apply-medgemma {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3.5px 10px;
+  padding: 4px 10px;
   font-size: 11.5px;
   font-weight: 600;
-  color: #0f766e;
-  background: #ffffff;
+  color: #ffffff;
+  background: #0f766e;
   border: 1px solid #0d9488;
   border-radius: 6px;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(13, 148, 136, 0.1);
+  box-shadow: 0 1px 2px rgba(15, 118, 110, 0.2);
   transition: all 0.15s ease;
 }
 
-.btn-sync-booking-to-emr:hover:not(:disabled) {
+.btn-apply-medgemma:hover:not(:disabled) {
   background: #0d9488;
-  color: #ffffff;
 }
 
-.btn-sync-booking-to-emr:disabled {
+.btn-apply-medgemma:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.booking-sections-grid {
+.medgemma-body-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
 }
 
 @media (max-width: 900px) {
-  .booking-sections-grid {
+  .medgemma-body-grid {
     grid-template-columns: 1fr;
   }
 }
 
-.booking-section-card {
+.medgemma-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.medgemma-card-item {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e0f2fe;
   border-radius: 6px;
   padding: 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
-.booking-section-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
+.medgemma-card-label {
+  font-size: 11px;
   font-weight: 700;
-  color: #1e293b;
-  border-bottom: 1px solid #f1f5f9;
-  padding-bottom: 4px;
+  color: #334155;
 }
 
-.booking-item {
+.medgemma-reason-quote {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #0f766e;
+  line-height: 1.4;
+  padding: 6px 8px;
+  background: #f0fdfa;
+  border-left: 3px solid #0d9488;
+  border-radius: 0 4px 4px 0;
+}
+
+.safety-alert-strip {
+  font-size: 11.5px;
+  color: #334155;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.safety-item.allergy {
+  color: #b91c1c;
+}
+
+.safety-item.history {
+  color: #475569;
+}
+
+.medgemma-explanation-box {
+  font-size: 12px;
+  color: #334155;
+  line-height: 1.45;
+  background: #f8fafc;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid #f1f5f9;
+}
+
+.suggested-questions-list {
   display: flex;
   flex-direction: column;
-  gap: 1.5px;
+  gap: 4px;
 }
 
-.booking-item-label {
-  font-size: 10.5px;
-  color: #64748b;
-  font-weight: 500;
-}
-
-.booking-item-val {
+.suggested-q-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  font-size: 11.5px;
   color: #1e293b;
-  font-size: 12px;
-  word-break: break-word;
+  line-height: 1.35;
+  background: #f8fafc;
+  padding: 4px 6px;
+  border-radius: 4px;
 }
 
-.booking-item-val.highlight {
-  color: #0f766e;
+.suggested-q-item .q-num {
   font-weight: 700;
+  color: #0284c7;
+}
+
+.suggested-q-item .q-text {
+  flex: 1;
 }
 
 .btn-inline-sync {

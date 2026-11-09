@@ -211,6 +211,7 @@ export type ClinicalRecordDetail = {
     companion_phone?: string
     companion_relationship?: string
     attached_docs_count?: number
+    medgemma_analysis?: TriageSymptomResult
   }
   patient: {
     id: number
