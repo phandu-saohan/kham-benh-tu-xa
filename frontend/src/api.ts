@@ -191,9 +191,26 @@ export type ClinicalRecordDetail = {
     payment_source?: string
     bhyt_code?: string
     bhyt_rate?: number
+    bhyt_discount?: number
+    patient_pay_amount?: number
+    fee_amount?: number
+    currency?: string
+    paid_at?: string
     reason?: string
     starts_at?: string
     status?: string
+    department_id?: number
+    department_name?: string
+    shift_id?: number
+    shift_name?: string
+    triage_level?: string
+    triage_status?: string
+    triage_notes?: string
+    companion_name?: string
+    companion_id_card?: string
+    companion_phone?: string
+    companion_relationship?: string
+    attached_docs_count?: number
   }
   patient: {
     id: number
@@ -208,6 +225,8 @@ export type ClinicalRecordDetail = {
     address?: string
     province_code?: string
     ward_code?: string
+    allergies?: string
+    bhyt_code?: string
     companion_name?: string
     companion_id_card?: string
     companion_phone?: string

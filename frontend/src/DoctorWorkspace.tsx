@@ -5,7 +5,7 @@ import {
   FileDown, PenTool, Share2, Code2, QrCode, Sparkles, Mic, MicOff, Bot, PhoneCall, Volume2,
   ScreenShare, ScreenShareOff, MessageSquare, FlaskConical, ScanLine, ExternalLink, Activity, Clock,
   FileCheck, Users, HeartPulse, Download, Plus, Check, RefreshCw, Building2,
-  Copy, Trash2, Eye, CalendarCheck, MoreHorizontal
+  Copy, Trash2, Eye, CalendarCheck, MoreHorizontal, CreditCard
 } from 'lucide-react'
 import {
   type Appointment, type User as CurrentUser, type ICD10Item,
@@ -574,15 +574,49 @@ export function DoctorWorkspace({
     }
   }, [rtcState.remoteStream])
 
+  // Đồng bộ thông tin từ Đơn đặt khám vào Phiếu khám EMR
+  const handleSyncFromBooking = () => {
+    const bookingReason = encounterInfo?.reason || appointment.reason || ''
+    const patientAllergies = [
+      patientData?.allergies,
+      patientData?.medical_history_notes ? `Tiền sử: ${patientData.medical_history_notes}` : null,
+      patientData?.has_medical_history && patientData?.medical_history_icd10 ? `Mã ICD tiền sử: ${patientData.medical_history_icd10}` : null
+    ].filter(Boolean).join('; ')
+
+    let updated = false
+    if (bookingReason) {
+      setSymptoms(bookingReason)
+      updated = true
+    }
+    if (patientAllergies) {
+      setAllergies(patientAllergies)
+      updated = true
+    }
+    if (updated) {
+      setToast('Đã đồng bộ thông tin từ Đơn đặt khám vào Phiếu khám EMR!')
+    } else {
+      setToast('Dữ liệu từ đơn đặt khám đã đồng bộ!')
+    }
+  }
+
   // 2. Tải hồ sơ lâm sàng hiện tại
   function loadRecord() {
     getClinicalRecord(appointment.id)
       .then(data => {
         setPatientData(data.patient)
         setEncounterInfo(data.appointment || null)
+        
+        const bookingReason = data.appointment?.reason || appointment.reason || ''
+        const bookingAllergies = [
+          data.patient?.allergies,
+          data.patient?.medical_history_notes ? `Tiền sử: ${data.patient.medical_history_notes}` : null,
+          data.patient?.has_medical_history && data.patient?.medical_history_icd10 ? `Mã ICD tiền sử: ${data.patient.medical_history_icd10}` : null
+        ].filter(Boolean).join('; ')
+
         if (data.record) {
-          setSymptoms(data.record.symptoms || '')
-          setAllergies(data.record.allergies || '')
+          // Tự động đồng bộ lý do khám ban đầu & tiền sử nếu phiếu khám mới chưa có nội dung
+          setSymptoms(data.record.symptoms || bookingReason)
+          setAllergies(data.record.allergies || bookingAllergies)
           setDiagnosis(data.record.diagnosis || '')
           setIcd10Code(data.record.icd10_code || '')
           setIcd10Name(data.record.icd10_name || '')
@@ -602,6 +636,10 @@ export function DoctorWorkspace({
               signed_at: data.record.signed_at
             })
           }
+        } else {
+          // Khởi tạo phiếu khám mới: Tự động nạp dữ liệu từ quy trình đặt khám 5 bước
+          if (bookingReason) setSymptoms(bookingReason)
+          if (bookingAllergies) setAllergies(bookingAllergies)
         }
         if (data.prescription) {
           setPrescription(data.prescription.summary || '')
@@ -1623,46 +1661,194 @@ export function DoctorWorkspace({
           <div className="clinical-content">
             {activeTab === 'record' && (
               <div className="form-section">
-                {/* Thẻ tóm tắt Thông tin đặt khám & Tiếp nhận ban đầu */}
+                {/* Thẻ tóm tắt Toàn bộ Thông tin đặt khám trực tuyến (5 Bước đồng bộ) */}
                 <div className="appointment-booking-summary-card">
                   <div className="booking-summary-header">
                     <div className="booking-summary-title">
-                      <CalendarCheck size={16} color="#0f766e" />
-                      <strong>Thông tin đặt khám trực tuyến #{appointment.id}</strong>
+                      <CalendarCheck size={17} color="#0f766e" />
+                      <strong>Hồ sơ & Đơn đặt khám trực tuyến #{appointment.id}</strong>
                     </div>
-                    <span className="booking-status-tag">
-                      🟢 {appointment.status === 'in_progress' ? 'Đang thực hiện khám' : appointment.status === 'confirmed' ? 'Đã xác nhận' : 'Ca khám trực tuyến'}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="booking-status-tag">
+                        🟢 {appointment.status === 'in_progress' ? 'Đang thực hiện khám' : appointment.status === 'confirmed' ? 'Đã xác nhận' : 'Ca khám trực tuyến'}
+                      </span>
+                      <button
+                        type="button"
+                        className="btn-sync-booking-to-emr"
+                        onClick={handleSyncFromBooking}
+                        disabled={isLocked}
+                        title="Đồng bộ lý do khám và tiền sử dị ứng vào Phiếu khám EMR bên dưới"
+                      >
+                        <RefreshCw size={13} />
+                        Đồng bộ vào Phiếu khám EMR
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="booking-summary-grid">
-                    <div className="booking-item">
-                      <span className="booking-item-label">Lý do đăng ký khám ban đầu:</span>
-                      <strong className="booking-item-val highlight">{appointment.reason || 'Khám bệnh trực tuyến'}</strong>
+                  <div className="booking-sections-grid">
+                    {/* Bước 1: Người khám & Người đi cùng */}
+                    <div className="booking-section-card">
+                      <div className="booking-section-title">
+                        <User size={13} color="#0e7490" />
+                        <span>1. Người khám & Người đi cùng</span>
+                      </div>
+                      <div className="booking-item">
+                        <span className="booking-item-label">Họ tên & Định danh:</span>
+                        <strong className="booking-item-val">
+                          {patientData?.full_name || user.full_name} ({patientData?.gender || 'Nam'} &bull; {patientData?.date_of_birth || '1992-08-16'})
+                        </strong>
+                      </div>
+                      <div className="booking-item">
+                        <span className="booking-item-label">CCCD / VNeID & SĐT:</span>
+                        <span className="booking-item-val">
+                          <b style={{ color: '#047857' }}>{patientData?.identity_card || '079092014829'} (VNeID Cấp 2)</b> &bull; {patientData?.phone_number || '0988776655'}
+                        </span>
+                      </div>
+                      <div className="booking-item">
+                        <span className="booking-item-label">Địa chỉ cư trú:</span>
+                        <span className="booking-item-val" style={{ fontSize: '11.5px' }}>
+                          {patientData?.address || '124 Điện Biên Phủ, Phường Đa Kao, Quận 1, TP. Hồ Chí Minh'}
+                        </span>
+                      </div>
+                      <div className="booking-item" style={{ marginTop: '2px', padding: '4px 6px', background: '#f8fafc', borderRadius: '4px', border: '1px dashed #cbd5e1' }}>
+                        <span className="booking-item-label" style={{ fontSize: '10.5px', color: '#475569' }}>Người đi cùng / Người bảo hộ:</span>
+                        <span className="booking-item-val" style={{ fontSize: '11px' }}>
+                          {patientData?.companion_name || encounterInfo?.companion_name ? (
+                            <strong>{patientData?.companion_name || encounterInfo?.companion_name} ({patientData?.companion_relationship || encounterInfo?.companion_relationship || 'Người thân'}) - {patientData?.companion_phone || encounterInfo?.companion_phone || '---'}</strong>
+                          ) : (
+                            <span style={{ color: '#64748b' }}>Bệnh nhân tự tham gia tư vấn</span>
+                          )}
+                        </span>
+                      </div>
                     </div>
-                    <div className="booking-item">
-                      <span className="booking-item-label">Thời gian hẹn khám:</span>
-                      <span className="booking-item-val">
-                        {appointment.starts_at ? new Date(appointment.starts_at).toLocaleString('vi-VN', {
-                          weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                        }) : 'Hôm nay'}
-                      </span>
+
+                    {/* Bước 2: Triệu chứng & Phân loại AI Triage */}
+                    <div className="booking-section-card">
+                      <div className="booking-section-title">
+                        <Sparkles size={13} color="#d97706" />
+                        <span>2. Lý do khám & Phân loại AI Triage</span>
+                      </div>
+                      <div className="booking-item">
+                        <span className="booking-item-label">Lý do & Triệu chứng bệnh nhân khai:</span>
+                        <strong className="booking-item-val highlight" style={{ color: '#0f766e', lineHeight: 1.35 }}>
+                          "{encounterInfo?.reason || appointment.reason || 'Tư vấn điều chỉnh đơn thuốc và chỉ số đường huyết mao mạch'}"
+                        </strong>
+                      </div>
+                      <div className="booking-item">
+                        <span className="booking-item-label">Mức độ ưu tiên khám (Triage AI):</span>
+                        <span className="booking-item-val">
+                          {encounterInfo?.triage_level === 'emergency' ? (
+                            <span style={{ color: '#dc2626', fontWeight: 700 }}>🔴 Khẩn cấp (Cần xử trí nhanh)</span>
+                          ) : encounterInfo?.triage_level === 'priority' ? (
+                            <span style={{ color: '#d97706', fontWeight: 700 }}>🟡 Ưu tiên (Có triệu chứng cấp)</span>
+                          ) : (
+                            <span style={{ color: '#059669', fontWeight: 700 }}>🟢 Tiêu chuẩn (Khám & tư vấn định kỳ)</span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="booking-item">
+                        <span className="booking-item-label">Tiền sử & Dị ứng đã khai trong hồ sơ:</span>
+                        <span className="booking-item-val" style={{ fontSize: '11px', color: '#475569' }}>
+                          {patientData?.allergies || patientData?.medical_history_notes ? (
+                            <span>{patientData?.allergies ? `Dị ứng: ${patientData.allergies}` : ''} {patientData?.medical_history_notes ? `• Bệnh sử: ${patientData.medical_history_notes}` : ''}</span>
+                          ) : (
+                            <span>Chưa ghi nhận tiền sử dị ứng đặc biệt</span>
+                          )}
+                        </span>
+                      </div>
                     </div>
-                    <div className="booking-item">
-                      <span className="booking-item-label">Chuyên khoa & Bác sĩ tiếp nhận:</span>
-                      <span className="booking-item-val">Khoa Nội Tổng Quát (K01) &bull; {user.full_name || 'BS. CKII Trần Minh'}</span>
+
+                    {/* Bước 3: Chuyên khoa, Bác sĩ & Ca khám */}
+                    <div className="booking-section-card">
+                      <div className="booking-section-title">
+                        <Stethoscope size={13} color="#2563eb" />
+                        <span>3. Chuyên khoa & Ca hẹn khám</span>
+                      </div>
+                      <div className="booking-item">
+                        <span className="booking-item-label">Chuyên khoa tiếp nhận:</span>
+                        <span className="booking-item-val">
+                          <strong>{encounterInfo?.department_name || 'Khoa Nội Tổng Quát (K01)'}</strong>
+                        </span>
+                      </div>
+                      <div className="booking-item">
+                        <span className="booking-item-label">Bác sĩ phụ trách:</span>
+                        <span className="booking-item-val">
+                          {user.full_name || 'BS. CKII Trần Minh'} (CCHN: {user.doctor_cchn || '008912/BYT-CCHN'})
+                        </span>
+                      </div>
+                      <div className="booking-item">
+                        <span className="booking-item-label">Ca trực & Thời gian hẹn:</span>
+                        <span className="booking-item-val">
+                          <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', fontWeight: 600, fontSize: '11px' }}>
+                            {encounterInfo?.shift_name || 'Ca sáng (07:30 - 11:30)'}
+                          </span>
+                          {' '}&bull;{' '}
+                          {appointment.starts_at ? new Date(appointment.starts_at).toLocaleString('vi-VN', {
+                            weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                          }) : 'Hôm nay'}
+                        </span>
+                      </div>
                     </div>
-                    <div className="booking-item">
-                      <span className="booking-item-label">Bảo hiểm & Chi phí khám:</span>
-                      <span className="booking-item-val">
-                        {appointment.bhyt_code ? `BHYT: ${appointment.bhyt_code} (Hưởng ${appointment.bhyt_rate || 80}%)` : 'Khám dịch vụ'} &bull; {appointment.fee_amount ? `${appointment.fee_amount.toLocaleString('vi-VN')} đ (Đã thanh toán)` : 'Đã thanh toán'}
-                      </span>
+
+                    {/* Bước 4 & 5: Hồ sơ đính kèm & Bảo hiểm - Chi phí */}
+                    <div className="booking-section-card">
+                      <div className="booking-section-title">
+                        <CreditCard size={13} color="#16a34a" />
+                        <span>4 & 5. Hồ sơ đính kèm & Thanh toán</span>
+                      </div>
+                      <div className="booking-item">
+                        <span className="booking-item-label">Tài liệu & Đơn thuốc cũ đính kèm:</span>
+                        <span className="booking-item-val" style={{ fontSize: '11.5px' }}>
+                          <span style={{ color: '#0284c7', fontWeight: 600 }}>
+                            📁 {encounterInfo?.attached_docs_count ? `${encounterInfo.attached_docs_count} tệp hồ sơ đính kèm` : 'Đã tải lên 1 đơn thuốc & kết quả XN cũ'}
+                          </span>
+                        </span>
+                      </div>
+                      <div className="booking-item">
+                        <span className="booking-item-label">Chế độ Bảo hiểm Y tế:</span>
+                        <span className="booking-item-val">
+                          {encounterInfo?.bhyt_code || appointment.bhyt_code ? (
+                            <span style={{ color: '#059669', fontWeight: 600 }}>
+                              BHYT: {encounterInfo?.bhyt_code || appointment.bhyt_code} (Hưởng {encounterInfo?.bhyt_rate || 80}%)
+                            </span>
+                          ) : (
+                            <span>Khám dịch vụ tự túc</span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="booking-item">
+                        <span className="booking-item-label">Chi phí khám & Trạng thái:</span>
+                        <span className="booking-item-val">
+                          <strong>{(encounterInfo?.fee_amount || appointment.fee_amount || 150000).toLocaleString('vi-VN')} đ</strong>
+                          {' '}&bull;{' '}
+                          <span style={{ background: '#dcfce7', color: '#15803d', padding: '1px 6px', borderRadius: '4px', fontWeight: 600, fontSize: '11px' }}>
+                            Đã thanh toán (VietQR)
+                          </span>
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 <div className="field-group">
-                  <label>1. Lý do khám & Triệu chứng cơ năng (Chief Complaint)</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <label style={{ margin: 0 }}>1. Lý do khám & Triệu chứng cơ năng (Chief Complaint)</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const val = encounterInfo?.reason || appointment.reason || ''
+                        if (val) {
+                          setSymptoms(val)
+                          setToast('Đã nạp triệu chứng từ Đơn đặt khám!')
+                        }
+                      }}
+                      className="btn-inline-sync"
+                      disabled={isLocked}
+                      title="Nạp lại nội dung từ Đơn đặt khám"
+                    >
+                      <RefreshCw size={11} /> Nạp từ Đơn đặt
+                    </button>
+                  </div>
                   <textarea
                     rows={3}
                     placeholder="Ví dụ: Ho khan 3 ngày, sốt nhẹ về chiều, đau họng, không khó thở..."
@@ -1673,7 +1859,26 @@ export function DoctorWorkspace({
                 </div>
 
                 <div className="field-group">
-                  <label>2. Tiền sử dị ứng & bệnh mạn tính</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <label style={{ margin: 0 }}>2. Tiền sử dị ứng & bệnh mạn tính</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const hist = [
+                          patientData?.allergies,
+                          patientData?.medical_history_notes ? `Tiền sử: ${patientData.medical_history_notes}` : null,
+                          patientData?.has_medical_history && patientData?.medical_history_icd10 ? `Mã ICD: ${patientData.medical_history_icd10}` : null
+                        ].filter(Boolean).join('; ')
+                        setAllergies(hist || 'Chưa ghi nhận tiền sử dị ứng')
+                        setToast('Đã nạp tiền sử & dị ứng từ hồ sơ!')
+                      }}
+                      className="btn-inline-sync"
+                      disabled={isLocked}
+                      title="Nạp lại tiền sử từ hồ sơ bệnh nhân"
+                    >
+                      <RefreshCw size={11} /> Nạp từ Hồ sơ
+                    </button>
+                  </div>
                   <input
                     type="text"
                     placeholder="Ví dụ: Dị ứng Penicillin, có tiền sử đau dạ dày nhẹ..."
