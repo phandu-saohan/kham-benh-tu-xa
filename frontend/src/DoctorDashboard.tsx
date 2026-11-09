@@ -28,7 +28,6 @@ import {
 import { Appointment, Department, identifyPatientByCCCD, PatientIdentifyResult } from './api'
 import { Pagination } from './Pagination'
 import { PatientIdentificationModal } from './PatientIdentificationModal'
-import { NotificationCenter } from './NotificationCenter'
 import './doctor-sanctuary.css'
 
 interface DoctorDashboardProps {
@@ -125,11 +124,10 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
             <span className="doctor-dept-pill">
               <Building2 size={13} /> Khoa Nội Tổng Quát
             </span>
-            <div style={{ marginLeft: 'auto' }}>
-              <NotificationCenter userRole="doctor" />
-            </div>
           </div>
-          <h1>{doctor.full_name || 'Bác sĩ chuyên khoa'}</h1>
+          <h1 style={{ margin: '8px 0 6px', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.5px' }}>
+            {doctor.full_name || 'BS.CKII Trần Minh'}
+          </h1>
           <p className="doctor-hero-sub">
             {todayStr} • Phòng khám trực tuyến Telemedicine & Bệnh án điện tử EMR đạt chuẩn Bộ Y tế.
           </p>
@@ -173,6 +171,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
           </div>
           <div className="quota-footer">
             <span>Đang chờ: <b>{waitingAppts.length}</b></span>
+            <span>Đang khám: <b>{inProgressAppts.length}</b></span>
             <span>Hoàn tất: <b>{completedAppts.length}</b></span>
           </div>
         </div>
@@ -180,7 +179,15 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
 
       {/* 2. Key Clinical Metrics Strip */}
       <section className="doctor-metrics-grid">
-        <div className="clinical-metric-card wait" onClick={() => { setFilterStatus('waiting'); setCurrentPage(1); }} style={{ borderLeft: '4px solid #d97706' }}>
+        <div
+          className={`clinical-metric-card wait ${filterStatus === 'waiting' ? 'active-metric-pill' : ''}`}
+          onClick={() => { setFilterStatus(filterStatus === 'waiting' ? 'all' : 'waiting'); setCurrentPage(1); }}
+          style={{
+            borderLeft: '4px solid #d97706',
+            boxShadow: filterStatus === 'waiting' ? '0 0 0 2px #d97706' : undefined,
+            cursor: 'pointer'
+          }}
+        >
           <div className="metric-icon-box" style={{ background: '#fef3c7', color: '#d97706' }}>
             <Clock size={22} />
           </div>
@@ -194,7 +201,14 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
           </div>
         </div>
 
-        <div className="clinical-metric-card wait" onClick={() => { setFilterStatus('scheduled'); setCurrentPage(1); }}>
+        <div
+          className={`clinical-metric-card wait ${filterStatus === 'scheduled' ? 'active-metric-pill' : ''}`}
+          onClick={() => { setFilterStatus(filterStatus === 'scheduled' ? 'all' : 'scheduled'); setCurrentPage(1); }}
+          style={{
+            boxShadow: filterStatus === 'scheduled' ? '0 0 0 2px #0284c7' : undefined,
+            cursor: 'pointer'
+          }}
+        >
           <div className="metric-icon-box" style={{ background: '#fef3c7', color: '#d97706' }}>
             <Clock size={22} />
           </div>
@@ -208,7 +222,14 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
           </div>
         </div>
 
-        <div className="clinical-metric-card active" onClick={() => setFilterStatus('in_progress')}>
+        <div
+          className={`clinical-metric-card active ${filterStatus === 'in_progress' ? 'active-metric-pill' : ''}`}
+          onClick={() => { setFilterStatus(filterStatus === 'in_progress' ? 'all' : 'in_progress'); setCurrentPage(1); }}
+          style={{
+            boxShadow: filterStatus === 'in_progress' ? '0 0 0 2px #059669' : undefined,
+            cursor: 'pointer'
+          }}
+        >
           <div className="metric-icon-box" style={{ background: '#ecfdf5', color: '#059669' }}>
             <Video size={22} />
           </div>
@@ -222,7 +243,14 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
           </div>
         </div>
 
-        <div className="clinical-metric-card complete" onClick={() => setFilterStatus('completed')}>
+        <div
+          className={`clinical-metric-card complete ${filterStatus === 'completed' ? 'active-metric-pill' : ''}`}
+          onClick={() => { setFilterStatus(filterStatus === 'completed' ? 'all' : 'completed'); setCurrentPage(1); }}
+          style={{
+            boxShadow: filterStatus === 'completed' ? '0 0 0 2px #2563eb' : undefined,
+            cursor: 'pointer'
+          }}
+        >
           <div className="metric-icon-box" style={{ background: '#eff6ff', color: '#2563eb' }}>
             <CheckCircle2 size={22} />
           </div>
@@ -236,7 +264,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
           </div>
         </div>
 
-        <div className="clinical-metric-card rpm" onClick={() => onNavigate('records')}>
+        <div className="clinical-metric-card rpm" onClick={() => onNavigate('records')} style={{ cursor: 'pointer' }}>
           <div className="metric-icon-box" style={{ background: '#fdf2f8', color: '#db2777' }}>
             <Activity size={22} />
           </div>
@@ -281,6 +309,62 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
               <option value="completed">Đã hoàn thành</option>
             </select>
           </div>
+        </div>
+
+        {/* Quick Filter Tabs bar */}
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          padding: '10px 18px',
+          background: '#f8fafc',
+          borderBottom: '1px solid #e2e8f0',
+          overflowX: 'auto',
+          alignItems: 'center'
+        }}>
+          {[
+            { key: 'all', label: 'Tất cả ca khám', count: myAppointments.length, color: '#0f766e' },
+            { key: 'waiting', label: '⏳ Đang ở phòng chờ', count: inWaitingRoomAppts.length, color: '#d97706' },
+            { key: 'scheduled', label: 'Chờ tiếp nhận', count: waitingAppts.length, color: '#0284c7' },
+            { key: 'in_progress', label: 'Đang khám', count: inProgressAppts.length, color: '#16a34a' },
+            { key: 'completed', label: 'Đã hoàn thành', count: completedAppts.length, color: '#475569' }
+          ].map(tab => {
+            const isSelected = filterStatus === tab.key
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => { setFilterStatus(tab.key); setCurrentPage(1); }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '5px 12px',
+                  borderRadius: '20px',
+                  fontSize: '12.5px',
+                  fontWeight: isSelected ? 700 : 600,
+                  border: isSelected ? `1.5px solid ${tab.color}` : '1px solid #cbd5e1',
+                  background: isSelected ? tab.color : '#ffffff',
+                  color: isSelected ? '#ffffff' : '#334155',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap',
+                  boxShadow: isSelected ? `0 2px 6px ${tab.color}33` : 'none'
+                }}
+              >
+                <span>{tab.label}</span>
+                <span style={{
+                  background: isSelected ? 'rgba(255,255,255,0.25)' : '#f1f5f9',
+                  color: isSelected ? '#ffffff' : '#64748b',
+                  padding: '1px 7px',
+                  borderRadius: '10px',
+                  fontSize: '11px',
+                  fontWeight: 700
+                }}>
+                  {tab.count}
+                </span>
+              </button>
+            )
+          })}
         </div>
 
         {paginatedAppointments.length === 0 ? (
@@ -382,7 +466,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                         </span>
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <div className="queue-actions-group">
+                        <div className="queue-actions-group" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
                           {appt.status === 'waiting' ? (
                             <button
                               className="btn-open-workspace"
@@ -390,16 +474,65 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                                 if (onCallPatient) onCallPatient(appt);
                                 onOpenWorkspace(appt);
                               }}
-                              title="Mời bệnh nhân từ phòng chờ vào phòng khám"
-                              style={{ background: '#059669', color: '#ffffff' }}
+                              title="Mời bệnh nhân từ phòng chờ vào buồng khám"
+                              style={{
+                                background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: '6px 12px',
+                                borderRadius: '7px',
+                                fontWeight: 700,
+                                fontSize: '12px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                cursor: 'pointer',
+                                boxShadow: '0 2px 6px rgba(22, 163, 74, 0.25)'
+                              }}
                             >
                               <Video size={14} /> Mời vào khám
+                            </button>
+                          ) : appt.status === 'in_progress' ? (
+                            <button
+                              className="btn-open-workspace"
+                              onClick={() => onOpenWorkspace(appt)}
+                              title="Vào buồng khám trực tuyến đang diễn ra"
+                              style={{
+                                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: '6px 12px',
+                                borderRadius: '7px',
+                                fontWeight: 700,
+                                fontSize: '12px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                cursor: 'pointer',
+                                boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)'
+                              }}
+                            >
+                              <Video size={14} /> Vào khám
                             </button>
                           ) : appt.status !== 'completed' ? (
                             <button
                               className="btn-open-workspace"
                               onClick={() => onOpenWorkspace(appt)}
-                              title="Mở Phòng khám Bác sĩ"
+                              title="Mở Bàn làm việc Bác sĩ"
+                              style={{
+                                background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: '6px 12px',
+                                borderRadius: '7px',
+                                fontWeight: 700,
+                                fontSize: '12px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                cursor: 'pointer',
+                                boxShadow: '0 2px 6px rgba(15, 118, 110, 0.25)'
+                              }}
                             >
                               <Stethoscope size={14} /> Mở phòng khám
                             </button>
@@ -407,7 +540,20 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                             <button
                               className="btn-view-record"
                               onClick={() => onOpenWorkspace(appt)}
-                              title="Xem lại bệnh án đã ký số"
+                              title="Xem lại hồ sơ bệnh án đã ký số"
+                              style={{
+                                background: '#f8fafc',
+                                color: '#334155',
+                                border: '1px solid #cbd5e1',
+                                padding: '6px 12px',
+                                borderRadius: '7px',
+                                fontWeight: 600,
+                                fontSize: '12px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                cursor: 'pointer'
+                              }}
                             >
                               <FileText size={14} /> Xem bệnh án
                             </button>
@@ -421,8 +567,8 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                               background: '#f0fdf4',
                               color: '#059669',
                               border: '1px solid #bbf7d0',
-                              padding: '7px 11px',
-                              borderRadius: '8px',
+                              padding: '6px 10px',
+                              borderRadius: '7px',
                               fontSize: '12px',
                               fontWeight: 700,
                               cursor: 'pointer',
@@ -437,7 +583,17 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                             <button
                               className="btn-call-direct"
                               onClick={() => onCallPatient(appt)}
-                              title="Rung chuông gọi bệnh nhân vào buồng"
+                              title="Rung chuông điện thoại bệnh nhân"
+                              style={{
+                                background: '#f8fafc',
+                                border: '1px solid #cbd5e1',
+                                color: '#0f766e',
+                                padding: '6px 8px',
+                                borderRadius: '7px',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center'
+                              }}
                             >
                               <Video size={14} />
                             </button>
