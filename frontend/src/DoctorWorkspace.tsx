@@ -1774,37 +1774,14 @@ export function DoctorWorkspace({
                       </div>
                     </div>
 
-                    {/* Cột phải: Nhận định y khoa & Khuyến nghị của AI MedGemma */}
+                    {/* Cột phải: Nhận định y khoa của AI MedGemma */}
                     <div className="medgemma-col">
-                      <div className="medgemma-card-item">
+                      <div className="medgemma-card-item" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                         <span className="medgemma-card-label">2. Đánh giá y khoa sơ bộ từ AI MedGemma:</span>
-                        <div className="medgemma-explanation-box">
+                        <div className="medgemma-explanation-box" style={{ flex: 1 }}>
                           {encounterInfo?.medgemma_analysis?.explanation || (
                             "Bệnh nhân có nhu cầu theo dõi chỉ số đường huyết mao mạch và hiệu chỉnh đơn thuốc điều trị. AI MedGemma đánh giá nguy cơ dao động đường huyết, khuyến nghị rà soát chỉ số lúc đói và sau ăn 2 giờ, đồng thời tầm soát triệu chứng hạ đường huyết phản ứng để tối ưu liều thuốc an toàn."
                           )}
-                        </div>
-                        <div style={{ marginTop: '6px', fontSize: '12px', color: '#0369a1' }}>
-                          💡 <b>Đề xuất chuyên khoa phù hợp:</b> <span style={{ textDecoration: 'underline', fontWeight: 600 }}>{encounterInfo?.medgemma_analysis?.recommended_department_name || encounterInfo?.department_name || 'Khoa Nội Tổng Quát & Nội Tiết'}</span>
-                        </div>
-                      </div>
-
-                      {/* Gợi ý câu hỏi lâm sàng */}
-                      <div className="medgemma-card-item" style={{ marginTop: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11.5px', fontWeight: 700, color: '#0f766e', marginBottom: '4px' }}>
-                          <HelpCircle size={13} color="#0d9488" />
-                          <span>Gợi ý 3 câu hỏi lâm sàng bác sĩ nên hỏi thêm:</span>
-                        </div>
-                        <div className="suggested-questions-list">
-                          {(encounterInfo?.medgemma_analysis?.suggested_questions || [
-                            "Chỉ số đường huyết mao mạch gần nhất bệnh nhân tự đo tại nhà (lúc đói và sau ăn 2 giờ) là bao nhiêu mmol/L?",
-                            "Bệnh nhân có xuất hiện các triệu chứng như vã mồ hôi lạnh, run rẩy, choáng váng hoặc đói cồn cào bất thường không?",
-                            "Hiện bệnh nhân đang dùng những loại thuốc nào, có uống đúng giờ và có bỏ bữa hoặc kiêng khem quá mức không?"
-                          ]).map((q: string, idx: number) => (
-                            <div key={idx} className="suggested-q-item">
-                              <span className="q-num">{idx + 1}.</span>
-                              <span className="q-text">{q}</span>
-                            </div>
-                          ))}
                         </div>
                       </div>
                     </div>
