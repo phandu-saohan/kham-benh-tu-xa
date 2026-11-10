@@ -3022,7 +3022,7 @@ export function DoctorWorkspace({
                       title="Đồng bộ kết luận chẩn đoán hình ảnh PACS vào Bệnh án EMR"
                     >
                       <RefreshCw size={14} />
-                      Đồng bộ (lấy 3 ca mới nhất)
+                      Đồng bộ
                     </button>
                   </div>
                 </div>
