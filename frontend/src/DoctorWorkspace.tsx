@@ -1811,45 +1811,6 @@ export function DoctorWorkspace({
                 </div>
               </div>
             </div>
-
-            {/* Dải thông tin Sàng lọc & Phân luồng của Điều dưỡng */}
-            <div style={{
-              marginTop: '10px',
-              background: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              padding: '8px 12px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '10px',
-              fontSize: '12px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{
-                  background: triageLevel === 'emergency' ? '#fef2f2' : triageLevel === 'priority' ? '#fffbeb' : '#dcfce7',
-                  color: triageLevel === 'emergency' ? '#dc2626' : triageLevel === 'priority' ? '#d97706' : '#15803d',
-                  border: `1px solid ${triageLevel === 'emergency' ? '#fecaca' : triageLevel === 'priority' ? '#fde68a' : '#bbf7d0'}`,
-                  fontWeight: 800,
-                  padding: '2px 8px',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}>
-                  {triageLevel === 'emergency' ? '🚨 Cấp cứu (Đỏ)' : triageLevel === 'priority' ? '⚠️ Ưu tiên (Vàng)' : '🟢 Tiêu chuẩn (Xanh)'}
-                </span>
-                <span style={{ color: '#334155' }}>
-                  Ghi chú điều dưỡng: <strong>{triageNotes}</strong>
-                </span>
-              </div>
-              <div style={{ color: '#047857', fontSize: '11.5px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                <Stethoscope size={13} />
-                <span>Điều dưỡng tiếp đón: <strong>{triageNurse}</strong></span>
-              </div>
-            </div>
           </div>
         </div>
 
