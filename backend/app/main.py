@@ -15,14 +15,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, text
+from sqlalchemy import or_, text, func
 from livekit import api as livekit_api
 
 from app.config import settings
 from app.db import get_db, Base, engine
 from app.models import (
     User, Appointment, TelehealthSession, ClinicalRecord, PrescriptionRef,
-    Payment, AuditLog, OtpCode, PatientConsent, Department, DoctorShift, NurseShift,
+    Payment, AuditLog, OtpCode, PatientConsent, Department, ClinicRoom, DoctorShift, NurseShift,
     ConsultationMessage, SystemSetting, Notification, AppointmentEvent,
     BHYTClaim, ConsultationMember, RPMVitalLog, FamilyMemberProfile, AIPACSConsultation, AppointmentDocument,
     PatientCabinetItem, SupportTicket, SupportTicketMessage
@@ -35,7 +35,7 @@ from app.schemas import (
     ConsentAgreeIn, ConsentStatusOut, DigitalSignRequest, DigitalSignResponse,
     NationalPrescriptionSyncOut, PACSViewerOut,
     AmbientScribeIn, AmbientScribeOut, AIStatusOut, AISwitchModeIn, BhytCheckIn, BhytCheckOut,
-    DepartmentOut, DoctorShiftIn, DoctorShiftOut, AdminDoctorShiftIn, DoctorProfileIn, DoctorProfileOut, SupportTicketIn, SupportTicketStatusUpdate, SupportTicketOut, SupportTicketMessageIn, SupportTicketMessageOut, NurseShiftIn, NurseShiftOut, NurseShiftUpdateIn, AssignNurseIn, AppointmentCancelIn, AppointmentCancelOut,
+    DepartmentOut, ClinicRoomIn, ClinicRoomUpdate, ClinicRoomOut, DoctorShiftIn, DoctorShiftOut, AdminDoctorShiftIn, DoctorProfileIn, DoctorProfileOut, SupportTicketIn, SupportTicketStatusUpdate, SupportTicketOut, SupportTicketMessageIn, SupportTicketMessageOut, NurseShiftIn, NurseShiftOut, NurseShiftUpdateIn, AssignNurseIn, AppointmentCancelIn, AppointmentCancelOut,
     RefundRequestIn, RefundRequestOut,
     CabinetItemIn, CabinetItemOut,
     ConsultationMessageIn, ConsultationMessageOut,
@@ -1785,14 +1785,14 @@ def export_fhir_bundle(appointment_id: int, db: Session = Depends(get_db), user:
 # ----------------- PARACLINICAL (LAB/LIS) & PACS DICOMVIEWER -----------------
 
 @app.get("/api/v1/patients/me/lab-results")
-def patient_my_lab_results(user: User = Depends(require_roles("patient"))):
+def patient_my_lab_results(db: Session = Depends(get_db), user: User = Depends(require_roles("patient"))):
     """Bệnh nhân tự tra cứu kết quả xét nghiệm cận lâm sàng của mình"""
-    return get_patient_lab_results(user.id, user.full_name)
+    return get_patient_lab_results(user.id, user.full_name, db=db)
 
 @app.get("/api/v1/patients/me/pacs-studies")
-def list_dicom_studies(user: User = Depends(get_current_user)):
+def list_dicom_studies(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Lấy danh sách các ca chụp PACS/DICOM của bệnh nhân hiện tại"""
-    return get_patient_pacs_studies(user.id, user.full_name)
+    return get_patient_pacs_studies(user.id, user.full_name, db=db)
 
 @app.get("/api/v1/patients/{patient_id}/lab-results")
 def get_patient_lab_results_endpoint(patient_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
@@ -1802,7 +1802,7 @@ def get_patient_lab_results_endpoint(patient_id: int, db: Session = Depends(get_
     patient = db.get(User, patient_id)
     if not patient:
         raise HTTPException(status_code=404, detail="Bệnh nhân không tồn tại")
-    return get_patient_lab_results(patient.id, patient.full_name)
+    return get_patient_lab_results(patient.id, patient.full_name, db=db)
 
 @app.get("/api/v1/patients/{patient_id}/pacs-studies")
 def get_patient_pacs_studies_endpoint(patient_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
@@ -1812,7 +1812,7 @@ def get_patient_pacs_studies_endpoint(patient_id: int, db: Session = Depends(get
     patient = db.get(User, patient_id)
     if not patient:
         raise HTTPException(status_code=404, detail="Bệnh nhân không tồn tại")
-    return get_patient_pacs_studies(patient.id, patient.full_name)
+    return get_patient_pacs_studies(patient.id, patient.full_name, db=db)
 
 @app.get("/api/v1/appointments/{appointment_id}/lab-results")
 def get_appointment_lab_results(appointment_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
@@ -1822,7 +1822,7 @@ def get_appointment_lab_results(appointment_id: int, db: Session = Depends(get_d
         raise HTTPException(status_code=404, detail="Ca khám không tồn tại")
     check_appointment_access(appt, user)
     patient = db.get(User, appt.patient_id)
-    return get_patient_lab_results(appt.patient_id, patient.full_name if patient else None)
+    return get_patient_lab_results(appt.patient_id, patient.full_name if patient else None, db=db)
 
 @app.get("/api/v1/appointments/{appointment_id}/pacs-studies")
 def get_appointment_pacs_studies(appointment_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
@@ -1832,7 +1832,7 @@ def get_appointment_pacs_studies(appointment_id: int, db: Session = Depends(get_
         raise HTTPException(status_code=404, detail="Ca khám không tồn tại")
     check_appointment_access(appt, user)
     patient = db.get(User, appt.patient_id)
-    return get_patient_pacs_studies(appt.patient_id, patient.full_name if patient else None)
+    return get_patient_pacs_studies(appt.patient_id, patient.full_name if patient else None, db=db)
 
 @app.get("/api/v1/appointments/{appointment_id}/history", response_model=list[AppointmentEventOut])
 def get_appointment_history(
@@ -1964,7 +1964,7 @@ def patient_records(db: Session = Depends(get_db), user: User = Depends(require_
 
 @app.get("/api/v1/patients/me/his-summary")
 def patient_his_summary(user: User = Depends(require_roles("patient"))):
-    return get_his_adapter().get_patient_summary(user.external_patient_id or f"DEMO-{user.id}")
+    return get_his_adapter().get_patient_summary(user.external_patient_id or f"PID-{user.id:06d}")
 
 @app.post("/api/v1/patients/me/sync-his-emr")
 def sync_patient_his_emr(
@@ -1975,7 +1975,7 @@ def sync_patient_his_emr(
     Đồng bộ dữ liệu hai chiều Bệnh án điện tử giữa Telehealth và Hệ thống HIS/EMR Bệnh viện theo chuẩn HL7 FHIR R4.
     """
     his_adapter = get_his_adapter()
-    pid = user.external_patient_id or f"HIS-2024-{user.id:04d}"
+    pid = user.external_patient_id or f"PID-{user.id:06d}"
     his_summary = his_adapter.get_patient_summary(pid)
     
     appts = db.query(Appointment).filter(
@@ -2020,16 +2020,13 @@ def sync_patient_his_emr(
         "hospital_name": "Bệnh viện Đa khoa Telemed (GLN: 8938500000018)",
         "synced_records_count": len(appts),
         "encounters_synced": len(completed_appts),
-        "conditions": his_summary.get("conditions", [
-            {"code": "I10", "display": "Tăng huyết áp vô căn (lành tính)"},
-            {"code": "E11", "display": "Đái tháo đường type 2"}
-        ]),
-        "allergies": his_summary.get("allergies", [{"substance": "Không ghi nhận dị ứng thuốc"}])
+        "conditions": his_summary.get("conditions", []),
+        "allergies": his_summary.get("allergies", [])
     }
 
 @app.get("/api/v1/patients/me/imaging-studies")
 def patient_imaging(user: User = Depends(require_roles("patient"))):
-    return get_pacs_adapter().list_studies(user.external_patient_id or f"DEMO-{user.id}")
+    return get_pacs_adapter().list_studies(user.external_patient_id or f"PID-{user.id:06d}")
 
 @app.get("/api/v1/patients/me/profile", response_model=PatientProfileOut)
 def get_my_patient_profile(
@@ -2428,85 +2425,6 @@ def approve_appointment_refund(
 def get_my_medicine_cabinet(db: Session = Depends(get_db), user: User = Depends(require_roles("patient"))):
     """Lấy danh sách các thuốc trong Tủ thuốc đang sử dụng của bệnh nhân"""
     items = db.query(PatientCabinetItem).filter_by(patient_id=user.id).order_by(PatientCabinetItem.id.desc()).all()
-    if not items:
-        seed_medicines = [
-            PatientCabinetItem(
-                patient_id=user.id,
-                name="Micardis 40mg",
-                active_ingredient="Telmisartan",
-                dosage="1 viên/lần",
-                frequency="1 lần/ngày",
-                timing="Uống sau ăn sáng 30 phút",
-                schedule_slot="morning",
-                quantity_remaining=24,
-                total_quantity=30,
-                unit="viên",
-                source_type="prescription",
-                doctor_name="BS.CKII Trần Minh",
-                status="active",
-                notes="Thuốc hạ huyết áp nhóm ARB. Uống đều đặn mỗi sáng cùng giờ.",
-                start_date="2026-10-20",
-                end_date="2026-11-20"
-            ),
-            PatientCabinetItem(
-                patient_id=user.id,
-                name="Lipitor 20mg",
-                active_ingredient="Atorvastatin",
-                dosage="1 viên/lần",
-                frequency="1 lần/ngày",
-                timing="Uống buổi tối trước khi đi ngủ",
-                schedule_slot="night",
-                quantity_remaining=18,
-                total_quantity=30,
-                unit="viên",
-                source_type="prescription",
-                doctor_name="BS.CKII Trần Minh",
-                status="active",
-                notes="Thuốc hạ mỡ máu statin. Tránh uống nước bưởi chùm khi dùng thuốc.",
-                start_date="2026-10-20",
-                end_date="2026-11-20"
-            ),
-            PatientCabinetItem(
-                patient_id=user.id,
-                name="Glucophage XR 500mg",
-                active_ingredient="Metformin hydrochloride",
-                dosage="1 viên/lần",
-                frequency="2 lần/ngày",
-                timing="Uống ngay sau bữa ăn sáng và tối",
-                schedule_slot="morning",
-                quantity_remaining=32,
-                total_quantity=60,
-                unit="viên",
-                source_type="prescription",
-                doctor_name="BS.CKII Trần Minh",
-                status="active",
-                notes="Viên phóng thích kéo dài, nuốt nguyên viên không bẻ hoặc nhai.",
-                start_date="2026-10-15",
-                end_date="2026-11-15"
-            ),
-            PatientCabinetItem(
-                patient_id=user.id,
-                name="Panadol Extra (Đỏ)",
-                active_ingredient="Paracetamol 500mg, Caffeine 65mg",
-                dosage="1 viên/lần",
-                frequency="Khi cần (cách nhau >= 4h)",
-                timing="Uống khi đau đầu hoặc sốt > 38.5°C",
-                schedule_slot="as_needed",
-                quantity_remaining=6,
-                total_quantity=10,
-                unit="viên",
-                source_type="manual",
-                doctor_name=None,
-                status="as_needed",
-                notes="Không dùng quá 4g Paracetamol mỗi ngày.",
-                start_date="2026-10-04",
-                end_date=None
-            )
-        ]
-        for it in seed_medicines:
-            db.add(it)
-        db.commit()
-        items = db.query(PatientCabinetItem).filter_by(patient_id=user.id).order_by(PatientCabinetItem.id.desc()).all()
     return items
 
 @app.post("/api/v1/patients/me/cabinet", response_model=CabinetItemOut)
@@ -3047,6 +2965,283 @@ def list_departments(db: Session = Depends(get_db)):
     depts = db.query(Department).filter_by(is_active=True).all()
     return depts
 
+# -------------------------------------------------------------
+# QUẢN LÝ PHÒNG KHÁM & BUỒNG BỆNH (CLINIC ROOM CRUD)
+# -------------------------------------------------------------
+@app.get("/api/v1/clinic-rooms", response_model=list[ClinicRoomOut])
+def list_clinic_rooms(
+    department_id: Optional[int] = None,
+    room_type: Optional[str] = None,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Lấy danh sách các buồng khám / phòng khám trong bệnh viện. Hỗ trợ lọc theo khoa, loại phòng, trạng thái, tìm kiếm.
+    """
+    query = db.query(ClinicRoom)
+    if department_id:
+        query = query.filter(ClinicRoom.department_id == department_id)
+    if room_type and room_type != "all":
+        query = query.filter(ClinicRoom.room_type == room_type)
+    if status and status != "all":
+        query = query.filter(ClinicRoom.status == status)
+    if search:
+        search_filter = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                ClinicRoom.room_code.ilike(search_filter),
+                ClinicRoom.name.ilike(search_filter),
+                ClinicRoom.location.ilike(search_filter)
+            )
+        )
+    
+    rooms = query.order_by(ClinicRoom.room_code.asc()).all()
+    results = []
+    for r in rooms:
+        dept = db.get(Department, r.department_id) if r.department_id else None
+        doc = db.get(User, r.doctor_in_charge_id) if r.doctor_in_charge_id else None
+        results.append(ClinicRoomOut(
+            id=r.id,
+            room_code=r.room_code,
+            name=r.name,
+            department_id=r.department_id,
+            department_name=dept.name if dept else None,
+            room_type=r.room_type,
+            location=r.location,
+            doctor_in_charge_id=r.doctor_in_charge_id,
+            doctor_in_charge_name=doc.full_name if doc else None,
+            capacity_per_shift=r.capacity_per_shift,
+            telehealth_station_enabled=r.telehealth_station_enabled,
+            equipment_list=r.equipment_list,
+            status=r.status,
+            notes=r.notes,
+            created_at=r.created_at,
+            updated_at=r.updated_at
+        ))
+    return results
+
+@app.get("/api/v1/clinic-rooms/{room_id}", response_model=ClinicRoomOut)
+def get_clinic_room(room_id: int, db: Session = Depends(get_db)):
+    """
+    Xem chi tiết một buồng khám.
+    """
+    r = db.get(ClinicRoom, room_id)
+    if not r:
+        raise HTTPException(status_code=404, detail="Không tìm thấy buồng khám")
+    dept = db.get(Department, r.department_id) if r.department_id else None
+    doc = db.get(User, r.doctor_in_charge_id) if r.doctor_in_charge_id else None
+    return ClinicRoomOut(
+        id=r.id,
+        room_code=r.room_code,
+        name=r.name,
+        department_id=r.department_id,
+        department_name=dept.name if dept else None,
+        room_type=r.room_type,
+        location=r.location,
+        doctor_in_charge_id=r.doctor_in_charge_id,
+        doctor_in_charge_name=doc.full_name if doc else None,
+        capacity_per_shift=r.capacity_per_shift,
+        telehealth_station_enabled=r.telehealth_station_enabled,
+        equipment_list=r.equipment_list,
+        status=r.status,
+        notes=r.notes,
+        created_at=r.created_at,
+        updated_at=r.updated_at
+    )
+
+@app.post("/api/v1/clinic-rooms", response_model=ClinicRoomOut)
+def create_clinic_room(
+    data: ClinicRoomIn,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_roles("admin"))
+):
+    """
+    Thêm mới một buồng khám/phòng khám (Quyền Quản trị viên).
+    """
+    code = data.room_code.strip().upper()
+    existing = db.query(ClinicRoom).filter(func.lower(ClinicRoom.room_code) == code.lower()).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Mã phòng khám '{code}' đã tồn tại trong hệ thống")
+    
+    if data.department_id:
+        dept = db.get(Department, data.department_id)
+        if not dept:
+            raise HTTPException(status_code=400, detail="Khoa/Chuyên khoa không tồn tại")
+    
+    if data.doctor_in_charge_id:
+        doc = db.get(User, data.doctor_in_charge_id)
+        if not doc or doc.role != "doctor":
+            raise HTTPException(status_code=400, detail="Bác sĩ phụ trách không hợp lệ")
+
+    room = ClinicRoom(
+        room_code=code,
+        name=data.name.strip(),
+        department_id=data.department_id,
+        room_type=data.room_type,
+        location=data.location,
+        doctor_in_charge_id=data.doctor_in_charge_id,
+        capacity_per_shift=data.capacity_per_shift or 15,
+        telehealth_station_enabled=data.telehealth_station_enabled,
+        equipment_list=data.equipment_list,
+        status=data.status or "active",
+        notes=data.notes
+    )
+    db.add(room)
+    db.commit()
+    db.refresh(room)
+
+    db.add(AuditLog(
+        actor_user_id=admin_user.id,
+        action="admin.create_clinic_room",
+        resource_type="clinic_room",
+        resource_id=str(room.id),
+        notes=f"Tạo phòng khám mới: {room.name} ({room.room_code})"
+    ))
+    db.commit()
+
+    dept = db.get(Department, room.department_id) if room.department_id else None
+    doc = db.get(User, room.doctor_in_charge_id) if room.doctor_in_charge_id else None
+    return ClinicRoomOut(
+        id=room.id,
+        room_code=room.room_code,
+        name=room.name,
+        department_id=room.department_id,
+        department_name=dept.name if dept else None,
+        room_type=room.room_type,
+        location=room.location,
+        doctor_in_charge_id=room.doctor_in_charge_id,
+        doctor_in_charge_name=doc.full_name if doc else None,
+        capacity_per_shift=room.capacity_per_shift,
+        telehealth_station_enabled=room.telehealth_station_enabled,
+        equipment_list=room.equipment_list,
+        status=room.status,
+        notes=room.notes,
+        created_at=room.created_at,
+        updated_at=room.updated_at
+    )
+
+@app.put("/api/v1/clinic-rooms/{room_id}", response_model=ClinicRoomOut)
+def update_clinic_room(
+    room_id: int,
+    data: ClinicRoomUpdate,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_roles("admin"))
+):
+    """
+    Cập nhật thông tin buồng khám (Quyền Quản trị viên).
+    """
+    room = db.get(ClinicRoom, room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Không tìm thấy buồng khám cần cập nhật")
+
+    if data.room_code is not None:
+        code = data.room_code.strip().upper()
+        existing = db.query(ClinicRoom).filter(func.lower(ClinicRoom.room_code) == code.lower(), ClinicRoom.id != room_id).first()
+        if existing:
+            raise HTTPException(status_code=400, detail=f"Mã phòng '{code}' đã trùng với buồng khám khác")
+        room.room_code = code
+
+    if data.name is not None:
+        room.name = data.name.strip()
+    if data.department_id is not None:
+        if data.department_id > 0:
+            dept = db.get(Department, data.department_id)
+            if not dept:
+                raise HTTPException(status_code=400, detail="Khoa/Chuyên khoa không tồn tại")
+            room.department_id = data.department_id
+        else:
+            room.department_id = None
+    if data.room_type is not None:
+        room.room_type = data.room_type
+    if data.location is not None:
+        room.location = data.location
+    if data.doctor_in_charge_id is not None:
+        if data.doctor_in_charge_id > 0:
+            doc = db.get(User, data.doctor_in_charge_id)
+            if not doc:
+                raise HTTPException(status_code=400, detail="Bác sĩ phụ trách không hợp lệ")
+            room.doctor_in_charge_id = data.doctor_in_charge_id
+        else:
+            room.doctor_in_charge_id = None
+    if data.capacity_per_shift is not None:
+        room.capacity_per_shift = data.capacity_per_shift
+    if data.telehealth_station_enabled is not None:
+        room.telehealth_station_enabled = data.telehealth_station_enabled
+    if data.equipment_list is not None:
+        room.equipment_list = data.equipment_list
+    if data.status is not None:
+        room.status = data.status
+    if data.notes is not None:
+        room.notes = data.notes
+
+    db.add(AuditLog(
+        actor_user_id=admin_user.id,
+        action="admin.update_clinic_room",
+        resource_type="clinic_room",
+        resource_id=str(room.id),
+        notes=f"Cập nhật phòng khám: {room.name} ({room.room_code})"
+    ))
+    db.commit()
+    db.refresh(room)
+
+    dept = db.get(Department, room.department_id) if room.department_id else None
+    doc = db.get(User, room.doctor_in_charge_id) if room.doctor_in_charge_id else None
+    return ClinicRoomOut(
+        id=room.id,
+        room_code=room.room_code,
+        name=room.name,
+        department_id=room.department_id,
+        department_name=dept.name if dept else None,
+        room_type=room.room_type,
+        location=room.location,
+        doctor_in_charge_id=room.doctor_in_charge_id,
+        doctor_in_charge_name=doc.full_name if doc else None,
+        capacity_per_shift=room.capacity_per_shift,
+        telehealth_station_enabled=room.telehealth_station_enabled,
+        equipment_list=room.equipment_list,
+        status=room.status,
+        notes=room.notes,
+        created_at=room.created_at,
+        updated_at=room.updated_at
+    )
+
+@app.delete("/api/v1/clinic-rooms/{room_id}")
+def delete_clinic_room(
+    room_id: int,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_roles("admin"))
+):
+    """
+    Xóa buồng khám (Quyền Quản trị viên).
+    """
+    room = db.get(ClinicRoom, room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Không tìm thấy buồng khám")
+    
+    active_shifts = db.query(DoctorShift).filter(
+        DoctorShift.room_name == room.name,
+        DoctorShift.is_active == True
+    ).count()
+    if active_shifts > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Không thể xóa vì đang có {active_shifts} ca khám phân công tại buồng này. Vui lòng chuyển ca trực trước khi xóa."
+        )
+
+    room_name = room.name
+    room_code = room.room_code
+    db.delete(room)
+    db.add(AuditLog(
+        actor_user_id=admin_user.id,
+        action="admin.delete_clinic_room",
+        resource_type="clinic_room",
+        resource_id=str(room_id),
+        notes=f"Xóa phòng khám: {room_name} ({room_code})"
+    ))
+    db.commit()
+    return {"success": True, "message": f"Đã xóa thành công phòng khám {room_name} ({room_code})"}
+
 @app.get("/api/v1/doctors/{doctor_id}/shifts", response_model=list[DoctorShiftOut])
 def get_doctor_shifts(doctor_id: int, db: Session = Depends(get_db)):
     """
@@ -3255,21 +3450,37 @@ def sync_his_doctor_schedules(
         if d2:
             doctors = [d2]
             
-    his_sample_roster = [
-        {"date": "2026-11-09", "shift": "morning", "start": "07:30", "end": "11:30", "room": "Phòng khám Telemedicine #01 (Khoa Nội)", "max": 12, "booked": 5, "code": "HIS-SCH-2026-1109-A1"},
-        {"date": "2026-11-09", "shift": "afternoon", "start": "13:30", "end": "17:00", "room": "Phòng khám Nội 203 (Khu Khám Bệnh)", "max": 15, "booked": 8, "code": "HIS-SCH-2026-1109-P1"},
-        {"date": "2026-11-10", "shift": "morning", "start": "07:30", "end": "11:30", "room": "Phòng khám Telemedicine #01 (Khoa Nội)", "max": 12, "booked": 6, "code": "HIS-SCH-2026-1110-A1"},
-        {"date": "2026-11-10", "shift": "afternoon", "start": "13:30", "end": "17:00", "room": "Buồng khám Trực tuyến #03", "max": 10, "booked": 4, "code": "HIS-SCH-2026-1110-P1"},
-        {"date": "2026-11-11", "shift": "morning", "start": "07:30", "end": "11:30", "room": "Phòng khám Telemedicine #02 (Khoa Nội)", "max": 12, "booked": 3, "code": "HIS-SCH-2026-1111-A1"},
-        {"date": "2026-11-12", "shift": "afternoon", "start": "13:30", "end": "17:00", "room": "Phòng khám Telemedicine #01 (Khoa Nội)", "max": 12, "booked": 5, "code": "HIS-SCH-2026-1112-P1"},
-        {"date": "2026-11-13", "shift": "morning", "start": "07:30", "end": "11:30", "room": "Phòng khám Cấp cứu & Khám sàng lọc", "max": 15, "booked": 7, "code": "HIS-SCH-2026-1113-A1"},
-        {"date": "2026-11-14", "shift": "morning", "start": "08:00", "end": "12:00", "room": "Phòng khám Telemedicine #01 (Ngoài giờ)", "max": 8, "booked": 2, "code": "HIS-SCH-2026-1114-A1"}
-    ]
+    today_dt = datetime.now(timezone.utc)
+    rooms = db.query(ClinicRoom).filter_by(status="active").all()
+    room_names = [r.name for r in rooms] if rooms else ["Phòng khám Telemedicine #01 (Khoa Nội)", "Phòng khám Telemedicine #02 (Khoa Tim Mạch)"]
+
+    his_roster = []
+    for day_offset in range(0, 5):
+        d_str = (today_dt + timedelta(days=day_offset)).strftime("%Y-%m-%d")
+        d_code = d_str.replace("-", "")
+        his_roster.append({
+            "date": d_str,
+            "shift": "morning",
+            "start": "07:30",
+            "end": "11:30",
+            "room": room_names[0],
+            "max": 15,
+            "code": f"HIS-SCH-{d_code}-A1"
+        })
+        his_roster.append({
+            "date": d_str,
+            "shift": "afternoon",
+            "start": "13:30",
+            "end": "17:00",
+            "room": room_names[min(1, len(room_names) - 1)],
+            "max": 15,
+            "code": f"HIS-SCH-{d_code}-P1"
+        })
     
     synced_count = 0
     for doc in doctors:
         dept_id = doc.department_id
-        for roster in his_sample_roster:
+        for roster in his_roster:
             existing = db.query(DoctorShift).filter_by(
                 doctor_id=doc.id,
                 shift_date=roster["date"],
@@ -3277,12 +3488,16 @@ def sync_his_doctor_schedules(
                 is_active=True
             ).first()
             if existing:
+                real_booked = db.query(Appointment).filter(
+                    Appointment.shift_id == existing.id,
+                    Appointment.status != "cancelled"
+                ).count()
                 existing.room_name = roster["room"]
                 existing.start_time = roster["start"]
                 existing.end_time = roster["end"]
                 existing.max_patients = roster["max"]
-                existing.booked_count = roster["booked"]
-                existing.notes = f"Đồng bộ tự động từ HIS Bệnh viện (Mã ca: {roster['code']})"
+                existing.booked_count = real_booked
+                existing.notes = f"Đồng bộ từ HIS Bệnh viện (Mã ca: {roster['code']})"
             else:
                 new_s = DoctorShift(
                     doctor_id=doc.id,
@@ -3293,8 +3508,8 @@ def sync_his_doctor_schedules(
                     end_time=roster["end"],
                     room_name=roster["room"],
                     max_patients=roster["max"],
-                    booked_count=roster["booked"],
-                    notes=f"Đồng bộ tự động từ HIS Bệnh viện (Mã ca: {roster['code']})",
+                    booked_count=0,
+                    notes=f"Đồng bộ từ HIS Bệnh viện (Mã ca: {roster['code']})",
                     is_active=True
                 )
                 db.add(new_s)
@@ -5260,36 +5475,6 @@ def get_family_members(
     user: User = Depends(get_current_user)
 ):
     members = db.query(FamilyMemberProfile).filter_by(owner_user_id=user.id).order_by(FamilyMemberProfile.created_at.asc()).all()
-    if not members and user.role == "patient":
-        # Khởi tạo mặc định 2 thành viên phụ thuộc cho tài khoản bệnh nhân để dễ dàng trải nghiệm
-        sample_members = [
-            FamilyMemberProfile(
-                owner_user_id=user.id,
-                full_name="Nguyễn Minh Khang (Con trai)",
-                relationship="child",
-                gender="male",
-                date_of_birth="2020-06-15",
-                bhyt_code="TE1797931800123",
-                blood_group="O+",
-                allergies="Dị ứng Penicillin, thời tiết lạnh ho hen",
-                chronic_conditions="Viêm mũi dị ứng mạn tính"
-            ),
-            FamilyMemberProfile(
-                owner_user_id=user.id,
-                full_name="Trần Thị Lan (Mẹ ruột)",
-                relationship="parent",
-                gender="female",
-                date_of_birth="1958-11-20",
-                national_id="079158000456",
-                bhyt_code="HT2797931800889",
-                blood_group="A+",
-                allergies="Không có tiền sử dị ứng thuốc",
-                chronic_conditions="Tăng huyết áp vô căn, Thoái hóa khớp gối độ 2"
-            )
-        ]
-        db.add_all(sample_members)
-        db.commit()
-        members = sample_members
     return members
 
 @app.post("/api/v1/family-members", response_model=FamilyMemberProfileOut)
@@ -5524,314 +5709,8 @@ def feedback_pacs_dicom(
 # ----------------- SEEDING & STARTUP -----------------
 
 def seed_demo():
-    from app.db import SessionLocal
-    db = SessionLocal()
-    try:
-        # 1. Khởi tạo danh mục Khoa/Phòng nếu chưa có
-        if db.query(Department).count() == 0:
-            db.add_all([
-                Department(code="K01", name="Khoa Nội Tổng Quát", description="Khám, chẩn đoán các bệnh lý nội khoa, hô hấp, tiêu hóa, gan mật"),
-                Department(code="K02", name="Khoa Nhi", description="Chăm sóc và điều trị chuyên sâu các bệnh lý trẻ em, tư vấn dinh dưỡng"),
-                Department(code="K03", name="Khoa Da Liễu", description="Khám và điều trị viêm da cơ địa, dị ứng, mụn trứng cá, bệnh ngoài da"),
-                Department(code="K04", name="Khoa Tai Mũi Họng", description="Khám nội soi viêm họng, viêm amidan, viêm xoang, thanh quản"),
-                Department(code="K05", name="Khoa Tâm Thần & Tâm Lý Lâm Sàng", description="Tư vấn stress, rối loạn lo âu, mất ngủ, trầm cảm từ xa"),
-                Department(code="K06", name="Khoa Tim Mạch", description="Quản lý tăng huyết áp, rối loạn mỡ máu, theo dõi bệnh tim mạn tính")
-            ])
-            db.commit()
-
-        # 2. Khởi tạo tài khoản người dùng mẫu nếu chưa có
-        if db.query(User).count() == 0:
-            dept_internal = db.query(Department).filter_by(code="K01").first()
-            dept_id = dept_internal.id if dept_internal else None
-            
-            db.add_all([
-                User(
-                    email="patient@example.test",
-                    phone_number="0912345678",
-                    full_name="Nguyễn Minh An",
-                    role="patient",
-                    bhyt_code="GD4797931812345",
-                    password_hash=hash_password("ChangeMe123!"),
-                    external_patient_id="PAT-001"
-                ),
-                User(
-                    email="doctor@example.test",
-                    phone_number="0987654321",
-                    full_name="BS.CKII Trần Minh",
-                    role="doctor",
-                    doctor_cchn="008912/BYT-CCHN",
-                    department_id=dept_id,
-                    password_hash=hash_password("ChangeMe123!")
-                ),
-                User(
-                    email="admin@example.test",
-                    phone_number="0909090909",
-                    full_name="Quản trị CareConnect",
-                    role="admin",
-                    password_hash=hash_password("ChangeMe123!")
-                ),
-                User(
-                    email="nurse@example.test",
-                    phone_number="0977665544",
-                    full_name="ĐD. Nguyễn Thị Mai (Điều dưỡng trưởng)",
-                    role="nurse",
-                    password_hash=hash_password("ChangeMe123!")
-                )
-            ])
-            db.commit()
-
-        # 3. Khởi tạo lịch trực & giới hạn ca khám (Anti-overload Quota)
-        if db.query(DoctorShift).count() == 0:
-            doc = db.query(User).filter_by(role="doctor").first()
-            dept = db.query(Department).first()
-            if doc:
-                today = datetime.now().strftime("%Y-%m-%d")
-                db.add_all([
-                    DoctorShift(
-                        doctor_id=doc.id,
-                        department_id=dept.id if dept else None,
-                        shift_date=today,
-                        shift_type="morning",
-                        start_time="07:30",
-                        end_time="11:30",
-                        max_patients=12,
-                        booked_count=1
-                    ),
-                    DoctorShift(
-                        doctor_id=doc.id,
-                        department_id=dept.id if dept else None,
-                        shift_date=today,
-                        shift_type="afternoon",
-                        start_time="13:30",
-                        end_time="17:00",
-                        max_patients=10,
-                        booked_count=0
-                    )
-                ])
-                db.commit()
-
-        # Khởi tạo yêu cầu hỗ trợ phòng ban (Support Tickets) nếu chưa có
-        if db.query(SupportTicket).count() == 0:
-            doc = db.query(User).filter_by(role="doctor").first()
-            doc_name = doc.full_name if doc else "BS.CKII Trần Minh"
-            doc_id = doc.id if doc else 1
-            t1 = SupportTicket(
-                code="REQ-2026-092",
-                department="Khoa CĐHA & Thăm dò chức năng",
-                department_id="pacs",
-                department_icon="ScanLine",
-                title="Hỗ trợ đọc khẩn kết quả X-quang tim phổi cho ca nghi viêm phổi kẽ",
-                patient_id=9,
-                patient_name="Demo Patient (BN #9)",
-                priority="urgent",
-                status="in_progress",
-                doctor_id=doc_id,
-                doctor_name=doc_name,
-                assigned_to="BS.CKI Nguyễn Văn Hùng (Khoa CĐHA)",
-                description="Bệnh nhân có triệu chứng sốt cao, khó thở nhẹ, SpO2 94%. Đã chụp X-quang tại cơ sở vệ tinh. Kính đề nghị Khoa CĐHA hội chẩn và đọc khẩn để kịp thời kê đơn."
-            )
-            t2 = SupportTicket(
-                code="REQ-2026-088",
-                department="Khoa Dược lâm sàng",
-                department_id="pharmacy",
-                department_icon="Pill",
-                title="Tư vấn duyệt tương tác thuốc Metformin + Rosuvastatin cho bệnh nhân cao tuổi",
-                patient_id=1,
-                patient_name="Phan Hoàng Phúc",
-                priority="normal",
-                status="resolved",
-                doctor_id=doc_id,
-                doctor_name=doc_name,
-                assigned_to="DS.CKI Lê Thị Mai (Khoa Dược)",
-                description="Bệnh nhân 68 tuổi tiền sử đái tháo đường typ 2 kèm rối loạn lipid máu, eGFR 58 mL/min. Đề nghị Dược lâm sàng kiểm tra liều lượng và cảnh báo tương tác."
-            )
-            db.add_all([t1, t2])
-            db.commit()
-            db.refresh(t1)
-            db.refresh(t2)
-            db.add_all([
-                SupportTicketMessage(
-                    ticket_id=t1.id,
-                    sender_id=doc_id,
-                    sender_name=doc_name,
-                    sender_role="Bác sĩ lâm sàng",
-                    content="Kính gửi Khoa CĐHA, nhờ bác sĩ đọc khẩn giúp ca này vì bệnh nhân đang chờ tại phòng khám Telemedicine #07.",
-                    is_doctor=True
-                ),
-                SupportTicketMessage(
-                    ticket_id=t1.id,
-                    sender_name="BS.CKI Nguyễn Văn Hùng",
-                    sender_role="Khoa CĐHA",
-                    content="Đã nhận yêu cầu. Hình ảnh DICOM đã đồng bộ lên PACS Viewer. Phế trường 2 bên thông khí tốt, có nốt mờ nhẹ vùng đáy phổi phải. Sẽ ký trả kết quả EMR trong 10 phút.",
-                    is_doctor=False
-                ),
-                SupportTicketMessage(
-                    ticket_id=t2.id,
-                    sender_id=doc_id,
-                    sender_name=doc_name,
-                    sender_role="Bác sĩ lâm sàng",
-                    content="Nhờ Dược sĩ kiểm tra liều Metformin 850mg 2 lần/ngày trên bệnh nhân có suy giảm chức năng thận nhẹ.",
-                    is_doctor=True
-                ),
-                SupportTicketMessage(
-                    ticket_id=t2.id,
-                    sender_name="DS.CKI Lê Thị Mai",
-                    sender_role="Dược sĩ lâm sàng",
-                    content="Khoa Dược đã rà soát: eGFR 58 mL/min có thể duy trì liều Metformin tối đa 1000mg/ngày. Khuyến nghị giảm xuống 500mg x 2 lần/ngày và theo dõi thêm Creatinine máu sau 3 tháng.",
-                    is_doctor=False
-                )
-            ])
-            db.commit()
-
-        # Khởi tạo ca trực cho điều dưỡng nếu chưa có
-        nurse_user = db.query(User).filter_by(role="nurse").first()
-        if nurse_user and db.query(NurseShift).count() == 0:
-            today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-            tomorrow_str = (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%Y-%m-%d")
-            dept_k01 = db.query(Department).filter_by(code="K01").first()
-            dept_id = dept_k01.id if dept_k01 else None
-
-            db.add_all([
-                NurseShift(
-                    nurse_id=nurse_user.id,
-                    department_id=dept_id,
-                    shift_date=today_str,
-                    shift_type="morning",
-                    desk_name="Bàn Tiếp đón Triage 01 (Khoa Khám Bệnh)",
-                    start_time="07:00",
-                    end_time="11:30",
-                    max_patients=30,
-                    attended_count=4,
-                    handover_notes="Ca sáng đón tiếp bình thường. Lưu ý 01 ca huyết áp cao đã chuyển phòng chờ Bác sĩ.",
-                    is_active=True
-                ),
-                NurseShift(
-                    nurse_id=nurse_user.id,
-                    department_id=dept_id,
-                    shift_date=today_str,
-                    shift_type="afternoon",
-                    desk_name="Bàn Tiếp đón Triage 02 (Phòng Khám Từ Xa)",
-                    start_time="13:00",
-                    end_time="17:00",
-                    max_patients=25,
-                    attended_count=0,
-                    handover_notes="Sẵn sàng ca chiều kết nối thiết bị đo huyết áp BLE.",
-                    is_active=True
-                ),
-                NurseShift(
-                    nurse_id=nurse_user.id,
-                    department_id=dept_id,
-                    shift_date=tomorrow_str,
-                    shift_type="morning",
-                    desk_name="Bàn Tiếp đón Triage 01 (Khoa Khám Bệnh)",
-                    start_time="07:00",
-                    end_time="11:30",
-                    max_patients=30,
-                    attended_count=0,
-                    is_active=True
-                )
-            ])
-            db.commit()
-
-        # Đảm bảo tài khoản Điều dưỡng (Nurse) luôn sẵn sàng
-        if not db.query(User).filter_by(role="nurse").first():
-            db.add(User(
-                email="nurse@example.test",
-                phone_number="0977665544",
-                full_name="ĐD. Nguyễn Thị Mai (Điều dưỡng trưởng)",
-                role="nurse",
-                password_hash=hash_password("ChangeMe123!")
-            ))
-            db.commit()
-
-        # Đảm bảo Bệnh nhân có thông tin định danh CCCD/VNeID & Lịch sử khám EMR mẫu
-        patient_u = db.query(User).filter_by(role="patient").first()
-        if patient_u:
-            if not patient_u.identity_card:
-                patient_u.identity_card = "079092014829"
-                patient_u.date_of_birth = "1992-08-16"
-                patient_u.gender = "Nam"
-                patient_u.address = "124 Điện Biên Phủ, Phường Đa Kao, Quận 1, TP. Hồ Chí Minh"
-                patient_u.blood_type = "O+"
-                patient_u.allergies = "Penicillin, Kháng sinh nhóm Beta-lactam"
-                db.commit()
-
-            # Khởi tạo dữ liệu lượt khám và bệnh án EMR nếu chưa có
-            if db.query(Appointment).filter_by(patient_id=patient_u.id).count() == 0:
-                doc = db.query(User).filter_by(role="doctor").first()
-                dept = db.query(Department).first()
-                if doc and dept:
-                    past1 = datetime.utcnow() - timedelta(days=30)
-                    past2 = datetime.utcnow() - timedelta(days=14)
-                    future1 = datetime.utcnow() + timedelta(hours=2)
-
-                    appt1 = Appointment(
-                        patient_id=patient_u.id,
-                        doctor_id=doc.id,
-                        department_id=dept.id,
-                        starts_at=past1,
-                        reason="Đau đầu, hoa mắt, huyết áp đo tại nhà tăng 150/95 mmHg",
-                        status="completed",
-                        fee_amount=150000,
-                        bhyt_code=patient_u.bhyt_code,
-                        bhyt_rate=80,
-                        bhyt_discount=120000,
-                        patient_pay_amount=30000
-                    )
-                    appt2 = Appointment(
-                        patient_id=patient_u.id,
-                        doctor_id=doc.id,
-                        department_id=dept.id,
-                        starts_at=past2,
-                        reason="Tái khám tăng huyết áp định kỳ, kiểm tra chỉ số mỡ máu",
-                        status="completed",
-                        fee_amount=150000,
-                        bhyt_code=patient_u.bhyt_code,
-                        bhyt_rate=80,
-                        bhyt_discount=120000,
-                        patient_pay_amount=30000
-                    )
-                    appt3 = Appointment(
-                        patient_id=patient_u.id,
-                        doctor_id=doc.id,
-                        department_id=dept.id,
-                        starts_at=future1,
-                        reason="Tư vấn điều chỉnh đơn thuốc và chỉ số đường huyết mao mạch",
-                        status="scheduled",
-                        fee_amount=150000,
-                        bhyt_code=patient_u.bhyt_code,
-                        bhyt_rate=80,
-                        bhyt_discount=120000,
-                        patient_pay_amount=30000
-                    )
-                    db.add_all([appt1, appt2, appt3])
-                    db.commit()
-
-                    db.add(ClinicalRecord(
-                        appointment_id=appt1.id,
-                        symptoms="Đau đầu vùng gáy, chóng mặt khi thay đổi tư thế, huyết áp 152/96 mmHg",
-                        allergies="Dị ứng Penicillin nhẹ (nổi mề đay)",
-                        diagnosis="Tăng huyết áp vô căn giai đoạn 1",
-                        icd10_code="I10",
-                        icd10_name="Bệnh tăng huyết áp vô căn (nguyên phát)",
-                        clinical_notes="Huyết áp 152/96, mạch 78, nhiệt độ 36.8, SpO2 98%. Kê đơn Amlodipine 5mg ngày 1 viên.",
-                        plan="Hạn chế ăn mặn, tập thể dục nhẹ, tái khám sau 2 tuần.",
-                        created_by=doc.id
-                    ))
-                    db.add(ClinicalRecord(
-                        appointment_id=appt2.id,
-                        symptoms="Huyết áp ổn định 128/82 mmHg, không còn đau đầu, lipid máu hơi cao",
-                        allergies="Dị ứng Penicillin nhẹ (nổi mề đay)",
-                        diagnosis="Tăng huyết áp vô căn; Rối loạn lipid máu",
-                        icd10_code="I10",
-                        icd10_name="Bệnh tăng huyết áp vô căn (nguyên phát)",
-                        clinical_notes="Huyết áp 128/82, mạch 72, nhiệt độ 36.6, SpO2 99%. Đáp ứng tốt với điều trị.",
-                        plan="Tiếp tục duy trì Amlodipine 5mg, bổ sung Atorvastatin 10mg buổi tối.",
-                        created_by=doc.id
-                    ))
-                    db.commit()
-    finally:
-        db.close()
+    """Đã vô hiệu hóa dữ liệu demo mẫu để vận hành môi trường thực tế (Production)"""
+    ensure_system_initialized()
 
 def auto_migrate_schema():
     """Tự động thêm các cột mới nếu chạy trên database cũ mà không làm mất dữ liệu"""
@@ -5922,7 +5801,8 @@ def auto_migrate_schema():
         ("max_patients_per_shift", "INTEGER DEFAULT 12")
     ]
     doctor_shift_columns = [
-        ("room_name", "VARCHAR(150) DEFAULT 'Phòng khám Telemedicine #07'"),
+        ("clinic_room_id", "INTEGER"),
+        ("room_name", "VARCHAR(150) DEFAULT 'Phòng khám Telemedicine #01'"),
         ("notes", "TEXT"),
         ("created_at", dt_type)
     ]
@@ -6080,13 +5960,70 @@ def auto_migrate_schema():
                     pass
 
 def ensure_system_initialized():
-    """Khởi tạo cấu trúc danh mục và tài khoản quản trị cán bộ ban đầu nếu database trống"""
+    """Khởi tạo cấu trúc danh mục, dọn dẹp dữ liệu demo cũ và khởi tạo tài khoản cán bộ ban đầu"""
     from app.db import SessionLocal
     db = SessionLocal()
     try:
-        # Tự động dọn dẹp các bản ghi sinh hiệu mẫu đã tạo nhầm vào tài khoản người dùng
+        # 1. Tự động dọn dẹp toàn bộ bản ghi demo/mẫu đã tạo trước đó trong Database để sẵn sàng chạy thật
         mock_devices = ["Omron HEM-7600T Smart BP", "Accu-Chek Guide Wireless", "Wellue O2Ring Continuous SpO2"]
         db.query(RPMVitalLog).filter(RPMVitalLog.device_name.in_(mock_devices)).delete(synchronize_session=False)
+
+        # Dọn dẹp thành viên gia đình mẫu
+        demo_family_names = ["Nguyễn Minh Khang (Con trai)", "Trần Thị Lan (Mẹ ruột)"]
+        demo_family_bhyts = ["TE1797931800123", "HT2797931800889"]
+        db.query(FamilyMemberProfile).filter(
+            (FamilyMemberProfile.full_name.in_(demo_family_names)) |
+            (FamilyMemberProfile.bhyt_code.in_(demo_family_bhyts))
+        ).delete(synchronize_session=False)
+
+        # Dọn dẹp tủ thuốc mẫu
+        demo_med_dates = ["2026-10-20", "2026-10-15", "2026-10-04"]
+        demo_med_names = ["Micardis 40mg", "Lipitor 20mg", "Glucophage XR 500mg", "Panadol Extra (Đỏ)"]
+        db.query(PatientCabinetItem).filter(
+            PatientCabinetItem.name.in_(demo_med_names),
+            PatientCabinetItem.start_date.in_(demo_med_dates)
+        ).delete(synchronize_session=False)
+
+        # Dọn dẹp phiếu hỗ trợ phòng ban mẫu
+        demo_tickets = db.query(SupportTicket).filter(
+            (SupportTicket.code.in_(["REQ-2026-092", "REQ-2026-088"])) |
+            (SupportTicket.patient_name.in_(["Demo Patient (BN #9)", "Phan Hoàng Phúc"]))
+        ).all()
+        if demo_tickets:
+            demo_t_ids = [t.id for t in demo_tickets]
+            db.query(SupportTicketMessage).filter(SupportTicketMessage.ticket_id.in_(demo_t_ids)).delete(synchronize_session=False)
+            db.query(SupportTicket).filter(SupportTicket.id.in_(demo_t_ids)).delete(synchronize_session=False)
+
+        # Dọn dẹp thông báo mẫu
+        db.query(Notification).filter(
+            (Notification.message.like("%Phan Hoàng Phúc%")) |
+            (Notification.message.like("%Mã DT-2026-9881%")) |
+            (Notification.message.like("%HbA1c 8.2%%")) |
+            (Notification.message.like("%Clopidogrel và Omeprazole%")) |
+            (Notification.message.like("%Trần Minh Tuấn%"))
+        ).delete(synchronize_session=False)
+
+        # Dọn dẹp tài khoản bệnh nhân demo (patient@example.test) và các lịch hẹn demo gắn kèm
+        demo_patients = db.query(User).filter(
+            (User.email == "patient@example.test") |
+            (User.external_patient_id == "PAT-001")
+        ).all()
+        for dp in demo_patients:
+            demo_appts = db.query(Appointment).filter(Appointment.patient_id == dp.id).all()
+            for da in demo_appts:
+                db.query(ClinicalRecord).filter(ClinicalRecord.appointment_id == da.id).delete(synchronize_session=False)
+                db.query(PrescriptionRef).filter(PrescriptionRef.appointment_id == da.id).delete(synchronize_session=False)
+                db.query(Payment).filter(Payment.appointment_id == da.id).delete(synchronize_session=False)
+                db.query(PatientConsent).filter(PatientConsent.appointment_id == da.id).delete(synchronize_session=False)
+                db.query(TelehealthSession).filter(TelehealthSession.appointment_id == da.id).delete(synchronize_session=False)
+                db.query(AppointmentEvent).filter(AppointmentEvent.appointment_id == da.id).delete(synchronize_session=False)
+                db.query(AppointmentDocument).filter(AppointmentDocument.appointment_id == da.id).delete(synchronize_session=False)
+                db.delete(da)
+            db.query(RPMVitalLog).filter(RPMVitalLog.patient_id == dp.id).delete(synchronize_session=False)
+            db.query(PatientCabinetItem).filter(PatientCabinetItem.patient_id == dp.id).delete(synchronize_session=False)
+            db.query(FamilyMemberProfile).filter(FamilyMemberProfile.patient_id == dp.id).delete(synchronize_session=False)
+            db.delete(dp)
+
         db.commit()
     except Exception:
         db.rollback()
@@ -6133,63 +6070,92 @@ def ensure_system_initialized():
             ])
             db.commit()
 
-        # Khởi tạo thông báo mẫu chuyên nghiệp nếu chưa có
-        if db.query(Notification).count() == 0:
+        # Khởi tạo danh mục Buồng/Phòng khám ban đầu nếu trống
+        if db.query(ClinicRoom).count() == 0:
+            k01 = db.query(Department).filter_by(code="K01").first()
+            k02 = db.query(Department).filter_by(code="K02").first()
+            k06 = db.query(Department).filter_by(code="K06").first()
+            doctor = db.query(User).filter_by(role="doctor").first()
+            doc_id = doctor.id if doctor else None
+
             db.add_all([
-                Notification(
-                    target_role="doctor",
-                    title="Lịch hẹn khám mới (Khoa Nội)",
-                    message="Bệnh nhân Phan Hoàng Phúc đã đặt lịch khám trực tuyến. Lý do: Đau thắt ngực khi gắng sức, cần tư vấn chuyên khoa.",
-                    category="appointment",
-                    priority="high",
-                    action_url="/workspace"
+                ClinicRoom(
+                    room_code="PK-TELE-01",
+                    name="Phòng khám Telemedicine #01 (Khoa Nội)",
+                    department_id=k01.id if k01 else None,
+                    room_type="telemedicine",
+                    location="Tầng 3 - Trung tâm Khám từ xa",
+                    doctor_in_charge_id=doc_id,
+                    capacity_per_shift=16,
+                    telehealth_station_enabled=True,
+                    equipment_list="LiveKit Video Station 4K, Ống nghe số Littmann CORE, Monitor sinh hiệu 5 thông số",
+                    status="active",
+                    notes="Chuyên khám và tư vấn Nội tổng quát qua truyền hình y tế độ phân giải cao"
                 ),
-                Notification(
-                    target_role="doctor",
-                    title="🛡️ AI Cảnh báo Dược lâm sàng",
-                    message="Phát hiện tương tác mức độ Nặng giữa Clopidogrel và Omeprazole. Khuyến nghị bác sĩ cân nhắc đổi sang Pantoprazole để đảm bảo hiệu lực chống đông.",
-                    category="ai_alert",
-                    priority="urgent",
-                    action_url="/workspace"
+                ClinicRoom(
+                    room_code="PK-TELE-02",
+                    name="Phòng khám Telemedicine #02 (Khoa Tim Mạch)",
+                    department_id=k06.id if k06 else None,
+                    room_type="telemedicine",
+                    location="Tầng 3 - Trung tâm Khám từ xa",
+                    doctor_in_charge_id=doc_id,
+                    capacity_per_shift=14,
+                    telehealth_station_enabled=True,
+                    equipment_list="LiveKit Video Station, Máy đo ECG 12 chuyển đạo, Holter huyết áp không dây",
+                    status="active",
+                    notes="Phòng chuyên gia Tim mạch & Tăng huyết áp từ xa"
                 ),
-                Notification(
-                    target_role="doctor",
-                    title="🔬 Kết quả Xét nghiệm mới sẵn sàng",
-                    message="Khoa Xét nghiệm đã cập nhật kết quả Sinh hóa máu (HbA1c 8.2%, Glucose 8.9 mmol/L). AI đã tạo sẵn bản tóm tắt diễn giải.",
-                    category="paraclinical",
-                    priority="normal",
-                    action_url="/workspace"
+                ClinicRoom(
+                    room_code="PK-NOI-101",
+                    name="Buồng khám Nội tổng quát 101",
+                    department_id=k01.id if k01 else None,
+                    room_type="outpatient",
+                    location="Tầng 1 - Khu A (Nhà Khám bệnh)",
+                    doctor_in_charge_id=doc_id,
+                    capacity_per_shift=20,
+                    telehealth_station_enabled=False,
+                    equipment_list="Bàn khám tiêu chuẩn, Máy đo huyết áp thủy ngân, Đèn khám họng",
+                    status="active",
+                    notes="Phòng khám lâm sàng trực tiếp ngoại trú"
                 ),
-                Notification(
-                    target_role="patient",
-                    title="🩺 Xác nhận lịch khám trực tuyến",
-                    message="Lịch khám chuyên khoa Nội Tổng Quát của bạn đã được xác nhận. Bác sĩ BS.CKII Trần Minh Tuấn sẽ kết nối trực tiếp trong phòng khám ảo.",
-                    category="appointment",
-                    priority="high",
-                    action_url="/appointments"
+                ClinicRoom(
+                    room_code="PK-NHI-201",
+                    name="Phòng khám Nhi Đồng 201",
+                    department_id=k02.id if k02 else None,
+                    room_type="telemedicine",
+                    location="Tầng 2 - Khối Nhi Khoa",
+                    doctor_in_charge_id=None,
+                    capacity_per_shift=18,
+                    telehealth_station_enabled=True,
+                    equipment_list="Webcam 4K, Cân điện tử sơ sinh, Nhiệt kế hồng ngoại đo trán",
+                    status="active",
+                    notes="Tư vấn và khám bệnh nhi khoa từ xa thân thiện với trẻ"
                 ),
-                Notification(
-                    target_role="patient",
-                    title="💊 Đơn thuốc điện tử đã sẵn sàng",
-                    message="Bác sĩ đã hoàn tất kê đơn điện tử và ký số SmartCA (Mã DT-2026-9881). Bạn có thể xem toa thuốc và đặt giao tận nhà.",
-                    category="prescription",
-                    priority="normal",
-                    action_url="/prescriptions"
+                ClinicRoom(
+                    room_code="PK-TRIAGE-01",
+                    name="Bàn Tiếp đón & Sàng lọc Triage 01",
+                    department_id=k01.id if k01 else None,
+                    room_type="emergency",
+                    location="Sảnh chính Tầng trệt",
+                    doctor_in_charge_id=None,
+                    capacity_per_shift=35,
+                    telehealth_station_enabled=True,
+                    equipment_list="Máy đo huyết áp Omron BLE, Máy đo đường huyết Accu-Chek, Máy đo SpO2 kẹp ngón, Đầu đọc CCCD Chip",
+                    status="active",
+                    notes="Tiếp đón, đo sinh hiệu ban đầu và phân luồng cấp cứu / phòng khám"
                 ),
-                Notification(
-                    target_role="admin",
-                    title="🛡️ Kiểm toán An toàn Dữ liệu & Nghị định 13",
-                    message="Cổng lưu trữ Supabase Storage hoạt động ổn định. Đã mã hóa AES-256 dữ liệu định danh bệnh nhân theo quy chuẩn.",
-                    category="system",
-                    priority="info",
-                    action_url="/admin"
-                ),
-                Notification(
-                    target_role="all",
-                    title="⚡ CareConnect Telemedicine v2.5",
-                    message="Hệ thống đã nâng cấp Bộ công cụ Trợ lý AI Y tế (CDSS), OCR thẻ BHYT tự động và Trung tâm Thông báo Y tế chuyên nghiệp.",
-                    category="system",
-                    priority="info"
+                ClinicRoom(
+                    room_code="PK-CLS-301",
+                    name="Phòng Hội chẩn Cận lâm sàng & PACS",
+                    department_id=k01.id if k01 else None,
+                    room_type="paraclinical",
+                    location="Tầng 3 - Khu Công nghệ cao",
+                    doctor_in_charge_id=doc_id,
+                    capacity_per_shift=10,
+                    telehealth_station_enabled=True,
+                    equipment_list="Màn hình chẩn đoán Barco 12MP, Trạm AI MedGemma 3 DICOM Reader, Trạm đọc X-quang/CT",
+                    status="active",
+                    notes="Phòng đọc phim và hội chẩn đa chuyên khoa trực tuyến"
                 )
             ])
             db.commit()

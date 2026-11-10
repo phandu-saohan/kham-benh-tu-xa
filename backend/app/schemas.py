@@ -330,6 +330,53 @@ class DepartmentOut(BaseModel):
     description: str | None = None
     is_active: bool
 
+class ClinicRoomIn(BaseModel):
+    room_code: str = Field(min_length=2, max_length=50)
+    name: str = Field(min_length=2, max_length=200)
+    department_id: Optional[int] = None
+    room_type: str = "telemedicine"
+    location: Optional[str] = "Tầng 1 - Khu A"
+    doctor_in_charge_id: Optional[int] = None
+    capacity_per_shift: int = 15
+    telehealth_station_enabled: bool = True
+    equipment_list: Optional[str] = None
+    status: str = "active"
+    notes: Optional[str] = None
+
+class ClinicRoomUpdate(BaseModel):
+    room_code: Optional[str] = None
+    name: Optional[str] = None
+    department_id: Optional[int] = None
+    room_type: Optional[str] = None
+    location: Optional[str] = None
+    doctor_in_charge_id: Optional[int] = None
+    capacity_per_shift: Optional[int] = None
+    telehealth_station_enabled: Optional[bool] = None
+    equipment_list: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+
+class ClinicRoomOut(BaseModel):
+    id: int
+    room_code: str
+    name: str
+    department_id: Optional[int] = None
+    department_name: Optional[str] = None
+    room_type: str
+    location: Optional[str] = None
+    doctor_in_charge_id: Optional[int] = None
+    doctor_in_charge_name: Optional[str] = None
+    capacity_per_shift: int
+    telehealth_station_enabled: bool
+    equipment_list: Optional[str] = None
+    status: str
+    notes: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
 class DoctorShiftIn(BaseModel):
     shift_date: str
     shift_type: str = "morning"

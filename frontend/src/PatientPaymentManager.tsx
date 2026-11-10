@@ -1347,9 +1347,9 @@ export function PatientPaymentManager({
                     fontWeight: 600,
                     cursor: 'pointer'
                   }}
-                  title="Mô phỏng ngân hàng chuyển khoản hoàn tiền ngay lập tức"
+                  title="Xác nhận đối soát chuyển khoản hoàn tiền"
                 >
-                  ⚡ {isProcessingApprove ? 'Đang chuyển...' : 'Mô phỏng khớp chuyển khoản ngay'}
+                  ✓ {isProcessingApprove ? 'Đang xử lý...' : 'Xác nhận đã nhận hoàn tiền'}
                 </button>
 
                 <button

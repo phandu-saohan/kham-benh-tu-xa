@@ -281,7 +281,7 @@ export function PatientPacsCenter({
             </div>
           </div>
           <div style={{ fontSize: '12px', color: '#0369a1', fontWeight: 600 }}>
-            Mã BN: DEMO-{activePatientId.toString().padStart(4, '0')}
+            Mã BN: BN-{activePatientId.toString().padStart(4, '0')}
           </div>
         </div>
       )}
@@ -646,8 +646,8 @@ export function PatientPacsCenter({
             <div className="pacs-canvas-stage">
               {/* HUD Overlays */}
               <div className="pacs-hud-overlay pacs-hud-top-left">
-                <div>BN: {pacsData?.patient_name || 'DEMO PATIENT'}</div>
-                <div>PID: DEMO-{activePatientId.toString().padStart(4, '0')}</div>
+                <div>BN: {pacsData?.patient_name || user?.full_name || 'NGƯỜI BỆNH'}</div>
+                <div>PID: BN-{activePatientId.toString().padStart(4, '0')}</div>
                 <div>NGÀY: {formatDateVN(selectedStudy.date)}</div>
                 <div>KỸ THUẬT: {selectedStudy.modality} - {selectedStudy.body_part}</div>
               </div>
@@ -1157,7 +1157,7 @@ export function PatientPacsCenter({
                   </div>
                   <div style={{ textAlign: 'right', fontSize: '11px' }}>
                     <div><strong>Mã phiếu:</strong> {printModalStudy.study_id}</div>
-                    <div><strong>Mã BN:</strong> DEMO-{activePatientId.toString().padStart(4, '0')}</div>
+                    <div><strong>Mã BN:</strong> BN-{activePatientId.toString().padStart(4, '0')}</div>
                     <div><strong>Ngày giờ:</strong> {formatDateTimeVN(new Date())}</div>
                   </div>
                 </div>
@@ -1170,12 +1170,12 @@ export function PatientPacsCenter({
 
                 {/* Patient Demographics */}
                 <div className="pacs-print-patient-meta">
-                  <div>Họ và tên người bệnh: <strong>{pacsData?.patient_name || 'DEMO PATIENT'}</strong></div>
-                  <div>Năm sinh: <strong>1992</strong> (34 tuổi) · Giới tính: <strong>Nam</strong></div>
-                  <div>Địa chỉ: <strong>124 Điện Biên Phủ, Phường Đa Kao, Quận 1, TP. Hồ Chí Minh</strong></div>
-                  <div>Mã thẻ BHYT: <strong>GD4797931812345</strong> (Hưởng 80%)</div>
+                  <div>Họ và tên người bệnh: <strong>{pacsData?.patient_name || user?.full_name || 'Người bệnh'}</strong></div>
+                  <div>Ngày sinh: <strong>{(user as any)?.date_of_birth || 'Chưa cập nhật'}</strong> · Giới tính: <strong>{(user as any)?.gender || 'Chưa cập nhật'}</strong></div>
+                  <div>Địa chỉ: <strong>{(user as any)?.address || 'Chưa cập nhật'}</strong></div>
+                  <div>Mã thẻ BHYT: <strong>{user?.bhyt_code || 'Không sử dụng'}</strong></div>
                   <div>Kỹ thuật thực hiện: <strong>{printModalStudy.description}</strong></div>
-                  <div>Ngày giờ chụp: <strong>{formatDateVN(printModalStudy.date)} 08:30</strong></div>
+                  <div>Ngày giờ chụp: <strong>{formatDateVN(printModalStudy.date)}</strong></div>
                 </div>
 
                 {/* Technical Findings Section */}

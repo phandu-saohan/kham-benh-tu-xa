@@ -146,20 +146,6 @@ export function LoginPage({
     }
   }
 
-  // Fast demo fill helpers
-  function fillDemoAccount(demoEmail: string, roleLabel: string) {
-    setEmail(demoEmail)
-    setPassword('ChangeMe123!')
-    setError('')
-    setSuccessNotice(`Đã điền tài khoản mẫu ${roleLabel} (${demoEmail}). Nhấn Đăng nhập để vào ngay.`)
-  }
-
-  function fillDemoPatientOtp() {
-    setPhone('0912345678')
-    setError('')
-    setSuccessNotice('Đã điền số điện thoại Bệnh nhân mẫu (0912345678). Nhấn "Lấy mã OTP".')
-  }
-
   return (
     <div className="cs-login-viewport">
       <div className="cs-login-single-column">
@@ -376,7 +362,7 @@ export function LoginPage({
                       <Mail size={17} className="cs-input-icon" />
                       <input
                         type="text"
-                        placeholder="patient@example.test hoặc 0912345678"
+                        placeholder="Nhập email hoặc số điện thoại đã đăng ký"
                         value={email}
                         onChange={e => setEmail(e.target.value)}
                         required
@@ -425,35 +411,6 @@ export function LoginPage({
                 </form>
               )}
 
-              {/* Fast Fill Demo Chip for Patient */}
-              <div className="cs-demo-strip">
-                <span className="cs-demo-strip-label">Tài khoản trải nghiệm mẫu:</span>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    className="cs-demo-chip"
-                    onClick={() => {
-                      setPatientAuthMode('password')
-                      fillDemoAccount('patient@example.test', 'Bệnh nhân')
-                    }}
-                  >
-                    <UserRound size={13} />
-                    <span>patient@example.test (Bệnh nhân)</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="cs-demo-chip"
-                    onClick={() => {
-                      setPatientAuthMode('otp')
-                      fillDemoPatientOtp()
-                    }}
-                  >
-                    <Phone size={13} />
-                    <span>0912345678 (OTP Bệnh nhân)</span>
-                  </button>
-                </div>
-              </div>
-
               {/* Registration Invitation Box */}
               <div className="cs-register-invitation">
                 <div className="cs-invitation-head">
@@ -496,7 +453,7 @@ export function LoginPage({
                     <Mail size={17} className="cs-input-icon" />
                     <input
                       type="email"
-                      placeholder="doctor@example.test"
+                      placeholder="Nhập email công vụ cán bộ y tế"
                       value={email}
                       onChange={e => setEmail(e.target.value)}
                       required
@@ -543,39 +500,6 @@ export function LoginPage({
                   )}
                 </button>
               </form>
-
-              {/* Fast Fill Demo Chips for Clinicians & Staff */}
-              <div className="cs-demo-strip">
-                <span className="cs-demo-strip-label">Tài khoản cán bộ mẫu (1 chạm điền nhanh):</span>
-                <div className="cs-demo-grid">
-                  <button
-                    type="button"
-                    className="cs-demo-chip"
-                    onClick={() => fillDemoAccount('doctor@example.test', 'Bác sĩ')}
-                  >
-                    <Stethoscope size={13} />
-                    <span>doctor@example.test (Bác sĩ)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="cs-demo-chip"
-                    onClick={() => fillDemoAccount('nurse@example.test', 'Điều dưỡng')}
-                  >
-                    <Activity size={13} />
-                    <span>nurse@example.test (Điều dưỡng)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="cs-demo-chip"
-                    onClick={() => fillDemoAccount('admin@example.test', 'Quản trị viên')}
-                  >
-                    <Shield size={13} />
-                    <span>admin@example.test (Quản trị viện)</span>
-                  </button>
-                </div>
-              </div>
 
               {/* Clinical Security Notice */}
               <div className="cs-staff-security-box">

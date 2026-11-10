@@ -640,8 +640,6 @@ export default function App() {
 
     const map = new Map<number, { id: number; name: string; phone?: string; bhyt?: string; lastReason?: string }>()
 
-    map.set(1, { id: 1, name: 'Nguyễn Minh An', phone: '0912345678', bhyt: 'GD4797931812345', lastReason: 'Khám tim mạch theo dõi' })
-
     appointments.forEach(a => {
 
       if (a.patient_id && !map.has(a.patient_id)) {
@@ -1708,16 +1706,19 @@ export default function App() {
 
   ] : [
 
-    ['admin-settings', 'Cấu hình Hệ thống', Settings],
-
     ['admin-overview', 'Báo cáo & KPI Viện', BarChart3],
+
+    ['admin-schedules', 'Phân công Lịch & Phòng khám', CalendarDays],
+
+    ['admin-clinics', 'Quản lý Buồng/Phòng khám', Building2],
 
     ['admin-users', 'Nhân sự & Cán bộ', Users],
 
     ['admin-rbac', 'Ma trận Phân quyền', ShieldCheck],
 
     ['admin-audit', 'Nhật ký Kiểm toán', FileText],
-    ['admin-schedules', 'Phân công Lịch & Phòng khám', CalendarDays],
+
+    ['admin-settings', 'Cấu hình Hệ thống', Settings],
 
     ['appointments', 'Giám sát Lịch khám', CalendarDays],
 

@@ -86,142 +86,7 @@ export const DoctorDepartmentSupport: React.FC<DoctorDepartmentSupportProps> = (
   doctor,
   appointments
 }) => {
-  const [tickets, setTickets] = useState<SupportTicket[]>([
-    {
-      id: '1',
-      code: 'REQ-2026-092',
-      department: 'Khoa CĐHA & Thăm dò chức năng',
-      departmentIcon: 'ScanLine',
-      title: 'Hỗ trợ đọc khẩn kết quả X-quang tim phổi cho ca nghi viêm phổi kẽ',
-      patientId: 9,
-      patientName: 'Demo Patient (BN #9)',
-      priority: 'urgent',
-      status: 'in_progress',
-      doctorName: doctor?.full_name || 'BS.CKII Trần Minh',
-      createdAt: '2026-11-09T08:15:00',
-      updatedAt: '2026-11-09T08:35:00',
-      description: 'Bệnh nhân có triệu chứng sốt cao, khó thở nhẹ, SpO2 94%. Đã chụp X-quang tại cơ sở vệ tinh. Kính đề nghị Khoa CĐHA hội chẩn và đọc khẩn để kịp thời kê đơn.',
-      assignedTo: 'BS.CKI Nguyễn Văn Hùng (Khoa CĐHA)',
-      messages: [
-        {
-          id: 'm1',
-          sender: doctor?.full_name || 'BS.CKII Trần Minh',
-          senderRole: 'Bác sĩ lâm sàng',
-          content: 'Kính gửi Khoa CĐHA, nhờ bác sĩ đọc khẩn giúp ca này vì bệnh nhân đang chờ tại phòng khám Telemedicine #07.',
-          timestamp: '2026-11-09 08:15',
-          isDoctor: true
-        },
-        {
-          id: 'm2',
-          sender: 'BS.CKI Nguyễn Văn Hùng',
-          senderRole: 'Khoa CĐHA',
-          content: 'Đã nhận yêu cầu. Hình ảnh DICOM đã đồng bộ lên PACS Viewer. Phế trường 2 bên thông khí tốt, có nốt mờ nhẹ vùng đáy phổi phải. Sẽ ký trả kết quả EMR trong 10 phút.',
-          timestamp: '2026-11-09 08:35',
-          isDoctor: false
-        }
-      ]
-    },
-    {
-      id: '2',
-      code: 'REQ-2026-088',
-      department: 'Khoa Dược lâm sàng',
-      departmentIcon: 'Pill',
-      title: 'Tư vấn duyệt tương tác thuốc Metformin + Rosuvastatin cho bệnh nhân cao tuổi',
-      patientId: 1,
-      patientName: 'Phan Hoàng Phúc',
-      priority: 'normal',
-      status: 'resolved',
-      doctorName: doctor?.full_name || 'BS.CKII Trần Minh',
-      createdAt: '2026-11-08T14:20:00',
-      updatedAt: '2026-11-08T15:10:00',
-      description: 'Bệnh nhân 68 tuổi tiền sử đái tháo đường typ 2 kèm rối loạn lipid máu, eGFR 58 mL/min. Đề nghị Dược lâm sàng kiểm tra liều lượng và cảnh báo tương tác.',
-      assignedTo: 'DS.CKI Lê Thị Mai (Khoa Dược)',
-      messages: [
-        {
-          id: 'm3',
-          sender: doctor?.full_name || 'BS.CKII Trần Minh',
-          senderRole: 'Bác sĩ lâm sàng',
-          content: 'Nhờ Dược sĩ kiểm tra liều Metformin 850mg 2 lần/ngày trên bệnh nhân có suy giảm chức năng thận nhẹ.',
-          timestamp: '2026-11-08 14:20',
-          isDoctor: true
-        },
-        {
-          id: 'm4',
-          sender: 'DS.CKI Lê Thị Mai',
-          senderRole: 'Dược sĩ lâm sàng',
-          content: 'Khoa Dược đã rà soát: eGFR 58 mL/min có thể duy trì liều Metformin tối đa 1000mg/ngày. Khuyến nghị giảm xuống 500mg x 2 lần/ngày và theo dõi thêm Creatinine máu sau 3 tháng.',
-          timestamp: '2026-11-08 15:10',
-          isDoctor: false
-        }
-      ]
-    },
-    {
-      id: '3',
-      code: 'REQ-2026-084',
-      department: 'Tổ CNTT & Hạ tầng số',
-      departmentIcon: 'Cpu',
-      title: 'Kiểm tra độ trễ WebRTC và đồng bộ chữ ký số SmartCA trên máy trạm',
-      priority: 'high',
-      status: 'in_progress',
-      doctorName: doctor?.full_name || 'BS.CKII Trần Minh',
-      createdAt: '2026-11-09T07:45:00',
-      updatedAt: '2026-11-09T08:00:00',
-      description: 'Đôi lúc ký số bệnh án EMR bị trễ OTP 15 giây. Nhờ kỹ thuật kiểm tra webhook chứng thư số VNPT SmartCA.',
-      assignedTo: 'KS. Trương Hoàng Tuấn (IT Support)',
-      messages: [
-        {
-          id: 'm5',
-          sender: doctor?.full_name || 'BS.CKII Trần Minh',
-          senderRole: 'Bác sĩ lâm sàng',
-          content: 'Nhờ kỹ thuật kiểm tra cổng ký số PKI SmartCA trên phiên bản trình duyệt mới.',
-          timestamp: '2026-11-09 07:45',
-          isDoctor: true
-        },
-        {
-          id: 'm6',
-          sender: 'KS. Trương Hoàng Tuấn',
-          senderRole: 'IT Support',
-          content: 'Đã tối ưu hóa caching chứng thư số và cập nhật proxy signing server. Bác sĩ thử lại giúp em nhé.',
-          timestamp: '2026-11-09 08:00',
-          isDoctor: false
-        }
-      ]
-    },
-    {
-      id: '4',
-      code: 'REQ-2026-079',
-      department: 'Phòng KHTH & Giám định BHYT',
-      departmentIcon: 'ShieldCheck',
-      title: 'Xác thực mã định danh và mức hưởng BHYT 80% đúng tuyến cho ca chuyển viện',
-      patientId: 3,
-      patientName: 'Trần Thị Thu Thảo',
-      priority: 'normal',
-      status: 'resolved',
-      doctorName: doctor?.full_name || 'BS.CKII Trần Minh',
-      createdAt: '2026-11-07T09:30:00',
-      updatedAt: '2026-11-07T10:15:00',
-      description: 'Bệnh nhân có giấy chuyển tuyến từ BV Đa khoa tỉnh nhưng mã cơ sở KCB ban đầu khác. Đề nghị KHTH tra cứu cổng BHYT Quốc gia.',
-      assignedTo: 'ThS. Nguyễn Thị Huệ (Phòng KHTH)',
-      messages: [
-        {
-          id: 'm7',
-          sender: doctor?.full_name || 'BS.CKII Trần Minh',
-          senderRole: 'Bác sĩ lâm sàng',
-          content: 'Nhờ phòng KHTH kiểm tra giúp mã thẻ DN4797931414432.',
-          timestamp: '2026-11-07 09:30',
-          isDoctor: true
-        },
-        {
-          id: 'm8',
-          sender: 'ThS. Nguyễn Thị Huệ',
-          senderRole: 'Phòng KHTH',
-          content: 'Đã tra cứu cổng Giám định BHYT thành công. Thẻ hợp lệ và áp dụng mức thanh toán 80% đúng tuyến theo Thông tư 30/2023.',
-          timestamp: '2026-11-07 10:15',
-          isDoctor: false
-        }
-      ]
-    }
-  ])
+  const [tickets, setTickets] = useState<SupportTicket[]>([])
 
   // Filters & State
   const [filterDept, setFilterDept] = useState('all')
@@ -255,9 +120,7 @@ export const DoctorDepartmentSupport: React.FC<DoctorDepartmentSupportProps> = (
     getSupportTickets()
       .then(items => {
         if (!isMounted || !items) return
-        if (items.length > 0) {
-          setTickets(items.map(mapItemToSupportTicket))
-        }
+        setTickets(items.map(mapItemToSupportTicket))
       })
       .catch(err => console.warn('Lỗi tải yêu cầu hỗ trợ từ DB:', err))
       .finally(() => { if (isMounted) setLoadingTickets(false) })

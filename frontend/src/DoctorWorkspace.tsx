@@ -470,49 +470,10 @@ export function DoctorWorkspace({
       setLoadingRpm(true)
       const patientId = appointment.patient_id || 1
       const data = await getPatientRPMVitals(patientId)
-      if (!data || data.length === 0) {
-        // Tự động nạp mẫu 3 bản ghi chuẩn từ thiết bị Bluetooth BLE
-        const sampleVitals: RPMVitalItem[] = [
-          {
-            id: 1,
-            patient_id: patientId,
-            measured_at: new Date(Date.now() - 6 * 60 * 1000).toISOString(), created_at: new Date(Date.now() - 6 * 60 * 1000).toISOString(),
-            device_type: 'blood_pressure',
-            device_name: 'Omron HEM-7600T Smart BP',
-            connection_method: 'bluetooth_ble',
-            systolic: 128,
-            diastolic: 82,
-            pulse: 74,
-            is_warning: false
-          },
-          {
-            id: 2,
-            patient_id: patientId,
-            measured_at: new Date(Date.now() - 28 * 60 * 1000).toISOString(), created_at: new Date(Date.now() - 28 * 60 * 1000).toISOString(),
-            device_type: 'blood_glucose',
-            device_name: 'Accu-Chek Guide Wireless',
-            connection_method: 'bluetooth_ble',
-            glucose_value: 5.8,
-            is_warning: false
-          },
-          {
-            id: 3,
-            patient_id: patientId,
-            measured_at: new Date(Date.now() - 55 * 60 * 1000).toISOString(), created_at: new Date(Date.now() - 55 * 60 * 1000).toISOString(),
-            device_type: 'spo2',
-            device_name: 'Wellue O2Ring Continuous SpO2',
-            connection_method: 'bluetooth_ble',
-            spo2_percent: 98.5,
-            pulse: 72,
-            is_warning: false
-          }
-        ]
-        setRpmVitals(sampleVitals)
-      } else {
-        setRpmVitals(data)
-      }
+      setRpmVitals(data || [])
     } catch (err: any) {
       console.warn('Could not load RPM vitals:', err)
+      setRpmVitals([])
     } finally {
       setLoadingRpm(false)
     }
@@ -1239,11 +1200,11 @@ export function DoctorWorkspace({
               </span>
             </div>
             <div className="consult-meta-row">
-              <span>CCCD: <strong>{patientData?.identity_card || '079092014829'}</strong></span>
+              <span>CCCD: <strong>{patientData?.identity_card || 'Chưa cập nhật'}</strong></span>
               <span className="meta-sep">&bull;</span>
-              <span>SĐT: <strong>{patientData?.phone_number || '0988776655'}</strong></span>
+              <span>SĐT: <strong>{patientData?.phone_number || 'Chưa cập nhật'}</strong></span>
               <span className="meta-sep">&bull;</span>
-              <span>Mã PID: <strong>{patientData?.external_patient_id || `VN-${patientData?.phone_number || '0988776655'}`}</strong></span>
+              <span>Mã PID: <strong>{patientData?.external_patient_id || `BN-${appointment.patient_id}`}</strong></span>
             </div>
           </div>
         </div>

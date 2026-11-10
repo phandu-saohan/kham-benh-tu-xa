@@ -40,7 +40,11 @@ import {
   Smartphone,
   Cpu,
   Radio,
-  Bell
+  Bell,
+  Search,
+  Edit,
+  Trash2,
+  MapPin
 } from 'lucide-react'
 import {
   AdminOverviewData,
@@ -62,22 +66,30 @@ import {
   getAllDoctorShifts,
   adminCreateDoctorShift,
   syncHisDoctorShifts,
-  deleteDoctorShift
+  deleteDoctorShift,
+  ClinicRoom,
+  ClinicRoomIn,
+  getClinicRooms,
+  createClinicRoom,
+  updateClinicRoom,
+  deleteClinicRoom,
+  getDepartments,
+  Department
 } from './api'
 import { NotificationCenter } from './NotificationCenter'
 import { Pagination } from './Pagination'
 
 interface AdminDashboardProps {
   onBack?: () => void
-  activeTab?: 'settings' | 'overview' | 'users' | 'rbac' | 'audit' | 'schedules'
-  onTabChange?: (tab: 'settings' | 'overview' | 'users' | 'rbac' | 'audit' | 'schedules') => void
+  activeTab?: 'settings' | 'overview' | 'users' | 'rbac' | 'audit' | 'schedules' | 'clinics'
+  onTabChange?: (tab: 'settings' | 'overview' | 'users' | 'rbac' | 'audit' | 'schedules' | 'clinics') => void
   hideInternalNav?: boolean
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
-  const [activeTabInternal, setActiveTabInternal] = useState<'settings' | 'overview' | 'users' | 'rbac' | 'audit' | 'schedules'>('overview')
+  const [activeTabInternal, setActiveTabInternal] = useState<'settings' | 'overview' | 'users' | 'rbac' | 'audit' | 'schedules' | 'clinics'>('overview')
   const activeTab = props.activeTab || activeTabInternal
-  const setActiveTab = (tab: 'settings' | 'overview' | 'users' | 'rbac' | 'audit' | 'schedules') => {
+  const setActiveTab = (tab: 'settings' | 'overview' | 'users' | 'rbac' | 'audit' | 'schedules' | 'clinics') => {
     setActiveTabInternal(tab)
     if (props.onTabChange) props.onTabChange(tab)
   }
@@ -114,25 +126,159 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   const [syncingHisShifts, setSyncingHisShifts] = useState(false)
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [assignDoctorId, setAssignDoctorId] = useState(2)
-  const [assignDate, setAssignDate] = useState('2026-11-10')
+  const [assignDate, setAssignDate] = useState(() => new Date().toISOString().split('T')[0])
   const [assignShiftType, setAssignShiftType] = useState('morning')
   const [assignRoomName, setAssignRoomName] = useState('Phòng khám Telemedicine #01 (Khoa Nội)')
   const [assignMaxPatients, setAssignMaxPatients] = useState(12)
   const [assignNotes, setAssignNotes] = useState('Phân công từ Ban Quản trị Bệnh viện')
 
+  // Quản lý Phòng khám (Clinic Rooms CRUD) State
+  const [clinicRooms, setClinicRooms] = useState<ClinicRoom[]>([])
+  const [departmentsList, setDepartmentsList] = useState<Department[]>([])
+  const [loadingClinics, setLoadingClinics] = useState(false)
+  const [clinicSearch, setClinicSearch] = useState('')
+  const [clinicFilterDept, setClinicFilterDept] = useState<string>('all')
+  const [clinicFilterType, setClinicFilterType] = useState<string>('all')
+  const [clinicFilterStatus, setClinicFilterStatus] = useState<string>('all')
+  const [showClinicModal, setShowClinicModal] = useState(false)
+  const [editingRoom, setEditingRoom] = useState<ClinicRoom | null>(null)
+  const [savingClinic, setSavingClinic] = useState(false)
+  const [clinicForm, setClinicForm] = useState<ClinicRoomIn>({
+    room_code: '',
+    name: '',
+    department_id: null,
+    room_type: 'telemedicine',
+    location: '',
+    doctor_in_charge_id: null,
+    capacity_per_shift: 15,
+    telehealth_station_enabled: true,
+    equipment_list: '',
+    status: 'active',
+    notes: ''
+  })
+
+  const loadClinicRoomsData = async () => {
+    try {
+      setLoadingClinics(true)
+      const [rooms, depts, users] = await Promise.all([
+        getClinicRooms(),
+        getDepartments().catch(() => []),
+        getAdminUsers().catch(() => [])
+      ])
+      setClinicRooms(rooms || [])
+      if (depts && depts.length > 0) setDepartmentsList(depts)
+      if (users && users.length > 0) setUsersList(users)
+      if (rooms && rooms.length > 0 && !assignRoomName) {
+        setAssignRoomName(rooms[0].name)
+      }
+    } catch (err) {
+      console.warn('Lỗi tải danh sách phòng khám:', err)
+    } finally {
+      setLoadingClinics(false)
+    }
+  }
+
+  const handleOpenCreateClinic = () => {
+    setEditingRoom(null)
+    const nextIdx = clinicRooms.length + 1
+    setClinicForm({
+      room_code: `PK-TELE-0${nextIdx}`,
+      name: '',
+      department_id: departmentsList[0]?.id || null,
+      room_type: 'telemedicine',
+      location: 'Tầng 3 - Trung tâm Khám từ xa',
+      doctor_in_charge_id: null,
+      capacity_per_shift: 15,
+      telehealth_station_enabled: true,
+      equipment_list: 'LiveKit Video Station 4K, Ống nghe số, Monitor sinh hiệu 5 thông số',
+      status: 'active',
+      notes: ''
+    })
+    setShowClinicModal(true)
+  }
+
+  const handleOpenEditClinic = (room: ClinicRoom) => {
+    setEditingRoom(room)
+    setClinicForm({
+      room_code: room.room_code,
+      name: room.name,
+      department_id: room.department_id,
+      room_type: room.room_type || 'telemedicine',
+      location: room.location || '',
+      doctor_in_charge_id: room.doctor_in_charge_id,
+      capacity_per_shift: room.capacity_per_shift || 15,
+      telehealth_station_enabled: room.telehealth_station_enabled,
+      equipment_list: room.equipment_list || '',
+      status: room.status || 'active',
+      notes: room.notes || ''
+    })
+    setShowClinicModal(true)
+  }
+
+  const handleSaveClinicRoom = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!clinicForm.room_code.trim() || !clinicForm.name.trim()) {
+      alert('Vui lòng nhập đầy đủ Mã phòng khám và Tên phòng khám!')
+      return
+    }
+    try {
+      setSavingClinic(true)
+      if (editingRoom) {
+        await updateClinicRoom(editingRoom.id, clinicForm)
+        setToastMessage(`✅ Đã cập nhật thông tin phòng khám [${clinicForm.room_code}] thành công!`)
+      } else {
+        await createClinicRoom(clinicForm)
+        setToastMessage(`🎉 Đã tạo mới phòng khám [${clinicForm.room_code} - ${clinicForm.name}] thành công!`)
+      }
+      setTimeout(() => setToastMessage(''), 4000)
+      setShowClinicModal(false)
+      await loadClinicRoomsData()
+    } catch (err: any) {
+      alert(err.message || 'Không thể lưu thông tin phòng khám')
+    } finally {
+      setSavingClinic(false)
+    }
+  }
+
+  const handleToggleClinicStatus = async (room: ClinicRoom) => {
+    const nextStatus = room.status === 'active' ? 'maintenance' : 'active'
+    try {
+      await updateClinicRoom(room.id, { status: nextStatus })
+      setToastMessage(
+        nextStatus === 'active'
+          ? `🟢 Đã mở hoạt động phòng khám ${room.room_code}`
+          : `🟠 Đã chuyển phòng khám ${room.room_code} sang chế độ Bảo trì / Tạm ngưng`
+      )
+      setTimeout(() => setToastMessage(''), 3500)
+      await loadClinicRoomsData()
+    } catch (err: any) {
+      alert(err.message || 'Lỗi cập nhật trạng thái phòng khám')
+    }
+  }
+
+  const handleDeleteClinicRoom = async (room: ClinicRoom) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa phòng khám "${room.name}" (${room.room_code}) khỏi hệ thống?`)) return
+    try {
+      const res = await deleteClinicRoom(room.id)
+      setToastMessage(`🗑️ ${res.message || 'Đã xóa phòng khám thành công'}`)
+      setTimeout(() => setToastMessage(''), 3500)
+      await loadClinicRoomsData()
+    } catch (err: any) {
+      alert(err.message || 'Không thể xóa phòng khám')
+    }
+  }
+
   const loadAdminShifts = async () => {
     try {
       setLoadingAdminShifts(true)
-      const data = await getAllDoctorShifts()
-      if (data && data.length > 0) {
-        setAdminShifts(data)
-      } else {
-        const syncRes = await syncHisDoctorShifts()
-        if (syncRes?.success) {
-          const refreshed = await getAllDoctorShifts()
-          setAdminShifts(refreshed || [])
-        }
-      }
+      const [data, rooms, users] = await Promise.all([
+        getAllDoctorShifts(),
+        getClinicRooms().catch(() => []),
+        getAdminUsers().catch(() => [])
+      ])
+      setAdminShifts(data || [])
+      if (rooms && rooms.length > 0) setClinicRooms(rooms)
+      if (users && users.length > 0) setUsersList(users)
     } catch (err) {
       console.warn('Lỗi tải danh sách phân công lịch khám:', err)
     } finally {
@@ -195,6 +341,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   useEffect(() => {
     if (activeTab === 'schedules') {
       loadAdminShifts()
+    } else if (activeTab === 'clinics') {
+      loadClinicRoomsData()
     }
   }, [activeTab])
 
@@ -245,7 +393,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   })
 
   // De-identification sandbox state (Nghị định 13/2023/NĐ-CP)
-  const [deidInput, setDeidInput] = useState('Bệnh nhân: NGUYỄN VĂN AN, sinh năm 1990. SĐT: 0933413486. Số CCCD: 079092014829. Địa chỉ: 123 Bến Nghé, Quận 1, TP.HCM. Mã BHYT: GD4797931812345. Chẩn đoán: Viêm phế quản cấp.')
+  const [deidInput, setDeidInput] = useState('')
   const [deidOutput, setDeidOutput] = useState<any>(null)
   const [deidLoading, setDeidLoading] = useState(false)
 
@@ -279,9 +427,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         setOverview(o)
         try { const ai = await getAIStatus(); setAiEngine(ai); } catch (e) { console.warn(e); }
         try {
-          const shifts = await getAllDoctorShifts()
-          if (shifts && shifts.length > 0) setAdminShifts(shifts)
+          const [shifts, rooms] = await Promise.all([
+            getAllDoctorShifts().catch(() => []),
+            getClinicRooms().catch(() => [])
+          ])
+          setAdminShifts(shifts || [])
+          setClinicRooms(rooms || [])
         } catch (e) { console.warn(e); }
+      } else if (activeTab === 'clinics') {
+        await loadClinicRoomsData()
       } else if (activeTab === 'users') {
         const u = await getAdminUsers()
         setUsersList(u)
@@ -452,6 +606,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             onClick={() => setActiveTab('overview')}
           >
             <Activity size={16} /> Trung tâm Điều hành Toàn viện
+          </button>
+          <button
+            type="button"
+            className={`admin-tab-btn ${activeTab === 'clinics' ? 'active' : ''}`}
+            onClick={() => setActiveTab('clinics')}
+          >
+            <Building2 size={16} /> Quản lý Buồng & Phòng khám
           </button>
           <button
             type="button"
@@ -1257,62 +1418,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                 <div>
                   <div className="subsystem-section-title">
                     <span>Hàng đợi phòng chờ ảo (Live Queue)</span>
-                    <span className="text-xs font-semibold text-teal-600">4 BN đang chờ</span>
+                    <span className="text-xs font-semibold text-teal-600">
+                      {overview?.scheduled_appointments || 0} ca đang chờ
+                    </span>
                   </div>
                   <div className="command-queue-list">
                     <div className="command-queue-item">
                       <div className="queue-patient-info">
-                        <div className="queue-avatar">AN</div>
+                        <div className="queue-avatar">TN</div>
                         <div className="queue-name-meta">
-                          <strong>Nguyễn Văn An (34t)</strong>
-                          <span>PID: DEMO-P001 · Khoa Nội Tổng Quát</span>
+                          <strong>Tổng lượt hẹn trực tuyến</strong>
+                          <span>Dữ liệu thực tế từ hệ thống đặt khám</span>
                         </div>
                       </div>
                       <div className="queue-badges">
-                        <span className="badge-vneid-tag">VNeID Cấp 2</span>
-                        <span className="text-xs text-emerald-600 font-bold">🟢 Buồng #01</span>
+                        <span className="badge-vneid-tag">{overview?.total_appointments || 0} ca</span>
                       </div>
                     </div>
 
                     <div className="command-queue-item">
                       <div className="queue-patient-info">
-                        <div className="queue-avatar">MA</div>
+                        <div className="queue-avatar">CK</div>
                         <div className="queue-name-meta">
-                          <strong>Trần Thị Mai (29t)</strong>
-                          <span>PID: DEMO-P002 · Khoa Tim Mạch</span>
+                          <strong>Lịch hẹn chờ khám / Triage</strong>
+                          <span>Đang trong hàng đợi sàng lọc & kết nối</span>
                         </div>
                       </div>
                       <div className="queue-badges">
-                        <span className="badge-vietqr-tag">Đã TT VietQR</span>
-                        <span className="text-xs text-amber-600 font-medium">🟡 Chờ gọi (3p)</span>
+                        <span className="text-xs text-amber-600 font-bold">🟡 {overview?.scheduled_appointments || 0} ca</span>
                       </div>
                     </div>
 
                     <div className="command-queue-item">
                       <div className="queue-patient-info">
-                        <div className="queue-avatar">BI</div>
+                        <div className="queue-avatar">HT</div>
                         <div className="queue-name-meta">
-                          <strong>Lê Văn Bình (45t)</strong>
-                          <span>PID: DEMO-P003 · Khoa Hô Hấp</span>
+                          <strong>Lượt khám đã hoàn tất EMR</strong>
+                          <span>Đã ký số & trả kết quả về Portal</span>
                         </div>
                       </div>
                       <div className="queue-badges">
-                        <span className="badge-vneid-tag">CCCD Chip</span>
-                        <span className="text-xs text-slate-500 font-medium">⚪ Chờ Triage</span>
-                      </div>
-                    </div>
-
-                    <div className="command-queue-item">
-                      <div className="queue-patient-info">
-                        <div className="queue-avatar">LA</div>
-                        <div className="queue-name-meta">
-                          <strong>Hoàng Thị Lan (52t)</strong>
-                          <span>PID: DEMO-P004 · Khoa Nội Tiết</span>
-                        </div>
-                      </div>
-                      <div className="queue-badges">
-                        <span className="badge-vietqr-tag">Đã TT VietQR</span>
-                        <span className="text-xs text-slate-500 font-medium">⚪ Phòng chờ ảo</span>
+                        <span className="text-xs text-emerald-600 font-bold">🟢 {overview?.completed_appointments || 0} ca</span>
                       </div>
                     </div>
                   </div>
@@ -1459,77 +1605,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                 {/* Live Telemed Rooms */}
                 <div>
                   <div className="subsystem-section-title">
-                    <span>Giám sát Buồng khám Telemedicine</span>
-                    <span className="text-xs text-slate-500 font-medium">Buồng #01 - #04</span>
+                    <span>Giám sát Buồng khám & Phòng khám</span>
+                    <span className="text-xs text-slate-500 font-medium">
+                      {clinicRooms.filter(r => r.status === 'active').length}/{clinicRooms.length} buồng hoạt động
+                    </span>
                   </div>
                   <div className="doctor-rooms-list">
-                    <div className="doctor-room-card">
-                      <div className="room-card-top">
-                        <div className="room-title-area">
-                          <strong>Buồng #01: BS.CKII Trần Minh</strong>
-                          <span>Khoa Nội Tổng Quát · BN: Nguyễn Văn An</span>
+                    {clinicRooms.slice(0, 4).map((room) => (
+                      <div className="doctor-room-card" key={room.id}>
+                        <div className="room-card-top">
+                          <div className="room-title-area">
+                            <strong>[{room.room_code}] {room.name}</strong>
+                            <span>{room.department_name || 'Đa chuyên khoa'} · Phụ trách: {room.doctor_in_charge_name || 'Chưa phân công'}</span>
+                          </div>
+                          <span className={`room-status-badge ${room.status === 'active' ? 'live' : 'waiting'}`}>
+                            {room.status === 'active' ? '🟢 Sẵn sàng' : '🟠 Bảo trì'}
+                          </span>
                         </div>
-                        <span className="room-status-badge live">🟢 Đang khám</span>
-                      </div>
-                      <div className="room-telemed-signals">
-                        <Video size={13} className="text-teal-600" />
-                        <span>WebRTC E2EE · RTT: 24ms · Bitrate: 2.4 Mbps</span>
-                      </div>
-                      <div className="room-ai-action">
-                        <Sparkles size={12} /> AI Scribe đang tự động nghe & sinh SOAP
-                      </div>
-                    </div>
-
-                    <div className="doctor-room-card">
-                      <div className="room-card-top">
-                        <div className="room-title-area">
-                          <strong>Buồng #02: ThS.BS Lê Thu Hằng</strong>
-                          <span>Khoa Tim Mạch · BN: Trần Thị Mai</span>
+                        <div className="room-telemed-signals">
+                          <Video size={13} className="text-teal-600" />
+                          <span>{room.location || 'Khu khám từ xa'} · Công suất: {room.capacity_per_shift} BN/ca</span>
                         </div>
-                        <span className="room-status-badge waiting">🟡 Chờ kết nối</span>
-                      </div>
-                      <div className="room-telemed-signals">
-                        <PhoneCall size={13} className="text-amber-600" />
-                        <span>Chuẩn bị cuộc gọi · Hàng đợi: 2 bệnh nhân</span>
-                      </div>
-                      <div className="room-ai-action">
-                        <Cpu size={12} /> Nạp dữ liệu ECG & Sinh hiệu Omron
-                      </div>
-                    </div>
-
-                    <div className="doctor-room-card">
-                      <div className="room-card-top">
-                        <div className="room-title-area">
-                          <strong>Buồng #03: BS.CKI Phạm Hoàng Nam</strong>
-                          <span>Khoa Hô Hấp · BN: Lê Văn Bình</span>
+                        <div className="room-ai-action">
+                          <Sparkles size={12} /> {room.equipment_list || 'Trang bị Trạm Telehealth & AI CDSS'}
                         </div>
-                        <span className="room-status-badge ai">🟣 Đọc PACS DICOM</span>
                       </div>
-                      <div className="room-telemed-signals">
-                        <Eye size={13} className="text-purple-600" />
-                        <span>OHIF Viewer · X-Quang phổi số hóa</span>
+                    ))}
+                    {clinicRooms.length === 0 && (
+                      <div className="text-xs text-slate-500 p-3 text-center">
+                        Chưa có buồng khám nào được cấu hình. Vui lòng thêm tại mục Quản lý Phòng khám.
                       </div>
-                      <div className="room-ai-action text-purple-700">
-                        <Sparkles size={12} /> AI MedGemma 3 phân tích thâm nhiễm phổi
-                      </div>
-                    </div>
-
-                    <div className="doctor-room-card">
-                      <div className="room-card-top">
-                        <div className="room-title-area">
-                          <strong>Buồng #04: BS.CKII Nguyễn Thanh Sơn</strong>
-                          <span>Khoa Nội Tiết · BN: Hoàng Thị Lan</span>
-                        </div>
-                        <span className="room-status-badge live">🔵 Ký số SmartCA</span>
-                      </div>
-                      <div className="room-telemed-signals">
-                        <CheckCircle2 size={13} className="text-blue-600" />
-                        <span>Đơn thuốc Quốc gia · Chuẩn XML 4210</span>
-                      </div>
-                      <div className="room-ai-action text-blue-700">
-                        <ShieldCheck size={12} /> Ký số PKI hợp lệ & Cấp mã QR BYT
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
 
@@ -2111,7 +2217,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                           </span>
                         </td>
                         <td style={{ padding: '12px 14px' }}>
-                          <strong>{s.booked_count || 4}</strong>/{s.max_patients} BN
+                          <strong>{s.booked_count ?? 0}</strong>/{s.max_patients} BN
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'center' }}>
                           <button
@@ -2134,6 +2240,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                       </tr>
                     )
                   })}
+                  {adminShifts.length === 0 && (
+                    <tr>
+                      <td colSpan={8} style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>
+                        Chưa có ca trực nào được phân công. Nhấn <strong>"+ Phân công Ca khám & Phòng khám"</strong> hoặc <strong>"Đồng bộ từ API HIS"</strong> để khởi tạo lịch trực.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -2194,7 +2307,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                       onChange={e => setAssignDoctorId(Number(e.target.value))}
                       style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
                     >
-                      <option value={2}>BS. CKII Trần Minh (Khoa Nội Tổng Quát)</option>
+                      {usersList.filter(u => u.role === 'doctor').length > 0 ? (
+                        usersList.filter(u => u.role === 'doctor').map(doc => (
+                          <option key={doc.id} value={doc.id}>
+                            {doc.full_name} ({doc.email})
+                          </option>
+                        ))
+                      ) : (
+                        <option value={2}>BS. CKII Trần Minh (Khoa Nội Tổng Quát)</option>
+                      )}
                     </select>
                   </div>
 
@@ -2236,11 +2357,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                       onChange={e => setAssignRoomName(e.target.value)}
                       style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
                     >
-                      <option value="Phòng khám Telemedicine #01 (Khoa Nội)">Phòng khám Telemedicine #01 (Khoa Nội)</option>
-                      <option value="Phòng khám Telemedicine #02 (Khoa Nội)">Phòng khám Telemedicine #02 (Khoa Nội)</option>
-                      <option value="Phòng khám Telemedicine #03 (Tư vấn Tim Mạch)">Phòng khám Telemedicine #03 (Tư vấn Tim Mạch)</option>
-                      <option value="Phòng khám Nội 203 (Khu Khám Bệnh)">Phòng khám Nội 203 (Khu Khám Bệnh)</option>
-                      <option value="Phòng khám Cấp cứu & Khám Sàng Lọc">Phòng khám Cấp cứu & Khám Sàng Lọc</option>
+                      {clinicRooms.length > 0 ? (
+                        clinicRooms.map(r => (
+                          <option key={r.id} value={r.name}>
+                            [{r.room_code}] {r.name} ({r.department_name || 'Đa khoa'})
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="Phòng khám Telemedicine #01 (Khoa Nội)">Phòng khám Telemedicine #01 (Khoa Nội)</option>
+                          <option value="Phòng khám Telemedicine #02 (Khoa Tim Mạch)">Phòng khám Telemedicine #02 (Khoa Tim Mạch)</option>
+                        </>
+                      )}
                     </select>
                   </div>
 
@@ -2252,7 +2380,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                       <input
                         type="number"
                         min={1}
-                        max={30}
+                        max={50}
                         value={assignMaxPatients}
                         onChange={e => setAssignMaxPatients(Number(e.target.value))}
                         style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
@@ -2284,6 +2412,576 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                       style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: '#059669', color: '#fff', fontWeight: 800, cursor: 'pointer' }}
                     >
                       Lưu phân công
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 7: QUẢN LÝ BUỒNG & PHÒNG KHÁM (CLINIC ROOMS CRUD) */}
+      {/* ========================================================================= */}
+      {activeTab === 'clinics' && (
+        <div className="admin-module-section">
+          {/* Header Banner */}
+          <div style={{
+            background: 'linear-gradient(135deg, #0f172a 0%, #0f766e 65%, #0d9488 100%)',
+            borderRadius: '16px',
+            padding: '24px 28px',
+            color: '#ffffff',
+            marginBottom: '20px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '16px',
+            boxShadow: '0 8px 24px rgba(15, 118, 110, 0.18)'
+          }}>
+            <div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.16)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '8px' }}>
+                <Building2 size={14} />
+                DANH MỤC HẠ TẦNG KHÁM CHỮA BỆNH TOÀN VIỆN
+              </div>
+              <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>
+                Quản Lý Buồng Khám & Phòng Khám (CRUD)
+              </h2>
+              <p style={{ margin: '6px 0 0', opacity: 0.9, fontSize: '13.5px' }}>
+                Thiết lập danh mục buồng khám Telemedicine, phòng khám chuyên khoa ngoại trú, bàn tiếp đón Triage và cấu hình thiết bị kết nối.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={loadClinicRoomsData}
+                disabled={loadingClinics}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: 'rgba(255,255,255,0.15)',
+                  color: '#ffffff',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  padding: '10px 16px',
+                  borderRadius: '10px',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                <RefreshCw size={15} className={loadingClinics ? 'spin' : ''} />
+                Làm mới danh sách
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenCreateClinic}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: '#10b981',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '10px 18px',
+                  borderRadius: '10px',
+                  fontWeight: 800,
+                  fontSize: '13.5px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)'
+                }}
+              >
+                <Plus size={16} />
+                Thêm Phòng Khám Mới
+              </button>
+            </div>
+          </div>
+
+          {/* KPI Cards */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+            gap: '14px',
+            marginBottom: '20px'
+          }}>
+            <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 600 }}>Tổng số buồng / phòng khám</div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', marginTop: '4px' }}>
+                {clinicRooms.length} <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>phòng</span>
+              </div>
+            </div>
+            <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 600 }}>Phòng có Trạm Telehealth E2EE</div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#0d9488', marginTop: '4px' }}>
+                {clinicRooms.filter(r => r.telehealth_station_enabled).length} <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>trạm trực tuyến</span>
+              </div>
+            </div>
+            <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 600 }}>Trạng thái vận hành</div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#16a34a', marginTop: '4px' }}>
+                {clinicRooms.filter(r => r.status === 'active').length}/{clinicRooms.length} <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>đang mở</span>
+              </div>
+            </div>
+            <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 600 }}>Tổng định mức tiếp nhận / ca</div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#0284c7', marginTop: '4px' }}>
+                {clinicRooms.filter(r => r.status === 'active').reduce((acc, r) => acc + (r.capacity_per_shift || 0), 0)} <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>bệnh nhân/ca</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Search & Filter Toolbar */}
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0',
+            padding: '14px 18px',
+            marginBottom: '16px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '12px',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <div style={{ position: 'relative', flex: '1 1 280px' }}>
+              <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+              <input
+                type="text"
+                placeholder="Tìm theo mã phòng, tên buồng khám, vị trí hoặc thiết bị..."
+                value={clinicSearch}
+                onChange={e => setClinicSearch(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 12px 9px 36px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '13px'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <select
+                value={clinicFilterDept}
+                onChange={e => setClinicFilterDept(e.target.value)}
+                style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff' }}
+              >
+                <option value="all">Tất cả Chuyên khoa</option>
+                {departmentsList.map(d => (
+                  <option key={d.id} value={String(d.id)}>{d.name}</option>
+                ))}
+              </select>
+
+              <select
+                value={clinicFilterType}
+                onChange={e => setClinicFilterType(e.target.value)}
+                style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff' }}
+              >
+                <option value="all">Tất cả Loại phòng</option>
+                <option value="telemedicine">Khám từ xa (Telemedicine)</option>
+                <option value="outpatient">Khám ngoại trú (Outpatient)</option>
+                <option value="emergency">Tiếp đón Triage / Cấp cứu</option>
+                <option value="paraclinical">Cận lâm sàng & PACS</option>
+              </select>
+
+              <select
+                value={clinicFilterStatus}
+                onChange={e => setClinicFilterStatus(e.target.value)}
+                style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff' }}
+              >
+                <option value="all">Tất cả Trạng thái</option>
+                <option value="active">🟢 Đang hoạt động</option>
+                <option value="maintenance">🟠 Đang bảo trì</option>
+                <option value="inactive">⚪ Tạm đóng</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Clinic Rooms Table */}
+          <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>
+                    <th style={{ padding: '12px 14px', fontWeight: 700 }}>Mã phòng</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 700 }}>Tên buồng / phòng khám & Vị trí</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 700 }}>Chuyên khoa</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 700 }}>Loại phòng & Telemed</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 700 }}>Bác sĩ phụ trách</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 700 }}>Định mức/Ca</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 700 }}>Trang thiết bị y tế</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 700 }}>Trạng thái</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 700, textAlign: 'center' }}>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clinicRooms
+                    .filter(r => {
+                      const q = clinicSearch.trim().toLowerCase()
+                      if (q) {
+                        const matchCode = r.room_code?.toLowerCase().includes(q)
+                        const matchName = r.name?.toLowerCase().includes(q)
+                        const matchLoc = (r.location || '').toLowerCase().includes(q)
+                        const matchEq = (r.equipment_list || '').toLowerCase().includes(q)
+                        if (!matchCode && !matchName && !matchLoc && !matchEq) return false
+                      }
+                      if (clinicFilterDept !== 'all' && String(r.department_id) !== clinicFilterDept) return false
+                      if (clinicFilterType !== 'all' && r.room_type !== clinicFilterType) return false
+                      if (clinicFilterStatus !== 'all' && r.status !== clinicFilterStatus) return false
+                      return true
+                    })
+                    .map(room => (
+                      <tr key={room.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '12px 14px' }}>
+                          <code style={{
+                            background: '#f0fdfa',
+                            color: '#0f766e',
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            fontWeight: 800,
+                            fontSize: '12px',
+                            border: '1px solid #99f6e4'
+                          }}>
+                            {room.room_code}
+                          </code>
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '13.5px' }}>{room.name}</div>
+                          {room.location && (
+                            <div style={{ fontSize: '11.5px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                              <MapPin size={12} /> {room.location}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px 14px', fontWeight: 600, color: '#334155' }}>
+                          {room.department_name || 'Đa chuyên khoa'}
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '12px' }}>
+                            {room.room_type === 'telemedicine'
+                              ? '📹 Khám từ xa (Telemed)'
+                              : room.room_type === 'outpatient'
+                              ? '🏥 Ngoại trú lâm sàng'
+                              : room.room_type === 'emergency'
+                              ? '🚨 Sàng lọc Triage / Cấp cứu'
+                              : '🔬 Cận lâm sàng & PACS'}
+                          </div>
+                          {room.telehealth_station_enabled && (
+                            <span style={{ fontSize: '10.5px', color: '#0d9488', fontWeight: 700 }}>
+                              ✓ Trạm Video WebRTC 4K
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px 14px', color: '#334155' }}>
+                          {room.doctor_in_charge_name || <span style={{ color: '#94a3b8' }}>Chưa gán cố định</span>}
+                        </td>
+                        <td style={{ padding: '12px 14px', fontWeight: 700, color: '#0f172a' }}>
+                          {room.capacity_per_shift} BN/ca
+                        </td>
+                        <td style={{ padding: '12px 14px', maxWidth: '240px', fontSize: '11.5px', color: '#475569' }}>
+                          {room.equipment_list || '—'}
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleClinicStatus(room)}
+                            title="Bấm để chuyển đổi trạng thái hoạt động / bảo trì"
+                            style={{
+                              border: 'none',
+                              padding: '4px 10px',
+                              borderRadius: '12px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              background: room.status === 'active' ? '#dcfce7' : room.status === 'maintenance' ? '#fef3c7' : '#f1f5f9',
+                              color: room.status === 'active' ? '#166534' : room.status === 'maintenance' ? '#92400e' : '#475569'
+                            }}
+                          >
+                            {room.status === 'active' ? '🟢 Hoạt động' : room.status === 'maintenance' ? '🟠 Bảo trì' : '⚪ Tạm đóng'}
+                          </button>
+                        </td>
+                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                          <div style={{ display: 'inline-flex', gap: '6px' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditClinic(room)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                background: '#e0f2fe',
+                                color: '#0369a1',
+                                border: 'none',
+                                padding: '5px 10px',
+                                borderRadius: '6px',
+                                fontSize: '11.5px',
+                                fontWeight: 700,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <Edit size={13} /> Sửa
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteClinicRoom(room)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                background: '#fee2e2',
+                                color: '#b91c1c',
+                                border: 'none',
+                                padding: '5px 10px',
+                                borderRadius: '6px',
+                                fontSize: '11.5px',
+                                fontWeight: 700,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <Trash2 size={13} /> Xóa
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  {clinicRooms.length === 0 && (
+                    <tr>
+                      <td colSpan={9} style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>
+                        Chưa có buồng/phòng khám nào. Nhấn <strong>"+ Thêm Phòng Khám Mới"</strong> để tạo mới.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Modal Tạo Mới / Chỉnh Sửa Phòng Khám */}
+          {showClinicModal && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(15, 23, 42, 0.6)',
+              backdropFilter: 'blur(4px)',
+              zIndex: 10000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px'
+            }}>
+              <div style={{
+                background: '#ffffff',
+                borderRadius: '16px',
+                width: '100%',
+                maxWidth: '640px',
+                maxHeight: '90vh',
+                overflowY: 'auto',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+                border: '1px solid #e2e8f0'
+              }}>
+                <div style={{
+                  background: 'linear-gradient(135deg, #0f172a 0%, #0f766e 100%)',
+                  color: '#ffffff',
+                  padding: '18px 24px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800 }}>
+                    {editingRoom ? `Chỉnh Sửa Phòng Khám [${editingRoom.room_code}]` : 'Thêm Buồng / Phòng Khám Mới'}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowClinicModal(false)}
+                    style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveClinicRoom} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        Mã phòng khám (*):
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="VD: PK-TELE-03"
+                        value={clinicForm.room_code}
+                        onChange={e => setClinicForm({ ...clinicForm, room_code: e.target.value.toUpperCase() })}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px', fontWeight: 700 }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        Tên buồng / phòng khám (*):
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="VD: Phòng khám Telemedicine #03 (Khoa Nội Tiết)"
+                        value={clinicForm.name}
+                        onChange={e => setClinicForm({ ...clinicForm, name: e.target.value })}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        Trực thuộc Chuyên khoa:
+                      </label>
+                      <select
+                        value={clinicForm.department_id ?? ''}
+                        onChange={e => setClinicForm({ ...clinicForm, department_id: e.target.value ? Number(e.target.value) : null })}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                      >
+                        <option value="">-- Đa chuyên khoa / Dùng chung --</option>
+                        {departmentsList.map(d => (
+                          <option key={d.id} value={d.id}>[{d.code}] {d.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        Phân loại buồng khám:
+                      </label>
+                      <select
+                        value={clinicForm.room_type || 'telemedicine'}
+                        onChange={e => setClinicForm({ ...clinicForm, room_type: e.target.value })}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                      >
+                        <option value="telemedicine">Khám chữa bệnh từ xa (Telemedicine)</option>
+                        <option value="outpatient">Buồng khám Ngoại trú (Outpatient)</option>
+                        <option value="emergency">Bàn Tiếp đón Triage / Cấp cứu</option>
+                        <option value="paraclinical">Phòng Cận lâm sàng & Đọc phim PACS</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        Vị trí / Tầng / Khu nhà:
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="VD: Tầng 3 - Trung tâm Khám từ xa"
+                        value={clinicForm.location || ''}
+                        onChange={e => setClinicForm({ ...clinicForm, location: e.target.value })}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        Bác sĩ phụ trách chính:
+                      </label>
+                      <select
+                        value={clinicForm.doctor_in_charge_id ?? ''}
+                        onChange={e => setClinicForm({ ...clinicForm, doctor_in_charge_id: e.target.value ? Number(e.target.value) : null })}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                      >
+                        <option value="">-- Linh hoạt theo ca trực --</option>
+                        {usersList.filter(u => u.role === 'doctor').map(doc => (
+                          <option key={doc.id} value={doc.id}>{doc.full_name} ({doc.email})</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', alignItems: 'end' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        Công suất / Ca trực (BN):
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={clinicForm.capacity_per_shift || 15}
+                        onChange={e => setClinicForm({ ...clinicForm, capacity_per_shift: Number(e.target.value) })}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        Trạng thái vận hành:
+                      </label>
+                      <select
+                        value={clinicForm.status || 'active'}
+                        onChange={e => setClinicForm({ ...clinicForm, status: e.target.value })}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                      >
+                        <option value="active">🟢 Đang hoạt động</option>
+                        <option value="maintenance">🟠 Bảo trì thiết bị</option>
+                        <option value="inactive">⚪ Tạm đóng</option>
+                      </select>
+                    </div>
+
+                    <div style={{ paddingBottom: '8px' }}>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700, color: '#0f766e', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(clinicForm.telehealth_station_enabled)}
+                          onChange={e => setClinicForm({ ...clinicForm, telehealth_station_enabled: e.target.checked })}
+                        />
+                        Trạm Video Telehealth
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      Danh mục Trang thiết bị Y tế & IoT tại phòng:
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="VD: LiveKit Video Station 4K, Ống nghe số Littmann, Máy đo ECG, Monitor 5 thông số..."
+                      value={clinicForm.equipment_list || ''}
+                      onChange={e => setClinicForm({ ...clinicForm, equipment_list: e.target.value })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      Ghi chú vận hành:
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Ghi chú chuyên môn hoặc quy định phân luồng tại phòng khám..."
+                      value={clinicForm.notes || ''}
+                      onChange={e => setClinicForm({ ...clinicForm, notes: e.target.value })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowClinicModal(false)}
+                      style={{ padding: '9px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      Hủy bỏ
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={savingClinic}
+                      style={{ padding: '9px 22px', borderRadius: '8px', border: 'none', background: '#0d9488', color: '#fff', fontWeight: 800, cursor: 'pointer' }}
+                    >
+                      {savingClinic ? 'Đang lưu...' : editingRoom ? 'Cập nhật Phòng khám' : 'Tạo Phòng khám'}
                     </button>
                   </div>
                 </form>

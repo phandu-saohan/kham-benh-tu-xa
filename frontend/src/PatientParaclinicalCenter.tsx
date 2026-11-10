@@ -1035,8 +1035,8 @@ export function PatientParaclinicalCenter({
 
               {/* Patient Meta Box */}
               <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px 14px', marginBottom: '16px', fontSize: '12px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
-                <div>Họ và tên bệnh nhân: <b>{user?.full_name || 'Demo Patient'}</b></div>
-                <div>Mã hồ sơ (PID): <b>{user?.national_id || 'PAT-0001'}</b></div>
+                <div>Họ và tên bệnh nhân: <b>{user?.full_name || 'Người bệnh'}</b></div>
+                <div>Mã hồ sơ (PID): <b>{(user as any)?.external_patient_id || `BN-${user?.id || '0001'}`}</b></div>
                 <div>Bác sĩ chỉ định: <b>{printModalReport.doctor_order}</b></div>
                 <div>Kỹ thuật viên thực hiện: <b>{printModalReport.performed_by}</b></div>
               </div>

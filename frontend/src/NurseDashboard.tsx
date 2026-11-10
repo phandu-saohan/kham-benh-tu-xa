@@ -581,29 +581,6 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
               <span className="badge-dean06">ĐỀ ÁN 06/CP</span>
               <h3>Tra Cứu & Nhận Diện Hồ Sơ EMR Bằng Thẻ CCCD Gắn Chip / VNeID</h3>
             </div>
-            <div className="cccd-dock-chips">
-              <button
-                type="button"
-                className="cccd-quick-chip"
-                onClick={() => { setCccdSearch('079092014829'); handleIdentifyPatient('079092014829'); }}
-              >
-                Demo: 079092014829 (Demo Patient)
-              </button>
-              <button
-                type="button"
-                className="cccd-quick-chip"
-                onClick={() => { setCccdSearch('001200000001'); handleIdentifyPatient('001200000001'); }}
-              >
-                Demo: 001200000001 (Bệnh nền)
-              </button>
-              <button
-                type="button"
-                className="cccd-quick-chip"
-                onClick={() => { setCccdSearch('038088000002'); handleIdentifyPatient('038088000002'); }}
-              >
-                Demo: 038088000002 (Cấp cứu)
-              </button>
-            </div>
           </div>
 
           <div className="cccd-dock-input-row">
@@ -663,7 +640,7 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
                       ✓ VNeID Mức {identifiedPatient.vneid_level || 2}
                     </span>
                     <span style={{ fontSize: '11px', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
-                      Mã PID: {identifiedPatient.pid || `BN-${identifiedPatient.patient_id || 'DEMO'}`}
+                      Mã PID: {identifiedPatient.pid || `BN-${identifiedPatient.patient_id || 'MOI'}`}
                     </span>
                   </div>
                   <div style={{ fontSize: '12px', color: '#64748b', marginTop: '3px' }}>

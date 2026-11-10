@@ -759,6 +759,74 @@ export async function getDepartments() {
   return request<Department[]>('/api/v1/departments')
 }
 
+// --- QUẢN LÝ PHÒNG KHÁM / BUỒNG BỆNH (CLINIC ROOMS API) ---
+export interface ClinicRoom {
+  id: number
+  room_code: string
+  name: string
+  department_id?: number | null
+  department_name?: string | null
+  room_type: string
+  location?: string | null
+  doctor_in_charge_id?: number | null
+  doctor_in_charge_name?: string | null
+  capacity_per_shift: number
+  telehealth_station_enabled: boolean
+  equipment_list?: string | null
+  status: 'active' | 'maintenance' | 'closed'
+  notes?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface ClinicRoomIn {
+  room_code: string
+  name: string
+  department_id?: number | null
+  room_type?: string
+  location?: string
+  doctor_in_charge_id?: number | null
+  capacity_per_shift?: number
+  telehealth_station_enabled?: boolean
+  equipment_list?: string
+  status?: string
+  notes?: string
+}
+
+export async function getClinicRooms(params?: { department_id?: number; room_type?: string; status?: string; search?: string }) {
+  const query = new URLSearchParams()
+  if (params?.department_id) query.append('department_id', params.department_id.toString())
+  if (params?.room_type) query.append('room_type', params.room_type)
+  if (params?.status) query.append('status', params.status)
+  if (params?.search) query.append('search', params.search)
+  const qs = query.toString() ? `?${query.toString()}` : ''
+  return request<ClinicRoom[]>(`/api/v1/clinic-rooms${qs}`)
+}
+
+export async function getClinicRoom(id: number) {
+  return request<ClinicRoom>(`/api/v1/clinic-rooms/${id}`)
+}
+
+export async function createClinicRoom(data: ClinicRoomIn) {
+  return request<ClinicRoom>('/api/v1/clinic-rooms', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function updateClinicRoom(id: number, data: Partial<ClinicRoomIn>) {
+  return request<ClinicRoom>(`/api/v1/clinic-rooms/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function deleteClinicRoom(id: number) {
+  return request<{ success: boolean; message: string }>(`/api/v1/clinic-rooms/${id}`, {
+    method: 'DELETE'
+  })
+}
+
 export async function getDoctorShifts(doctorId: number) {
   return request<DoctorShift[]>(`/api/v1/doctors/${doctorId}/shifts`)
 }

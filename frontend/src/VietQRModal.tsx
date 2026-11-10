@@ -151,7 +151,7 @@ export function VietQRModal({
               </div>
             </div>
 
-            {/* Hướng dẫn & Nút giả lập test */}
+            {/* Hướng dẫn & Xác nhận chuyển khoản */}
             <div className="qr-actions">
               <p className="tiny muted" style={{ textAlign: 'center', margin: '0' }}>
                 Mở app ngân hàng bất kỳ (Vietcombank, MB, Techcombank, MoMo...) và quét mã trên.
@@ -162,7 +162,7 @@ export function VietQRModal({
                 onClick={handleSimulate}
                 disabled={simulating}
               >
-                {simulating ? 'Đang kích hoạt...' : 'Giả lập thanh toán tức thì (Demo Mode)'}
+                {simulating ? 'Đang kiểm tra giao dịch...' : 'Xác nhận đã chuyển khoản'}
               </button>
             </div>
           </div>

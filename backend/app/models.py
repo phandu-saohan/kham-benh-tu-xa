@@ -92,11 +92,29 @@ class PatientConsent(Base):
     ip_address: Mapped[str | None] = mapped_column(String(50), nullable=True)
     consented_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+class ClinicRoom(Base):
+    __tablename__ = "clinic_rooms"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    room_code: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    department_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id"), nullable=True)
+    room_type: Mapped[str] = mapped_column(String(50), default="telemedicine") # telemedicine, outpatient, emergency, inpatient, paraclinical
+    location: Mapped[str | None] = mapped_column(String(200), default="Tầng 1 - Khu A")
+    doctor_in_charge_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    capacity_per_shift: Mapped[int] = mapped_column(Integer, default=15)
+    telehealth_station_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    equipment_list: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="active") # active, maintenance, closed
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
 class DoctorShift(Base):
     __tablename__ = "doctor_shifts"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     doctor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     department_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id"), nullable=True)
+    clinic_room_id: Mapped[int | None] = mapped_column(ForeignKey("clinic_rooms.id"), nullable=True)
     shift_date: Mapped[str] = mapped_column(String(20), index=True) # YYYY-MM-DD
     shift_type: Mapped[str] = mapped_column(String(30)) # morning (07:30-11:30), afternoon (13:30-17:00), evening (18:00-21:00)
     start_time: Mapped[str] = mapped_column(String(10), default="07:30")

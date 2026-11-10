@@ -759,55 +759,6 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                     </div>
                   </div>
                 )}
-
-                {/* Nút Demo Test Nhanh */}
-                <div className="pr-presets-bar">
-                  <span className="pr-presets-title">⚡ Thử nhanh hồ sơ mẫu trên HIS Bệnh viện:</span>
-                  <div className="pr-presets-chips">
-                    <button
-                      type="button"
-                      className="pr-btn-preset"
-                      onClick={() => handleSelectPreset(
-                        '080180012345',
-                        'Nguyễn Thị Bích Hòa',
-                        '0900000001',
-                        '1980-08-15',
-                        'Nữ',
-                        'Số 123 Đường Nguyễn Trãi, Phường 2, Quận 5, TP. Hồ Chí Minh'
-                      )}
-                    >
-                      Bệnh nhân có EMR & BHYT (080180012345 - Bích Hòa)
-                    </button>
-                    <button
-                      type="button"
-                      className="pr-btn-preset"
-                      onClick={() => handleSelectPreset(
-                        '079192023456',
-                        'Trần Văn Đạt',
-                        '0900000002',
-                        '1992-04-22',
-                        'Nam',
-                        'Ấp 1, Xã Bình Chánh, Huyện Bình Chánh, TP. Hồ Chí Minh'
-                      )}
-                    >
-                      Bệnh nhân tái khám (079192023456 - Văn Đạt)
-                    </button>
-                    <button
-                      type="button"
-                      className="pr-btn-preset"
-                      onClick={() => handleSelectPreset(
-                        '079201009999',
-                        'Lê Hoàng Nam',
-                        '0988776655',
-                        '1995-10-10',
-                        'Nam',
-                        'Phường Tân Phong, Quận 7, TP. Hồ Chí Minh'
-                      )}
-                    >
-                      Bệnh nhân mới (Chưa có trên HIS)
-                    </button>
-                  </div>
-                </div>
               </div>
 
               {/* Bấm Tra Cứu HIS thủ công nếu cần */}
