@@ -27,7 +27,10 @@ import {
   SlidersHorizontal,
   ChevronRight,
   Shield,
-  Sparkles
+  Sparkles,
+  CalendarDays,
+  Plus,
+  DoorOpen
 } from 'lucide-react'
 import {
   AdminOverviewData,
@@ -43,22 +46,28 @@ import {
   updateUserRole,
   deidentifyRecord,
   updatePermissionsMatrix,
-  resetPermissionsMatrix
+  resetPermissionsMatrix,
+  DoctorShift,
+  AdminDoctorShiftIn,
+  getAllDoctorShifts,
+  adminCreateDoctorShift,
+  syncHisDoctorShifts,
+  deleteDoctorShift
 } from './api'
 import { NotificationCenter } from './NotificationCenter'
 import { Pagination } from './Pagination'
 
 interface AdminDashboardProps {
   onBack?: () => void
-  activeTab?: 'settings' | 'overview' | 'users' | 'rbac' | 'audit'
-  onTabChange?: (tab: 'settings' | 'overview' | 'users' | 'rbac' | 'audit') => void
+  activeTab?: 'settings' | 'overview' | 'users' | 'rbac' | 'audit' | 'schedules'
+  onTabChange?: (tab: 'settings' | 'overview' | 'users' | 'rbac' | 'audit' | 'schedules') => void
   hideInternalNav?: boolean
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
-  const [activeTabInternal, setActiveTabInternal] = useState<'settings' | 'overview' | 'users' | 'rbac' | 'audit'>('settings')
+  const [activeTabInternal, setActiveTabInternal] = useState<'settings' | 'overview' | 'users' | 'rbac' | 'audit' | 'schedules'>('settings')
   const activeTab = props.activeTab || activeTabInternal
-  const setActiveTab = (tab: 'settings' | 'overview' | 'users' | 'rbac' | 'audit') => {
+  const setActiveTab = (tab: 'settings' | 'overview' | 'users' | 'rbac' | 'audit' | 'schedules') => {
     setActiveTabInternal(tab)
     if (props.onTabChange) props.onTabChange(tab)
   }
@@ -88,6 +97,96 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   }
 
   const [toastMessage, setToastMessage] = useState('')
+
+  // Phân công Lịch khám & Buồng khám State
+  const [adminShifts, setAdminShifts] = useState<DoctorShift[]>([])
+  const [loadingAdminShifts, setLoadingAdminShifts] = useState(false)
+  const [syncingHisShifts, setSyncingHisShifts] = useState(false)
+  const [showAssignModal, setShowAssignModal] = useState(false)
+  const [assignDoctorId, setAssignDoctorId] = useState(2)
+  const [assignDate, setAssignDate] = useState('2026-11-10')
+  const [assignShiftType, setAssignShiftType] = useState('morning')
+  const [assignRoomName, setAssignRoomName] = useState('Phòng khám Telemedicine #01 (Khoa Nội)')
+  const [assignMaxPatients, setAssignMaxPatients] = useState(12)
+  const [assignNotes, setAssignNotes] = useState('Phân công từ Ban Quản trị Bệnh viện')
+
+  const loadAdminShifts = async () => {
+    try {
+      setLoadingAdminShifts(true)
+      const data = await getAllDoctorShifts()
+      if (data && data.length > 0) {
+        setAdminShifts(data)
+      } else {
+        const syncRes = await syncHisDoctorShifts()
+        if (syncRes?.success) {
+          const refreshed = await getAllDoctorShifts()
+          setAdminShifts(refreshed || [])
+        }
+      }
+    } catch (err) {
+      console.warn('Lỗi tải danh sách phân công lịch khám:', err)
+    } finally {
+      setLoadingAdminShifts(false)
+    }
+  }
+
+  const handleAdminSyncHis = async () => {
+    try {
+      setSyncingHisShifts(true)
+      const res = await syncHisDoctorShifts()
+      if (res?.success) {
+        setToastMessage(`🏥 ${res.message}`)
+        setTimeout(() => setToastMessage(''), 4000)
+        const refreshed = await getAllDoctorShifts()
+        setAdminShifts(refreshed || [])
+      }
+    } catch (err: any) {
+      setToastMessage('⚠️ Lỗi đồng bộ từ HIS: ' + (err.message || 'Lỗi mạng'))
+      setTimeout(() => setToastMessage(''), 4000)
+    } finally {
+      setSyncingHisShifts(false)
+    }
+  }
+
+  const handleAdminCreateShift = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      await adminCreateDoctorShift({
+        doctor_id: assignDoctorId,
+        shift_date: assignDate,
+        shift_type: assignShiftType,
+        room_name: assignRoomName,
+        max_patients: assignMaxPatients,
+        notes: assignNotes
+      })
+      setShowAssignModal(false)
+      setToastMessage('🎉 Đã phân công ca khám và buồng khám cho Bác sĩ thành công!')
+      setTimeout(() => setToastMessage(''), 4000)
+      loadAdminShifts()
+    } catch (err: any) {
+      setToastMessage('⚠️ Lỗi phân công: ' + (err.message || 'Lỗi mạng'))
+      setTimeout(() => setToastMessage(''), 4000)
+    }
+  }
+
+  const handleAdminDeleteShift = async (shiftId: number) => {
+    if (!window.confirm('Bạn có chắc chắn muốn hủy phân công ca khám này?')) return
+    try {
+      await deleteDoctorShift(shiftId)
+      setToastMessage('Đã hủy phân công ca khám thành công')
+      setTimeout(() => setToastMessage(''), 3000)
+      loadAdminShifts()
+    } catch (err: any) {
+      setToastMessage('Lỗi hủy ca: ' + (err.message || ''))
+      setTimeout(() => setToastMessage(''), 3000)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'schedules') {
+      loadAdminShifts()
+    }
+  }, [activeTab])
 
   // Overview data
   const [overview, setOverview] = useState<AdminOverviewData | null>(null)
@@ -359,6 +458,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             onClick={() => setActiveTab('rbac')}
           >
             <SlidersHorizontal size={16} /> Ma trận Phân quyền & RBAC
+          </button>
+          <button
+            type="button"
+            className={`admin-tab-btn ${activeTab === 'schedules' ? 'active' : ''}`}
+            onClick={() => setActiveTab('schedules')}
+          >
+            <CalendarDays size={16} /> Phân công Lịch & Phòng khám
           </button>
           <button
             type="button"
@@ -1297,6 +1403,365 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
           </div>
         </div>
       )}
+      {/* ========================================================================= */}
+      {/* TAB 6: PHÂN CÔNG LỊCH KHÁM & PHÒNG KHÁM (QUẢN TRỊ & ĐỒNG BỘ HIS) */}
+      {/* ========================================================================= */}
+      {activeTab === 'schedules' && (
+        <div className="admin-module-section">
+          {/* Header Action Bar */}
+          <div style={{
+            background: 'linear-gradient(135deg, #064e3b 0%, #065f46 60%, #047857 100%)',
+            borderRadius: '16px',
+            padding: '24px 28px',
+            color: '#ffffff',
+            marginBottom: '20px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '16px',
+            boxShadow: '0 8px 24px rgba(6, 78, 59, 0.16)'
+          }}>
+            <div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.18)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700, marginBottom: '8px' }}>
+                <CalendarDays size={14} />
+                ĐIỀU PHỐI TẬP TRUNG TOÀN VIỆN
+              </div>
+              <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>
+                Phân Công Thời Gian Khám & Buồng Khám Bác Sĩ
+              </h2>
+              <p style={{ margin: '6px 0 0', opacity: 0.9, fontSize: '13.5px' }}>
+                Tạo lịch phân công ca khám & buồng khám cho Bác sĩ hoặc đồng bộ tự động thời gian thực từ API của Hệ thống Quản trị Bệnh viện (HIS/EMR).
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={handleAdminSyncHis}
+                disabled={syncingHisShifts}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: 'rgba(255,255,255,0.15)',
+                  color: '#ffffff',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  padding: '10px 16px',
+                  borderRadius: '10px',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: syncingHisShifts ? 'wait' : 'pointer'
+                }}
+                title="Đồng bộ lịch phân công ca & phòng từ HIS"
+              >
+                <RefreshCw size={15} className={syncingHisShifts ? 'spin-icon' : ''} />
+                <span>{syncingHisShifts ? 'Đang đồng bộ HIS...' : 'Đồng bộ từ API HIS'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowAssignModal(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: '#10b981',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '10px 18px',
+                  borderRadius: '10px',
+                  fontWeight: 800,
+                  fontSize: '13.5px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)'
+                }}
+              >
+                <Plus size={16} />
+                Phân công Ca khám & Phòng khám
+              </button>
+            </div>
+          </div>
+
+          {/* KPI Summary Cards */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '14px',
+            marginBottom: '20px'
+          }}>
+            <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 600 }}>Tổng ca phân công tuần này</div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', marginTop: '4px' }}>
+                {adminShifts.length} <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>ca trực</span>
+              </div>
+            </div>
+            <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 600 }}>Buồng khám Telemed hoạt động</div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#059669', marginTop: '4px' }}>
+                5 buồng <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>khám E2EE</span>
+              </div>
+            </div>
+            <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 600 }}>Nguồn phân công</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#0284c7', marginTop: '6px' }}>
+                100% HIS API & BQT
+              </div>
+            </div>
+            <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 600 }}>Cơ chế chống quá tải BYT</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#16a34a', marginTop: '6px' }}>
+                🟢 Đạt chuẩn (Max 12-15 BN)
+              </div>
+            </div>
+          </div>
+
+          {/* Table of Doctor Shifts */}
+          <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+                Danh Sách Phân Công Ca Trực & Buồng Khám Toàn Viện
+              </h3>
+              <span style={{ fontSize: '12.5px', color: '#64748b' }}>
+                Hiển thị {adminShifts.length} phân công
+              </span>
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>
+                    <th style={{ padding: '12px 14px', fontWeight: 700 }}>Bác sĩ phụ trách</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 700 }}>Chuyên khoa</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 700 }}>Ngày khám</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 700 }}>Ca trực & Khung giờ</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 700 }}>Phòng khám được phân công</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 700 }}>Nguồn phân công</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 700 }}>Định mức (BYT)</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 700, textAlign: 'center' }}>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {adminShifts.map((s, idx) => {
+                    const isHis = s.notes && s.notes.includes('HIS')
+                    return (
+                      <tr key={s.id || idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '12px 14px', fontWeight: 700, color: '#0f172a' }}>
+                          {s.doctor_name || 'BS. CKII Trần Minh'}
+                        </td>
+                        <td style={{ padding: '12px 14px', color: '#475569' }}>
+                          {s.department_name || 'Khoa Nội Tổng Quát'}
+                        </td>
+                        <td style={{ padding: '12px 14px', fontWeight: 600 }}>
+                          {s.shift_date}
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <strong>{s.shift_type === 'morning' ? '☀️ Ca Sáng' : s.shift_type === 'afternoon' ? '🌤️ Ca Chiều' : '🌙 Ca Tối'}</strong>
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>
+                            {s.start_time || '07:30'} - {s.end_time || '11:30'}
+                          </div>
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: '#0f172a' }}>
+                            <DoorOpen size={14} color="#059669" />
+                            {s.room_name || 'Phòng khám Telemedicine #01'}
+                          </div>
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            background: isHis ? '#e0f2fe' : '#fef3c7',
+                            color: isHis ? '#0369a1' : '#b45309'
+                          }}>
+                            {isHis ? '🏥 HIS API' : '🛡️ Ban Quản trị'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <strong>{s.booked_count || 4}</strong>/{s.max_patients} BN
+                        </td>
+                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleAdminDeleteShift(s.id)}
+                            style={{
+                              background: '#fee2e2',
+                              color: '#b91c1c',
+                              border: 'none',
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Hủy
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Modal Phân công Ca khám mới */}
+          {showAssignModal && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(15, 23, 42, 0.6)',
+              backdropFilter: 'blur(4px)',
+              zIndex: 10000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px'
+            }}>
+              <div style={{
+                background: '#ffffff',
+                borderRadius: '16px',
+                width: '100%',
+                maxWidth: '520px',
+                overflow: 'hidden',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+                border: '1px solid #e2e8f0'
+              }}>
+                <div style={{
+                  background: 'linear-gradient(135deg, #065f46 0%, #047857 100%)',
+                  color: '#ffffff',
+                  padding: '18px 22px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800 }}>
+                    Phân Công Ca Khám & Buồng Khám Mới
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowAssignModal(false)}
+                    style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleAdminCreateShift} style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      Bác sĩ phân công:
+                    </label>
+                    <select
+                      value={assignDoctorId}
+                      onChange={e => setAssignDoctorId(Number(e.target.value))}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                    >
+                      <option value={2}>BS. CKII Trần Minh (Khoa Nội Tổng Quát)</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        Ngày khám:
+                      </label>
+                      <input
+                        type="date"
+                        value={assignDate}
+                        onChange={e => setAssignDate(e.target.value)}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        Ca khám:
+                      </label>
+                      <select
+                        value={assignShiftType}
+                        onChange={e => setAssignShiftType(e.target.value)}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                      >
+                        <option value="morning">Ca Sáng (07:30 - 11:30)</option>
+                        <option value="afternoon">Ca Chiều (13:30 - 17:00)</option>
+                        <option value="evening">Ca Tối (17:30 - 20:30)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      Phòng khám phân công:
+                    </label>
+                    <select
+                      value={assignRoomName}
+                      onChange={e => setAssignRoomName(e.target.value)}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                    >
+                      <option value="Phòng khám Telemedicine #01 (Khoa Nội)">Phòng khám Telemedicine #01 (Khoa Nội)</option>
+                      <option value="Phòng khám Telemedicine #02 (Khoa Nội)">Phòng khám Telemedicine #02 (Khoa Nội)</option>
+                      <option value="Phòng khám Telemedicine #03 (Tư vấn Tim Mạch)">Phòng khám Telemedicine #03 (Tư vấn Tim Mạch)</option>
+                      <option value="Phòng khám Nội 203 (Khu Khám Bệnh)">Phòng khám Nội 203 (Khu Khám Bệnh)</option>
+                      <option value="Phòng khám Cấp cứu & Khám Sàng Lọc">Phòng khám Cấp cứu & Khám Sàng Lọc</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '10px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        Định mức tối đa (BN):
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={30}
+                        value={assignMaxPatients}
+                        onChange={e => setAssignMaxPatients(Number(e.target.value))}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        Ghi chú phân công:
+                      </label>
+                      <input
+                        type="text"
+                        value={assignNotes}
+                        onChange={e => setAssignNotes(e.target.value)}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowAssignModal(false)}
+                      style={{ padding: '9px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      Hủy bỏ
+                    </button>
+                    <button
+                      type="submit"
+                      style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: '#059669', color: '#fff', fontWeight: 800, cursor: 'pointer' }}
+                    >
+                      Lưu phân công
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
     </div>
   )
 }

@@ -703,6 +703,18 @@ export type DoctorShiftIn = {
   notes?: string
 }
 
+export type AdminDoctorShiftIn = {
+  doctor_id: number
+  department_id?: number
+  shift_date: string
+  shift_type: string
+  start_time?: string
+  end_time?: string
+  room_name: string
+  max_patients?: number
+  notes?: string
+}
+
 export type AppointmentCancelOut = {
   success: boolean
   appointment_id: number
@@ -749,6 +761,28 @@ export async function getDepartments() {
 
 export async function getDoctorShifts(doctorId: number) {
   return request<DoctorShift[]>(`/api/v1/doctors/${doctorId}/shifts`)
+}
+
+export async function getAllDoctorShifts(params?: { doctor_id?: number; shift_date?: string }) {
+  const query = new URLSearchParams()
+  if (params?.doctor_id) query.append('doctor_id', params.doctor_id.toString())
+  if (params?.shift_date) query.append('shift_date', params.shift_date)
+  const qs = query.toString() ? `?${query.toString()}` : ''
+  return request<DoctorShift[]>(`/api/v1/shifts/doctor-shifts${qs}`)
+}
+
+export async function adminCreateDoctorShift(data: AdminDoctorShiftIn) {
+  return request<DoctorShift>('/api/v1/admin/doctor-shifts', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function syncHisDoctorShifts(doctorId?: number) {
+  const qs = doctorId ? `?doctor_id=${doctorId}` : ''
+  return request<{ success: boolean; message: string; synced_count: number; synced_at: string }>(`/api/v1/shifts/sync-his-schedules${qs}`, {
+    method: 'POST'
+  })
 }
 
 export async function cancelAppointment(appointmentId: number, reason: string) {

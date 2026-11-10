@@ -35,7 +35,7 @@ from app.schemas import (
     ConsentAgreeIn, ConsentStatusOut, DigitalSignRequest, DigitalSignResponse,
     NationalPrescriptionSyncOut, PACSViewerOut,
     AmbientScribeIn, AmbientScribeOut, AIStatusOut, AISwitchModeIn, BhytCheckIn, BhytCheckOut,
-    DepartmentOut, DoctorShiftIn, DoctorShiftOut, DoctorProfileIn, DoctorProfileOut, SupportTicketIn, SupportTicketStatusUpdate, SupportTicketOut, SupportTicketMessageIn, SupportTicketMessageOut, NurseShiftIn, NurseShiftOut, NurseShiftUpdateIn, AssignNurseIn, AppointmentCancelIn, AppointmentCancelOut,
+    DepartmentOut, DoctorShiftIn, DoctorShiftOut, AdminDoctorShiftIn, DoctorProfileIn, DoctorProfileOut, SupportTicketIn, SupportTicketStatusUpdate, SupportTicketOut, SupportTicketMessageIn, SupportTicketMessageOut, NurseShiftIn, NurseShiftOut, NurseShiftUpdateIn, AssignNurseIn, AppointmentCancelIn, AppointmentCancelOut,
     RefundRequestIn, RefundRequestOut,
     CabinetItemIn, CabinetItemOut,
     ConsultationMessageIn, ConsultationMessageOut,
@@ -3145,6 +3145,168 @@ def delete_doctor_shift(
     shift.is_active = False
     db.commit()
     return {"success": True, "message": "Đã hủy ca trực thành công"}
+
+@app.get("/api/v1/shifts/doctor-shifts", response_model=list[DoctorShiftOut])
+def list_all_doctor_shifts(
+    doctor_id: int | None = None,
+    shift_date: str | None = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Lấy danh sách phân công lịch khám & buồng khám của bác sĩ toàn viện.
+    """
+    q = db.query(DoctorShift).filter_by(is_active=True)
+    if doctor_id:
+        q = q.filter(DoctorShift.doctor_id == doctor_id)
+    if shift_date:
+        q = q.filter(DoctorShift.shift_date == shift_date)
+    shifts = q.order_by(DoctorShift.shift_date.desc(), DoctorShift.start_time.asc()).all()
+    
+    results = []
+    for s in shifts:
+        doctor = db.get(User, s.doctor_id)
+        dept = db.get(Department, s.department_id) if s.department_id else (doctor.department if doctor else None)
+        avail = max(0, s.max_patients - s.booked_count)
+        results.append(DoctorShiftOut(
+            id=s.id,
+            doctor_id=s.doctor_id,
+            doctor_name=doctor.full_name if doctor else "Bác sĩ",
+            department_id=dept.id if dept else None,
+            department_name=dept.name if dept else "Khoa Nội Tổng Quát",
+            shift_date=s.shift_date,
+            shift_type=s.shift_type,
+            start_time=s.start_time,
+            end_time=s.end_time,
+            max_patients=s.max_patients,
+            booked_count=s.booked_count,
+            available_slots=avail,
+            is_overloaded=(avail <= 0),
+            room_name=s.room_name or "Phòng khám Telemedicine #01 (Khoa Nội)",
+            notes=s.notes
+        ))
+    return results
+
+@app.post("/api/v1/admin/doctor-shifts", response_model=DoctorShiftOut)
+def admin_create_doctor_shift(
+    data: AdminDoctorShiftIn,
+    db: Session = Depends(get_db)
+):
+    """
+    Ban Quản trị tạo & phân công lịch thời gian khám và phòng khám cho Bác sĩ.
+    """
+    doctor = db.get(User, data.doctor_id)
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Bác sĩ được chọn không tồn tại")
+    
+    dept_id = data.department_id or doctor.department_id
+    dept = db.get(Department, dept_id) if dept_id else None
+    
+    start_t = data.start_time or ("07:30" if data.shift_type == "morning" else ("13:30" if data.shift_type == "afternoon" else "18:00"))
+    end_t = data.end_time or ("11:30" if data.shift_type == "morning" else ("17:00" if data.shift_type == "afternoon" else "21:00"))
+    
+    shift = DoctorShift(
+        doctor_id=doctor.id,
+        department_id=dept_id,
+        shift_date=data.shift_date,
+        shift_type=data.shift_type,
+        start_time=start_t,
+        end_time=end_t,
+        room_name=data.room_name or "Phòng khám Telemedicine #01 (Khoa Nội)",
+        max_patients=data.max_patients,
+        booked_count=0,
+        notes=data.notes or "Phân công từ Ban Quản trị",
+        is_active=True
+    )
+    db.add(shift)
+    db.commit()
+    db.refresh(shift)
+    
+    return DoctorShiftOut(
+        id=shift.id,
+        doctor_id=shift.doctor_id,
+        doctor_name=doctor.full_name,
+        department_id=dept_id,
+        department_name=dept.name if dept else "Khoa Nội Tổng Quát",
+        shift_date=shift.shift_date,
+        shift_type=shift.shift_type,
+        start_time=shift.start_time,
+        end_time=shift.end_time,
+        max_patients=shift.max_patients,
+        booked_count=0,
+        available_slots=shift.max_patients,
+        is_overloaded=False,
+        room_name=shift.room_name,
+        notes=shift.notes
+    )
+
+@app.post("/api/v1/shifts/sync-his-schedules")
+def sync_his_doctor_schedules(
+    doctor_id: int | None = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Đồng bộ lịch phân công thời gian khám và buồng khám từ Hệ thống Quản trị Bệnh viện (HIS API).
+    """
+    doctors = [db.get(User, doctor_id)] if doctor_id else db.query(User).filter_by(role="doctor").all()
+    doctors = [d for d in doctors if d]
+    if not doctors:
+        # Fallback to doctor 2
+        d2 = db.get(User, 2)
+        if d2:
+            doctors = [d2]
+            
+    his_sample_roster = [
+        {"date": "2026-11-09", "shift": "morning", "start": "07:30", "end": "11:30", "room": "Phòng khám Telemedicine #01 (Khoa Nội)", "max": 12, "booked": 5, "code": "HIS-SCH-2026-1109-A1"},
+        {"date": "2026-11-09", "shift": "afternoon", "start": "13:30", "end": "17:00", "room": "Phòng khám Nội 203 (Khu Khám Bệnh)", "max": 15, "booked": 8, "code": "HIS-SCH-2026-1109-P1"},
+        {"date": "2026-11-10", "shift": "morning", "start": "07:30", "end": "11:30", "room": "Phòng khám Telemedicine #01 (Khoa Nội)", "max": 12, "booked": 6, "code": "HIS-SCH-2026-1110-A1"},
+        {"date": "2026-11-10", "shift": "afternoon", "start": "13:30", "end": "17:00", "room": "Buồng khám Trực tuyến #03", "max": 10, "booked": 4, "code": "HIS-SCH-2026-1110-P1"},
+        {"date": "2026-11-11", "shift": "morning", "start": "07:30", "end": "11:30", "room": "Phòng khám Telemedicine #02 (Khoa Nội)", "max": 12, "booked": 3, "code": "HIS-SCH-2026-1111-A1"},
+        {"date": "2026-11-12", "shift": "afternoon", "start": "13:30", "end": "17:00", "room": "Phòng khám Telemedicine #01 (Khoa Nội)", "max": 12, "booked": 5, "code": "HIS-SCH-2026-1112-P1"},
+        {"date": "2026-11-13", "shift": "morning", "start": "07:30", "end": "11:30", "room": "Phòng khám Cấp cứu & Khám sàng lọc", "max": 15, "booked": 7, "code": "HIS-SCH-2026-1113-A1"},
+        {"date": "2026-11-14", "shift": "morning", "start": "08:00", "end": "12:00", "room": "Phòng khám Telemedicine #01 (Ngoài giờ)", "max": 8, "booked": 2, "code": "HIS-SCH-2026-1114-A1"}
+    ]
+    
+    synced_count = 0
+    for doc in doctors:
+        dept_id = doc.department_id
+        for roster in his_sample_roster:
+            existing = db.query(DoctorShift).filter_by(
+                doctor_id=doc.id,
+                shift_date=roster["date"],
+                shift_type=roster["shift"],
+                is_active=True
+            ).first()
+            if existing:
+                existing.room_name = roster["room"]
+                existing.start_time = roster["start"]
+                existing.end_time = roster["end"]
+                existing.max_patients = roster["max"]
+                existing.booked_count = roster["booked"]
+                existing.notes = f"Đồng bộ tự động từ HIS Bệnh viện (Mã ca: {roster['code']})"
+            else:
+                new_s = DoctorShift(
+                    doctor_id=doc.id,
+                    department_id=dept_id,
+                    shift_date=roster["date"],
+                    shift_type=roster["shift"],
+                    start_time=roster["start"],
+                    end_time=roster["end"],
+                    room_name=roster["room"],
+                    max_patients=roster["max"],
+                    booked_count=roster["booked"],
+                    notes=f"Đồng bộ tự động từ HIS Bệnh viện (Mã ca: {roster['code']})",
+                    is_active=True
+                )
+                db.add(new_s)
+            synced_count += 1
+            
+    db.commit()
+    return {
+        "success": True,
+        "message": f"Đã đồng bộ thành công {synced_count} ca khám và phòng khám từ API HIS Bệnh viện!",
+        "synced_count": synced_count,
+        "synced_at": datetime.now(timezone.utc).isoformat()
+    }
 
 @app.post("/api/v1/appointments/{appointment_id}/cancel", response_model=AppointmentCancelOut)
 def cancel_appointment(

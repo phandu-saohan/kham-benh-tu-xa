@@ -339,6 +339,17 @@ class DoctorShiftIn(BaseModel):
     max_patients: int = 12
     notes: Optional[str] = None
 
+class AdminDoctorShiftIn(BaseModel):
+    doctor_id: int
+    department_id: Optional[int] = None
+    shift_date: str
+    shift_type: str = "morning"
+    start_time: Optional[str] = "07:30"
+    end_time: Optional[str] = "11:30"
+    room_name: Optional[str] = "Phòng khám Telemedicine #01"
+    max_patients: int = 12
+    notes: Optional[str] = "Phân công từ Ban Quản trị" 
+
 class DoctorShiftOut(BaseModel):
     id: int
     doctor_id: int
