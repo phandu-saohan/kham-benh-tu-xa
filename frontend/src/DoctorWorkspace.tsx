@@ -1016,23 +1016,7 @@ export function DoctorWorkspace({
       .catch(err => console.warn('Khong the tai trang thai AI:', err))
   }, [])
 
-  const handleToggleAiMode = async () => {
-    if (switchingAi) return
-    const cur = aiEngine?.mode || 'production'
-    const nextMode = cur === 'production' ? 'test' : 'production'
-    setSwitchingAi(true)
-    try {
-      const res = await switchAIMode(nextMode)
-      setAiEngine(res)
-      setToast(res.mode === 'production'
-        ? '🟢 Đã chuyển sang MedGemma 3 (Chạy thật / Chuyên sâu Y khoa)'
-        : '🧪 Đã chuyển sang Google Gemini 3.8 (Test Engine / Thử nghiệm lâm sàng)')
-    } catch (err: any) {
-      setError('Không thể đổi chế độ AI: ' + (err.message || 'Lỗi mạng'))
-    } finally {
-      setSwitchingAi(false)
-    }
-  }
+  
 
   async function handleAnalyzeAiScribe() {
     if (!scribeTranscript.trim()) {
@@ -1533,39 +1517,7 @@ export function DoctorWorkspace({
                     )}
                   </div>
                   
-                    {/* Badge chuyen doi Dual AI Engine: MedGemma 3 vs Gemini 3.8 */}
-                    <button
-                      type="button"
-                      onClick={handleToggleAiMode}
-                      disabled={switchingAi}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '3px 10px',
-                        borderRadius: '20px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        border: aiEngine?.mode === 'production' ? '1px solid #10b981' : '1px solid #f59e0b',
-                        background: aiEngine?.mode === 'production' ? '#ecfdf5' : '#fffbeb',
-                        color: aiEngine?.mode === 'production' ? '#065f46' : '#b45309',
-                        transition: 'all 0.2s ease'
-                      }}
-                      title={`Click de chuyen doi giua MedGemma 3 (Chay that) va Gemini 3.8 (Test). Dang dung: ${aiEngine?.active_model || 'MedGemma 3'}`}
-                    >
-                      <span style={{
-                        width: '7px',
-                        height: '7px',
-                        borderRadius: '50%',
-                        background: aiEngine?.mode === 'production' ? '#10b981' : '#f59e0b',
-                        boxShadow: aiEngine?.mode === 'production' ? '0 0 6px #10b981' : '0 0 6px #f59e0b'
-                      }} />
-                      <span>{switchingAi ? 'Dang chuyen...' : aiEngine?.mode === 'production' ? 'MedGemma 3 (Chay that)' : 'Gemini 3.8 (Test)'}</span>
-                      <ArrowRightLeft size={11} style={{ opacity: 0.7 }} />
-                    </button>
-
-                  <span className="doctor-ai-scribe-sub">
+                    <span className="doctor-ai-scribe-sub">
                     Tự động nghe hội thoại khám, trích xuất triệu chứng & tạo Phiếu khám chuẩn SOAP (QĐ 130/Bộ Y tế)
                   </span>
                 </div>

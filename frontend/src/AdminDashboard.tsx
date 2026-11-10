@@ -38,7 +38,7 @@ import {
   getAdminAuditLogs,
   getAdminUsers,
   getAdminSettings,
-  updateAdminSettings,
+  updateAdminSettings, getAIStatus, switchAIMode, type AIStatusInfo,
   getPermissionsMatrix,
   updateUserRole,
   deidentifyRecord,
@@ -65,6 +65,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
 
   const [loading, setLoading] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
+  const [aiEngine, setAiEngine] = useState<AIStatusInfo | null>(null)
+  const [switchingAi, setSwitchingAi] = useState(false)
+
+  const [errorMessage, setErrorMessage] = useState('')
+
+  const handleSwitchAiMode = async (targetMode: 'test' | 'production') => {
+    setSwitchingAi(true)
+    setErrorMessage('')
+    try {
+      const updated = await switchAIMode(targetMode)
+      setAiEngine(updated)
+      setToastMessage(targetMode === 'production'
+        ? '🟢 Đã chuyển AI Engine sang MedGemma 3 (Chạy thật / Clinical Production) thành công!'
+        : '🧪 Đã chuyển AI Engine sang Google Gemini 3.8 (Thử nghiệm / Test Mode) thành công!')
+      setTimeout(() => setToastMessage(''), 4000)
+    } catch (err: any) {
+      setToastMessage('⚠️ Không thể đổi chế độ AI: ' + (err.message || 'Lỗi mạng'))
+    } finally {
+      setSwitchingAi(false)
+    }
+  }
+
   const [toastMessage, setToastMessage] = useState('')
 
   // Overview data
@@ -142,6 +164,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       if (activeTab === 'settings') {
         const s = await getAdminSettings()
         setSettingsForm(s)
+        try { const ai = await getAIStatus(); setAiEngine(ai); } catch (e) { console.warn(e); }
       } else if (activeTab === 'overview') {
         const o = await getAdminOverview()
         setOverview(o)
@@ -657,27 +680,139 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             </div>
           </div>
 
-          {/* Card 7: Bộ Trí tuệ Nhân tạo Y tế (CareConnect Medical AI Suite) & Khử định danh */}
+                    {/* Card 7: Bộ Trí tuệ Nhân tạo Y tế (CareConnect Medical AI Suite) & Quản lý Dual AI Engine */}
           <div className="settings-card">
             <div className="card-header">
               <Sparkles size={18} className="text-teal" />
               <div>
-                <h4>Bộ Trí tuệ Nhân tạo Y tế (Medical AI Suite) & An toàn Dữ liệu (Nghị định 13)</h4>
-                <p className="tiny muted">Tích hợp mô hình AI Gemini 2.5 Flash kết hợp Bộ quy chuẩn Y khoa Bộ Y tế & BHXH</p>
+                <h4>Bộ Trí tuệ Nhân tạo Y tế (Medical AI Suite) & Quản lý Phân luồng AI Engine</h4>
+                <p className="tiny muted">Chỉ Quản trị viên mới có quyền chuyển đổi giữa Google MedGemma 3 (Chạy thật) và Gemini 3.8 (Test)</p>
               </div>
             </div>
 
             <div className="settings-grid">
+              {/* Dual Engine Switcher Block - Dành riêng cho Quản trị viên */}
+              <div className="col-12" style={{ background: '#f8fafc', padding: '16px 18px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: aiEngine?.mode === 'production' ? '#10b981' : '#f59e0b', boxShadow: aiEngine?.mode === 'production' ? '0 0 8px #10b981' : '0 0 8px #f59e0b' }} />
+                    <strong style={{ fontSize: '14px', color: '#0f172a' }}>
+                      Mô hình AI Hiện hành: {aiEngine?.model_display || (aiEngine?.mode === 'production' ? 'MedGemma 3 (Chạy thật)' : 'Gemini 3.8 (Test)')}
+                    </strong>
+                  </div>
+                  <span style={{ fontSize: '11.5px', fontWeight: 700, padding: '3px 10px', borderRadius: '14px', background: aiEngine?.mode === 'production' ? '#ecfdf5' : '#fffbeb', color: aiEngine?.mode === 'production' ? '#065f46' : '#b45309', border: aiEngine?.mode === 'production' ? '1px solid #a7f3d0' : '1px solid #fde68a' }}>
+                    {aiEngine?.mode === 'production' ? '🟢 CHẠY THẬT (CLINICAL PRODUCTION)' : '🧪 THỬ NGHIỆM (TEST ENGINE)'}
+                  </span>
+                </div>
+
+                <p className="tiny muted" style={{ margin: '0 0 14px', lineHeight: 1.5 }}>
+                  {aiEngine?.description || 'Hệ thống định tuyến AI kép: Google Gemini 3.8 phục vụ phát triển, kiểm thử kịch bản lâm sàng; Google MedGemma 3 chuyên sâu cho chẩn đoán y tế, tóm tắt SOAP và Dược thư Quốc gia.'}
+                </p>
+
+                {/* 2 Thẻ Lựa chọn Phân luồng AI */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                  {/* Option 1: MedGemma 3 Production */}
+                  <div style={{
+                    padding: '14px',
+                    borderRadius: '8px',
+                    border: aiEngine?.mode === 'production' ? '2px solid #059669' : '1px solid #cbd5e1',
+                    background: aiEngine?.mode === 'production' ? '#f0fdf4' : '#ffffff',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '10px',
+                    boxShadow: aiEngine?.mode === 'production' ? '0 2px 8px rgba(5, 150, 105, 0.15)' : 'none'
+                  }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <span style={{ fontWeight: 800, fontSize: '13.5px', color: '#065f46' }}>
+                          🟢 MedGemma 3 (Chạy thật / Production)
+                        </span>
+                        {aiEngine?.mode === 'production' && (
+                          <span style={{ fontSize: '11px', background: '#059669', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>Đang kích hoạt</span>
+                        )}
+                      </div>
+                      <p className="tiny muted" style={{ margin: 0, lineHeight: 1.5 }}>
+                        Mô hình Google MedGemma 3 (27B) chuyên sâu y khoa lâm sàng, chuẩn hóa theo Dược thư Quốc gia Việt Nam, Quyết định 130/QĐ-BYT và Luật KCB 2023.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={switchingAi || aiEngine?.mode === 'production'}
+                      onClick={() => handleSwitchAiMode('production')}
+                      style={{
+                        background: aiEngine?.mode === 'production' ? '#d1fae5' : '#059669',
+                        color: aiEngine?.mode === 'production' ? '#065f46' : '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '9px 14px',
+                        fontWeight: 700,
+                        fontSize: '12px',
+                        cursor: aiEngine?.mode === 'production' ? 'default' : 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {switchingAi ? 'Đang chuyển đổi...' : aiEngine?.mode === 'production' ? '✓ Đang chạy thật' : '⚡ Kích hoạt MedGemma 3 Chạy thật'}
+                    </button>
+                  </div>
+
+                  {/* Option 2: Gemini 3.8 Test */}
+                  <div style={{
+                    padding: '14px',
+                    borderRadius: '8px',
+                    border: aiEngine?.mode === 'test' ? '2px solid #d97706' : '1px solid #cbd5e1',
+                    background: aiEngine?.mode === 'test' ? '#fffbeb' : '#ffffff',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '10px',
+                    boxShadow: aiEngine?.mode === 'test' ? '0 2px 8px rgba(217, 119, 6, 0.15)' : 'none'
+                  }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <span style={{ fontWeight: 800, fontSize: '13.5px', color: '#92400e' }}>
+                          🧪 Gemini 3.8 (Thử nghiệm / Test Mode)
+                        </span>
+                        {aiEngine?.mode === 'test' && (
+                          <span style={{ fontSize: '11px', background: '#d97706', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>Đang kích hoạt</span>
+                        )}
+                      </div>
+                      <p className="tiny muted" style={{ margin: 0, lineHeight: 1.5 }}>
+                        Mô hình Google Gemini 3.8 Flash đa phương thức thế hệ mới, tối ưu cho nhà phát triển kiểm thử prompt, thử nghiệm các ca bệnh giả lập và tính năng mới.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={switchingAi || aiEngine?.mode === 'test'}
+                      onClick={() => handleSwitchAiMode('test')}
+                      style={{
+                        background: aiEngine?.mode === 'test' ? '#fef3c7' : '#d97706',
+                        color: aiEngine?.mode === 'test' ? '#92400e' : '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '9px 14px',
+                        fontWeight: 700,
+                        fontSize: '12px',
+                        cursor: aiEngine?.mode === 'test' ? 'default' : 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {switchingAi ? 'Đang chuyển đổi...' : aiEngine?.mode === 'test' ? '✓ Đang ở chế độ Test' : '🧪 Chuyển sang Gemini 3.8 Test'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div className="settings-field col-12">
-                <label>Google Gemini API Key (Tùy chọn nâng cao):</label>
+                <label>Google Gemini API Key (Dùng cho Gemini 3.8 Test & Vision OCR CCCD/BHYT):</label>
                 <input
                   type="password"
-                  placeholder="AIzaSy... (Nếu để trống, hệ thống tự động chạy Bộ quy tắc Y khoa Chuyên gia offline 100%)"
+                  placeholder="AIzaSy... (Nếu để trống, hệ thống tự động chạy Bộ quy chuẩn Y khoa Chuyên sâu)"
                   value={settingsForm.gemini_api_key || ''}
                   onChange={e => setSettingsForm({ ...settingsForm, gemini_api_key: e.target.value })}
                 />
                 <small className="tiny muted" style={{ display: 'block', marginTop: '4px' }}>
-                  Khóa API này cung cấp khả năng đa phương thức (Vision OCR đọc CCCD/BHYT, Ambient Scribe tóm tắt SOAP, phân tích ảnh X-quang PACS).
+                  Khóa API này cung cấp khả năng đa phương thức (Vision OCR đọc CCCD/BHYT, Ambient Scribe nghe hội thoại và Gợi ý ICD-10).
                 </small>
               </div>
 

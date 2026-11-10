@@ -24,7 +24,7 @@ import {
 
   Filter,
 
-  ShieldCheck, ArrowRightLeft, Sparkles,
+  ShieldCheck, 
 
   Building2,
 
@@ -52,7 +52,7 @@ import {
 
 } from 'lucide-react'
 
-import { Appointment, Department, identifyPatientByCCCD, PatientIdentifyResult, getAIStatus, switchAIMode, type AIStatusInfo } from './api'
+import { Appointment, Department, identifyPatientByCCCD, PatientIdentifyResult } from './api'
 
 import { Pagination } from './Pagination'
 
@@ -97,30 +97,6 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
 }) => {
 
   
-  const [aiEngine, setAiEngine] = useState<AIStatusInfo | null>(null)
-  const [switchingAi, setSwitchingAi] = useState(false)
-
-  useEffect(() => {
-    getAIStatus()
-      .then(res => setAiEngine(res))
-      .catch(err => console.warn('Khong the tai AI status:', err))
-  }, [])
-
-  const handleToggleAi = async () => {
-    if (switchingAi) return
-    const cur = aiEngine?.mode || 'production'
-    const nextMode = cur === 'production' ? 'test' : 'production'
-    setSwitchingAi(true)
-    try {
-      const res = await switchAIMode(nextMode)
-      setAiEngine(res)
-    } catch (e) {
-      console.error('Loi chuyen che do AI:', e)
-    } finally {
-      setSwitchingAi(false)
-    }
-  }
-
   const [filterDept, setFilterDept] = useState<string>('all')
 
   const [filterStatus, setFilterStatus] = useState<string>('all')
@@ -281,35 +257,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
 
             </span>
 
-            {/* AI Engine Status & Quick Toggle */}
-            <button
-              type="button"
-              onClick={handleToggleAi}
-              disabled={switchingAi}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: aiEngine?.mode === 'production' ? 'rgba(16, 185, 129, 0.22)' : 'rgba(245, 158, 11, 0.25)',
-                color: '#ffffff',
-                border: aiEngine?.mode === 'production' ? '1px solid rgba(52, 211, 153, 0.6)' : '1px solid rgba(251, 191, 36, 0.6)',
-                padding: '3px 12px',
-                borderRadius: '14px',
-                fontSize: '11.5px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                backdropFilter: 'blur(8px)',
-                transition: 'all 0.2s ease'
-              }}
-              title={`Click de doi che do giua MedGemma 3 (Chay that) va Gemini 3.8 (Test). Dang su dung: ${aiEngine?.model_display || 'MedGemma 3'}`}
-            >
-              <Sparkles size={12} color={aiEngine?.mode === 'production' ? '#6ee7b7' : '#fde68a'} />
-              <span>{switchingAi ? 'Dang chuyen...' : aiEngine?.mode === 'production' ? 'AI: MedGemma 3 (Chay that)' : 'AI: Gemini 3.8 (Test)'}</span>
-              <ArrowRightLeft size={11} style={{ opacity: 0.8 }} />
-            </button>
-
-
-          </div>
+            </div>
 
           <h1 style={{ margin: '8px 0 6px', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.5px' }}>
 

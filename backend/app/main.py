@@ -6363,7 +6363,7 @@ def get_ai_status(db: Session = Depends(get_db)):
 def switch_ai_mode(
     data: AISwitchModeIn,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("doctor", "admin"))
+    user: User = Depends(require_roles("admin"))
 ):
     """
     Chuyen doi linh hoat giua che do Test (Gemini 3.8) va Chay that (MedGemma 3).
