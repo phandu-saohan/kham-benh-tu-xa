@@ -34,7 +34,7 @@ from app.schemas import (
     PaymentCreate, PaymentOut, PaymentWebhookIn, ICD10Item,
     ConsentAgreeIn, ConsentStatusOut, DigitalSignRequest, DigitalSignResponse,
     NationalPrescriptionSyncOut, PACSViewerOut,
-    AmbientScribeIn, AmbientScribeOut, BhytCheckIn, BhytCheckOut,
+    AmbientScribeIn, AmbientScribeOut, AIStatusOut, AISwitchModeIn, BhytCheckIn, BhytCheckOut,
     DepartmentOut, DoctorShiftIn, DoctorShiftOut, DoctorProfileIn, DoctorProfileOut, SupportTicketIn, SupportTicketStatusUpdate, SupportTicketOut, SupportTicketMessageIn, SupportTicketMessageOut, NurseShiftIn, NurseShiftOut, NurseShiftUpdateIn, AssignNurseIn, AppointmentCancelIn, AppointmentCancelOut,
     RefundRequestIn, RefundRequestOut,
     CabinetItemIn, CabinetItemOut,
@@ -83,6 +83,7 @@ from app.consent import get_consent_terms, CONSENT_VERSION
 from app.encryption import encrypt_sensitive_data, decrypt_sensitive_data
 from app.ai_scribe import generate_soap_notes
 from app.ai_engine import (
+    get_ai_engine_config,
     triage_symptom_check,
     ocr_medical_document,
     suggest_icd10_codes,
@@ -6334,7 +6335,73 @@ def add_support_ticket_message(
     db.refresh(msg)
     return SupportTicketMessageOut.model_validate(msg)
 
+
+# =========================================================================
+# AI DUAL-ENGINE MANAGEMENT (Gemini 3.8 Test & MedGemma 3 Production)
+# =========================================================================
+@app.get("/api/v1/ai/status", response_model=AIStatusOut)
+def get_ai_status(db: Session = Depends(get_db)):
+    """
+    Tra ve thong tin cau hinh mo hinh AI hien tai:
+    - Mode: test (Gemini 3.8) hoac production (MedGemma 3)
+    - Active model name va co trang thai
+    """
+    cfg = get_ai_engine_config(db)
+    return AIStatusOut(
+        mode=cfg["mode"],
+        active_model=cfg["active_model"],
+        model_display=cfg["model_display"],
+        test_model=cfg["test_model"],
+        prod_model=cfg["prod_model"],
+        description=cfg["description"],
+        is_production=cfg["is_production"],
+        has_api_key=cfg["has_api_key"],
+        has_medgemma_url=cfg["has_medgemma_url"]
+    )
+
+@app.post("/api/v1/ai/mode", response_model=AIStatusOut)
+def switch_ai_mode(
+    data: AISwitchModeIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("doctor", "admin"))
+):
+    """
+    Chuyen doi linh hoat giua che do Test (Gemini 3.8) va Chay that (MedGemma 3).
+    Luu truc tiep vao bang SystemSetting de duy tri xuyen suot he thong.
+    """
+    target_mode = data.mode.strip().lower()
+    if target_mode not in ("test", "production", "auto"):
+        raise HTTPException(status_code=400, detail="Mode khong hop le. Chi chap nhan 'test', 'production' hoac 'auto'")
+
+    from app.models import SystemSetting
+    rec = db.query(SystemSetting).filter_by(key="ai_mode").first()
+    if rec:
+        rec.value = target_mode
+        rec.updated_at = datetime.now()
+    else:
+        rec = SystemSetting(
+            key="ai_mode",
+            value=target_mode,
+            description="Che do AI Engine: test (Gemini 3.8) hoac production (MedGemma 3)"
+        )
+        db.add(rec)
+    db.commit()
+
+    cfg = get_ai_engine_config(db)
+    return AIStatusOut(
+        mode=cfg["mode"],
+        active_model=cfg["active_model"],
+        model_display=cfg["model_display"],
+        test_model=cfg["test_model"],
+        prod_model=cfg["prod_model"],
+        description=cfg["description"],
+        is_production=cfg["is_production"],
+        has_api_key=cfg["has_api_key"],
+        has_medgemma_url=cfg["has_medgemma_url"]
+    )
+
 @app.get("/{full_path:path}")
+
 def serve_spa(full_path: str):
     if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("openapi.json"):
         raise HTTPException(status_code=404, detail="Not Found")

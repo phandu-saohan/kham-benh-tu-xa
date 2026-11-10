@@ -288,6 +288,22 @@ class AmbientScribeOut(BaseModel):
     suggested_icd10_name: str
     prescription_draft: str
     allergies_warning: str
+    model_used: Optional[str] = "MedGemma 3 (Clinical Production)"
+    engine_mode: Optional[str] = "production"
+
+class AIStatusOut(BaseModel):
+    mode: str
+    active_model: str
+    model_display: str
+    test_model: str
+    prod_model: str
+    description: str
+    is_production: bool
+    has_api_key: bool
+    has_medgemma_url: bool
+
+class AISwitchModeIn(BaseModel):
+    mode: str
 
 class BhytCheckIn(BaseModel):
     bhyt_code: str

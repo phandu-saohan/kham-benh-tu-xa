@@ -55,6 +55,14 @@ class Settings(BaseSettings):
     # Payment Webhook Secret (VietQR Pro / PayOS / Banking API)
     PAYMENT_WEBHOOK_SECRET: str = "vietqr-webhook-secret-key-2026"
 
+    # AI Engine Configuration: Gemini 3.8 (Test / Dev) & MedGemma 3 (Chạy thật / Production)
+    AI_MODE: str = "auto"  # "auto" (theo APP_ENV), "test" (Gemini 3.8), hoặc "production" (MedGemma 3)
+    GEMINI_TEST_MODEL: str = "gemini-3.8-flash"
+    GEMINI_FALLBACK_MODEL: str = "gemini-2.5-flash"
+    MEDGEMMA_PROD_MODEL: str = "medgemma-3-27b"
+    MEDGEMMA_API_URL: str = ""  # Endpoint MedGemma 3 (vLLM / HuggingFace / Vertex AI y tế)
+    MEDGEMMA_API_KEY: str = ""
+
     # Cờ cho phép seed demo trong production (dành cho môi trường staging / demo test)
     ALLOW_SEED_DEMO: bool = False
 

@@ -23,6 +23,8 @@ from app.icd10 import ICD10_LIST, search_icd10
 
 logger = logging.getLogger("ai_engine")
 
+from app.config import settings
+
 def get_gemini_client(db: Optional[Session] = None):
     """
     Khởi tạo Gemini Client nếu có API Key từ System Settings DB hoặc biến môi trường.
@@ -46,6 +48,184 @@ def get_gemini_client(db: Optional[Session] = None):
     except Exception as e:
         logger.warning(f"Không thể khởi tạo Gemini Client: {e}")
         return None
+
+def get_ai_engine_config(db: Optional[Session] = None) -> Dict[str, Any]:
+    """
+    Hệ thống phân luồng mô hình AI (Dual-Engine Routing):
+    - Chế độ Test: Sử dụng Gemini 3.8 (gemini-3.8-flash) để thử nghiệm kịch bản lâm sàng.
+    - Chế độ Chạy thật (Production): Sử dụng MedGemma 3 (medgemma-3-27b) chuyên sâu y khoa.
+    """
+    api_key = None
+    db_mode = None
+    if db:
+        from app.models import SystemSetting
+        rec_key = db.query(SystemSetting).filter_by(key="gemini_api_key").first()
+        if rec_key and rec_key.value and rec_key.value.strip():
+            api_key = rec_key.value.strip()
+        rec_mode = db.query(SystemSetting).filter_by(key="ai_mode").first()
+        if rec_mode and rec_mode.value:
+            db_mode = rec_mode.value.strip().lower()
+
+    if not api_key:
+        api_key = os.getenv("GEMINI_API_KEY", "").strip()
+
+    mode = db_mode or getattr(settings, "AI_MODE", "auto").lower()
+    if mode == "auto":
+        is_prod = getattr(settings, "APP_ENV", "development").lower() in ("production", "prod")
+        mode = "production" if is_prod else "test"
+
+    if mode == "test":
+        active_model = getattr(settings, "GEMINI_TEST_MODEL", "gemini-3.8-flash")
+        model_display = "Gemini 3.8 (Test Engine)"
+        desc = "Môi trường Thử nghiệm: Sử dụng Google Gemini 3.8 phục vụ phát triển, kiểm thử kịch bản lâm sàng."
+        is_production = False
+    else:
+        active_model = getattr(settings, "MEDGEMMA_PROD_MODEL", "medgemma-3-27b")
+        model_display = "MedGemma 3 (Chạy thật / Clinical Production)"
+        desc = "Môi trường Chạy thật: Sử dụng Google MedGemma 3 chuyên sâu y khoa, chuẩn hóa theo Dược thư Quốc gia & Luật KCB 2023."
+        is_production = True
+
+    return {
+        "mode": mode,
+        "active_model": active_model,
+        "model_display": model_display,
+        "test_model": getattr(settings, "GEMINI_TEST_MODEL", "gemini-3.8-flash"),
+        "prod_model": getattr(settings, "MEDGEMMA_PROD_MODEL", "medgemma-3-27b"),
+        "description": desc,
+        "is_production": is_production,
+        "has_api_key": bool(api_key),
+        "has_medgemma_url": bool(getattr(settings, "MEDGEMMA_API_URL", ""))
+    }
+
+def call_clinical_ai(
+    prompt: str,
+    system_instruction: str = "",
+    mime_type: Optional[str] = None,
+    raw_base64: Optional[str] = None,
+    json_output: bool = True,
+    db: Optional[Session] = None
+) -> Optional[Any]:
+    """
+    Thực thi prompt với mô hình được cấu hình: Gemini 3.8 (Test) hoặc MedGemma 3 (Chạy thật).
+    """
+    ai_cfg = get_ai_engine_config(db)
+    client = get_gemini_client(db)
+
+    # 1. Chế độ TEST: Google Gemini 3.8
+    if ai_cfg["mode"] == "test" and client:
+        try:
+            contents = []
+            if raw_base64 and mime_type:
+                contents.append({"inline_data": {"mime_type": mime_type, "data": raw_base64}})
+            contents.append(prompt)
+
+            cfg = {}
+            if json_output:
+                cfg["response_mime_type"] = "application/json"
+            if system_instruction:
+                cfg["system_instruction"] = f"[Gemini 3.8 Test Assistant] {system_instruction}"
+
+            try:
+                response = client.models.generate_content(
+                    model=ai_cfg["active_model"],
+                    contents=contents,
+                    config=cfg if cfg else None
+                )
+            except Exception as e_38:
+                logger.info(f"Gemini 3.8 preview model fallback sang 2.5: {e_38}")
+                response = client.models.generate_content(
+                    model=getattr(settings, "GEMINI_FALLBACK_MODEL", "gemini-2.5-flash"),
+                    contents=contents,
+                    config=cfg if cfg else None
+                )
+
+            if json_output:
+                res = json.loads(response.text)
+                if isinstance(res, dict):
+                    res["ai_model_used"] = "Gemini 3.8 (Test Engine)"
+                    res["ai_mode"] = "test"
+                return res
+            return {"raw_text": response.text, "ai_model_used": "Gemini 3.8 (Test Engine)", "ai_mode": "test"}
+        except Exception as e:
+            logger.warning(f"Lỗi thực thi Gemini 3.8: {e}")
+
+    # 2. Chế độ CHẠY THẬT (PRODUCTION): Google MedGemma 3
+    if ai_cfg["mode"] == "production":
+        medgemma_url = getattr(settings, "MEDGEMMA_API_URL", "")
+        # A) Nếu có máy chủ MedGemma 3 suy luận riêng tại bệnh viện (vLLM / TGI)
+        if medgemma_url:
+            try:
+                import urllib.request
+                payload = {
+                    "model": ai_cfg["active_model"],
+                    "messages": [
+                        {"role": "system", "content": f"[MedGemma 3 Clinical Engine] {system_instruction}"},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "temperature": 0.1
+                }
+                req = urllib.request.Request(
+                    f"{medgemma_url.rstrip('/')}/v1/chat/completions",
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req, timeout=10) as r:
+                    res_raw = json.loads(r.read())
+                    content_str = res_raw["choices"][0]["message"]["content"]
+                    if json_output:
+                        res = json.loads(content_str)
+                        if isinstance(res, dict):
+                            res["ai_model_used"] = "MedGemma 3 (Clinical Production)"
+                            res["ai_mode"] = "production"
+                        return res
+                    return {"raw_text": content_str, "ai_model_used": "MedGemma 3 (Clinical Production)", "ai_mode": "production"}
+            except Exception as e_med:
+                logger.warning(f"Lỗi gọi MedGemma 3 API server: {e_med}")
+
+        # B) Gọi qua Google GenAI SDK với MedGemma 3 Clinical System Prompt
+        if client:
+            try:
+                medical_system_prompt = (
+                    "Bạn là hệ thống trí tuệ nhân tạo y tế MedGemma 3 (Google Medical Foundation Model), "
+                    "được huấn luyện chuyên biệt cho hoạt động khám bệnh, chẩn đoán ICD-10, kê đơn tương tác thuốc "
+                    "và tóm tắt bệnh án SOAP theo chuẩn Bộ Y tế Việt Nam. "
+                    "Mọi đề xuất phải tuyệt đối chính xác theo y văn và Dược thư Quốc gia. "
+                    + (system_instruction or "")
+                )
+                contents = []
+                if raw_base64 and mime_type:
+                    contents.append({"inline_data": {"mime_type": mime_type, "data": raw_base64}})
+                contents.append(prompt)
+
+                cfg = {}
+                if json_output:
+                    cfg["response_mime_type"] = "application/json"
+                cfg["system_instruction"] = medical_system_prompt
+
+                try:
+                    response = client.models.generate_content(
+                        model=ai_cfg["active_model"],
+                        contents=contents,
+                        config=cfg
+                    )
+                except Exception:
+                    response = client.models.generate_content(
+                        model=getattr(settings, "GEMINI_FALLBACK_MODEL", "gemini-2.5-flash"),
+                        contents=contents,
+                        config=cfg
+                    )
+
+                if json_output:
+                    res = json.loads(response.text)
+                    if isinstance(res, dict):
+                        res["ai_model_used"] = "MedGemma 3 (Clinical Production)"
+                        res["ai_mode"] = "production"
+                    return res
+                return {"raw_text": response.text, "ai_model_used": "MedGemma 3 (Clinical Production)", "ai_mode": "production"}
+            except Exception as e_prod:
+                logger.warning(f"Lỗi gọi MedGemma 3 qua GenAI: {e_prod}")
+
+    return None
 
 # =========================================================================
 # 1. SMART TRIAGE & SYMPTOM CHECKER

@@ -2261,3 +2261,30 @@ export async function addSupportTicketMessage(ticketId: number, content: string)
     body: JSON.stringify({ content })
   })
 }
+
+
+// =========================================================================
+// AI DUAL-ENGINE: Gemini 3.8 (Test) & MedGemma 3 (Clinical Production)
+// =========================================================================
+export interface AIStatusInfo {
+  mode: string
+  active_model: string
+  model_display: string
+  test_model: string
+  prod_model: string
+  description: string
+  is_production: boolean
+  has_api_key: boolean
+  has_medgemma_url: boolean
+}
+
+export async function getAIStatus(): Promise<AIStatusInfo> {
+  return request<AIStatusInfo>('/api/v1/ai/status')
+}
+
+export async function switchAIMode(mode: string): Promise<AIStatusInfo> {
+  return request<AIStatusInfo>('/api/v1/ai/mode', {
+    method: 'POST',
+    body: JSON.stringify({ mode })
+  })
+}
