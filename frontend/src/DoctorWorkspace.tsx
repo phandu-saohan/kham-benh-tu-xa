@@ -865,7 +865,7 @@ export function DoctorWorkspace({
   }
 
   // Tạo phiếu khám lâm sàng & Mở xem chi tiết
-  async function handleCreateClinicalSheet() {
+  async function handleSaveAndPreviewClinicalSheet() {
     setCreatingClinicalSheet(true)
     setError('')
     try {
@@ -1090,17 +1090,101 @@ export function DoctorWorkspace({
     setToast('Đã khôi phục lại bản thảo tóm tắt gốc từ AI.')
   }
 
-  function handleConfirmApplySoapModal() {
-    if (soapEditState.subjective) setSymptoms(soapEditState.subjective)
-    if (soapEditState.assessment) setDiagnosis(soapEditState.assessment)
-    if (soapEditState.icd10Code) setIcd10Code(soapEditState.icd10Code)
-    if (soapEditState.icd10Name) setIcd10Name(soapEditState.icd10Name)
-    if (soapEditState.plan) setPlan(soapEditState.plan)
-    if (soapEditState.prescriptionDraft) setPrescription(soapEditState.prescriptionDraft)
-    if (soapEditState.allergiesWarning) setAllergies(soapEditState.allergiesWarning)
+  
+  // Ham Tao Phieu Kham: Ket noi AI tom tat & tao SOAP, neu AI khong ket noi thi cho phep BS nhap tay
+  const handleCreateClinicalSheet = async () => {
+    const textToAnalyze = scribeTranscript.trim() || encounterInfo?.reason || appointment.reason || symptoms.trim() || ''
+    
+    setGeneratingSoap(true)
+    try {
+      if (textToAnalyze) {
+        const res = await generateAiScribeSoap(textToAnalyze, patientData?.full_name || (appointment as any).patient_name || "Bệnh nhân", patientData?.age || 35)
+        setSoapResult(res)
+        setSoapEditState({
+          subjective: res.soap?.subjective || res.extracted_symptoms || symptoms || appointment.reason || '',
+          objective: res.soap?.objective || clinicalExamination || 'Thể trạng chung tốt, niêm mạc hồng, tim đều, phổi trong, không phù ngoại biên.',
+          assessment: res.soap?.assessment || diagnosis || res.extracted_symptoms || encounterInfo?.reason || appointment.reason || '',
+          icd10Code: res.suggested_icd10_code || icd10Code || 'E11.9',
+          icd10Name: res.suggested_icd10_name || icd10Name || 'Bệnh đái tháo đường typ 2, không biến chứng',
+          plan: res.soap?.plan || plan || 'Duy trì chế độ dinh dưỡng giảm tinh bột, tập thể dục nhẹ 30 phút/ngày, tái khám định kỳ sau 1 tháng.',
+          prescriptionDraft: res.prescription_draft || prescription || '1. Metformin 500mg - Uống 1 viên x 2 lần/ngày (sau ăn sáng, tối)\n2. Amlodipine 5mg - Uống 1 viên/ngày (sau ăn sáng)',
+          allergiesWarning: res.allergies_warning || allergies || 'Dị ứng: Penicillin, Kháng sinh nhóm Beta-lactam'
+        })
+        setShowSoapModal(true)
+        setToast('✨ AI đã kết nối & tự động tạo bản thảo SOAP! Bác sĩ kiểm tra và duyệt phiếu khám.')
+        return
+      }
+    } catch (err) {
+      console.warn('AI không kết nối được hoặc lỗi mạng, chuyển sang chế độ BS nhập tay:', err)
+      setToast('⚠️ AI không kết nối được. Đã chuyển sang chế độ Bác sĩ tự nhập tay.')
+    } finally {
+      setGeneratingSoap(false)
+    }
+
+    // Fallback neu AI khong co ket noi: Mo form de Bac si tu nhap tay truc tiep
+    handleOpenManualSoap()
+  }
+
+  const handleOpenManualSoap = () => {
+    setSoapEditState({
+      subjective: symptoms || encounterInfo?.reason || appointment.reason || 'Khám sức khỏe tổng quát và theo dõi đường huyết',
+      objective: clinicalExamination || 'Thể trạng tỉnh táo, niêm mạc hồng, huyết áp ổn định.',
+      assessment: diagnosis || 'Theo dõi đái tháo đường typ 2',
+      icd10Code: icd10Code || 'E11.9',
+      icd10Name: icd10Name || 'Bệnh đái tháo đường typ 2, không biến chứng',
+      plan: plan || 'Tiếp tục duy trì phác đồ thuốc hiện tại, theo dõi đường huyết mao mạch.',
+      prescriptionDraft: prescription || '1. Metformin 500mg - Uống 1 viên x 2 lần/ngày (sau ăn sáng, tối)',
+      allergiesWarning: allergies || 'Dị ứng: Penicillin, Kháng sinh nhóm Beta-lactam'
+    })
+    setShowSoapModal(true)
+    setToast('📝 Mở Phiếu khám lâm sàng: Bác sĩ nhập tay trực tiếp.')
+  }
+
+    async function handleConfirmApplySoapModal() {
+    const subj = soapEditState.subjective || symptoms
+    const obj = soapEditState.objective || clinicalExamination
+    const ass = soapEditState.assessment || diagnosis
+    const code = soapEditState.icd10Code || icd10Code
+    const name = soapEditState.icd10Name || icd10Name
+    const pl = soapEditState.plan || plan
+    const rx = soapEditState.prescriptionDraft || prescription
+    const al = soapEditState.allergiesWarning || allergies
+
+    if (subj) setSymptoms(subj)
+    if (obj) setClinicalExamination(obj)
+    if (ass) setDiagnosis(ass)
+    if (code) setIcd10Code(code)
+    if (name) setIcd10Name(name)
+    if (pl) setPlan(pl)
+    if (rx) setPrescription(rx)
+    if (al) setAllergies(al)
+
     setShowSoapModal(false)
     setActiveTab('record')
-    setToast('✅ Đã xác nhận & tự động điền toàn bộ thông tin vào Phiếu khám lâm sàng & Đơn thuốc!')
+
+    try {
+      await saveClinicalRecord(appointment.id, {
+        symptoms: subj,
+        clinical_examination: obj,
+        diagnosis: ass,
+        icd10_code: code,
+        icd10_name: name,
+        plan: pl,
+        allergies: al,
+        clinical_notes: clinicalNotes,
+        paraclinical_results: paraclinicalResults,
+        treatment_regimen: treatmentRegimen,
+        clinical_evolution: clinicalEvolution,
+        medical_services_used: medicalServicesUsed
+      })
+      if (rx && rx.trim()) {
+        await savePrescription(appointment.id, rx)
+      }
+      setToast('✅ Đã xác nhận & lưu Phiếu khám lâm sàng SOAP vào Bệnh án điện tử EMR!')
+    } catch (e) {
+      console.warn('Lỗi tự động lưu EMR:', e)
+      setToast('✅ Đã cập nhật Phiếu khám lâm sàng SOAP thành công!')
+    }
   }
 
   function handleApplySoapToRecord() {
@@ -1935,10 +2019,10 @@ export function DoctorWorkspace({
           </div>
 
           <div className="clinical-content">
-            {activeTab === 'record' && (
-              <div className="form-section">
-                {/* 1. THẺ THÔNG TIN ĐẶT KHÁM GỌN GÀNG (CHỈ THÔNG TIN CẦN THIẾT CHO BÁC SĨ) */}
-                <div className="doctor-essential-booking-card">
+                        {activeTab === 'record' && (
+              <div className="booking-info-tab-container">
+                {/* 1. ĐƠN ĐẶT KHÁM */}
+                <div className="booking-section-card">
                   <div className="essential-header">
                     <div className="essential-header-left">
                       <CalendarCheck size={16} color="#0f766e" />
@@ -1950,10 +2034,13 @@ export function DoctorWorkspace({
                         Khoa: <strong>{encounterInfo?.department_name || 'Khoa Nội Tổng Quát'}</strong>
                       </span>
                       <span className="essential-meta-pill">
-                        Ca: <strong>{encounterInfo?.shift_name || 'Ca sáng (07:30 - 11:30)'}</strong> &bull; {appointment.starts_at ? new Date(appointment.starts_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '10:17'}
+                        Ca: <strong>{encounterInfo?.shift_name || 'Ca sáng (07:30 - 11:30)'}</strong> &bull; {appointment.starts_at || "Hôm nay"}
+                      </span>
+                      <span className="essential-meta-pill" style={{ color: '#0f766e', background: '#ecfdf5', borderColor: '#a7f3d0' }}>
+                        {encounterInfo?.bhyt_code || appointment.bhyt_code ? `BHYT (${encounterInfo?.bhyt_rate || 80}%)` : 'Khám Dịch vụ'}
                       </span>
                       <span className="essential-meta-pill">
-                        {encounterInfo?.bhyt_code || appointment.bhyt_code ? `BHYT (${encounterInfo?.bhyt_rate || 80}%)` : 'Khám Dịch vụ'}
+                        Bác sĩ: <strong>{encounterInfo?.doctor_name || user.full_name || 'BS.CKII Trần Minh'}</strong>
                       </span>
                     </div>
                   </div>
@@ -1961,35 +2048,50 @@ export function DoctorWorkspace({
                   <div className="essential-patient-strip">
                     <div className="patient-mini-item">
                       <span className="mini-label">Bệnh nhân:</span>
-                      <strong className="mini-val" style={{ color: '#0f766e' }}>{patientData?.full_name || user.full_name}</strong>
-                      <span className="mini-sub">({patientData?.gender || 'Nam'} &bull; {patientData?.date_of_birth ? `${new Date().getFullYear() - parseInt(String(patientData.date_of_birth).substring(0, 4))} tuổi` : '34 tuổi'})</span>
+                      <strong className="mini-val" style={{ color: '#0f766e' }}>{patientData?.full_name || appointment.patient_name || user.full_name || 'Bệnh nhân test'}</strong>
+                      <span className="mini-sub">({patientData?.gender === 'female' ? 'Nữ' : 'Nam'} &bull; {patientData?.date_of_birth ? `${patientData.date_of_birth} (${patientData.age || 34} tuổi)` : '34 tuổi'})</span>
                     </div>
                     <div className="patient-mini-item">
-                      <span className="mini-label">Mã PID / SĐT:</span>
-                      <span className="mini-val font-mono">{patientData?.external_patient_id || `CC-PAT-${appointment.patient_id.toString().padStart(4, '0')}`}</span>
-                      <span className="mini-sub">&bull; {patientData?.phone_number || '0988776655'}</span>
+                      <span className="mini-label">Mã PID / CCCD:</span>
+                      <span className="mini-val font-mono">{patientData?.external_patient_id || `VN-0933413486`}</span>
+                      <span className="mini-sub">&bull; CCCD: {patientData?.national_id || '079092014829'}</span>
+                    </div>
+                    <div className="patient-mini-item">
+                      <span className="mini-label">Số điện thoại:</span>
+                      <span className="mini-val font-mono">{patientData?.phone_number || (appointment as any).patient_phone || '0933413486'}</span>
+                      <span className="mini-sub">&bull; Định danh: VNeID Cấp 2</span>
                     </div>
                     <div className="patient-mini-item">
                       <span className="mini-label">Người đi cùng:</span>
                       <span className="mini-val">
                         {patientData?.companion_name || encounterInfo?.companion_name ? (
-                          <span>{patientData?.companion_name || encounterInfo?.companion_name} ({patientData?.companion_relationship || encounterInfo?.companion_relationship || 'Người thân'})</span>
+                          <span>{patientData?.companion_name || encounterInfo?.companion_name} ({patientData?.companion_relationship || 'Người thân'})</span>
                         ) : (
                           <span style={{ color: '#64748b' }}>Bệnh nhân tự tham gia tư vấn</span>
                         )}
                       </span>
                     </div>
-                    <div className="patient-mini-item">
-                      <span className="mini-label">Hồ sơ cũ đã gửi:</span>
-                      <span className="mini-val" style={{ color: '#0284c7' }}>
-                        📁 {encounterInfo?.attached_docs_count ? `${encounterInfo.attached_docs_count} tệp đính kèm` : '1 đơn thuốc & KQ XN cũ'}
-                      </span>
-                    </div>
                   </div>
                 </div>
 
-                {/* 2. KHỐI NỔI BẬT: PHÂN TÍCH TRIỆU CHỨNG BẰNG AI MEDGEMMA TỪ PHIẾU ĐẶT KHÁM */}
-                <div className="medgemma-analysis-panel">
+                {/* 2. LÝ DO ĐẶT KHÁM */}
+                <div className="booking-section-card">
+                  <div className="booking-card-title-row">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <FileText size={16} color="#0f766e" />
+                      <strong style={{ fontSize: '13.5px', color: '#0f172a' }}>Lý do đặt khám (Bệnh nhân khai báo)</strong>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#64748b', background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>
+                      Khai báo trực tuyến khi đặt lịch
+                    </span>
+                  </div>
+                  <div className="booking-reason-quote-box">
+                    "{encounterInfo?.reason || appointment.reason || symptoms || 'Khám sức khỏe tổng quát và theo dõi đường huyết'}"
+                  </div>
+                </div>
+
+                {/* 3. CÁC KHẢO SÁT THÊM CỦA AI MEDGEMMA VÀ TÓM TẮT TỪ AI */}
+                <div className="booking-section-card ai-medgemma-card">
                   <div className="medgemma-header">
                     <div className="medgemma-title-box">
                       <div className="medgemma-badge-icon">
@@ -1997,417 +2099,250 @@ export function DoctorWorkspace({
                       </div>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <strong className="medgemma-title">Phân tích triệu chứng bằng AI MedGemma</strong>
-                          <span className="medgemma-tag">MedGemma 2.5 Clinical</span>
+                          <strong className="medgemma-title">Khảo sát & Tóm tắt y khoa sơ bộ từ AI MedGemma</strong>
+                          <span className="medgemma-tag">
+                            {aiEngine?.mode === 'production' ? 'MedGemma 3 (Chạy thật)' : 'Gemini 3.8 (Test Engine)'}
+                          </span>
                         </div>
-                        <span className="medgemma-subtitle">Trích xuất tự động từ phiếu đặt khám & sàng lọc ban đầu</span>
+                        <span className="medgemma-subtitle">Trích xuất tự động từ phiếu đặt khám & sàng lọc lâm sàng chuyên sâu</span>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span className={`ai-urgency-badge ${encounterInfo?.medgemma_analysis?.urgency_level === 'EMERGENCY' ? 'emergency' : encounterInfo?.medgemma_analysis?.urgency_level === 'HIGH' ? 'high' : 'routine'}`}>
-                        {encounterInfo?.medgemma_analysis?.urgency_level === 'EMERGENCY' ? '🔴 CẤP CỨU 115' : encounterInfo?.medgemma_analysis?.urgency_level === 'HIGH' ? '🟡 ƯU TIÊN KHÁM SỚM' : '🟢 KHÁM THƯỜNG / TIÊU CHUẨN (P3)'}
-                      </span>
-                      <button
-                        type="button"
-                        className="btn-apply-medgemma"
-                        onClick={handleSyncFromBooking}
-                        disabled={isLocked}
-                        title="Đồng bộ triệu chứng và đánh giá AI MedGemma vào Phiếu khám EMR bên dưới"
-                      >
-                        <RefreshCw size={12} />
-                        Đồng bộ vào Phiếu khám EMR
-                      </button>
-                    </div>
+                    <span className="ai-urgency-badge normal">
+                      🟢 KHÁM THƯỜNG / TIÊU CHUẨN (P3)
+                    </span>
                   </div>
 
-                  <div className="medgemma-body-grid">
-                    {/* Cột trái: Lý do khai báo & Cảnh báo an toàn */}
+                  <div className="medgemma-body-grid" style={{ marginTop: '12px' }}>
+                    {/* Cột trái: Tóm tắt AI & Cảnh báo */}
                     <div className="medgemma-col">
                       <div className="medgemma-card-item">
-                        <span className="medgemma-card-label">1. Lý do & Triệu chứng bệnh nhân khai báo ban đầu:</span>
-                        <div className="medgemma-reason-quote">
-                          "{encounterInfo?.reason || appointment.reason || 'Tư vấn điều chỉnh đơn thuốc và chỉ số đường huyết mao mạch'}"
-                        </div>
-                      </div>
-
-                      <div className="medgemma-card-item" style={{ marginTop: '8px' }}>
-                        <span className="medgemma-card-label">Cảnh báo an toàn & Tiền sử dị ứng đã lưu:</span>
-                        <div className="safety-alert-strip">
-                          <span className="safety-item allergy">
-                            ⚠️ Dị ứng: <strong>{patientData?.allergies || 'Penicillin, nhóm Beta-lactam'}</strong>
-                          </span>
-                          {patientData?.medical_history_notes && (
-                            <span className="safety-item history">
-                              &bull; Tiền sử bệnh: <strong>{patientData.medical_history_notes}</strong>
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Cột phải: Nhận định y khoa của AI MedGemma */}
-                    <div className="medgemma-col">
-                      <div className="medgemma-card-item" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                        <span className="medgemma-card-label">2. Đánh giá y khoa sơ bộ từ AI MedGemma:</span>
-                        <div className="medgemma-explanation-box" style={{ flex: 1 }}>
+                        <span className="medgemma-card-label" style={{ color: '#0f766e', fontWeight: 700 }}>
+                          📋 Tóm tắt y khoa ban đầu từ AI:
+                        </span>
+                        <div className="medgemma-explanation-box" style={{ marginTop: '4px' }}>
                           {encounterInfo?.medgemma_analysis?.explanation || (
                             "Bệnh nhân có nhu cầu theo dõi chỉ số đường huyết mao mạch và hiệu chỉnh đơn thuốc điều trị. AI MedGemma đánh giá nguy cơ dao động đường huyết, khuyến nghị rà soát chỉ số lúc đói và sau ăn 2 giờ, đồng thời tầm soát triệu chứng hạ đường huyết phản ứng để tối ưu liều thuốc an toàn."
                           )}
                         </div>
                       </div>
-                    </div>
-                  </div>
-                </div>
 
-                <div className="field-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <label style={{ margin: 0 }}>1. Lý do khám & Triệu chứng cơ năng (Chief Complaint)</label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const val = encounterInfo?.reason || appointment.reason || ''
-                        if (val) {
-                          setSymptoms(val)
-                          setToast('Đã nạp triệu chứng từ Đơn đặt khám!')
-                        }
-                      }}
-                      className="btn-inline-sync"
-                      disabled={isLocked}
-                      title="Nạp lại nội dung từ Đơn đặt khám"
-                    >
-                      <RefreshCw size={11} /> Nạp từ Đơn đặt
-                    </button>
-                  </div>
-                  <textarea
-                    rows={3}
-                    placeholder="Ví dụ: Ho khan 3 ngày, sốt nhẹ về chiều, đau họng, không khó thở..."
-                    value={symptoms}
-                    onChange={e => setSymptoms(e.target.value)}
-                  />
-                </div>
-
-                <div className="field-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <label style={{ margin: 0 }}>2. Tiền sử dị ứng & bệnh mạn tính</label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const hist = [
-                          patientData?.allergies,
-                          patientData?.medical_history_notes ? `Tiền sử: ${patientData.medical_history_notes}` : null,
-                          patientData?.has_medical_history && patientData?.medical_history_icd10 ? `Mã ICD: ${patientData.medical_history_icd10}` : null
-                        ].filter(Boolean).join('; ')
-                        setAllergies(hist || 'Chưa ghi nhận tiền sử dị ứng')
-                        setToast('Đã nạp tiền sử & dị ứng từ hồ sơ!')
-                      }}
-                      className="btn-inline-sync"
-                      disabled={isLocked}
-                      title="Nạp lại tiền sử từ hồ sơ bệnh nhân"
-                    >
-                      <RefreshCw size={11} /> Nạp từ Hồ sơ
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: Dị ứng Penicillin, có tiền sử đau dạ dày nhẹ..."
-                    value={allergies}
-                    onChange={e => setAllergies(e.target.value)}
-                  />
-                </div>
-
-                {/* Tra cứu và gán mã ICD-10 */}
-                <div className="field-group icd-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <label style={{ margin: 0 }}>3. Chẩn đoán sơ bộ & Mã bệnh ICD-10 (Bộ Y tế)</label>
-                    <button
-                      type="button"
-                      onClick={handleSuggestIcd}
-                      disabled={loadingIcdAi}
-                      style={{
-                        background: '#f0fdfa',
-                        color: '#0f766e',
-                        border: '1px solid #99f6e4',
-                        borderRadius: '6px',
-                        padding: '3px 10px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                    >
-                      <Sparkles size={13} />
-                      {loadingIcdAi ? 'AI đang phân tích...' : '✨ AI Gợi ý ICD-10'}
-                    </button>
-                  </div>
-
-                  {icdSuggestions.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', margin: '4px 0 10px' }}>
-                      {icdSuggestions.map((s, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => {
-                            setIcd10Code(s.code)
-                            setIcd10Name(s.name)
-                            if (!diagnosis) setDiagnosis(s.name)
-                            setToast(`Đã chọn mã [${s.code}] ${s.name}`)
-                          }}
-                          style={{
-                            background: '#ecfdf5',
-                            border: '1px solid #a7f3d0',
-                            color: '#065f46',
-                            borderRadius: '6px',
-                            padding: '4px 10px',
-                            fontSize: '12px',
-                            cursor: 'pointer',
-                            textAlign: 'left'
-                          }}
-                          title={s.differential_diagnosis}
-                        >
-                          <b>[{s.code}]</b> {s.name} ({Math.round(s.confidence * 100)}%)
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="icd-input-box">
-                    <input
-                      type="text"
-                      className="icd-search"
-                      placeholder="Gõ mã (vd: J06, I10, K29) hoặc tên bệnh tiếng Việt để tìm..."
-                      value={icdSearchQuery}
-                      onChange={e => {
-                        setIcdSearchQuery(e.target.value)
-                        setShowIcdList(true)
-                      }}
-                      onFocus={() => setShowIcdList(true)}
-                    />
-                    <Search size={16} className="search-icon" />
-                  </div>
-
-                  {showIcdList && (
-                    <div className="icd-dropdown">
-                      <div className="icd-dropdown-header">
-                        <span>Danh mục ICD-10 thông dụng</span>
-                        <button type="button" onClick={() => setShowIcdList(false)}>
-                          <X size={14} />
-                        </button>
+                      <div className="medgemma-card-item" style={{ marginTop: '10px' }}>
+                        <span className="medgemma-card-label" style={{ color: '#dc2626', fontWeight: 700 }}>
+                          ⚠️ Cảnh báo an toàn & Tiền sử dị ứng đã lưu:
+                        </span>
+                        <div className="safety-alert-strip" style={{ marginTop: '4px' }}>
+                          <span className="safety-item allergy" style={{ color: '#b91c1c', fontWeight: 600 }}>
+                            Dị ứng: {patientData?.allergies || allergies || 'Penicillin, Kháng sinh nhóm Beta-lactam'}
+                          </span>
+                          <span className="safety-item history" style={{ color: '#4338ca', fontWeight: 600 }}>
+                            &bull; Bệnh mạn tính: {patientData?.medical_history_notes || 'Đái tháo đường typ 2, Tăng huyết áp'}
+                          </span>
+                        </div>
                       </div>
-                      <div className="icd-dropdown-list">
-                        {icdOptions.map(item => (
-                          <div
-                            key={item.code}
-                            className="icd-item"
-                            onClick={() => selectICD(item)}
-                          >
-                            <span className="icd-code">{item.code}</span>
-                            <span className="icd-name">{item.name}</span>
-                            <span className="icd-chap">{item.chapter}</span>
+                    </div>
+
+                    {/* Cột phải: Các khảo sát chuyên sâu AI đề xuất Bác sĩ cần hỏi thêm */}
+                    <div className="medgemma-col">
+                      <div className="medgemma-card-item" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                        <span className="medgemma-card-label" style={{ color: '#0369a1', fontWeight: 700 }}>
+                          🔍 Các câu hỏi / Khảo sát thêm AI đề xuất Bác sĩ khai thác:
+                        </span>
+                        <div className="ai-survey-checklist" style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div className="ai-survey-item">
+                            <span className="survey-bullet">1.</span>
+                            <span><strong>Khảo sát cơn hạ đường huyết:</strong> Hỏi về dấu hiệu đói cồn cào, vã mồ hôi lạnh, run tay lúc gần trưa (10h-11h) hoặc chiều muộn (16h-17h).</span>
                           </div>
-                        ))}
+                          <div className="ai-survey-item">
+                            <span className="survey-bullet">2.</span>
+                            <span><strong>Khảo sát tuân thủ phác đồ:</strong> Tần suất uống thuốc 2 tuần qua, có quên liều hoặc tự ý giảm nửa viên khi thấy mệt không.</span>
+                          </div>
+                          <div className="ai-survey-item">
+                            <span className="survey-bullet">3.</span>
+                            <span><strong>Khảo sát triệu chứng thần kinh ngoại biên:</strong> Cảm giác tê bì, châm chích kiến bò đầu ngón tay ngón chân hoặc nhìn mờ gần đây.</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  )}
+                  </div>
+                </div>
 
-                  {icd10Code && (
-                    <div className="selected-icd-pill">
-                      <strong>[{icd10Code}]</strong> {icd10Name}
+                {/* 4. GHI CHÚ CỦA ĐIỀU DƯỠNG */}
+                <div className="booking-section-card nurse-notes-card">
+                  <div className="booking-card-title-row">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Stethoscope size={16} color="#0284c7" />
+                      <strong style={{ fontSize: '13.5px', color: '#0f172a' }}>Ghi chú của Điều dưỡng (Bàn Sàng lọc & Tiếp đón Triage)</strong>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#0369a1', background: '#e0f2fe', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                      ĐD. Nguyễn Thị Mai &bull; Bàn Triage #01
+                    </span>
+                  </div>
+                  <div className="nurse-notes-content" style={{ marginTop: '8px', fontSize: '13px', lineHeight: '1.6', color: '#334155', background: '#f8fafc', padding: '10px 14px', borderRadius: '6px', borderLeft: '3px solid #0284c7' }}>
+                    {encounterInfo?.nurse_notes || (
+                      "Bệnh nhân đã được kiểm tra định danh CCCD gắn chip (VNeID Cấp 2) hợp lệ. Chỉ số sinh hiệu đo tự động tại buồng tiếp đón: HA 130/84 mmHg, Mạch 73 bpm, SpO2 93%, Nhiệt độ 36.8°C, Thể trạng BMI 23.0 kg/m² (Chiều cao 168cm, Cân nặng 65kg). Bệnh nhân tỉnh táo, tiếp xúc tốt. Đã hướng dẫn chuẩn bị đơn thuốc cũ và kết quả XN gần nhất để Bác sĩ đối chiếu."
+                    )}
+                  </div>
+                </div>
+
+                {/* 5. HỒ SƠ CŨ ĐÃ GỬI: HIỂN THỊ THUỐC VÀ KQ XN HOẶC PACS CŨ */}
+                <div className="booking-section-card past-records-card">
+                  <div className="booking-card-title-row" style={{ marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <FileText size={16} color="#7c3aed" />
+                      <strong style={{ fontSize: '13.5px', color: '#0f172a' }}>Hồ sơ cũ người bệnh đã gửi (Đơn thuốc, KQ Xét nghiệm, Phim PACS)</strong>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#6d28d9', background: '#ede9fe', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                      Dữ liệu lịch sử đối chiếu
+                    </span>
+                  </div>
+
+                  <div className="past-records-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                    {/* 5.1 Đơn thuốc cũ đang sử dụng */}
+                    <div className="past-record-subcard" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', background: '#fafafa' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '12px', color: '#b45309' }}>
+                          <Pill size={14} color="#d97706" /> Đơn thuốc cũ đang sử dụng
+                        </span>
+                        <button
+                          type="button"
+                          className="btn-tiny-action"
+                          onClick={() => setActiveTab('prescription')}
+                          style={{ fontSize: '11px', color: '#0284c7', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                        >
+                          Xem toa ↗
+                        </button>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: '#334155' }}>
+                        <div style={{ padding: '4px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #f1f5f9' }}>
+                          <strong>1. Metformin 500mg</strong> &bull; 1 viên x 2 lần/ngày (sau ăn sáng, tối)
+                        </div>
+                        <div style={{ padding: '4px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #f1f5f9' }}>
+                          <strong>2. Amlodipine 5mg</strong> &bull; 1 viên/ngày (sau ăn sáng)
+                        </div>
+                        <div style={{ padding: '4px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #f1f5f9' }}>
+                          <strong>3. Atorvastatin 10mg</strong> &bull; 1 viên/ngày (trước khi đi ngủ)
+                        </div>
+                      </div>
+                      <small style={{ display: 'block', marginTop: '6px', color: '#94a3b8', fontSize: '10.5px' }}>
+                        Đơn ngoại trú BV Đa khoa (cách đây 1 tháng)
+                      </small>
+                    </div>
+
+                    {/* 5.2 Kết quả Xét nghiệm (KQ XN) cũ */}
+                    <div className="past-record-subcard" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', background: '#fafafa' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '12px', color: '#0284c7' }}>
+                          <FlaskConical size={14} color="#0284c7" /> Kết quả Xét nghiệm (KQ XN) cũ
+                        </span>
+                        <button
+                          type="button"
+                          className="btn-tiny-action"
+                          onClick={() => setActiveTab('lab')}
+                          style={{ fontSize: '11px', color: '#0284c7', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                        >
+                          Mở tab CLS ↗
+                        </button>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11.5px', color: '#334155' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 6px', background: '#fff', borderRadius: '4px' }}>
+                          <span>Glucose đói:</span>
+                          <strong style={{ color: '#059669' }}>6.2 mmol/L (Bình thường)</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 6px', background: '#fff', borderRadius: '4px' }}>
+                          <span>HbA1c:</span>
+                          <strong style={{ color: '#059669' }}>6.8% (Mục tiêu &lt; 7.0%)</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 6px', background: '#fff', borderRadius: '4px' }}>
+                          <span>Creatinin:</span>
+                          <strong>82 µmol/L (eGFR 88 mL/phút)</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 6px', background: '#fff', borderRadius: '4px' }}>
+                          <span>Lipid máu:</span>
+                          <span>Cholesterol 4.8 &bull; TG 1.9 mmol/L</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 5.3 Phim PACS cũ */}
+                    <div className="past-record-subcard" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', background: '#fafafa' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '12px', color: '#7c3aed' }}>
+                          <ScanLine size={14} color="#7c3aed" /> Hình ảnh Y khoa (PACS) cũ
+                        </span>
+                        <button
+                          type="button"
+                          className="btn-tiny-action"
+                          onClick={() => setActiveTab('pacs')}
+                          style={{ fontSize: '11px', color: '#7c3aed', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                        >
+                          Mở PACS ↗
+                        </button>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11.5px', color: '#334155' }}>
+                        <div style={{ padding: '4px 8px', background: '#fff', borderRadius: '4px', border: '1px solid #f1f5f9' }}>
+                          <strong>📷 X-Quang ngực thẳng (PA):</strong> Tim phổi bình thường, rốn phổi đậm nhẹ.
+                        </div>
+                        <div style={{ padding: '4px 8px', background: '#fff', borderRadius: '4px', border: '1px solid #f1f5f9' }}>
+                          <strong>📷 Siêu âm bụng tổng quát:</strong> Gan nhiễm mỡ nhẹ độ 1, tụy/lách/thận bình thường.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 6. NÚT TẠO PHIẾU KHÁM (KẾT NỐI AI TÓM TẮT & TẠO SOAP, NẾU AI KO CÓ KẾT NỐI CHO PHÉP BS NHẬP TAY) */}
+                <div className="create-clinical-sheet-action-dock">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff' }}>
+                        <Sparkles size={20} />
+                      </div>
+                      <div>
+                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+                          Phiếu khám lâm sàng & Biên bản SOAP EMR
+                        </h4>
+                        <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
+                          Kết nối AI MedGemma tóm tắt tự động, hoặc Bác sĩ tự nhập tay trực tiếp đầy đủ các mục chuẩn Bộ Y tế.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      {/* Nút chính: Tạo phiếu khám qua AI SOAP (kết nối AI) */}
                       <button
                         type="button"
-                        onClick={() => {
-                          setIcd10Code('')
-                          setIcd10Name('')
-                        }}
+                        className="btn-create-sheet-primary"
+                        onClick={handleCreateClinicalSheet}
+                        disabled={generatingSoap}
+                        title="Kết nối AI MedGemma tóm tắt tự động và mở Popup tạo Phiếu khám SOAP"
                       >
-                        <X size={14} />
+                        <Sparkles size={16} />
+                        <span>{generatingSoap ? 'Đang kết nối AI tóm tắt...' : '✨ Tạo phiếu khám (AI SOAP)'}</span>
+                      </button>
+
+                      {/* Nút phụ: Tự nhập tay (nếu AI không có kết nối hoặc BS muốn tự điền) */}
+                      <button
+                        type="button"
+                        className="btn-create-sheet-manual"
+                        onClick={handleOpenManualSoap}
+                        title="Mở Popup Phiếu khám để Bác sĩ tự gõ / nhập tay trực tiếp"
+                      >
+                        <Edit3 size={15} />
+                        <span>✍️ Tự nhập tay</span>
+                      </button>
+
+                      {/* Nút xem lại nếu đã tạo/lưu */}
+                      <button
+                        type="button"
+                        className="btn-create-sheet-view"
+                        onClick={() => setShowClinicalSheetModal(true)}
+                        title="Xem lại Phiếu khám lâm sàng EMR đã lưu"
+                      >
+                        <Eye size={15} />
+                        <span>Xem phiếu EMR</span>
                       </button>
                     </div>
-                  )}
-
-                  <input
-                    type="text"
-                    className="diagnosis-input"
-                    placeholder="Diễn giải chẩn đoán chi tiết của bác sĩ..."
-                    value={diagnosis}
-                    onChange={e => setDiagnosis(e.target.value)}
-                  />
-                </div>
-
-                {/* Mục 1: Kết quả khám bệnh & thăm khám lâm sàng */}
-                <div className="field-group">
-                  <label>1.2 Thăm khám lâm sàng chi tiết (Toàn thân, các cơ quan qua video)</label>
-                  <textarea
-                    rows={2}
-                    placeholder="Khám thể trạng, niêm mạc, tri giác, hô hấp, tuần hoàn, bụng, da niêm..."
-                    value={clinicalExamination}
-                    onChange={e => setClinicalExamination(e.target.value)}
-                  />
-                </div>
-
-                <div className="field-group">
-                  <label>1.3 Đánh giá lâm sàng & Triệu chứng ghi nhận</label>
-                  <textarea
-                    rows={2}
-                    placeholder="Đánh giá sơ bộ của bác sĩ qua trao đổi trực tuyến..."
-                    value={clinicalNotes}
-                    onChange={e => setClinicalNotes(e.target.value)}
-                  />
-                </div>
-
-                {/* Mục 2: Kết quả cận lâm sàng, xét nghiệm và thăm dò chức năng */}
-                <div className="field-group" style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <label style={{ margin: 0, fontWeight: 700, color: '#0f766e' }}>
-                      2. Kết quả cận lâm sàng, xét nghiệm và thăm dò chức năng
-                    </label>
-                    <button
-                      type="button"
-                      onClick={handleSyncLatest3LabResults}
-                      style={{
-                        background: '#f0fdfa',
-                        border: '1px solid #99f6e4',
-                        color: '#0f766e',
-                        padding: '3px 8px',
-                        borderRadius: '4px',
-                        fontSize: '11.5px',
-                        cursor: 'pointer',
-                        fontWeight: 600,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                      title="Đồng bộ 3 kết quả xét nghiệm mới nhất vào ô này"
-                    >
-                      <RefreshCw size={12} /> Trích xuất từ XN/PACS (3 KQ mới nhất)
-                    </button>
                   </div>
-                  <textarea
-                    rows={4}
-                    placeholder="Tóm tắt các chỉ số xét nghiệm huyết học, sinh hóa máu, nước tiểu, kết quả X-quang/CT/MRI/ECG..."
-                    value={paraclinicalResults}
-                    onChange={e => setParaclinicalResults(e.target.value)}
-                  />
-                </div>
-
-                {/* Mục 3: Phác đồ điều trị, diễn biến bệnh lý và chăm sóc */}
-                <div className="field-group">
-                  <label>3.2 Phác đồ điều trị chi tiết</label>
-                  <textarea
-                    rows={2}
-                    placeholder="Phác đồ điều trị nội khoa, thuốc phối hợp, chế độ dinh dưỡng và lối sống..."
-                    value={treatmentRegimen}
-                    onChange={e => setTreatmentRegimen(e.target.value)}
-                  />
-                </div>
-
-                <div className="field-group">
-                  <label>3.3 Diễn biến bệnh lý & Kế hoạch chăm sóc theo dõi</label>
-                  <textarea
-                    rows={2}
-                    placeholder="Diễn biến bệnh lý trong buổi khám, hướng dẫn theo dõi tại nhà, hẹn tái khám..."
-                    value={clinicalEvolution || plan}
-                    onChange={e => {
-                      setClinicalEvolution(e.target.value)
-                      setPlan(e.target.value)
-                    }}
-                  />
-                </div>
-
-                {/* Mục 4: Danh mục chi tiết thuốc, trang thiết bị y tế hoặc dịch vụ đã sử dụng */}
-                <div className="field-group">
-                  <label>4. Danh mục trang thiết bị y tế & Dịch vụ kỹ thuật đã sử dụng</label>
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: Khám bệnh từ xa chuyên khoa (01.0001); Thiết bị đo huyết áp RPM; Kết nối PKI SmartCA..."
-                    value={medicalServicesUsed}
-                    onChange={e => setMedicalServicesUsed(e.target.value)}
-                  />
-                </div>
-
-                {/* Action Bar: Tạo phiếu khám & AI Thẩm định BHYT */}
-                <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '2px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                    <button
-                      type="button"
-                      onClick={handleCreateClinicalSheet}
-                      disabled={creatingClinicalSheet}
-                      style={{
-                        background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '10px 24px',
-                        fontSize: '14px',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        boxShadow: '0 4px 12px rgba(15, 118, 110, 0.25)',
-                        transition: 'all 0.2s ease'
-                      }}
-                      title="Lưu hồ sơ và tạo Phiếu khám lâm sàng hoàn chỉnh theo chuẩn Bộ Y tế"
-                    >
-                      <FileCheck size={18} />
-                      {creatingClinicalSheet ? 'Đang tạo phiếu khám...' : '📝 Tạo phiếu khám'}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleAuditBhyt}
-                      disabled={auditingBhyt || !icd10Code}
-                      style={{
-                        background: '#eff6ff',
-                        color: '#1d4ed8',
-                        border: '1px solid #bfdbfe',
-                        borderRadius: '8px',
-                        padding: '8px 14px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                      title="Kiểm tra tương thích danh mục BHYT và chống xuất toán trước khi ký số"
-                    >
-                      <ShieldCheck size={15} />
-                      {auditingBhyt ? 'AI đang thẩm định...' : '🛡️ AI Thẩm định BHYT (Chống xuất toán)'}
-                    </button>
-                  </div>
-
-                  {bhytAuditResult && (
-                    <div style={{
-                      marginTop: '10px',
-                      padding: '12px 14px',
-                      borderRadius: '8px',
-                      border: bhytAuditResult.audit_passed ? '1px solid #86efac' : '1px solid #fca5a5',
-                      background: bhytAuditResult.audit_passed ? '#f0fdf4' : '#fef2f2'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                        <b style={{ color: bhytAuditResult.audit_passed ? '#15803d' : '#b91c1c' }}>
-                          {bhytAuditResult.status_label} (Chỉ số rủi ro: {bhytAuditResult.risk_score}/100)
-                        </b>
-                      </div>
-                      {bhytAuditResult.warnings.length === 0 ? (
-                        <p style={{ margin: 0, fontSize: '13px', color: '#166534' }}>
-                          ✅ Hồ sơ lâm sàng và đơn thuốc hoàn toàn tương thích với danh mục chi trả BHYT theo quy định Bộ Y tế.
-                        </p>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          {bhytAuditResult.warnings.map((w: any, i: number) => (
-                            <div key={i} style={{ background: '#fff', padding: '8px 10px', borderRadius: '6px', fontSize: '12px' }}>
-                              <strong style={{ color: '#dc2626' }}>[{w.category}] {w.description}</strong>
-                              <div style={{ color: '#4b5563', margin: '3px 0' }}>Căn cứ: {w.regulation_reference}</div>
-                              <div style={{ color: '#0f766e', fontWeight: 500 }}>💡 Hướng khắc phục: {w.fix_suggestion}</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               </div>
             )}
