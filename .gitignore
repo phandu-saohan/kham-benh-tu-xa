@@ -19,3 +19,5 @@ backend/uploads/*
 
 scratch/
 *.tsbuildinfo
+backups/*
+!backups/.gitkeep
