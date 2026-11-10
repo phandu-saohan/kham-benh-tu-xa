@@ -680,6 +680,7 @@
 .ps-vital-status-pill.normal { background: var(--ps-mint-tint); color: var(--ps-mint-dark); }
 .ps-vital-status-pill.watch { background: var(--ps-warning-tint); color: #92400e; }
 .ps-vital-status-pill.alert { background: var(--ps-danger-tint); color: #991b1b; }
+.ps-vital-status-pill.unmeasured { background: #f1f5f9; color: #64748b; font-weight: 600; }
 
 .ps-vital-tile-middle {
   margin: 7px 0 3px;

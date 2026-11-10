@@ -5249,45 +5249,6 @@ def get_patient_rpm_vitals(
         raise HTTPException(status_code=403, detail="Không có quyền truy cập chỉ số sinh hiệu của bệnh nhân này")
     
     vitals = db.query(RPMVitalLog).filter_by(patient_id=patient_id).order_by(RPMVitalLog.measured_at.desc()).limit(30).all()
-    # Nếu chưa có dữ liệu đo, tự động tạo một số mẫu chuẩn lâm sàng
-    if not vitals:
-        now = datetime.now(timezone.utc)
-        sample_logs = [
-            RPMVitalLog(
-                patient_id=patient_id,
-                device_type="blood_pressure",
-                device_name="Omron HEM-7600T Smart BP",
-                connection_method="bluetooth_ble",
-                systolic=128,
-                diastolic=82,
-                pulse=74,
-                is_warning=False,
-                measured_at=now - timedelta(days=2)
-            ),
-            RPMVitalLog(
-                patient_id=patient_id,
-                device_type="blood_glucose",
-                device_name="Accu-Chek Guide Wireless",
-                connection_method="bluetooth_ble",
-                glucose_value=5.8,
-                glucose_context="fasting",
-                is_warning=False,
-                measured_at=now - timedelta(days=1)
-            ),
-            RPMVitalLog(
-                patient_id=patient_id,
-                device_type="spo2",
-                device_name="Wellue O2Ring Continuous SpO2",
-                connection_method="bluetooth_ble",
-                spo2_percent=98.5,
-                pulse=72,
-                is_warning=False,
-                measured_at=now - timedelta(hours=4)
-            )
-        ]
-        db.add_all(sample_logs)
-        db.commit()
-        vitals = sample_logs
     return vitals
 
 # -------------------------------------------------------------
@@ -6122,6 +6083,14 @@ def ensure_system_initialized():
     """Khởi tạo cấu trúc danh mục và tài khoản quản trị cán bộ ban đầu nếu database trống"""
     from app.db import SessionLocal
     db = SessionLocal()
+    try:
+        # Tự động dọn dẹp các bản ghi sinh hiệu mẫu đã tạo nhầm vào tài khoản người dùng
+        mock_devices = ["Omron HEM-7600T Smart BP", "Accu-Chek Guide Wireless", "Wellue O2Ring Continuous SpO2"]
+        db.query(RPMVitalLog).filter(RPMVitalLog.device_name.in_(mock_devices)).delete(synchronize_session=False)
+        db.commit()
+    except Exception:
+        db.rollback()
+
     try:
         if db.query(Department).count() == 0:
             db.add_all([

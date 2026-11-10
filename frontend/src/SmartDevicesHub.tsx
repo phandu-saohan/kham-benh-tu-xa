@@ -169,13 +169,13 @@ const DEFAULT_ALL_DEVICES: ConnectedDeviceInfo[] = [
 
     category: 'bp',
 
-    status: 'connected',
+    status: 'ready',
 
-    battery: 88,
+    battery: 100,
 
-    lastSync: '15 phút trước',
+    lastSync: 'Chưa kết nối',
 
-    lastReading: '120/80 mmHg',
+    lastReading: 'Chưa có số đo',
 
     icon: HeartPulse,
 
@@ -271,13 +271,13 @@ const DEFAULT_ALL_DEVICES: ConnectedDeviceInfo[] = [
 
     category: 'glucose',
 
-    status: 'connected',
+    status: 'ready',
 
-    battery: 92,
+    battery: 100,
 
-    lastSync: 'Hôm nay, 07:15',
+    lastSync: 'Chưa kết nối',
 
-    lastReading: '5.6 mmol/L',
+    lastReading: 'Chưa có số đo',
 
     icon: Droplets,
 
@@ -712,7 +712,9 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
     try {
 
-      const saved = localStorage.getItem('careconnect_paired_devices')
+      const storageKey = `careconnect_paired_devices_${user?.id || 'guest'}`
+
+      const saved = localStorage.getItem(storageKey)
 
       if (saved) {
 
@@ -780,7 +782,9 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
       }))
 
-      localStorage.setItem('careconnect_paired_devices', JSON.stringify(minimal))
+      const storageKey = `careconnect_paired_devices_${user?.id || 'guest'}`
+
+      localStorage.setItem(storageKey, JSON.stringify(minimal))
 
     } catch (e) {
 

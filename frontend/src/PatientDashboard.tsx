@@ -410,18 +410,29 @@ export function PatientDashboard({
     }
   }
 
-  // Lấy chỉ số mới nhất từ vitalsLogs hoặc mặc định
+  // Lấy chỉ số mới nhất từ vitalsLogs thực tế của người bệnh (không hiển thị giá trị ảo nếu chưa đo)
   const latestVitals = vitalsLogs.length > 0 ? vitalsLogs[0] : null
-  const sysPart = latestVitals?.systolic || 120
-  const diaPart = latestVitals?.diastolic || 80
-  const bpDisplay = `${sysPart}/${diaPart}`
-  const mapValue = calculateMAP(sysPart, diaPart)
-  const pulseDisplay = latestVitals?.pulse || 76
-  const spo2Display = latestVitals?.spo2_percent || 98
+  const latestBpLog = vitalsLogs.find(v => v.systolic !== undefined && v.systolic !== null)
+  const sysPart = latestBpLog?.systolic || null
+  const diaPart = latestBpLog?.diastolic || null
+  const bpDisplay = sysPart && diaPart ? `${sysPart}/${diaPart}` : null
+  const mapValue = sysPart && diaPart ? calculateMAP(sysPart, diaPart) : null
+
+  const latestPulseLog = vitalsLogs.find(v => v.pulse !== undefined && v.pulse !== null && v.pulse > 0)
+  const pulseDisplay = latestPulseLog?.pulse || null
+
+  const latestSpo2Log = vitalsLogs.find(v => v.spo2_percent !== undefined && v.spo2_percent !== null)
+  const spo2Display = latestSpo2Log?.spo2_percent || null
+
   const latestGlucoseLog = vitalsLogs.find(v => v.glucose_value !== undefined && v.glucose_value !== null && v.glucose_value > 0)
-  const glucoseDisplay = latestGlucoseLog?.glucose_value || latestVitals?.glucose_value || 5.6
-  const glucoseDeviceName = latestGlucoseLog?.device_name || 'Roche Accu-Chek Instant BLE'
-  const bmiInfo = calculateBMI(manualWeight, manualHeight)
+  const glucoseDisplay = latestGlucoseLog?.glucose_value || null
+
+  const latestTempLog = vitalsLogs.find(v => v.temperature_celsius !== undefined && v.temperature_celsius !== null)
+  const tempDisplay = latestTempLog?.temperature_celsius || null
+
+  const currentWeight = user?.weight || latestVitals?.weight_kg || null
+  const currentHeight = user?.height || null
+  const bmiInfo = currentWeight && currentHeight ? calculateBMI(currentWeight, currentHeight) : null
 
   return (
     <div className="ps-scope">
@@ -729,17 +740,19 @@ export function PatientDashboard({
                 <div className="ps-vital-icon-wrap red">
                   <Heart size={16} />
                 </div>
-                <span className="ps-vital-status-pill normal">Ổn định</span>
+                <span className={`ps-vital-status-pill ${bpDisplay ? (sysPart && (sysPart >= 140 || (diaPart && diaPart >= 90)) ? 'alert' : 'normal') : 'unmeasured'}`}>
+                  {bpDisplay ? (sysPart && (sysPart >= 140 || (diaPart && diaPart >= 90)) ? 'Huyết áp cao' : 'Ổn định') : 'Chưa đo'}
+                </span>
               </div>
               <div className="ps-vital-tile-middle">
-                <div className="ps-vital-val-display">
-                  {bpDisplay} <small>mmHg</small>
+                <div className="ps-vital-val-display" style={{ color: bpDisplay ? 'inherit' : '#94a3b8' }}>
+                  {bpDisplay || '-- / --'} <small>mmHg</small>
                 </div>
                 <div className="ps-vital-name">Huyết áp (Sys/Dia)</div>
               </div>
               <div className="ps-vital-tile-bottom">
-                <span>Huyết áp TB: <b>{mapValue ? `${mapValue} mmHg` : 'N/A'}</b></span>
-                <span style={{ color: 'var(--ps-mint-dark)', fontWeight: 600 }}>Chuẩn WHO</span>
+                <span>Huyết áp TB: <b>{mapValue ? `${mapValue} mmHg` : '---'}</b></span>
+                <span style={{ color: bpDisplay ? 'var(--ps-mint-dark)' : '#94a3b8', fontWeight: 600 }}>{bpDisplay ? 'Chuẩn WHO' : 'Chưa có'}</span>
               </div>
             </div>
 
@@ -749,11 +762,13 @@ export function PatientDashboard({
                 <div className="ps-vital-icon-wrap teal">
                   <HeartPulse size={16} />
                 </div>
-                <span className="ps-vital-status-pill normal">Bình thường</span>
+                <span className={`ps-vital-status-pill ${pulseDisplay ? (pulseDisplay > 100 || pulseDisplay < 60 ? 'watch' : 'normal') : 'unmeasured'}`}>
+                  {pulseDisplay ? (pulseDisplay > 100 ? 'Nhịp nhanh' : pulseDisplay < 60 ? 'Nhịp chậm' : 'Bình thường') : 'Chưa đo'}
+                </span>
               </div>
               <div className="ps-vital-tile-middle">
-                <div className="ps-vital-val-display">
-                  {pulseDisplay} <small>bpm</small>
+                <div className="ps-vital-val-display" style={{ color: pulseDisplay ? 'inherit' : '#94a3b8' }}>
+                  {pulseDisplay || '--'} <small>bpm</small>
                 </div>
                 <div className="ps-vital-name">Nhịp tim & Mạch</div>
               </div>
@@ -765,7 +780,7 @@ export function PatientDashboard({
                   className="ps-vital-action-btn"
                   title="Đo nhịp tim và mạch bằng Camera PPG"
                 >
-                  Đo lại
+                  {pulseDisplay ? 'Đo lại' : 'Đo Camera'}
                 </button>
               </div>
             </div>
@@ -776,17 +791,19 @@ export function PatientDashboard({
                 <div className="ps-vital-icon-wrap blue">
                   <Wind size={16} />
                 </div>
-                <span className="ps-vital-status-pill normal">Tốt</span>
+                <span className={`ps-vital-status-pill ${spo2Display ? (spo2Display < 95 ? 'alert' : 'normal') : 'unmeasured'}`}>
+                  {spo2Display ? (spo2Display < 95 ? 'Cảnh báo' : 'Tối ưu') : 'Chưa đo'}
+                </span>
               </div>
               <div className="ps-vital-tile-middle">
-                <div className="ps-vital-val-display">
-                  {spo2Display} <small>%</small>
+                <div className="ps-vital-val-display" style={{ color: spo2Display ? 'inherit' : '#94a3b8' }}>
+                  {spo2Display || '--'} <small>%</small>
                 </div>
                 <div className="ps-vital-name">Nồng độ Oxy (SpO2)</div>
               </div>
               <div className="ps-vital-tile-bottom">
                 <span>Bão hòa oxy máu</span>
-                <span style={{ color: 'var(--ps-mint-dark)', fontWeight: 600 }}>Tối ưu</span>
+                <span style={{ color: spo2Display ? 'var(--ps-mint-dark)' : '#94a3b8', fontWeight: 600 }}>{spo2Display ? (spo2Display >= 95 ? 'Tối ưu' : 'Thấp') : 'Chưa có'}</span>
               </div>
             </div>
 
@@ -796,16 +813,18 @@ export function PatientDashboard({
                 <div className="ps-vital-icon-wrap amber">
                   <Droplets size={16} />
                 </div>
-                <span className="ps-vital-status-pill normal">
-                  {glucoseDisplay < 3.9 ? 'Hạ đường' : glucoseDisplay > 7.2 ? 'Đường cao' : 'Ổn định'}
+                <span className={`ps-vital-status-pill ${glucoseDisplay ? (glucoseDisplay < 3.9 ? 'alert' : glucoseDisplay > 7.2 ? 'watch' : 'normal') : 'unmeasured'}`}>
+                  {glucoseDisplay ? (glucoseDisplay < 3.9 ? 'Hạ đường' : glucoseDisplay > 7.2 ? 'Đường cao' : 'Ổn định') : 'Chưa đo'}
                 </span>
               </div>
               <div className="ps-vital-tile-middle">
-                <div className="ps-vital-val-display">
-                  {glucoseDisplay} <small>mmol/L</small>
-                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500, marginLeft: '3px' }}>
-                    (~{Math.round(glucoseDisplay * 18.018)} mg/dL)
-                  </span>
+                <div className="ps-vital-val-display" style={{ color: glucoseDisplay ? 'inherit' : '#94a3b8' }}>
+                  {glucoseDisplay || '--'} <small>mmol/L</small>
+                  {glucoseDisplay && (
+                    <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500, marginLeft: '3px' }}>
+                      (~{Math.round(glucoseDisplay * 18.018)} mg/dL)
+                    </span>
+                  )}
                 </div>
                 <div className="ps-vital-name">Đường huyết (Accu-Chek BLE)</div>
               </div>
@@ -830,17 +849,19 @@ export function PatientDashboard({
                 <div className="ps-vital-icon-wrap amber">
                   <Thermometer size={16} />
                 </div>
-                <span className="ps-vital-status-pill normal">Ổn định</span>
+                <span className={`ps-vital-status-pill ${tempDisplay ? (tempDisplay >= 38.0 ? 'alert' : 'normal') : 'unmeasured'}`}>
+                  {tempDisplay ? (tempDisplay >= 38.0 ? 'Sốt' : 'Ổn định') : 'Chưa đo'}
+                </span>
               </div>
               <div className="ps-vital-tile-middle">
-                <div className="ps-vital-val-display">
-                  {latestVitals?.temperature_celsius || 36.8} <small>°C</small>
+                <div className="ps-vital-val-display" style={{ color: tempDisplay ? 'inherit' : '#94a3b8' }}>
+                  {tempDisplay || '--'} <small>°C</small>
                 </div>
                 <div className="ps-vital-name">Thân nhiệt</div>
               </div>
               <div className="ps-vital-tile-bottom">
                 <span>Khoảng chuẩn: <b>36.5 - 37.2</b></span>
-                <span style={{ color: 'var(--ps-mint-dark)', fontWeight: 600 }}>Chuẩn</span>
+                <span style={{ color: tempDisplay ? 'var(--ps-mint-dark)' : '#94a3b8', fontWeight: 600 }}>{tempDisplay ? 'Chuẩn' : 'Chưa có'}</span>
               </div>
             </div>
 
@@ -850,17 +871,19 @@ export function PatientDashboard({
                 <div className="ps-vital-icon-wrap teal">
                   <Weight size={16} />
                 </div>
-                <span className="ps-vital-status-pill normal">{bmiInfo?.category || 'Cân đối'}</span>
+                <span className={`ps-vital-status-pill ${currentWeight ? 'normal' : 'unmeasured'}`}>
+                  {currentWeight ? (bmiInfo?.category || 'Cân đối') : 'Chưa cập nhật'}
+                </span>
               </div>
               <div className="ps-vital-tile-middle">
-                <div className="ps-vital-val-display">
-                  {manualWeight || user.weight || 62} <small>kg</small>
+                <div className="ps-vital-val-display" style={{ color: currentWeight ? 'inherit' : '#94a3b8' }}>
+                  {currentWeight || '--'} <small>kg</small>
                 </div>
                 <div className="ps-vital-name">Cân nặng hiện tại</div>
               </div>
               <div className="ps-vital-tile-bottom">
                 <span>Mục tiêu: <b>±1.5 kg</b></span>
-                <span style={{ color: 'var(--ps-mint-dark)', fontWeight: 600 }}>Theo dõi</span>
+                <span style={{ color: currentWeight ? 'var(--ps-mint-dark)' : '#94a3b8', fontWeight: 600 }}>{currentWeight ? 'Theo dõi' : 'Chưa có'}</span>
               </div>
             </div>
 
@@ -870,17 +893,19 @@ export function PatientDashboard({
                 <div className="ps-vital-icon-wrap blue">
                   <Ruler size={16} />
                 </div>
-                <span className="ps-vital-status-pill normal">Cố định</span>
+                <span className={`ps-vital-status-pill ${currentHeight ? 'normal' : 'unmeasured'}`}>
+                  {currentHeight ? 'Cố định' : 'Chưa cập nhật'}
+                </span>
               </div>
               <div className="ps-vital-tile-middle">
-                <div className="ps-vital-val-display">
-                  {manualHeight || user.height || 168} <small>cm</small>
+                <div className="ps-vital-val-display" style={{ color: currentHeight ? 'inherit' : '#94a3b8' }}>
+                  {currentHeight || '--'} <small>cm</small>
                 </div>
                 <div className="ps-vital-name">Chiều cao</div>
               </div>
               <div className="ps-vital-tile-bottom">
                 <span>Hồ sơ y tế số</span>
-                <span style={{ color: 'var(--ps-primary)', fontWeight: 600 }}>QĐ 2682</span>
+                <span style={{ color: currentHeight ? 'var(--ps-primary)' : '#94a3b8', fontWeight: 600 }}>{currentHeight ? 'QĐ 2682' : 'Chưa có'}</span>
               </div>
             </div>
 
@@ -890,17 +915,19 @@ export function PatientDashboard({
                 <div className="ps-vital-icon-wrap green">
                   <Activity size={16} />
                 </div>
-                <span className="ps-vital-status-pill normal">{bmiInfo?.category || 'Cân đối'}</span>
+                <span className={`ps-vital-status-pill ${bmiInfo ? 'normal' : 'unmeasured'}`}>
+                  {bmiInfo ? bmiInfo.category : 'Chưa tính'}
+                </span>
               </div>
               <div className="ps-vital-tile-middle">
-                <div className="ps-vital-val-display">
-                  {bmiInfo ? `${bmiInfo.bmi}` : '22.0'} <small>kg/m²</small>
+                <div className="ps-vital-val-display" style={{ color: bmiInfo ? 'inherit' : '#94a3b8' }}>
+                  {bmiInfo ? bmiInfo.bmi : '--'} <small>kg/m²</small>
                 </div>
                 <div className="ps-vital-name">Chỉ số khối cơ thể (BMI)</div>
               </div>
               <div className="ps-vital-tile-bottom">
-                <span>Thể trạng: <b>{bmiInfo?.category || 'Cân đối'}</b></span>
-                <span style={{ color: 'var(--ps-mint-dark)', fontWeight: 600 }}>Hợp lý</span>
+                <span>Thể trạng: <b>{bmiInfo ? bmiInfo.category : 'Chưa có'}</b></span>
+                <span style={{ color: bmiInfo ? 'var(--ps-mint-dark)' : '#94a3b8', fontWeight: 600 }}>{bmiInfo ? 'Hợp lý' : '---'}</span>
               </div>
             </div>
           </div>
