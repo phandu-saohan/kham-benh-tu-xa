@@ -20,9 +20,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     APP_ENV=production \
     SECRET_KEY=careconnect-telemedicine-prod-secret-93993-c4f8817a5be66a0129bcdd9745e1f98b \
     PHI_ENCRYPTION_KEY=careconnect-phi-key-c4f8817a5be66a0129bcdd9745e1f98bc195e347ad1efd88002df35154ee8780 \
-    DATABASE_URL=sqlite:////app/data/telemedicine.db \
-    ALLOW_SEED_DEMO=true \
-    SEED_DEMO=true \
+    DATABASE_URL=postgresql+psycopg://postgres:tobklteb61gqvbz0adpsyurqmkun1tir@72.61.123.73:5432/telemedicine \
+    SUPABASE_URL=https://supabase-supabase-7c4fe6-72-61-123-73.sslip.io \
+    SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjIxMDY3MTU4MjksImlhdCI6MTc5MTM1NTgyOSwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlzcyI6InN1cGFiYXNlIn0.V3vdSFKXr9uLlYG0QLUYnjtug8AKKoLt6NL_vZCPRxk \
+    SUPABASE_BUCKET=telemedicine-records \
+    ALLOW_SEED_DEMO=false \
+    SEED_DEMO=false \
     CORS_ORIGINS="*"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

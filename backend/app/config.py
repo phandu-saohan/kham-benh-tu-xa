@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     SECRET_KEY: str = "replace-me"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    DATABASE_URL: str = "sqlite:///./telemedicine.db"
+    DATABASE_URL: str = "postgresql+psycopg://postgres:tobklteb61gqvbz0adpsyurqmkun1tir@72.61.123.73:5432/telemedicine"
     REDIS_URL: str = "redis://localhost:6379/0"
     CORS_ORIGINS: str = "*"
     # Chỉ bật trong dev. Không bao giờ để mặc định true.
@@ -85,10 +85,15 @@ class Settings(BaseSettings):
 
     @property
     def sqlalchemy_database_url(self) -> str:
-        """Chuẩn hóa connection string cho PostgreSQL dùng psycopg3 driver"""
+        """Chuẩn hóa connection string cho PostgreSQL dùng psycopg3 hoặc psycopg2 driver"""
         url = self.DATABASE_URL
-        if url.startswith("postgresql://") and not url.startswith("postgresql+psycopg://"):
-            return url.replace("postgresql://", "postgresql+psycopg://", 1)
+        if url.startswith("postgresql://") and not url.startswith("postgresql+"):
+            url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+        if url.startswith("postgresql+psycopg://"):
+            try:
+                import psycopg  # noqa: F401
+            except ImportError:
+                url = url.replace("postgresql+psycopg://", "postgresql+psycopg2://", 1)
         return url
 
 settings = Settings()
