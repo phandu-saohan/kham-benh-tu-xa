@@ -1585,34 +1585,7 @@ export function DoctorWorkspace({
               </div>
             </div>
 
-            {/* Thanh trạng thái hội thoại gọn gàng (Thay thế textarea cồng kềnh) */}
-            <div className="scribe-status-strip">
-              <div className="scribe-status-left">
-                {isListening ? (
-                  <span className="scribe-listening-text">
-                    <span className="live-dot-recording" /> 🎙️ Đang nghe trực tiếp cuộc gọi khám và nhận diện lời nói...
-                  </span>
-                ) : scribeTranscript.trim() ? (
-                  <span className="scribe-has-transcript-text">
-                    💬 Đã ghi nhận hội thoại ({scribeTranscript.trim().split('\n').filter(Boolean).length} lượt thoại &bull; {scribeTranscript.length} ký tự).
-                  </span>
-                ) : (
-                  <span className="scribe-idle-text">
-                    💡 Cuộc trò chuyện được lắng nghe tự động. Bấm <strong>"Tự động nghe"</strong> khi khám hoặc bấm <strong>"Hội thoại"</strong> để xem & nạp mẫu.
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                className="btn-open-transcript-mini"
-                onClick={() => setShowTranscriptModal(true)}
-                title="Mở popup xem và chỉnh sửa hội thoại"
-              >
-                <Eye size={12} /> {scribeTranscript.trim() ? 'Mở xem / sửa hội thoại' : 'Nhập / Nạp mẫu thoại'}
-              </button>
-            </div>
-
-            {/* Khung tóm tắt SOAP & Gợi ý ICD-10 sau khi AI phân tích */}
+{/* Khung tóm tắt SOAP & Gợi ý ICD-10 sau khi AI phân tích */}
             {soapResult && (
               <div className="scribe-soap-result-card">
                 <div className="scribe-soap-top">
@@ -1676,10 +1649,7 @@ export function DoctorWorkspace({
                     <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
                       Sinh hiệu Lâm sàng & Sàng lọc Triage (Điều dưỡng & RPM IoT)
                     </h4>
-                    <span style={{ fontSize: '11px', background: '#ecfdf5', color: '#059669', padding: '2px 8px', borderRadius: '10px', fontWeight: 700, border: '1px solid #a7f3d0' }}>
-                      ✓ Đã tiếp đón Triage
-                    </span>
-                  </div>
+</div>
                   <span className="doctor-rpm-sub">
                     Chỉ số đo thực tế từ Bàn Sàng lọc & Phân luồng Điều dưỡng (kết nối thiết bị Omron BLE, Accu-Chek, SpO2)
                   </span>
@@ -1694,30 +1664,7 @@ export function DoctorWorkspace({
                 >
                   <Clock size={13} /> Lịch sử đo ({rpmVitals.length || 3})
                 </button>
-                <button
-                  type="button"
-                  className="btn-sync-triage"
-                  onClick={handleSyncTriageVitals}
-                  disabled={loadingRpm}
-                  style={{
-                    background: '#ecfdf5',
-                    color: '#047857',
-                    border: '1px solid #a7f3d0',
-                    borderRadius: '6px',
-                    padding: '6px 12px',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                  title="Cập nhật lại toàn bộ chỉ số mới nhất từ Bàn Sàng lọc Triage của Điều dưỡng"
-                >
-                  <RefreshCw size={13} className={loadingRpm ? 'spin-icon' : ''} />
-                  <span>Đồng bộ từ Bàn Triage</span>
-                </button>
-                <button
+<button
                   type="button"
                   className="btn-apply-rpm"
                   onClick={handleApplyRpmToRecord}
