@@ -304,6 +304,7 @@ class AuditLog(Base):
     action: Mapped[str] = mapped_column(String(120))
     resource_type: Mapped[str] = mapped_column(String(80))
     resource_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 class ConsultationMessage(Base):
@@ -333,6 +334,7 @@ class Notification(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
     target_role: Mapped[str | None] = mapped_column(String(30), nullable=True)  # "all", "patient", "doctor", "nurse", "admin"
+    type: Mapped[str | None] = mapped_column(String(50), default="system", nullable=True)
     title: Mapped[str] = mapped_column(String(255))
     message: Mapped[str] = mapped_column(Text)
     category: Mapped[str] = mapped_column(String(50), default="system")  # "appointment", "prescription", "paraclinical", "ai_alert", "system", "payment"
@@ -547,3 +549,79 @@ class SupportTicketMessage(Base):
     content: Mapped[str] = mapped_column(Text)
     is_doctor: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class LabTestReport(Base):
+    """Bảng lưu trữ Phiếu kết quả Xét nghiệm Cận lâm sàng (LIS)"""
+    __tablename__ = "lab_test_reports"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    report_code: Mapped[str] = mapped_column(String(80), unique=True, index=True) # e.g. XN-2026-0001
+    patient_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    appointment_id: Mapped[int | None] = mapped_column(ForeignKey("appointments.id"), nullable=True, index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    category: Mapped[str] = mapped_column(String(50), default="biochemistry") # biochemistry, hematology, urinalysis, immunology, microbiology
+    category_name: Mapped[str] = mapped_column(String(150), default="Sinh hóa máu")
+    sampled_at: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    result_at: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    performed_by: Mapped[str] = mapped_column(String(200), default="Khoa Xét nghiệm Trung tâm")
+    doctor_order: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    conclusion: Mapped[str | None] = mapped_column(Text, nullable=True)
+    indicators_json: Mapped[str | None] = mapped_column(Text, nullable=True) # JSON array of LabIndicator
+    file_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    his_order_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PacsDicomStudy(Base):
+    """Bảng lưu trữ Ca chụp Chẩn đoán hình ảnh PACS / DICOM (RIS/PACS)"""
+    __tablename__ = "pacs_dicom_studies"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    study_code: Mapped[str] = mapped_column(String(100), unique=True, index=True) # e.g. PACS-2026-0001
+    study_instance_uid: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
+    patient_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    appointment_id: Mapped[int | None] = mapped_column(ForeignKey("appointments.id"), nullable=True, index=True)
+    modality: Mapped[str] = mapped_column(String(30), default="CR") # CR, DX, CT, MR, US
+    modality_name: Mapped[str] = mapped_column(String(150), default="X-Quang Kỹ thuật số (CR/DX)")
+    body_part: Mapped[str] = mapped_column(String(100), default="CHEST")
+    description: Mapped[str] = mapped_column(String(255))
+    study_date: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    institution: Mapped[str] = mapped_column(String(255), default="Bệnh viện Đa khoa CareConnect")
+    radiologist: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    findings: Mapped[str | None] = mapped_column(Text, nullable=True)
+    impression: Mapped[str | None] = mapped_column(Text, nullable=True)
+    series_count: Mapped[int] = mapped_column(Integer, default=1)
+    instances_count: Mapped[int] = mapped_column(Integer, default=1)
+    viewer_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    dicom_web_endpoint: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PatientMedicalDevice(Base):
+    """Bảng lưu trữ Thiết bị đo y tế cá nhân BLE/IoT đã ghép đôi của bệnh nhân"""
+    __tablename__ = "patient_medical_devices"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    patient_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    device_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    device_name: Mapped[str] = mapped_column(String(200))
+    device_type: Mapped[str] = mapped_column(String(50)) # blood_pressure, blood_glucose, spo2, thermometer, scale, ecg
+    manufacturer: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    mac_address: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    connection_method: Mapped[str] = mapped_column(String(50), default="bluetooth_ble") # bluetooth_ble, wifi, manual
+    battery_level: Mapped[int | None] = mapped_column(Integer, default=100, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="connected") # connected, disconnected, pairing
+    last_synced_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class MedicationDoseLog(Base):
+    """Bảng lưu trữ Nhật ký uống thuốc theo cử của bệnh nhân"""
+    __tablename__ = "medication_dose_logs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    patient_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    cabinet_item_id: Mapped[int] = mapped_column(ForeignKey("patient_cabinet_items.id", ondelete="CASCADE"), index=True)
+    medicine_name: Mapped[str] = mapped_column(String(200))
+    dosage: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    schedule_slot: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="taken") # taken, skipped, delayed
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    taken_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now())

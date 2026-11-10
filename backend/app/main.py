@@ -25,7 +25,8 @@ from app.models import (
     Payment, AuditLog, OtpCode, PatientConsent, Department, ClinicRoom, DoctorShift, NurseShift,
     ConsultationMessage, SystemSetting, Notification, AppointmentEvent,
     BHYTClaim, ConsultationMember, RPMVitalLog, FamilyMemberProfile, AIPACSConsultation, AppointmentDocument,
-    PatientCabinetItem, SupportTicket, SupportTicketMessage
+    PatientCabinetItem, SupportTicket, SupportTicketMessage,
+    LabTestReport, PacsDicomStudy, PatientMedicalDevice, MedicationDoseLog
 )
 from app.schemas import (
     LoginIn, TokenOut, OtpSendIn, OtpSendOut, OtpVerifyIn, FirebaseVerifyIn, RefreshTokenIn,
@@ -5958,6 +5959,18 @@ def auto_migrate_schema():
                     conn.rollback()
                 except Exception:
                     pass
+        for table_name, col_name, col_type in [
+            ("audit_logs", "notes", "TEXT"),
+            ("notifications", "type", "VARCHAR(50) DEFAULT 'system'")
+        ]:
+            try:
+                conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type}"))
+                conn.commit()
+            except Exception:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
 
 def ensure_system_initialized():
     """Khởi tạo cấu trúc danh mục, dọn dẹp dữ liệu demo cũ và khởi tạo tài khoản cán bộ ban đầu"""
@@ -5965,12 +5978,21 @@ def ensure_system_initialized():
     db = SessionLocal()
     try:
         # 1. Tự động dọn dẹp toàn bộ bản ghi demo/mẫu đã tạo trước đó trong Database để sẵn sàng chạy thật
-        mock_devices = ["Omron HEM-7600T Smart BP", "Accu-Chek Guide Wireless", "Wellue O2Ring Continuous SpO2"]
+        mock_devices = [
+            "Omron HEM-7600T Smart BP",
+            "Omron HEM-7600T Smart Bluetooth",
+            "Accu-Chek Guide Wireless",
+            "Roche Accu-Chek Guide Me (FDA K181803)",
+            "A&D Medical UA-651BLE (FDA K140683)",
+            "Withings BPM Connect (Wi-Fi)",
+            "CareConnect Camera PPG Bio-Sensor",
+            "Wellue O2Ring Continuous SpO2"
+        ]
         db.query(RPMVitalLog).filter(RPMVitalLog.device_name.in_(mock_devices)).delete(synchronize_session=False)
 
         # Dọn dẹp thành viên gia đình mẫu
-        demo_family_names = ["Nguyễn Minh Khang (Con trai)", "Trần Thị Lan (Mẹ ruột)"]
-        demo_family_bhyts = ["TE1797931800123", "HT2797931800889"]
+        demo_family_names = ["Nguyễn Minh Khang (Con trai)", "Trần Thị Lan (Mẹ ruột)", "Nguyễn Hoàng Nam (Em trai)"]
+        demo_family_bhyts = ["TE1797931800123", "HT2797931800889", "DN4797931888999"]
         db.query(FamilyMemberProfile).filter(
             (FamilyMemberProfile.full_name.in_(demo_family_names)) |
             (FamilyMemberProfile.bhyt_code.in_(demo_family_bhyts))
@@ -5997,6 +6019,7 @@ def ensure_system_initialized():
         # Dọn dẹp thông báo mẫu
         db.query(Notification).filter(
             (Notification.message.like("%Phan Hoàng Phúc%")) |
+            (Notification.message.like("%Bệnh nhân test%")) |
             (Notification.message.like("%Mã DT-2026-9881%")) |
             (Notification.message.like("%HbA1c 8.2%%")) |
             (Notification.message.like("%Clopidogrel và Omeprazole%")) |
@@ -6005,8 +6028,10 @@ def ensure_system_initialized():
 
         # Dọn dẹp tài khoản bệnh nhân demo (patient@example.test) và các lịch hẹn demo gắn kèm
         demo_patients = db.query(User).filter(
-            (User.email == "patient@example.test") |
-            (User.external_patient_id == "PAT-001")
+            (User.email.in_(["patient@example.test", "0988776655@phone.careconnect.local", "test@gmail.com", "hoa@gmail.com"])) |
+            (User.phone_number.in_(["0988776655", "0933413486", "0900000001"])) |
+            (User.external_patient_id == "PAT-001") |
+            (User.full_name.in_(["Phan Hoàng Phúc", "Bệnh nhân test", "Demo Patient"]))
         ).all()
         for dp in demo_patients:
             demo_appts = db.query(Appointment).filter(Appointment.patient_id == dp.id).all()
@@ -6018,10 +6043,28 @@ def ensure_system_initialized():
                 db.query(TelehealthSession).filter(TelehealthSession.appointment_id == da.id).delete(synchronize_session=False)
                 db.query(AppointmentEvent).filter(AppointmentEvent.appointment_id == da.id).delete(synchronize_session=False)
                 db.query(AppointmentDocument).filter(AppointmentDocument.appointment_id == da.id).delete(synchronize_session=False)
+                db.query(AIPACSConsultation).filter(AIPACSConsultation.appointment_id == da.id).delete(synchronize_session=False)
+                db.query(BHYTClaim).filter(BHYTClaim.appointment_id == da.id).delete(synchronize_session=False)
+                db.query(ConsultationMessage).filter(ConsultationMessage.appointment_id == da.id).delete(synchronize_session=False)
+                db.query(ConsultationMember).filter(ConsultationMember.appointment_id == da.id).delete(synchronize_session=False)
                 db.delete(da)
             db.query(RPMVitalLog).filter(RPMVitalLog.patient_id == dp.id).delete(synchronize_session=False)
             db.query(PatientCabinetItem).filter(PatientCabinetItem.patient_id == dp.id).delete(synchronize_session=False)
-            db.query(FamilyMemberProfile).filter(FamilyMemberProfile.patient_id == dp.id).delete(synchronize_session=False)
+            db.query(FamilyMemberProfile).filter(FamilyMemberProfile.owner_user_id == dp.id).delete(synchronize_session=False)
+            db.query(AuditLog).filter(AuditLog.actor_user_id == dp.id).delete(synchronize_session=False)
+            db.query(Notification).filter(Notification.user_id == dp.id).delete(synchronize_session=False)
+            db.query(PatientConsent).filter(PatientConsent.user_id == dp.id).delete(synchronize_session=False)
+            db.query(ConsultationMessage).filter(ConsultationMessage.sender_id == dp.id).delete(synchronize_session=False)
+            db.query(AppointmentEvent).filter(AppointmentEvent.actor_id == dp.id).delete(synchronize_session=False)
+            db.query(AppointmentDocument).filter(
+                (AppointmentDocument.uploaded_by == dp.id) |
+                (AppointmentDocument.patient_id == dp.id)
+            ).delete(synchronize_session=False)
+            db.query(BHYTClaim).filter(BHYTClaim.patient_id == dp.id).delete(synchronize_session=False)
+            db.query(LabTestReport).filter(LabTestReport.patient_id == dp.id).delete(synchronize_session=False)
+            db.query(PacsDicomStudy).filter(PacsDicomStudy.patient_id == dp.id).delete(synchronize_session=False)
+            db.query(PatientMedicalDevice).filter(PatientMedicalDevice.patient_id == dp.id).delete(synchronize_session=False)
+            db.query(MedicationDoseLog).filter(MedicationDoseLog.patient_id == dp.id).delete(synchronize_session=False)
             db.delete(dp)
 
         db.commit()

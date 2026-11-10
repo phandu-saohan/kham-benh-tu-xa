@@ -1,9 +1,10 @@
 """
 Module Quản lý & Cung cấp dữ liệu Cận lâm sàng (Lab/LIS) và Chẩn đoán hình ảnh PACS (RIS/PACS)
-Truy vấn trực tiếp từ dữ liệu thực tế của bệnh nhân trong cơ sở dữ liệu (AppointmentDocument, ClinicalRecord, AIPACSConsultation).
+Truy vấn trực tiếp từ dữ liệu thực tế của bệnh nhân trong cơ sở dữ liệu (LabTestReport, PacsDicomStudy, AppointmentDocument, ClinicalRecord, AIPACSConsultation).
 Không sinh dữ liệu demo giả lập cho tài khoản mới.
 """
 
+import json
 from typing import Dict, List, Any, Optional
 from sqlalchemy.orm import Session
 
@@ -21,20 +22,48 @@ def get_patient_lab_results(
     reports: List[Dict[str, Any]] = []
 
     if db is not None:
-        from app.models import Appointment, ClinicalRecord, AppointmentDocument, User
+        from app.models import Appointment, ClinicalRecord, AppointmentDocument, User, LabTestReport
 
-        # 1. Lấy từ hồ sơ tài liệu xét nghiệm đính kèm (AppointmentDocument)
+        # 1. Lấy từ bảng chuyên biệt LabTestReport (LIS)
+        lis_reports = (
+            db.query(LabTestReport)
+            .filter(LabTestReport.patient_id == patient_id)
+            .order_by(LabTestReport.created_at.desc())
+            .all()
+        )
+        for lr in lis_reports:
+            ts_str = lr.result_at or lr.sampled_at or (lr.created_at.strftime("%Y-%m-%d %H:%M") if hasattr(lr.created_at, "strftime") and lr.created_at else "Đã ghi nhận")
+            parsed_indicators = []
+            if lr.indicators_json:
+                try:
+                    parsed_indicators = json.loads(lr.indicators_json)
+                except Exception:
+                    parsed_indicators = []
+            reports.append({
+                "report_id": lr.report_code or f"XN-LIS-{lr.id:04d}",
+                "title": lr.title,
+                "category": lr.category or "biochemistry",
+                "category_name": lr.category_name or "Sinh hóa máu",
+                "sampled_at": lr.sampled_at or ts_str,
+                "result_at": lr.result_at or ts_str,
+                "performed_by": lr.performed_by or "Khoa Xét nghiệm Trung tâm",
+                "doctor_order": lr.doctor_order or "Bác sĩ điều trị",
+                "conclusion": lr.conclusion or "Kết quả xét nghiệm từ hệ thống LIS.",
+                "indicators": parsed_indicators
+            })
+
+        # 2. Lấy từ hồ sơ tài liệu xét nghiệm đính kèm (AppointmentDocument)
         lab_docs = (
             db.query(AppointmentDocument)
             .filter(
                 AppointmentDocument.patient_id == patient_id,
-                AppointmentDocument.doc_type == "lab_test"
+                AppointmentDocument.document_type == "lab_test"
             )
-            .order_by(AppointmentDocument.uploaded_at.desc())
+            .order_by(AppointmentDocument.created_at.desc())
             .all()
         )
         for doc in lab_docs:
-            ts_str = doc.uploaded_at.strftime("%Y-%m-%d %H:%M") if hasattr(doc.uploaded_at, "strftime") and doc.uploaded_at else "Đã ghi nhận"
+            ts_str = doc.created_at.strftime("%Y-%m-%d %H:%M") if hasattr(doc.created_at, "strftime") and doc.created_at else "Đã ghi nhận"
             reports.append({
                 "report_id": f"XN-DOC-{doc.id:04d}",
                 "title": doc.title or "Phiếu Kết Quả Xét Nghiệm Cận Lâm Sàng",
@@ -44,11 +73,11 @@ def get_patient_lab_results(
                 "result_at": ts_str,
                 "performed_by": "Khoa Xét nghiệm",
                 "doctor_order": "Bác sĩ điều trị",
-                "conclusion": doc.notes or "Kết quả xét nghiệm đã được tải lên hồ sơ bệnh án.",
+                "conclusion": doc.description or "Kết quả xét nghiệm đã được tải lên hồ sơ bệnh án.",
                 "indicators": []
             })
 
-        # 2. Lấy từ bệnh án điện tử có ghi nhận kết quả cận lâm sàng (ClinicalRecord)
+        # 3. Lấy từ bệnh án điện tử có ghi nhận kết quả cận lâm sàng (ClinicalRecord)
         appts = (
             db.query(Appointment)
             .filter(Appointment.patient_id == patient_id)
@@ -102,9 +131,36 @@ def get_patient_pacs_studies(
     studies: List[Dict[str, Any]] = []
 
     if db is not None:
-        from app.models import Appointment, AIPACSConsultation, AppointmentDocument
+        from app.models import Appointment, AIPACSConsultation, AppointmentDocument, PacsDicomStudy
 
-        # 1. Lấy từ bảng AIPACSConsultation của các ca khám thuộc bệnh nhân
+        # 1. Lấy từ bảng chuyên biệt PacsDicomStudy (RIS/PACS)
+        pacs_rows = (
+            db.query(PacsDicomStudy)
+            .filter(PacsDicomStudy.patient_id == patient_id)
+            .order_by(PacsDicomStudy.created_at.desc())
+            .all()
+        )
+        for row in pacs_rows:
+            date_str = row.study_date or (row.created_at.strftime("%Y-%m-%d") if hasattr(row.created_at, "strftime") and row.created_at else "")
+            studies.append({
+                "study_id": row.study_code or f"PACS-DB-{row.id:04d}",
+                "modality": row.modality or "CR",
+                "modality_name": row.modality_name or f"Chẩn đoán hình ảnh ({row.modality or 'DICOM'})",
+                "body_part": row.body_part or "Lồng ngực",
+                "description": row.description or f"Chụp {row.modality or 'X-Quang'} {row.body_part or ''}".strip(),
+                "date": date_str,
+                "institution": row.institution or "Bệnh viện Đa khoa Quốc tế CareConnect",
+                "radiologist": row.radiologist or "Khoa Chẩn đoán hình ảnh",
+                "findings": row.findings or "Đã ghi nhận hình ảnh DICOM trên hệ thống PACS.",
+                "impression": row.impression or "Chờ bác sĩ chuyên khoa kết luận.",
+                "series_count": row.series_count or 1,
+                "instances_count": row.instances_count or 1,
+                "viewer_url": row.viewer_url or (f"{ohif_base}?StudyInstanceUIDs={row.study_instance_uid}" if row.study_instance_uid else None),
+                "dicom_web_endpoint": row.dicom_web_endpoint or "",
+                "study_instance_uid": row.study_instance_uid or row.study_code
+            })
+
+        # 2. Lấy từ bảng AIPACSConsultation của các ca khám thuộc bệnh nhân
         appts = db.query(Appointment).filter(Appointment.patient_id == patient_id).all()
         appt_ids = [a.id for a in appts]
         if appt_ids:
@@ -134,18 +190,18 @@ def get_patient_pacs_studies(
                     "study_instance_uid": pr.dicom_study_id or f"PACS-{pr.id:04d}"
                 })
 
-        # 2. Lấy từ tài liệu CĐHA đính kèm (AppointmentDocument)
+        # 3. Lấy từ tài liệu CĐHA đính kèm (AppointmentDocument)
         cdha_docs = (
             db.query(AppointmentDocument)
             .filter(
                 AppointmentDocument.patient_id == patient_id,
-                AppointmentDocument.doc_type == "cdha"
+                AppointmentDocument.document_type == "cdha"
             )
-            .order_by(AppointmentDocument.uploaded_at.desc())
+            .order_by(AppointmentDocument.created_at.desc())
             .all()
         )
         for doc in cdha_docs:
-            date_str = doc.uploaded_at.strftime("%Y-%m-%d") if hasattr(doc.uploaded_at, "strftime") and doc.uploaded_at else ""
+            date_str = doc.created_at.strftime("%Y-%m-%d") if hasattr(doc.created_at, "strftime") and doc.created_at else ""
             studies.append({
                 "study_id": f"CDHA-{doc.id:04d}",
                 "modality": "OT",
@@ -155,8 +211,8 @@ def get_patient_pacs_studies(
                 "date": date_str,
                 "institution": "Cơ sở Khám chữa bệnh",
                 "radiologist": "Bác sĩ CĐHA",
-                "findings": doc.notes or "Hình ảnh chẩn đoán đã được đính kèm vào hồ sơ.",
-                "impression": doc.notes or "Đã lưu trữ hồ sơ hình ảnh y khoa.",
+                "findings": doc.description or "Hình ảnh chẩn đoán đã được đính kèm vào hồ sơ.",
+                "impression": doc.description or "Đã lưu trữ hồ sơ hình ảnh y khoa.",
                 "series_count": 1,
                 "instances_count": 1,
                 "viewer_url": doc.file_url,
