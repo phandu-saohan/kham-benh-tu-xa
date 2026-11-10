@@ -2727,52 +2727,79 @@ export function DoctorWorkspace({
 
             {activeTab === 'lab' && (
               <div className="paraclinical-workspace">
-                <div className="patient-banner-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f0fdfa', border: '1px solid #ccfbf1', borderRadius: '8px', padding: '12px 16px', marginBottom: '14px' }}>
-                  <div className="grow">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <div className="patient-banner-header" style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                  background: '#f0fdfa',
+                  border: '1px solid #ccfbf1',
+                  borderRadius: '10px',
+                  padding: '12px 16px',
+                  marginBottom: '14px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <FlaskConical size={20} color="#0f766e" />
-                      <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>
-                        Phiếu Cận lâm sàng & Kết quả Xét nghiệm
+                      <h3 style={{ margin: 0, fontSize: '15.5px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
+                        Phiếu Cận lâm sàng & Kết quả
                       </h3>
                     </div>
-                    <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-                      Bệnh nhân: <strong>{patientData?.full_name || 'Bệnh nhân'}</strong> · Mã BN: <code>{patientData?.external_patient_id || `VN-P00${appointment.patient_id}`}</code> · Tổng: <strong>{labData?.reports?.length || 0} phiếu</strong>
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <button
-                      type="button"
-                      onClick={handleSyncLatest3LabResults}
-                      style={{
-                        background: '#0f766e',
-                        color: '#ffffff',
-                        border: '1px solid #0d9488',
-                        borderRadius: '6px',
-                        padding: '6px 12px',
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        boxShadow: '0 1px 3px rgba(15, 118, 110, 0.2)'
-                      }}
-                      title="Đồng bộ 3 kết quả xét nghiệm mới nhất vào Bệnh án EMR"
-                    >
-                      <RefreshCw size={14} />
-                      Đồng bộ (lấy 3 kết quả mới nhất)
-                    </button>
-                    {labData && labData.abnormal_indicators_count > 0 && (
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                       <button
                         type="button"
-                        className="primary small-primary"
-                        onClick={handleExtractAbnormalToNotes}
-                        style={{ background: '#f59e0b', borderColor: '#d97706', display: 'flex', alignItems: 'center', gap: '6px' }}
-                        title="Tự động sao chép các chỉ số bất thường vào Phiếu khám lâm sàng"
+                        onClick={handleSyncLatest3LabResults}
+                        style={{
+                          background: '#0f766e',
+                          color: '#ffffff',
+                          border: '1px solid #0d9488',
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          fontSize: '12.5px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: '0 1px 3px rgba(15, 118, 110, 0.2)',
+                          whiteSpace: 'nowrap'
+                        }}
+                        title="Đồng bộ kết quả xét nghiệm mới nhất vào Bệnh án EMR"
                       >
-                        <Sparkles size={14} /> ⚡ Trích xuất {labData.abnormal_indicators_count} chỉ số bất thường
+                        <RefreshCw size={14} />
+                        Đồng bộ
                       </button>
-                    )}
+                      {labData && labData.abnormal_indicators_count > 0 && (
+                        <button
+                          type="button"
+                          className="primary small-primary"
+                          onClick={handleExtractAbnormalToNotes}
+                          style={{
+                            background: '#f59e0b',
+                            borderColor: '#d97706',
+                            color: '#ffffff',
+                            borderRadius: '6px',
+                            padding: '6px 12px',
+                            fontSize: '12.5px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            boxShadow: '0 1px 3px rgba(245, 158, 11, 0.2)',
+                            whiteSpace: 'nowrap'
+                          }}
+                          title="Tự động sao chép các chỉ số bất thường vào Phiếu khám lâm sàng"
+                        >
+                          <Sparkles size={14} /> Trích xuất ({labData.abnormal_indicators_count} bất thường)
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', paddingTop: '8px', borderTop: '1px solid #e0f2fe' }}>
+                    <p style={{ margin: 0, fontSize: '12.5px', color: '#64748b' }}>
+                      Bệnh nhân: <strong style={{ color: '#1e293b' }}>{patientData?.full_name || 'Bệnh nhân'}</strong> · Mã BN: <code style={{ background: '#e6fffa', padding: '1px 5px', borderRadius: '4px', color: '#0d9488', fontWeight: 600 }}>{patientData?.external_patient_id || `VN-P00${appointment.patient_id}`}</code> · Tổng: <strong>{labData?.reports?.length || 0} phiếu</strong>
+                    </p>
                   </div>
                 </div>
 
@@ -2953,41 +2980,54 @@ export function DoctorWorkspace({
 
             {activeTab === 'pacs' && (
               <div className="pacs-workspace">
-                <div className="patient-banner-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '12px 16px', marginBottom: '14px' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <div className="patient-banner-header" style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                  background: '#f0f9ff',
+                  border: '1px solid #bae6fd',
+                  borderRadius: '10px',
+                  padding: '12px 16px',
+                  marginBottom: '14px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <ScanLine size={20} color="#0284c7" />
-                      <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>
+                      <h3 style={{ margin: 0, fontSize: '15.5px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
                         Chẩn đoán Hình ảnh PACS / DICOM
                       </h3>
                     </div>
-                    <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-                      Bệnh nhân: <strong>{patientData?.full_name || 'Bệnh nhân'}</strong> · Mã BN: <code>{patientData?.external_patient_id || `VN-P00${appointment.patient_id}`}</code> · Tổng: <strong>{pacsData?.total_studies || 0} ca chụp</strong>
-                    </p>
+                    <div>
+                      <button
+                        type="button"
+                        onClick={handleSyncPacsStudies}
+                        style={{
+                          background: '#0284c7',
+                          color: '#ffffff',
+                          border: '1px solid #0369a1',
+                          borderRadius: '6px',
+                          padding: '6px 14px',
+                          fontSize: '12.5px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: '0 1px 3px rgba(2, 132, 199, 0.25)',
+                          whiteSpace: 'nowrap'
+                        }}
+                        title="Đồng bộ kết luận chẩn đoán hình ảnh PACS vào Bệnh án EMR"
+                      >
+                        <RefreshCw size={14} />
+                        Đồng bộ
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <button
-                      type="button"
-                      onClick={handleSyncPacsStudies}
-                      style={{
-                        background: '#0284c7',
-                        color: '#ffffff',
-                        border: '1px solid #0369a1',
-                        borderRadius: '6px',
-                        padding: '6px 14px',
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        boxShadow: '0 1px 3px rgba(2, 132, 199, 0.25)'
-                      }}
-                      title="Đồng bộ kết luận chẩn đoán hình ảnh PACS vào Bệnh án EMR"
-                    >
-                      <RefreshCw size={14} />
-                      Đồng bộ
-                    </button>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', paddingTop: '8px', borderTop: '1px solid #e0f2fe' }}>
+                    <p style={{ margin: 0, fontSize: '12.5px', color: '#64748b' }}>
+                      Bệnh nhân: <strong style={{ color: '#1e293b' }}>{patientData?.full_name || 'Bệnh nhân'}</strong> · Mã BN: <code style={{ background: '#e0f2fe', padding: '1px 5px', borderRadius: '4px', color: '#0284c7', fontWeight: 600 }}>{patientData?.external_patient_id || `VN-P00${appointment.patient_id}`}</code> · Tổng: <strong>{pacsData?.total_studies || 0} ca chụp</strong>
+                    </p>
                   </div>
                 </div>
 
