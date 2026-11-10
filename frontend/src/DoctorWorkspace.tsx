@@ -1942,20 +1942,6 @@ export function DoctorWorkspace({
                       <strong>Đơn đặt khám #{appointment.id}</strong>
                       <span className="badge-live-status">🟢 Đang khám trực tuyến</span>
                     </div>
-                    <div className="essential-header-right">
-                      <span className="essential-meta-pill">
-                        Khoa: <strong>{encounterInfo?.department_name || 'Khoa Nội Tổng Quát'}</strong>
-                      </span>
-                      <span className="essential-meta-pill">
-                        Ca: <strong>{encounterInfo?.shift_name || 'Ca sáng (07:30 - 11:30)'}</strong> &bull; {appointment.starts_at || "Hôm nay"}
-                      </span>
-                      <span className="essential-meta-pill" style={{ color: '#0f766e', background: '#ecfdf5', borderColor: '#a7f3d0' }}>
-                        {encounterInfo?.bhyt_code || appointment.bhyt_code ? `BHYT (${encounterInfo?.bhyt_rate || 80}%)` : 'Khám Dịch vụ'}
-                      </span>
-                      <span className="essential-meta-pill">
-                        Bác sĩ: <strong>{encounterInfo?.doctor_name || user.full_name || 'BS.CKII Trần Minh'}</strong>
-                      </span>
-                    </div>
                   </div>
 
                   <div className="essential-patient-strip">
