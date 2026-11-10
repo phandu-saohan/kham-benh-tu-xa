@@ -149,6 +149,7 @@ export function DoctorWorkspace({
   // Modal Popup xem và chỉnh sửa Hội thoại Bác sĩ - Bệnh nhân
   const [showTranscriptModal, setShowTranscriptModal] = useState(false)
   const [showRpmHistoryModal, setShowRpmHistoryModal] = useState(false)
+  const [showOhifModal, setShowOhifModal] = useState(false)
   const [showMoreTabs, setShowMoreTabs] = useState(false)
   const [soapEditState, setSoapEditState] = useState({
     subjective: '',
@@ -3090,10 +3091,17 @@ export function DoctorWorkspace({
                             <button
                               type="button"
                               className="primary small-primary"
-                              onClick={() => window.open(study.viewer_url, '_blank')}
+                              onClick={() => {
+                                setSelectedStudy(study)
+                                setShowOhifModal(true)
+                                if (!pacsAiResult) {
+                                  handleAnalyzePacs()
+                                }
+                              }}
                               style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', background: '#0284c7', borderColor: '#0284c7' }}
+                              title="Mở buồng đọc phim DICOM tích hợp trợ lý AI MedGemma 3 trực tiếp trên màn hình"
                             >
-                              <ExternalLink size={14} /> Mở phim DICOM (OHIF Viewer)
+                              <ExternalLink size={14} /> Mở phim & AI MedGemma đọc phim (OHIF)
                             </button>
                           </div>
 
@@ -4145,6 +4153,347 @@ export function DoctorWorkspace({
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* MODAL BUỒNG ĐỌC PHIM DICOM (OHIF VIEWER) TÍCH HỢP AI MEDGEMMA 3 CLINICAL */}
+      {/* ========================================================================= */}
+      {showOhifModal && selectedStudy && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: '#090d16',
+          zIndex: 99999,
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          {/* Top Bar of OHIF & AI MedGemma Viewer */}
+          <div style={{
+            height: '52px',
+            background: '#0f172a',
+            borderBottom: '1px solid #1e293b',
+            padding: '0 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            color: '#ffffff'
+          }}>
+            {/* Title & Study info */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '15px', fontWeight: 800, color: '#38bdf8' }}>
+                  OHIF Viewer v3
+                </span>
+                <span style={{ fontSize: '12px', color: '#94a3b8' }}>•</span>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#f8fafc' }}>
+                  {selectedStudy.description || selectedStudy.body_part || 'X-quang Tim Phổi Thẳng (Chest CR / CT)'}
+                </span>
+              </div>
+              <span style={{ fontSize: '11px', background: '#064e3b', color: '#34d399', border: '1px solid #059669', padding: '3px 10px', borderRadius: '12px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                <Sparkles size={13} /> AI MedGemma 3 Vision
+              </span>
+            </div>
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={handleAnalyzePacs}
+                disabled={analyzingPacs}
+                style={{
+                  background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '7px 15px',
+                  fontSize: '12.5px',
+                  fontWeight: 800,
+                  cursor: analyzingPacs ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 8px rgba(16,185,129,0.35)'
+                }}
+              >
+                <Sparkles size={14} className={analyzingPacs ? 'spin-icon' : ''} />
+                {analyzingPacs ? 'AI MedGemma đang đọc phim...' : '🧠 AI MedGemma Đọc Phim'}
+              </button>
+
+              {pacsAiResult && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleApplyImagingImpression(selectedStudy)
+                    setToast('Đã đưa kết luận AI MedGemma vào Bệnh án EMR!')
+                  }}
+                  style={{
+                    background: '#0284c7',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '7px 14px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <CheckCircle2 size={13} />
+                  Đưa vào Bệnh án EMR
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => window.open(selectedStudy.viewer_url, '_blank')}
+                style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  color: '#cbd5e1',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: '8px',
+                  padding: '7px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                title="Mở toàn màn hình ra tab trình duyệt mới"
+              >
+                <ExternalLink size={13} /> Mở tab riêng
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowOhifModal(false)}
+                style={{
+                  background: '#334155',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '6px 10px',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+                title="Đóng buồng đọc phim"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+
+          {/* Main Content Area: OHIF iFrame on Left, AI MedGemma Drawer on Right */}
+          <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+            {/* OHIF Viewer iFrame */}
+            <div style={{ flex: 1, height: '100%', background: '#000000', position: 'relative' }}>
+              <iframe
+                src={selectedStudy.viewer_url}
+                title="OHIF DICOM Viewer"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  border: 'none',
+                  display: 'block'
+                }}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+
+            {/* AI MedGemma 3 Diagnostic Panel on Right */}
+            <div style={{
+              width: '400px',
+              background: '#0f172a',
+              borderLeft: '1px solid #1e293b',
+              color: '#f8fafc',
+              display: 'flex',
+              flexDirection: 'column',
+              overflowY: 'auto'
+            }}>
+              {/* Panel Header */}
+              <div style={{ padding: '16px', borderBottom: '1px solid #1e293b', background: '#1e293b' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sparkles size={18} color="#34d399" />
+                  <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#f8fafc' }}>
+                    Trợ Lý AI MedGemma 3 Đọc Phim
+                  </h4>
+                </div>
+                <p style={{ margin: '4px 0 0', fontSize: '11.5px', color: '#94a3b8' }}>
+                  Mô hình: MedGemma 3 Clinical (27B Vision - Google DeepMind)
+                </p>
+              </div>
+
+              {/* Panel Body */}
+              <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px', flex: 1 }}>
+                {analyzingPacs ? (
+                  <div style={{ textAlign: 'center', padding: '40px 10px', color: '#94a3b8' }}>
+                    <RefreshCw size={28} className="spin-icon" style={{ color: '#10b981', margin: '0 auto 12px' }} />
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff' }}>AI MedGemma đang quét phim DICOM...</div>
+                    <div style={{ fontSize: '12px', marginTop: '6px', lineHeight: 1.5 }}>
+                      Đang nhận diện nhu mô phổi, bóng tim, góc sườn hoành, khung xương và dị vật cản quang...
+                    </div>
+                  </div>
+                ) : pacsAiResult ? (
+                  <>
+                    {/* Trạng thái tổn thương */}
+                    <div style={{
+                      background: pacsAiResult.abnormal ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                      border: `1px solid ${pacsAiResult.abnormal ? '#ef4444' : '#10b981'}`,
+                      borderRadius: '8px',
+                      padding: '10px 12px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: pacsAiResult.abnormal ? '#fca5a5' : '#6ee7b7' }}>
+                        {pacsAiResult.abnormal ? '⚠️ Nghi ngờ có tổn thương' : '✓ Trong giới hạn bình thường'}
+                      </span>
+                      <span style={{ fontSize: '11px', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '10px', color: '#fff' }}>
+                        Độ tin cậy: {Math.round((1 - pacsAiResult.abnormality_score) * 100)}%
+                      </span>
+                    </div>
+
+                    {/* Mô tả giải phẫu & tổn thương */}
+                    <div>
+                      <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Phát hiện từ hình ảnh (Findings):
+                      </label>
+                      <div style={{
+                        background: '#1e293b',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        fontSize: '12.5px',
+                        lineHeight: 1.6,
+                        color: '#e2e8f0',
+                        marginTop: '6px',
+                        whiteSpace: 'pre-line'
+                      }}>
+                        {pacsAiResult.finding}
+                      </div>
+                    </div>
+
+                    {/* Kết luận chẩn đoán */}
+                    <div>
+                      <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Kết luận AI (Impression):
+                      </label>
+                      <div style={{
+                        background: 'rgba(16, 185, 129, 0.1)',
+                        borderLeft: '3px solid #10b981',
+                        borderRadius: '0 8px 8px 0',
+                        padding: '10px 12px',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        color: '#ffffff',
+                        marginTop: '6px'
+                      }}>
+                        {pacsAiResult.impression}
+                      </div>
+                    </div>
+
+                    {/* Vùng giải phẫu được quét */}
+                    {pacsAiResult.annotated_regions && pacsAiResult.annotated_regions.length > 0 && (
+                      <div>
+                        <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#cbd5e1' }}>
+                          Vùng giải phẫu đã rà soát:
+                        </label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                          {pacsAiResult.annotated_regions.map((reg: any, i: number) => (
+                            <span
+                              key={i}
+                              style={{
+                                background: reg.status === 'benign_artifact' ? '#334155' : 'rgba(56, 189, 248, 0.15)',
+                                color: reg.status === 'benign_artifact' ? '#fde047' : '#38bdf8',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                fontSize: '11px'
+                              }}
+                            >
+                              📍 {reg.label} ({Math.round(reg.confidence * 100)}%)
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Khuyến nghị lâm sàng */}
+                    <div>
+                      <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#f59e0b' }}>
+                        Khuyến nghị lâm sàng:
+                      </label>
+                      <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#cbd5e1', lineHeight: 1.5 }}>
+                        {pacsAiResult.recommendation}
+                      </p>
+                    </div>
+
+                    {/* Nút hành động đưa vào bệnh án */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleApplyImagingImpression(selectedStudy)
+                        setToast('Đã đưa kết luận AI MedGemma vào Phiếu khám EMR!')
+                      }}
+                      style={{
+                        marginTop: 'auto',
+                        background: '#059669',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '11px',
+                        fontWeight: 800,
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        boxShadow: '0 2px 8px rgba(5,150,105,0.3)'
+                      }}
+                    >
+                      <CheckCircle2 size={16} />
+                      Đưa Kết Luận Vào Phiếu Khám EMR
+                    </button>
+                  </>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '40px 12px', color: '#94a3b8' }}>
+                    <Sparkles size={32} color="#10b981" style={{ margin: '0 auto 12px', opacity: 0.8 }} />
+                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#f8fafc' }}>Chưa chạy phân tích AI</div>
+                    <p style={{ fontSize: '12px', marginTop: '6px', lineHeight: 1.5 }}>
+                      Bấm nút <strong>"AI MedGemma Đọc Phim"</strong> ở trên để AI tự động quét tổn thương trên phim này.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleAnalyzePacs}
+                      style={{
+                        marginTop: '16px',
+                        background: '#059669',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '8px 16px',
+                        fontWeight: 700,
+                        fontSize: '12.5px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🧠 Chạy Phân Tích Ngay
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   </div>
 )
