@@ -1249,43 +1249,6 @@ export function DoctorWorkspace({
 
         <div className="workspace-header-actions">
           <NotificationCenter userRole="doctor" />
-          {/* Nút Gọi chuông bệnh nhân */}
-          {!isLocked && (
-            <button
-              type="button"
-              className="btn-call-patient"
-              onClick={handleCallPatient}
-              disabled={callingPatient}
-              style={{
-                background: callingPatient ? '#fef08a' : '#16a34a',
-                color: callingPatient ? '#854d0e' : '#fff',
-                border: 'none',
-                padding: '7px 13px',
-                borderRadius: '8px',
-                fontWeight: 700,
-                fontSize: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                cursor: 'pointer',
-                boxShadow: '0 2px 5px rgba(22,163,74,0.3)'
-              }}
-            >
-              <PhoneCall size={15} />
-              {callingPatient ? 'Đang đổ chuông...' : '📞 Gọi bệnh nhân'}
-            </button>
-          )}
-
-          {/* Nút Tải PDF */}
-          <button
-            className="btn-action-icon"
-            onClick={handleDownloadPdf}
-            disabled={downloadingPdf}
-            title="Tải Phiếu khám & Đơn thuốc PDF"
-          >
-            <FileDown size={16} /> PDF
-          </button>
-
           {/* Nút Ký số SmartCA */}
           {!signatureInfo ? (
             <button
