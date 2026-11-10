@@ -143,7 +143,7 @@ export function PatientDashboard({
   const [isSyncingAccuChek, setIsSyncingAccuChek] = useState<boolean>(false)
   const [showAccuChekModal, setShowAccuChekModal] = useState<boolean>(false)
   const [accuChekStatus, setAccuChekStatus] = useState<string>('Sẵn sàng kết nối Bluetooth BLE (GATT 0x1808)...')
-  const [accuChekInputVal, setAccuChekInputVal] = useState<number>(5.6)
+  const [accuChekInputVal, setAccuChekInputVal] = useState<string>('')
 
   const handleSyncAccuChekBLE = async () => {
     setIsSyncingAccuChek(true)
@@ -153,7 +153,7 @@ export function PatientDashboard({
     try {
       if (isWebBluetoothSupported()) {
         const res = await readGlucoseBLE()
-        setAccuChekInputVal(res.glucoseValue)
+        setAccuChekInputVal(String(res.glucoseValue))
         setAccuChekStatus(`Đã nhận kết quả thành công: ${res.glucoseValue} mmol/L từ ${res.deviceName}!`)
         await recordRPMVitals({
           patient_id: user?.id,
@@ -165,26 +165,12 @@ export function PatientDashboard({
         if (onRefreshVitals) await onRefreshVitals()
         showToast('success', `Đã đồng bộ đường huyết từ ${res.deviceName}: ${res.glucoseValue} mmol/L`)
       } else {
-        setAccuChekStatus('Trình duyệt không mở được Web Bluetooth API trực tiếp. Đang kích hoạt đồng bộ qua Gateway BLE...')
-        setTimeout(async () => {
-          const simVal = Number((5.2 + Math.random() * 0.7).toFixed(1))
-          setAccuChekInputVal(simVal)
-          await recordRPMVitals({
-            patient_id: user?.id,
-            device_type: 'glucose',
-            device_name: 'Roche Accu-Chek Instant BLE',
-            connection_method: 'bluetooth_ble',
-            glucose_value: simVal
-          })
-          if (onRefreshVitals) await onRefreshVitals()
-          setAccuChekStatus(`Đã nhận số đo tự động: ${simVal} mmol/L từ Roche Accu-Chek Instant BLE`)
-          showToast('success', `Đã đồng bộ từ Roche Accu-Chek Instant BLE: ${simVal} mmol/L`)
-          setIsSyncingAccuChek(false)
-        }, 1200)
+        setAccuChekStatus('Trình duyệt hiện tại không hỗ trợ Web Bluetooth API. Vui lòng mở trên Chrome/Edge và bật Bluetooth thiết bị thật hoặc tự nhập chỉ số.')
+        showToast('info', 'Trình duyệt không hỗ trợ Web Bluetooth trực tiếp. Vui lòng kết nối thiết bị BLE trên Chrome/Edge hoặc tự ghi nhận sinh hiệu.')
       }
     } catch (err: any) {
       console.warn('Lỗi kết nối Accu-Chek BLE:', err)
-      setAccuChekStatus(`Thiết bị chưa phản hồi: ${err.message || 'Hủy ghép nối'}. Bạn có thể xác nhận số đo mẫu hoặc nhập số đo.`)
+      setAccuChekStatus(`Thiết bị chưa phản hồi: ${err.message || 'Hủy ghép nối'}. Vui lòng bật nguồn máy đo hoặc tự nhập chỉ số.`)
     } finally {
       setIsSyncingAccuChek(false)
     }
@@ -218,16 +204,16 @@ export function PatientDashboard({
   const waveformPoints = useRef<number[]>([])
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  // Manual Vitals Entry State
+  // Manual Vitals Entry State (Để trống hoàn toàn cho đến khi người bệnh nhập số đo thực tế)
   const [showManualModal, setShowManualModal] = useState<boolean>(false)
-  const [manualSys, setManualSys] = useState<number>(120)
-  const [manualDia, setManualDia] = useState<number>(80)
-  const [manualPulse, setManualPulse] = useState<number>(76)
-  const [manualGlucose, setManualGlucose] = useState<number>(5.6)
-  const [manualSpo2, setManualSpo2] = useState<number>(98)
-  const [manualTemp, setManualTemp] = useState<number>(36.6)
-  const [manualWeight, setManualWeight] = useState<number>(62)
-  const [manualHeight, setManualHeight] = useState<number>(168)
+  const [manualSys, setManualSys] = useState<string>('')
+  const [manualDia, setManualDia] = useState<string>('')
+  const [manualPulse, setManualPulse] = useState<string>('')
+  const [manualGlucose, setManualGlucose] = useState<string>('')
+  const [manualSpo2, setManualSpo2] = useState<string>('')
+  const [manualTemp, setManualTemp] = useState<string>('')
+  const [manualWeight, setManualWeight] = useState<string>('')
+  const [manualHeight, setManualHeight] = useState<string>('')
   const [isSavingManual, setIsSavingManual] = useState<boolean>(false)
 
   useEffect(() => {
@@ -386,19 +372,43 @@ export function PatientDashboard({
 
   const handleSaveManualVitals = async (e: React.FormEvent) => {
     e.preventDefault()
+    const sysNum = manualSys.trim() ? parseInt(manualSys, 10) : undefined
+    const diaNum = manualDia.trim() ? parseInt(manualDia, 10) : undefined
+    const pulseNum = manualPulse.trim() ? parseInt(manualPulse, 10) : undefined
+    const glucNum = manualGlucose.trim() ? parseFloat(manualGlucose) : undefined
+    const spo2Num = manualSpo2.trim() ? parseInt(manualSpo2, 10) : undefined
+    const tempNum = manualTemp.trim() ? parseFloat(manualTemp) : undefined
+    const weightNum = manualWeight.trim() ? parseFloat(manualWeight) : undefined
+    const heightNum = manualHeight.trim() ? parseFloat(manualHeight) : undefined
+
+    if (
+      sysNum === undefined &&
+      diaNum === undefined &&
+      pulseNum === undefined &&
+      glucNum === undefined &&
+      spo2Num === undefined &&
+      tempNum === undefined &&
+      weightNum === undefined &&
+      heightNum === undefined
+    ) {
+      showToast('error', 'Vui lòng nhập ít nhất một chỉ số sinh hiệu thực tế để lưu.')
+      return
+    }
+
     setIsSavingManual(true)
     try {
       await recordRPMVitals({
         device_type: 'manual',
         device_name: 'Bệnh nhân tự nhập tại nhà',
         connection_method: 'manual_patient',
-        systolic: manualSys,
-        diastolic: manualDia,
-        pulse: manualPulse,
-        glucose_value: manualGlucose,
-        spo2_percent: manualSpo2,
-        temperature_celsius: manualTemp,
-        weight_kg: manualWeight
+        systolic: sysNum,
+        diastolic: diaNum,
+        pulse: pulseNum,
+        glucose_value: glucNum,
+        spo2_percent: spo2Num,
+        temperature_celsius: tempNum,
+        weight_kg: weightNum,
+        height_cm: heightNum
       })
       showToast('success', 'Đã lưu thành công các chỉ số sinh hiệu vào hồ sơ bệnh án!')
       setShowManualModal(false)
@@ -430,8 +440,10 @@ export function PatientDashboard({
   const latestTempLog = vitalsLogs.find(v => v.temperature_celsius !== undefined && v.temperature_celsius !== null)
   const tempDisplay = latestTempLog?.temperature_celsius || null
 
-  const currentWeight = user?.weight || latestVitals?.weight_kg || null
-  const currentHeight = user?.height || null
+  const latestWeightLog = vitalsLogs.find(v => v.weight_kg !== undefined && v.weight_kg !== null && v.weight_kg > 0)
+  const latestHeightLog = vitalsLogs.find(v => v.height_cm !== undefined && v.height_cm !== null && v.height_cm > 0)
+  const currentWeight = user?.weight || latestWeightLog?.weight_kg || null
+  const currentHeight = user?.height || latestHeightLog?.height_cm || null
   const bmiInfo = currentWeight && currentHeight ? calculateBMI(currentWeight, currentHeight) : null
 
   return (
@@ -548,12 +560,20 @@ export function PatientDashboard({
                 <span className="ps-badge-pid">
                   PID: {user.external_patient_id || `PAT-${user.id ? String(user.id).padStart(4, '0') : '0001'}`}
                 </span>
-                <span className="ps-badge-bhyt">
-                  <ShieldCheck size={13} /> Thẻ BHYT Hợp Lệ (80%)
-                </span>
-                <span className="ps-badge-vneid">
-                  <CheckCircle2 size={13} /> VNeID Mức 2
-                </span>
+                {user.bhyt_code ? (
+                  <span className="ps-badge-bhyt">
+                    <ShieldCheck size={13} /> Thẻ BHYT: {user.bhyt_code}
+                  </span>
+                ) : (
+                  <span className="ps-badge-bhyt" style={{ background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1' }}>
+                    <ShieldCheck size={13} /> Chưa liên kết BHYT
+                  </span>
+                )}
+                {(user as any).identity_card ? (
+                  <span className="ps-badge-vneid">
+                    <CheckCircle2 size={13} /> Đã định danh CCCD
+                  </span>
+                ) : null}
               </div>
               <h2 className="ps-greeting-title">
                 {getGreeting()}, {user.full_name || 'Quý bệnh nhân'}!
@@ -626,19 +646,25 @@ export function PatientDashboard({
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--ps-slate)' }}>
                       <Ruler size={13} color="#0891b2" />
                       <span>Chiều cao:</span>
-                      <b style={{ color: 'var(--ps-navy)' }}>{(nextAppt as any).height || (user as any).height || 165} cm</b>
+                      <b style={{ color: 'var(--ps-navy)' }}>
+                        {(nextAppt as any).height || currentHeight ? `${(nextAppt as any).height || currentHeight} cm` : 'Chưa đo'}
+                      </b>
                     </div>
                     <span style={{ color: '#cbd5e1' }}>•</span>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--ps-slate)' }}>
                       <Weight size={13} color="#0891b2" />
                       <span>Cân nặng:</span>
-                      <b style={{ color: 'var(--ps-navy)' }}>{(nextAppt as any).weight || (user as any).weight || 60} kg</b>
+                      <b style={{ color: 'var(--ps-navy)' }}>
+                        {(nextAppt as any).weight || currentWeight ? `${(nextAppt as any).weight || currentWeight} kg` : 'Chưa đo'}
+                      </b>
                     </div>
                     <span style={{ color: '#cbd5e1' }}>•</span>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--ps-slate)' }}>
                       <Thermometer size={13} color="#d97706" />
                       <span>Thân nhiệt:</span>
-                      <b style={{ color: 'var(--ps-navy)' }}>{(nextAppt as any).temperature || latestVitals?.temperature_celsius || 36.8} °C</b>
+                      <b style={{ color: 'var(--ps-navy)' }}>
+                        {(nextAppt as any).temperature || tempDisplay ? `${(nextAppt as any).temperature || tempDisplay} °C` : 'Chưa đo'}
+                      </b>
                     </div>
                   </div>
                 </div>
@@ -1117,9 +1143,11 @@ export function PatientDashboard({
                         <h4>{docName} • {dept}</h4>
                         <div className="ps-history-meta">
                           <span>{appt.reason || 'Khám nội khoa định kỳ'}</span>
-                          <span className="ps-icd-badge">
-                            ICD: {(appt as any).diagnosis_code || 'I10 (Tăng huyết áp vô căn)'}
-                          </span>
+                          {(appt as any).diagnosis_code && (
+                            <span className="ps-icd-badge">
+                              ICD: {(appt as any).diagnosis_code}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1299,8 +1327,8 @@ export function PatientDashboard({
                       type="number"
                       className="ps-form-input"
                       value={manualSys}
-                      onChange={e => setManualSys(parseInt(e.target.value) || 0)}
-                      placeholder="Ví dụ: 120"
+                      onChange={e => setManualSys(e.target.value)}
+                      placeholder="Nhập huyết áp tâm thu (mmHg)"
                     />
                   </div>
                   <div className="ps-input-group">
@@ -1309,8 +1337,8 @@ export function PatientDashboard({
                       type="number"
                       className="ps-form-input"
                       value={manualDia}
-                      onChange={e => setManualDia(parseInt(e.target.value) || 0)}
-                      placeholder="Ví dụ: 80"
+                      onChange={e => setManualDia(e.target.value)}
+                      placeholder="Nhập huyết áp tâm trương (mmHg)"
                     />
                   </div>
                 </div>
@@ -1322,7 +1350,8 @@ export function PatientDashboard({
                       type="number"
                       className="ps-form-input"
                       value={manualPulse}
-                      onChange={e => setManualPulse(parseInt(e.target.value) || 0)}
+                      onChange={e => setManualPulse(e.target.value)}
+                      placeholder="Nhập nhịp tim (bpm)"
                     />
                   </div>
                   <div className="ps-input-group">
@@ -1331,7 +1360,8 @@ export function PatientDashboard({
                       type="number"
                       className="ps-form-input"
                       value={manualSpo2}
-                      onChange={e => setManualSpo2(parseInt(e.target.value) || 0)}
+                      onChange={e => setManualSpo2(e.target.value)}
+                      placeholder="Nhập nồng độ SpO2 (%)"
                     />
                   </div>
                 </div>
@@ -1344,7 +1374,8 @@ export function PatientDashboard({
                       step="0.1"
                       className="ps-form-input"
                       value={manualGlucose}
-                      onChange={e => setManualGlucose(parseFloat(e.target.value) || 0)}
+                      onChange={e => setManualGlucose(e.target.value)}
+                      placeholder="Nhập đường huyết (mmol/L)"
                     />
                   </div>
                   <div className="ps-input-group">
@@ -1354,7 +1385,8 @@ export function PatientDashboard({
                       step="0.1"
                       className="ps-form-input"
                       value={manualTemp}
-                      onChange={e => setManualTemp(parseFloat(e.target.value) || 0)}
+                      onChange={e => setManualTemp(e.target.value)}
+                      placeholder="Nhập thân nhiệt (°C)"
                     />
                   </div>
                 </div>
@@ -1367,7 +1399,8 @@ export function PatientDashboard({
                       step="0.5"
                       className="ps-form-input"
                       value={manualWeight}
-                      onChange={e => setManualWeight(parseFloat(e.target.value) || 0)}
+                      onChange={e => setManualWeight(e.target.value)}
+                      placeholder="Nhập cân nặng (kg)"
                     />
                   </div>
                   <div className="ps-input-group">
@@ -1376,7 +1409,8 @@ export function PatientDashboard({
                       type="number"
                       className="ps-form-input"
                       value={manualHeight}
-                      onChange={e => setManualHeight(parseInt(e.target.value) || 0)}
+                      onChange={e => setManualHeight(e.target.value)}
+                      placeholder="Nhập chiều cao (cm)"
                     />
                   </div>
                 </div>

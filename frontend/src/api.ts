@@ -1223,6 +1223,13 @@ export interface PatientProfile {
   family_history_icd10?: string
   family_history_notes?: string
   epidemiological_history?: string
+  height?: number | null
+  weight?: number | null
+  blood_pressure?: string | null
+  heart_rate?: number | null
+  temperature?: number | null
+  spo2?: number | null
+  blood_glucose?: number | null
   consent_agreed: boolean
   consent_agreed_at?: string
   total_appointments: number
@@ -1736,12 +1743,17 @@ export interface RPMVitalItem {
   connection_method: string
   systolic?: number | null
   diastolic?: number | null
+  blood_pressure?: string | null
   pulse?: number | null
+  heart_rate?: number | null
   glucose_value?: number | null
   glucose_context?: string | null
   spo2_percent?: number | null
+  spo2?: number | null
   temperature_celsius?: number | null
   weight_kg?: number | null
+  height_cm?: number | null
+  bmi?: number | null
   is_warning: boolean
   warning_message?: string | null
   measured_at: string
@@ -1791,6 +1803,8 @@ export async function recordRPMVitals(data: {
   spo2_percent?: number
   temperature_celsius?: number
   weight_kg?: number
+  height_cm?: number
+  bmi?: number
 }) {
   return request<RPMVitalItem>(`/api/v1/rpm/vitals`, {
     method: 'POST',
@@ -1800,6 +1814,47 @@ export async function recordRPMVitals(data: {
 
 export async function getPatientRPMVitals(patientId: number) {
   return request<RPMVitalItem[]>(`/api/v1/rpm/vitals/${patientId}`)
+}
+
+export interface PatientMedicalDeviceItem {
+  id: number
+  patient_id: number
+  device_code?: string | null
+  device_name: string
+  device_type: string
+  manufacturer?: string | null
+  mac_address?: string | null
+  connection_method: string
+  battery_level?: number | null
+  status: string
+  last_synced_at?: string | null
+  created_at: string
+}
+
+export async function getMyMedicalDevices() {
+  return request<PatientMedicalDeviceItem[]>('/api/v1/patients/me/devices')
+}
+
+export async function saveMyMedicalDevice(data: {
+  device_code?: string
+  device_name: string
+  device_type: string
+  manufacturer?: string
+  mac_address?: string
+  connection_method?: string
+  battery_level?: number
+  status?: string
+}) {
+  return request<PatientMedicalDeviceItem>('/api/v1/patients/me/devices', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function deleteMyMedicalDevice(deviceId: string | number) {
+  return request<{ success: boolean; message: string }>(`/api/v1/patients/me/devices/${encodeURIComponent(String(deviceId))}`, {
+    method: 'DELETE'
+  })
 }
 
 // -------------------------------------------------------------

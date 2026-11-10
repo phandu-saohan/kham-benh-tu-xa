@@ -93,7 +93,7 @@ export function PatientProfilePage({
 
   // BHYT Synchronization State
   const [syncingBhyt, setSyncingBhyt] = useState(false)
-  const [lastBhytSync, setLastBhytSync] = useState<Date | null>(() => new Date())
+  const [lastBhytSync, setLastBhytSync] = useState<Date | null>(null)
   const [bhytSyncData, setBhytSyncData] = useState<BhytCheckOut | null>(null)
   const [editingBhytCode, setEditingBhytCode] = useState(false)
   const [tempBhytInput, setTempBhytInput] = useState('')
@@ -102,21 +102,21 @@ export function PatientProfilePage({
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [dateOfBirth, setDateOfBirth] = useState('')
-  const [gender, setGender] = useState('Nam')
+  const [gender, setGender] = useState('')
   const [identityCard, setIdentityCard] = useState('')
   const [address, setAddress] = useState('')
   const [bhytCode, setBhytCode] = useState('')
-  const [bloodType, setBloodType] = useState('O+')
+  const [bloodType, setBloodType] = useState('')
   const [allergies, setAllergies] = useState('')
   const [emergencyName, setEmergencyName] = useState('')
   const [emergencyPhone, setEmergencyPhone] = useState('')
-  const [ethnicity, setEthnicity] = useState('Kinh')
-  const [provinceCode, setProvinceCode] = useState('79')
+  const [ethnicity, setEthnicity] = useState('')
+  const [provinceCode, setProvinceCode] = useState('')
   const [wardCode, setWardCode] = useState('')
   const [companionName, setCompanionName] = useState('')
   const [companionIdCard, setCompanionIdCard] = useState('')
   const [companionPhone, setCompanionPhone] = useState('')
-  const [companionRelationship, setCompanionRelationship] = useState('Bố/Mẹ')
+  const [companionRelationship, setCompanionRelationship] = useState('')
   const [hasMedicalHistory, setHasMedicalHistory] = useState(false)
   const [medicalHistoryIcd10, setMedicalHistoryIcd10] = useState('')
   const [medicalHistoryNotes, setMedicalHistoryNotes] = useState('')
@@ -136,22 +136,22 @@ export function PatientProfilePage({
       setFullName(data.full_name || '')
       setEmail(data.email || '')
       setDateOfBirth(data.date_of_birth || '')
-      setGender(data.gender || 'Nam')
+      setGender(data.gender || '')
       setIdentityCard(data.identity_card || '')
       setAddress(data.address || '')
       setBhytCode(data.bhyt_code || '')
       setTempBhytInput(data.bhyt_code || '')
-      setBloodType(data.blood_type || 'O+')
+      setBloodType(data.blood_type || '')
       setAllergies(data.allergies || '')
       setEmergencyName(data.emergency_contact_name || '')
       setEmergencyPhone(data.emergency_contact_phone || '')
-      setEthnicity(data.ethnicity || 'Kinh')
-      setProvinceCode(data.province_code || '79')
+      setEthnicity(data.ethnicity || '')
+      setProvinceCode(data.province_code || '')
       setWardCode(data.ward_code || '')
       setCompanionName(data.companion_name || '')
       setCompanionIdCard(data.companion_id_card || '')
       setCompanionPhone(data.companion_phone || '')
-      setCompanionRelationship(data.companion_relationship || 'Bố/Mẹ')
+      setCompanionRelationship(data.companion_relationship || '')
       setHasMedicalHistory(!!data.has_medical_history)
       setMedicalHistoryIcd10(data.medical_history_icd10 || '')
       setMedicalHistoryNotes(data.medical_history_notes || '')
@@ -415,14 +415,31 @@ export function PatientProfilePage({
         <section className="ps-hero-card" style={{ padding: '20px 24px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
           <div className="ps-hero-profile">
             <div className="ps-avatar-container" style={{ width: '80px', height: '80px' }}>
-              <img
-                src={
-                  profile?.avatar_url ||
-                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80'
-                }
-                alt="Avatar"
-                className="ps-avatar-img"
-              />
+              {profile?.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt="Avatar"
+                  className="ps-avatar-img"
+                />
+              ) : (
+                <div
+                  className="ps-avatar-img"
+                  style={{
+                    width: '80px',
+                    height: '80px',
+                    borderRadius: '14px',
+                    background: 'linear-gradient(135deg, #0d9488, #0284c7)',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '30px',
+                    fontWeight: 800
+                  }}
+                >
+                  {(profile?.full_name || 'B').charAt(0).toUpperCase()}
+                </div>
+              )}
               <label
                 style={{
                   position: 'absolute',
@@ -459,7 +476,7 @@ export function PatientProfilePage({
                   Mã BN: {profile?.external_patient_id || `CC-PAT-${profile?.id?.toString().padStart(4, '0')}`}
                 </span>
                 <span className="ps-badge-vneid" style={{ borderRadius: '4px', fontSize: '11px', padding: '2px 8px' }}>
-                  <ShieldCheck size={12} /> Định danh VNeID Mức 2
+                  <ShieldCheck size={12} /> {profile?.identity_card ? 'Đã xác thực CCCD' : 'Chưa cập nhật CCCD'}
                 </span>
                 <span className="ps-badge-pid" style={{ borderRadius: '4px', fontSize: '11px', padding: '2px 8px' }}>
                   Bảo vệ dữ liệu NĐ 13/2023
@@ -654,26 +671,26 @@ export function PatientProfilePage({
 
             <div className="ps-bhyt-cell">
               <small>Giới tính</small>
-              <strong>{profile?.gender || 'Nam'}</strong>
+              <strong>{profile?.gender || 'Chưa cập nhật'}</strong>
             </div>
 
             <div className="ps-bhyt-cell">
               <small>Mức hưởng BHYT</small>
               <strong style={{ color: '#6ee7b7' }}>
-                {bhytSyncData?.benefit_rate_percent ? `${bhytSyncData.benefit_rate_percent}% KCB Đúng Tuyến` : profile?.bhyt_code ? '80% KCB Đúng Tuyến' : 'Chưa áp dụng'}
+                {bhytSyncData?.benefit_rate_percent ? `${bhytSyncData.benefit_rate_percent}% KCB Đúng Tuyến` : profile?.bhyt_code ? '80% KCB Đúng Tuyến' : 'Chưa liên kết thẻ BHYT'}
               </strong>
             </div>
 
             <div className="ps-bhyt-cell" style={{ gridColumn: 'span 2' }}>
               <small>Nơi ĐK KCB Ban đầu</small>
-              <strong>{bhytSyncData?.primary_healthcare_facility || '79-014 (Bệnh viện Đa khoa Quốc tế CareConnect)'}</strong>
+              <strong>{bhytSyncData?.primary_healthcare_facility || (profile?.bhyt_code ? 'Chưa đồng bộ Cổng BHXH' : 'Chưa liên kết thẻ BHYT')}</strong>
             </div>
 
             <div className="ps-bhyt-cell" style={{ gridColumn: 'span 3', borderTop: '1px dashed rgba(255,255,255,0.2)', paddingTop: '10px', marginTop: '6px' }}>
               <small>Thời hạn sử dụng & 5 năm liên tục</small>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '13px' }}>
-                <span>Giá trị sử dụng: <strong>{bhytSyncData?.valid_from || '01/01/2026'} đến {bhytSyncData?.valid_to || '31/12/2026'}</strong></span>
-                <span style={{ color: '#a7f3d0' }}>🛡️ {bhytSyncData?.five_years_consecutive || 'Thời điểm đủ 05 năm liên tục: Từ ngày 01/01/2021'}</span>
+                <span>Giá trị sử dụng: <strong>{bhytSyncData?.valid_from && bhytSyncData?.valid_to ? `${bhytSyncData.valid_from} đến ${bhytSyncData.valid_to}` : 'Chưa đồng bộ'}</strong></span>
+                <span style={{ color: '#a7f3d0' }}>🛡️ {bhytSyncData?.five_years_consecutive || 'Nhấn "Đồng bộ BHXH" để tra cứu thời hạn 5 năm liên tục'}</span>
               </div>
             </div>
           </div>
@@ -744,9 +761,11 @@ export function PatientProfilePage({
                   <span className="ps-info-display-label">Số CCCD / Định danh cá nhân</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span className="ps-info-display-value">{profile?.identity_card || 'Chưa cập nhật'}</span>
-                    <span style={{ fontSize: '10px', background: '#dcfce7', color: '#16a34a', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                      VNeID Mức 2
-                    </span>
+                    {profile?.identity_card && (
+                      <span style={{ fontSize: '10px', background: '#dcfce7', color: '#16a34a', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                        Đã xác thực CCCD
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -757,7 +776,7 @@ export function PatientProfilePage({
 
                 <div className="ps-info-display-card">
                   <span className="ps-info-display-label">Giới tính & Dân tộc</span>
-                  <span className="ps-info-display-value">{profile?.gender || 'Nam'} · Dân tộc {profile?.ethnicity || 'Kinh'}</span>
+                  <span className="ps-info-display-value">{profile?.gender || 'Chưa cập nhật'}{profile?.ethnicity ? ` · Dân tộc ${profile.ethnicity}` : ''}</span>
                 </div>
 
                 <div className="ps-info-display-card">
@@ -772,7 +791,7 @@ export function PatientProfilePage({
 
                 <div className="ps-info-display-card" style={{ gridColumn: 'span 2' }}>
                   <span className="ps-info-display-label">Địa chỉ thường trú</span>
-                  <span className="ps-info-display-value">{profile?.address || '124 Điện Biên Phủ, Phường Đa Kao, Quận 1, TP. Hồ Chí Minh'}</span>
+                  <span className="ps-info-display-value">{profile?.address || 'Chưa cập nhật'}</span>
                 </div>
 
                 <div className="ps-info-display-card" style={{ gridColumn: 'span 2' }}>
@@ -967,7 +986,15 @@ export function PatientProfilePage({
 
               <div className="ps-info-display-card">
                 <span className="ps-info-display-label">Thể trạng & Chỉ số BMI</span>
-                <span className="ps-info-display-value">68 kg · 172 cm (BMI: 23.0 - Bình thường)</span>
+                <span className="ps-info-display-value">
+                  {profile?.weight && profile?.height
+                    ? `${profile.weight} kg · ${profile.height} cm (BMI: ${(profile.weight / Math.pow(profile.height / 100, 2)).toFixed(1)})`
+                    : profile?.weight
+                      ? `${profile.weight} kg`
+                      : profile?.height
+                        ? `${profile.height} cm`
+                        : 'Chưa đo thể trạng'}
+                </span>
               </div>
 
               <div className="ps-info-display-card" style={{ gridColumn: 'span 2', background: '#fef2f2', borderColor: '#fecaca' }}>
@@ -975,23 +1002,23 @@ export function PatientProfilePage({
                   ⚠️ Cảnh báo tiền sử dị ứng thuốc & Thực phẩm
                 </span>
                 <span className="ps-info-display-value" style={{ color: '#991b1b', fontWeight: 600 }}>
-                  {profile?.allergies || 'Không ghi nhận tiền sử dị ứng thuốc'}
+                  {profile?.allergies || 'Chưa ghi nhận tiền sử dị ứng thuốc'}
                 </span>
               </div>
 
               <div className="ps-info-display-card" style={{ gridColumn: 'span 2' }}>
                 <span className="ps-info-display-label">Tiền sử bệnh lý mạn tính (ICD-10)</span>
                 <span className="ps-info-display-value">
-                  {profile?.has_medical_history
-                    ? `${profile.medical_history_icd10 || 'I10'} - ${profile.medical_history_notes || 'Tăng huyết áp vô căn, đang theo dõi điều trị'}`
-                    : 'Không ghi nhận bệnh nền mạn tính'}
+                  {profile?.has_medical_history && (profile.medical_history_icd10 || profile.medical_history_notes)
+                    ? `${profile.medical_history_icd10 ? `[${profile.medical_history_icd10}] ` : ''}${profile.medical_history_notes || ''}`
+                    : 'Chưa ghi nhận bệnh nền mạn tính'}
                 </span>
               </div>
 
               <div className="ps-info-display-card" style={{ gridColumn: 'span 2' }}>
                 <span className="ps-info-display-label">Tiền sử gia đình & Dịch tễ</span>
                 <span className="ps-info-display-value">
-                  {profile?.family_history_notes || 'Gia đình không có tiền sử bệnh tim mạch hoặc đái tháo đường di truyền.'}
+                  {profile?.family_history_notes || profile?.epidemiological_history || 'Chưa ghi nhận tiền sử gia đình hoặc dịch tễ'}
                 </span>
               </div>
             </div>

@@ -242,10 +242,10 @@ export function MedicalRecordModal({
                         borderRadius: '4px'
                       }}
                     >
-                      Mã bệnh ICD-10: {record?.icd10_code || 'I10'}
+                      Mã bệnh ICD-10: {record?.icd10_code || 'Chưa cập nhật'}
                     </span>
                     <span style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}>
-                      {record?.icd10_name || record?.diagnosis || 'Tăng huyết áp vô căn (nguyên phát)'}
+                      {record?.icd10_name || record?.diagnosis || 'Chưa có chẩn đoán lâm sàng'}
                     </span>
                   </div>
                 </div>
@@ -255,13 +255,13 @@ export function MedicalRecordModal({
                     Bác sĩ điều trị:
                   </div>
                   <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
-                    {doctor?.full_name || 'BS. CKII Trần Minh'}
+                    {doctor?.full_name || 'Chưa phân công'}
                   </div>
                   <div style={{ fontSize: '12px', color: '#64748b' }}>
-                    Số CCHN: {doctor?.cchn || '008912/BYT-CCHN'}
+                    Số CCHN: {doctor?.cchn || 'Đang cập nhật'}
                   </div>
                   <div style={{ fontSize: '11px', color: '#0f766e', fontWeight: 600, marginTop: '2px' }}>
-                    {appt?.hospital_code || 'Bệnh viện Telemed (Mã GLN: 8938500000018)'}
+                    {appt?.hospital_code || '79014 (Bệnh viện Telemed)'}
                   </div>
                 </div>
               </div>
@@ -277,31 +277,31 @@ export function MedicalRecordModal({
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', fontSize: '13px' }}>
                   <div>
                     <span style={{ color: '#64748b' }}>Họ và tên: </span>
-                    <strong style={{ color: '#0f172a' }}>{patient?.full_name}</strong>
+                    <strong style={{ color: '#0f172a' }}>{patient?.full_name || 'Chưa cập nhật'}</strong>
                   </div>
                   <div>
                     <span style={{ color: '#64748b' }}>Ngày sinh: </span>
-                    <strong style={{ color: '#0f172a' }}>{patient?.date_of_birth || '01/01/1985'}</strong>
+                    <strong style={{ color: '#0f172a' }}>{patient?.date_of_birth || 'Chưa cập nhật'}</strong>
                   </div>
                   <div>
                     <span style={{ color: '#64748b' }}>Giới tính: </span>
-                    <strong style={{ color: '#0f172a' }}>{patient?.gender || 'Nam'}</strong>
+                    <strong style={{ color: '#0f172a' }}>{patient?.gender || 'Chưa cập nhật'}</strong>
                   </div>
                   <div>
                     <span style={{ color: '#64748b' }}>Số CCCD / Định danh: </span>
-                    <strong style={{ color: '#0f172a', fontFamily: 'monospace' }}>{patient?.identity_card || '001085001234'}</strong>
+                    <strong style={{ color: '#0f172a', fontFamily: 'monospace' }}>{patient?.identity_card || 'Chưa cập nhật'}</strong>
                   </div>
                   <div>
                     <span style={{ color: '#64748b' }}>Dân tộc: </span>
-                    <strong style={{ color: '#0f172a' }}>{patient?.ethnicity || 'Kinh'}</strong>
+                    <strong style={{ color: '#0f172a' }}>{patient?.ethnicity || 'Chưa cập nhật'}</strong>
                   </div>
                   <div>
                     <span style={{ color: '#64748b' }}>Nhóm máu: </span>
-                    <strong style={{ color: '#dc2626' }}>{patient?.blood_type || 'O+ (Rh+)'}</strong>
+                    <strong style={{ color: '#dc2626' }}>{patient?.blood_type || 'Chưa xác định'}</strong>
                   </div>
                   <div style={{ gridColumn: '1 / -1' }}>
                     <span style={{ color: '#64748b' }}>Nơi ở hiện tại: </span>
-                    <strong style={{ color: '#0f172a' }}>{patient?.address || '123 Nguyễn Thị Minh Khai, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh'}</strong>
+                    <strong style={{ color: '#0f172a' }}>{patient?.address || 'Chưa cập nhật'}</strong>
                     {patient?.province_code && (
                       <span style={{ marginLeft: '8px', color: '#64748b', fontSize: '12px' }}>
                         (Mã Tỉnh: {patient.province_code}{patient?.ward_code ? ` · Mã Xã: ${patient.ward_code}` : ''})
@@ -332,7 +332,7 @@ export function MedicalRecordModal({
                   <div>
                     <div style={{ color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Tiền sử bản thân (Mã ICD-10):</div>
                     <div style={{ fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
-                      {patient?.medical_history_icd10 || 'I10; E11.9 (Tăng huyết áp; Đái tháo đường typ 2)'}
+                      {patient?.medical_history_icd10 || 'Chưa ghi nhận bệnh nền mạn tính'}
                     </div>
                     {patient?.medical_history_notes && (
                       <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{patient.medical_history_notes}</div>
@@ -341,16 +341,16 @@ export function MedicalRecordModal({
                   <div>
                     <div style={{ color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Tiền sử gia đình (Mã ICD-10):</div>
                     <div style={{ fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
-                      {patient?.family_history_icd10 || 'I10 (Tiền sử tăng huyết áp bố mẹ)'}
+                      {patient?.family_history_icd10 || patient?.family_history_notes || 'Chưa ghi nhận'}
                     </div>
                   </div>
                   <div style={{ gridColumn: '1 / -1' }}>
                     <div style={{ color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Tiền sử dịch tễ & Dị ứng:</div>
                     <div style={{ color: '#334155', marginTop: '2px' }}>
-                      • Dịch tễ: {patient?.epidemiological_history || 'Chưa ghi nhận tiếp xúc nguồn bệnh truyền nhiễm'}
+                      • Dịch tễ: {patient?.epidemiological_history || 'Chưa ghi nhận'}
                     </div>
                     <div style={{ color: '#dc2626', fontWeight: 600, marginTop: '2px' }}>
-                      • Dị ứng thuốc & thực phẩm: {record?.allergies || 'Không có tiền sử dị ứng thuốc'}
+                      • Dị ứng thuốc & thực phẩm: {record?.allergies || patient?.allergies || 'Chưa ghi nhận tiền sử dị ứng'}
                     </div>
                   </div>
                 </div>
@@ -373,15 +373,15 @@ export function MedicalRecordModal({
                   </div>
                   <div>
                     <span style={{ color: '#64748b' }}>Mã cơ sở KCB: </span>
-                    <strong style={{ color: '#0f172a' }}>{appt?.hospital_code || '79014 (Mã GLN: 8938500000018)'}</strong>
+                    <strong style={{ color: '#0f172a' }}>{appt?.hospital_code || '79014'}</strong>
                   </div>
                   <div>
                     <span style={{ color: '#64748b' }}>Đối tượng bệnh nhân: </span>
-                    <strong style={{ color: '#0f172a' }}>{appt?.patient_category || 'Người có bảo hiểm y tế'}</strong>
+                    <strong style={{ color: '#0f172a' }}>{appt?.patient_category || (appt?.bhyt_code ? 'Người có bảo hiểm y tế' : 'Khám dịch vụ')}</strong>
                   </div>
                   <div>
                     <span style={{ color: '#64748b' }}>Nguồn chi trả: </span>
-                    <strong style={{ color: '#0f172a' }}>{appt?.payment_source || 'Quỹ Bảo hiểm y tế (BHYT) & Đồng chi trả'}</strong>
+                    <strong style={{ color: '#0f172a' }}>{appt?.payment_source || (appt?.bhyt_code ? 'Quỹ Bảo hiểm y tế (BHYT) & Đồng chi trả' : 'Tự chi trả')}</strong>
                   </div>
                   {appt?.bhyt_code && (
                     <div>
@@ -411,7 +411,7 @@ export function MedicalRecordModal({
                       1. Kết quả khám bệnh và thăm khám lâm sàng:
                     </div>
                     <div style={{ fontSize: '13.5px', color: '#1e293b', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
-                      {record?.clinical_examination || record?.symptoms || 'Bệnh nhân tỉnh táo, tiếp xúc tốt. Thể trạng trung bình. Huyết áp đo tại chỗ 135/85 mmHg, mạch 76 l/p, SpO2 98%. Tim đều, T1 T2 rõ, phổi trong, không ran. Bụng mềm, không điểm đau khu trú.'}
+                      {record?.clinical_examination || record?.symptoms || 'Chưa ghi nhận kết quả thăm khám lâm sàng.'}
                     </div>
                   </div>
 
@@ -421,7 +421,7 @@ export function MedicalRecordModal({
                       2. Kết quả cận lâm sàng, xét nghiệm và thăm dò chức năng:
                     </div>
                     <div style={{ fontSize: '13.5px', color: '#1e293b', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
-                      {record?.paraclinical_results || 'Đã liên kết kết quả xét nghiệm sinh hóa máu (Đường huyết đói 6.2 mmol/L, HbA1c 6.5%, Cholesterol toàn phần 5.1 mmol/L) và kết quả điện tâm đồ (Nhịp xoang 75 ck/p, không biến đổi thiếu máu cơ tim cấp).'}
+                      {record?.paraclinical_results || 'Chưa ghi nhận kết quả cận lâm sàng.'}
                     </div>
                   </div>
 
@@ -431,7 +431,7 @@ export function MedicalRecordModal({
                       3. Quá trình chẩn đoán, phác đồ điều trị, diễn biến bệnh lý và chăm sóc:
                     </div>
                     <div style={{ fontSize: '13.5px', color: '#1e293b', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
-                      {record?.treatment_regimen || `Chẩn đoán xác định: [${record?.icd10_code || 'I10'}] ${record?.icd10_name || record?.diagnosis || 'Tăng huyết áp vô căn (nguyên phát)'}.\nPhác đồ: Tiếp tục duy trì kiểm soát huyết áp mục tiêu < 130/80 mmHg. Điều chỉnh lối sống, giảm muối, tăng cường vận động thể lực 30 phút mỗi ngày.`}
+                      {record?.treatment_regimen || record?.diagnosis || 'Chưa ghi nhận phác đồ điều trị.'}
                     </div>
                     {record?.clinical_evolution && (
                       <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #cbd5e1', fontSize: '13px', color: '#475569' }}>
@@ -446,7 +446,7 @@ export function MedicalRecordModal({
                       4. Danh mục chi tiết thuốc, trang thiết bị y tế hoặc dịch vụ đã sử dụng:
                     </div>
                     <div style={{ fontSize: '13.5px', color: '#1e293b', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
-                      {record?.medical_services_used || prescription?.summary || '1. Amlodipin 5mg: 30 viên (Uống 1 viên vào buổi sáng sau ăn)\n2. Losartan 50mg: 30 viên (Uống 1 viên vào buổi tối sau ăn)\n3. Dịch vụ khám bệnh từ xa Telehealth (Bộ Y tế)'}
+                      {record?.medical_services_used || prescription?.summary || 'Chưa có đơn thuốc hoặc chỉ định dịch vụ.'}
                     </div>
                     {prescription?.national_code && (
                       <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#0f766e', fontWeight: 700 }}>

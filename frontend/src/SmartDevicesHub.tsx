@@ -68,7 +68,7 @@ import {
   CheckCheck
 } from 'lucide-react'
 
-import { RPMVitalItem, recordRPMVitals } from './api'
+import { RPMVitalItem, recordRPMVitals, getMyMedicalDevices, saveMyMedicalDevice, deleteMyMedicalDevice } from './api'
 import {
   isWebBluetoothSupported,
   isAppleDevice,
@@ -327,11 +327,11 @@ const DEFAULT_ALL_DEVICES: ConnectedDeviceInfo[] = [
 
     status: 'ready',
 
-    battery: 76,
+    battery: 100,
 
-    lastSync: '2 giờ trước',
+    lastSync: 'Chưa kết nối',
 
-    lastReading: '98% SpO2 (74 bpm)',
+    lastReading: 'Chưa có số đo',
 
     icon: Activity,
 
@@ -413,11 +413,11 @@ const DEFAULT_ALL_DEVICES: ConnectedDeviceInfo[] = [
 
     status: 'ready',
 
-    battery: 85,
+    battery: 100,
 
-    lastSync: 'Hôm qua, 18:30',
+    lastSync: 'Chưa kết nối',
 
-    lastReading: '36.6 °C',
+    lastReading: 'Chưa có số đo',
 
     icon: Thermometer,
 
@@ -467,11 +467,11 @@ const DEFAULT_ALL_DEVICES: ConnectedDeviceInfo[] = [
 
     status: 'ready',
 
-    battery: 94,
+    battery: 100,
 
-    lastSync: '3 ngày trước',
+    lastSync: 'Chưa kết nối',
 
-    lastReading: '62.0 kg (BMI: 21.8)',
+    lastReading: 'Chưa có số đo',
 
     icon: Scale,
 
@@ -555,9 +555,9 @@ const DEFAULT_ALL_DEVICES: ConnectedDeviceInfo[] = [
 
     battery: 100,
 
-    lastSync: 'Vừa xong',
+    lastSync: 'Chưa kết nối',
 
-    lastReading: '72 bpm (SpO2 ~98%)',
+    lastReading: 'Chưa có số đo',
 
     icon: Camera,
 
@@ -706,92 +706,48 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
   const latestVital = vitalsLogs[0] || null
 
-  // Khởi tạo danh sách thiết bị từ LocalStorage hoặc danh sách mặc định
+  // Khởi tạo danh sách thiết bị từ Database (không tự động bật kết nối giả lập)
+  const [devices, setDevices] = useState<ConnectedDeviceInfo[]>(DEFAULT_ALL_DEVICES)
 
-  const [devices, setDevices] = useState<ConnectedDeviceInfo[]>(() => {
-
+  useEffect(() => {
     try {
-
       const storageKey = `careconnect_paired_devices_${user?.id || 'guest'}`
-
-      const saved = localStorage.getItem(storageKey)
-
-      if (saved) {
-
-        const parsed = JSON.parse(saved)
-
-        // Đồng bộ icon và component
-
-        return DEFAULT_ALL_DEVICES.map(def => {
-
-          const matched = parsed.find((p: any) => p.id === def.id)
-
-          if (matched) {
-
-            return {
-
-              ...def,
-
-              status: matched.status || def.status,
-
-              lastReading: matched.lastReading || def.lastReading,
-
-              lastSync: matched.lastSync || def.lastSync,
-
-              battery: matched.battery !== undefined ? matched.battery : def.battery
-
-            }
-
-          }
-
-          return def
-
-        })
-
-      }
-
-    } catch (e) {
-
-      console.warn('Cannot load saved devices:', e)
-
+      localStorage.removeItem(storageKey)
+    } catch {
+      // ignore
     }
-
-    return DEFAULT_ALL_DEVICES
-
-  })
-
-  // Lưu thiết bị vào LocalStorage khi có thay đổi trạng thái
+    if (!user?.id) return
+    getMyMedicalDevices()
+      .then((dbDevices) => {
+        setDevices(
+          DEFAULT_ALL_DEVICES.map((def) => {
+            const matched = dbDevices.find(
+              (d) => d.device_code === def.id || d.device_name === def.name
+            )
+            if (matched && matched.status === 'connected') {
+              return {
+                ...def,
+                status: 'connected',
+                battery: matched.battery_level ?? def.battery,
+                lastSync: matched.last_synced_at
+                  ? new Date(matched.last_synced_at).toLocaleString('vi-VN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      day: '2-digit',
+                      month: '2-digit'
+                    })
+                  : 'Đã ghép nối'
+              }
+            }
+            return def
+          })
+        )
+      })
+      .catch(() => {})
+  }, [user?.id])
 
   const saveDevicesState = (updatedList: ConnectedDeviceInfo[]) => {
-
     setDevices(updatedList)
-
-    try {
-
-      const minimal = updatedList.map(d => ({
-
-        id: d.id,
-
-        status: d.status,
-
-        lastReading: d.lastReading,
-
-        lastSync: d.lastSync,
-
-        battery: d.battery
-
-      }))
-
-      const storageKey = `careconnect_paired_devices_${user?.id || 'guest'}`
-
-      localStorage.setItem(storageKey, JSON.stringify(minimal))
-
-    } catch (e) {
-
-      console.error('Cannot save devices to localStorage:', e)
-
-    }
-
   }
 
   // Cập nhật số đo gần nhất từ vitalsLogs
@@ -931,25 +887,25 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  // Modal: Nhập số đo thủ công
+  // Modal: Nhập số đo thủ công (để trống cho đến khi bệnh nhân tự nhập)
 
   const [showManualModal, setShowManualModal] = useState<boolean>(false)
 
-  const [manualSys, setManualSys] = useState<number>(120)
+  const [manualSys, setManualSys] = useState<string>('')
 
-  const [manualDia, setManualDia] = useState<number>(80)
+  const [manualDia, setManualDia] = useState<string>('')
 
-  const [manualPulse, setManualPulse] = useState<number>(75)
+  const [manualPulse, setManualPulse] = useState<string>('')
 
-  const [manualGlucose, setManualGlucose] = useState<number>(5.6)
+  const [manualGlucose, setManualGlucose] = useState<string>('')
 
-  const [manualSpo2, setManualSpo2] = useState<number>(98)
+  const [manualSpo2, setManualSpo2] = useState<string>('')
 
-  const [manualTemp, setManualTemp] = useState<number>(36.6)
+  const [manualTemp, setManualTemp] = useState<string>('')
 
-  const [manualWeight, setManualWeight] = useState<number>(62)
+  const [manualWeight, setManualWeight] = useState<string>('')
 
-  const [manualHeight, setManualHeight] = useState<number>(168)
+  const [manualHeight, setManualHeight] = useState<string>('')
 
   const [isSavingManual, setIsSavingManual] = useState<boolean>(false)
 
@@ -995,7 +951,7 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
           lastSync: 'Vừa ghép đôi thành công',
 
-          battery: d.battery || 95
+          battery: d.battery || 100
 
         }
 
@@ -1006,6 +962,15 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
     })
 
     saveDevicesState(updated)
+    saveMyMedicalDevice({
+      device_code: deviceToPair.id,
+      device_name: deviceToPair.name,
+      device_type: deviceToPair.category,
+      manufacturer: deviceToPair.brand,
+      connection_method: deviceToPair.connectionMethod,
+      battery_level: deviceToPair.battery || 100,
+      status: 'connected'
+    }).catch(() => {})
 
     setShowPairNewModal(false)
 
@@ -1044,6 +1009,7 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
     })
 
     saveDevicesState(updated)
+    deleteMyMedicalDevice(deviceToUnpair.id).catch(() => {})
 
     showToast('info', `Đã ngắt kết nối thiết bị ${deviceToUnpair.name}.`)
 
@@ -1625,6 +1591,29 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
     e.preventDefault()
 
+    const sysNum = manualSys.trim() ? Number(manualSys) : undefined
+    const diaNum = manualDia.trim() ? Number(manualDia) : undefined
+    const pulseNum = manualPulse.trim() ? Number(manualPulse) : undefined
+    const glucNum = manualGlucose.trim() ? Number(manualGlucose) : undefined
+    const spo2Num = manualSpo2.trim() ? Number(manualSpo2) : undefined
+    const tempNum = manualTemp.trim() ? Number(manualTemp) : undefined
+    const weightNum = manualWeight.trim() ? Number(manualWeight) : undefined
+    const heightNum = manualHeight.trim() ? Number(manualHeight) : undefined
+
+    if (
+      sysNum === undefined &&
+      diaNum === undefined &&
+      pulseNum === undefined &&
+      glucNum === undefined &&
+      spo2Num === undefined &&
+      tempNum === undefined &&
+      weightNum === undefined &&
+      heightNum === undefined
+    ) {
+      showToast('error', 'Vui lòng nhập ít nhất một chỉ số sinh hiệu thực tế để lưu.')
+      return
+    }
+
     setIsSavingManual(true)
 
     try {
@@ -1639,19 +1628,21 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
         connection_method: 'manual',
 
-        systolic: Number(manualSys),
+        systolic: sysNum,
 
-        diastolic: Number(manualDia),
+        diastolic: diaNum,
 
-        pulse: Number(manualPulse),
+        pulse: pulseNum,
 
-        glucose_value: Number(manualGlucose),
+        glucose_value: glucNum,
 
-        spo2_percent: Number(manualSpo2),
+        spo2_percent: spo2Num,
 
-        temperature_celsius: Number(manualTemp),
+        temperature_celsius: tempNum,
 
-        weight_kg: Number(manualWeight)
+        weight_kg: weightNum,
+
+        height_cm: heightNum
 
       })
 
@@ -2650,9 +2641,9 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
                         value={manualSys}
 
-                        onChange={(e) => setManualSys(Number(e.target.value))}
+                        onChange={(e) => setManualSys(e.target.value)}
 
-                        required
+                        placeholder="Nhập SYS"
 
                       />
 
@@ -2678,9 +2669,9 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
                         value={manualDia}
 
-                        onChange={(e) => setManualDia(Number(e.target.value))}
+                        onChange={(e) => setManualDia(e.target.value)}
 
-                        required
+                        placeholder="Nhập DIA"
 
                       />
 
@@ -2706,9 +2697,9 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
                         value={manualPulse}
 
-                        onChange={(e) => setManualPulse(Number(e.target.value))}
+                        onChange={(e) => setManualPulse(e.target.value)}
 
-                        required
+                        placeholder="Nhập nhịp tim"
 
                       />
 
@@ -2734,9 +2725,9 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
                         value={manualSpo2}
 
-                        onChange={(e) => setManualSpo2(Number(e.target.value))}
+                        onChange={(e) => setManualSpo2(e.target.value)}
 
-                        required
+                        placeholder="Nhập SpO2"
 
                       />
 
@@ -2764,9 +2755,9 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
                         value={manualGlucose}
 
-                        onChange={(e) => setManualGlucose(Number(e.target.value))}
+                        onChange={(e) => setManualGlucose(e.target.value)}
 
-                        required
+                        placeholder="Nhập đường huyết"
 
                       />
 
@@ -2794,9 +2785,9 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
                         value={manualTemp}
 
-                        onChange={(e) => setManualTemp(Number(e.target.value))}
+                        onChange={(e) => setManualTemp(e.target.value)}
 
-                        required
+                        placeholder="Nhập thân nhiệt"
 
                       />
 
@@ -2824,9 +2815,9 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
                         value={manualWeight}
 
-                        onChange={(e) => setManualWeight(Number(e.target.value))}
+                        onChange={(e) => setManualWeight(e.target.value)}
 
-                        required
+                        placeholder="Nhập cân nặng"
 
                       />
 
@@ -2852,9 +2843,9 @@ export const SmartDevicesHub: React.FC<SmartDevicesHubProps> = ({
 
                         value={manualHeight}
 
-                        onChange={(e) => setManualHeight(Number(e.target.value))}
+                        onChange={(e) => setManualHeight(e.target.value)}
 
-                        required
+                        placeholder="Nhập chiều cao"
 
                       />
 

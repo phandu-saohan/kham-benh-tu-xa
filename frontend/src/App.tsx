@@ -208,7 +208,7 @@ export default function App() {
 
 
 
-  const [bhytCode, setBhytCode] = useState('GD4797931812345')
+  const [bhytCode, setBhytCode] = useState('')
 
   const [bhytInfo, setBhytInfo] = useState<BhytCheckOut | null>(null)
 
@@ -222,7 +222,7 @@ export default function App() {
 
   const [cancelModalAppt, setCancelModalAppt] = useState<Appointment | null>(null)
 
-  const [cancelReasonText, setCancelReasonText] = useState('Bận lịch đột xuất, xin hủy hẹn khám')
+  const [cancelReasonText, setCancelReasonText] = useState('')
 
   const [cancelling, setCancelling] = useState(false)
 
@@ -250,11 +250,11 @@ export default function App() {
 
   const [famGender, setFamGender] = useState('male')
 
-  const [famDob, setFamDob] = useState('2020-06-15')
+  const [famDob, setFamDob] = useState('')
 
   const [famBhyt, setFamBhyt] = useState('')
 
-  const [famBlood, setFamBlood] = useState('O+')
+  const [famBlood, setFamBlood] = useState('')
 
   const [famAllergies, setFamAllergies] = useState('')
 
@@ -270,15 +270,15 @@ export default function App() {
 
   const [loadingVitals, setLoadingVitals] = useState(false)
 
-  const [vitalSys, setVitalSys] = useState(128)
+  const [vitalSys, setVitalSys] = useState<number | ''>('')
 
-  const [vitalDia, setVitalDia] = useState(82)
+  const [vitalDia, setVitalDia] = useState<number | ''>('')
 
-  const [vitalPulse, setVitalPulse] = useState(74)
+  const [vitalPulse, setVitalPulse] = useState<number | ''>('')
 
-  const [vitalGlucose, setVitalGlucose] = useState(5.8)
+  const [vitalGlucose, setVitalGlucose] = useState<number | ''>('')
 
-  const [vitalSpo2, setVitalSpo2] = useState(98)
+  const [vitalSpo2, setVitalSpo2] = useState<number | ''>('')
 
   const [savingVital, setSavingVital] = useState(false)
 
@@ -548,7 +548,7 @@ export default function App() {
 
   const [startsAt, setStartsAt] = useState('')
 
-  const [reason, setReason] = useState('Tư vấn sức khỏe định kỳ')
+  const [reason, setReason] = useState('')
 
   const [triageLoading, setTriageLoading] = useState(false)
 
@@ -756,17 +756,23 @@ export default function App() {
 
         setView('overview')
 
-        const [his, pacsData] = await Promise.all([
+        if (current.bhyt_code) setBhytCode(current.bhyt_code)
+
+        const [his, pacsData, vitalsList] = await Promise.all([
 
           request<any>('/api/v1/patients/me/his-summary').catch(() => null),
 
-          getPacsDicomStudies().catch(() => null)
+          getPacsDicomStudies().catch(() => null),
+
+          getPatientRPMVitals(current.id).catch(() => [])
 
         ])
 
         setHisSummary(his)
 
         setImaging(pacsData)
+
+        setRpmVitals(vitalsList)
 
         setDoctors(await request('/api/v1/doctors'))
 
@@ -1270,7 +1276,7 @@ export default function App() {
 
     setCancelModalAppt(a)
 
-    setCancelReasonText('Bận lịch đột xuất, xin hủy hẹn khám')
+    setCancelReasonText('')
 
   }
 
@@ -2416,9 +2422,9 @@ export default function App() {
 
                           <div className="patient-kpi-label">Tiết kiệm nhờ BHYT</div>
 
-                          <div className="patient-kpi-value">{money(totalBhyt || 360000)}</div>
+                          <div className="patient-kpi-value">{money(totalBhyt)}</div>
 
-                          <div className="patient-kpi-subtext">Hưởng mức giảm trừ 80% đúng tuyến</div>
+                          <div className="patient-kpi-subtext">{totalBhyt > 0 ? 'Hưởng mức giảm trừ BHYT đúng tuyến' : 'Chưa phát sinh khoản giảm trừ BHYT'}</div>
 
                         </div>
 

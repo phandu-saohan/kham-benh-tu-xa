@@ -280,13 +280,13 @@ export function PatientWaitingRoom({
 
   const openVitalsEditForm = () => {
     const curVitals = waitingStatus?.vitals || (appointment as any)
-    setEditBp(curVitals.blood_pressure || '120/80')
-    setEditPulse(curVitals.pulse ? String(curVitals.pulse) : '76')
-    setEditTemp(curVitals.temperature ? String(curVitals.temperature) : '36.8')
-    setEditSpo2(curVitals.spo2 ? String(curVitals.spo2) : '98')
-    setEditWeight(curVitals.weight ? String(curVitals.weight) : (user as any).weight ? String((user as any).weight) : '60')
-    setEditHeight(curVitals.height ? String(curVitals.height) : (user as any).height ? String((user as any).height) : '165')
-    setEditGlucose((curVitals as any).glucose ? String((curVitals as any).glucose) : '5.6')
+    setEditBp(curVitals.blood_pressure || '')
+    setEditPulse(curVitals.pulse ? String(curVitals.pulse) : '')
+    setEditTemp(curVitals.temperature ? String(curVitals.temperature) : '')
+    setEditSpo2(curVitals.spo2 ? String(curVitals.spo2) : '')
+    setEditWeight(curVitals.weight ? String(curVitals.weight) : (user as any).weight ? String((user as any).weight) : '')
+    setEditHeight(curVitals.height ? String(curVitals.height) : (user as any).height ? String((user as any).height) : '')
+    setEditGlucose((curVitals as any).glucose ? String((curVitals as any).glucose) : '')
     setEditNotes('')
     setIsEditingVitals(true)
   }
@@ -534,11 +534,11 @@ export function PatientWaitingRoom({
     spo2: appointment.spo2,
     weight: appointment.weight,
     height: appointment.height,
-    glucose: (waitingStatus?.vitals as any)?.glucose || (appointment as any).glucose || 5.6
+    glucose: (waitingStatus?.vitals as any)?.glucose || (appointment as any).glucose || undefined
   }
-  const heightVal = curVitals.height || (user as any).height || 165
-  const weightVal = curVitals.weight || (user as any).weight || 60
-  const bmiVal = (weightVal / Math.pow(heightVal / 100, 2)).toFixed(1)
+  const heightVal = curVitals.height || (user as any).height || null
+  const weightVal = curVitals.weight || (user as any).weight || null
+  const bmiVal = heightVal && weightVal ? (weightVal / Math.pow(heightVal / 100, 2)).toFixed(1) : null
 
   // Filtered documents
   const filteredDocs = filterType === 'all'
@@ -1026,9 +1026,9 @@ export function PatientWaitingRoom({
                   <Heart size={15} /> Huyết áp
                 </div>
                 <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--ps-navy)', margin: '4px 0 2px' }}>
-                  {curVitals.blood_pressure || '120/80'} <small style={{ fontSize: '12px', fontWeight: 500 }}>mmHg</small>
+                  {curVitals.blood_pressure || '--/--'} <small style={{ fontSize: '12px', fontWeight: 500 }}>mmHg</small>
                 </div>
-                <span className="ps-vital-status-pill normal" style={{ borderRadius: '4px' }}>Tiêu chuẩn</span>
+                <span className="ps-vital-status-pill normal" style={{ borderRadius: '4px' }}>{curVitals.blood_pressure ? 'Đã ghi nhận' : 'Chưa đo'}</span>
               </div>
 
               <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
@@ -1036,9 +1036,9 @@ export function PatientWaitingRoom({
                   <Activity size={15} /> Nhịp tim
                 </div>
                 <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--ps-navy)', margin: '4px 0 2px' }}>
-                  {curVitals.pulse || '76'} <small style={{ fontSize: '12px', fontWeight: 500 }}>bpm</small>
+                  {curVitals.pulse || '--'} <small style={{ fontSize: '12px', fontWeight: 500 }}>bpm</small>
                 </div>
-                <span className="ps-vital-status-pill normal" style={{ borderRadius: '4px' }}>Nhịp đều</span>
+                <span className="ps-vital-status-pill normal" style={{ borderRadius: '4px' }}>{curVitals.pulse ? 'Đã ghi nhận' : 'Chưa đo'}</span>
               </div>
 
               <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
@@ -1046,9 +1046,9 @@ export function PatientWaitingRoom({
                   <Wind size={15} /> Nồng độ SpO2
                 </div>
                 <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--ps-navy)', margin: '4px 0 2px' }}>
-                  {curVitals.spo2 || '98'} <small style={{ fontSize: '12px', fontWeight: 500 }}>%</small>
+                  {curVitals.spo2 || '--'} <small style={{ fontSize: '12px', fontWeight: 500 }}>%</small>
                 </div>
-                <span className="ps-vital-status-pill normal" style={{ borderRadius: '4px' }}>Tối ưu</span>
+                <span className="ps-vital-status-pill normal" style={{ borderRadius: '4px' }}>{curVitals.spo2 ? 'Đã ghi nhận' : 'Chưa đo'}</span>
               </div>
 
               <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
@@ -1056,9 +1056,9 @@ export function PatientWaitingRoom({
                   <Thermometer size={15} /> Thân nhiệt
                 </div>
                 <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--ps-navy)', margin: '4px 0 2px' }}>
-                  {curVitals.temperature || '36.8'} <small style={{ fontSize: '12px', fontWeight: 500 }}>°C</small>
+                  {curVitals.temperature || '--'} <small style={{ fontSize: '12px', fontWeight: 500 }}>°C</small>
                 </div>
-                <span className="ps-vital-status-pill normal" style={{ borderRadius: '4px' }}>Thân nhiệt chuẩn</span>
+                <span className="ps-vital-status-pill normal" style={{ borderRadius: '4px' }}>{curVitals.temperature ? 'Đã ghi nhận' : 'Chưa đo'}</span>
               </div>
 
               <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
@@ -1071,9 +1071,9 @@ export function PatientWaitingRoom({
                   </span>
                 </div>
                 <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--ps-navy)', margin: '4px 0 2px' }}>
-                  {(curVitals as any).glucose || '5.6'} <small style={{ fontSize: '12px', fontWeight: 500 }}>mmol/L</small>
+                  {(curVitals as any).glucose || '--'} <small style={{ fontSize: '12px', fontWeight: 500 }}>mmol/L</small>
                 </div>
-                <span className="ps-vital-status-pill normal" style={{ borderRadius: '4px' }}>Roche Instant • Ổn định</span>
+                <span className="ps-vital-status-pill normal" style={{ borderRadius: '4px' }}>{(curVitals as any).glucose ? 'Đã ghi nhận' : 'Chưa đo'}</span>
               </div>
 
               <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
@@ -1081,9 +1081,9 @@ export function PatientWaitingRoom({
                   <Ruler size={15} /> Chiều cao & Cân nặng
                 </div>
                 <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--ps-navy)', margin: '4px 0 2px' }}>
-                  {heightVal} <small style={{ fontSize: '11px', fontWeight: 500 }}>cm</small> • {weightVal} <small style={{ fontSize: '11px', fontWeight: 500 }}>kg</small>
+                  {heightVal || '--'} <small style={{ fontSize: '11px', fontWeight: 500 }}>cm</small> • {weightVal || '--'} <small style={{ fontSize: '11px', fontWeight: 500 }}>kg</small>
                 </div>
-                <span className="ps-vital-status-pill normal" style={{ borderRadius: '4px' }}>BMI: {bmiVal} (Bình thường)</span>
+                <span className="ps-vital-status-pill normal" style={{ borderRadius: '4px' }}>{bmiVal ? `BMI: ${bmiVal}` : 'Chưa cập nhật'}</span>
               </div>
             </div>
 

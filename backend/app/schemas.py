@@ -1284,9 +1284,9 @@ class PatientVitalsUpdateIn(BaseModel):
 class CabinetItemIn(BaseModel):
     name: str
     active_ingredient: Optional[str] = None
-    dosage: str = "1 viên/lần"
-    frequency: str = "1 lần/ngày"
-    timing: str = "Sau ăn sáng 30 phút"
+    dosage: str = ""
+    frequency: str = ""
+    timing: str = ""
     schedule_slot: Optional[str] = "morning"
     quantity_remaining: Optional[int] = 30
     total_quantity: Optional[int] = 30
@@ -1303,6 +1303,33 @@ class CabinetItemOut(CabinetItemIn):
     id: int
     patient_id: int
     last_taken_at: Optional[datetime] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PatientMedicalDeviceIn(BaseModel):
+    device_code: Optional[str] = None
+    device_name: str
+    device_type: str
+    manufacturer: Optional[str] = None
+    mac_address: Optional[str] = None
+    connection_method: str = "bluetooth_ble"
+    battery_level: Optional[int] = 100
+    status: str = "connected"
+
+
+class PatientMedicalDeviceOut(BaseModel):
+    id: int
+    patient_id: int
+    device_code: Optional[str] = None
+    device_name: str
+    device_type: str
+    manufacturer: Optional[str] = None
+    mac_address: Optional[str] = None
+    connection_method: str
+    battery_level: Optional[int] = None
+    status: str
+    last_synced_at: Optional[datetime] = None
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 

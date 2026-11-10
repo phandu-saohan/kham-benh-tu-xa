@@ -39,6 +39,7 @@ from app.schemas import (
     DepartmentOut, ClinicRoomIn, ClinicRoomUpdate, ClinicRoomOut, DoctorShiftIn, DoctorShiftOut, AdminDoctorShiftIn, DoctorProfileIn, DoctorProfileOut, SupportTicketIn, SupportTicketStatusUpdate, SupportTicketOut, SupportTicketMessageIn, SupportTicketMessageOut, NurseShiftIn, NurseShiftOut, NurseShiftUpdateIn, AssignNurseIn, AppointmentCancelIn, AppointmentCancelOut,
     RefundRequestIn, RefundRequestOut,
     CabinetItemIn, CabinetItemOut,
+    PatientMedicalDeviceIn, PatientMedicalDeviceOut,
     ConsultationMessageIn, ConsultationMessageOut,
     IceServersOut, IceServerConfig, PaymentWebhookOut,
     TriageAssessmentIn, TriageAssessmentOut, TriageQueueItem, WaitingRoomStatusOut, AppointmentDocumentIn, AppointmentDocumentOut, PatientVitalsUpdateIn,
@@ -610,31 +611,31 @@ def register_patient_account(data: PatientRegisterIn, db: Session = Depends(get_
     if his_patient:
         external_pid = his_patient.get("pid")
         his_action = "linked_existing"
-        final_dob = data.dob or his_patient.get("dob") or "1990-01-01"
-        final_gender = data.gender or his_patient.get("gender") or "Nam"
+        final_dob = data.dob or his_patient.get("dob") or ""
+        final_gender = data.gender or his_patient.get("gender") or ""
         final_bhyt = data.bhyt_code or his_patient.get("bhyt_no") or ""
         final_address = data.address or his_patient.get("address") or ""
-        final_blood = data.blood_type or his_patient.get("blood_type") or "O+"
+        final_blood = data.blood_type or his_patient.get("blood_type") or ""
         msg = f"Đăng ký thành công! Đã liên thông với hồ sơ bệnh án điện tử HIS ({external_pid})."
     else:
         new_pid = his_adapter.register_patient({
             "full_name": clean_name,
             "phone": clean_phone,
             "national_id": clean_cccd,
-            "dob": data.dob or "1990-01-01",
-            "gender": data.gender or "Nam",
+            "dob": data.dob or "",
+            "gender": data.gender or "",
             "bhyt_no": data.bhyt_code or "",
             "address": data.address or "",
-            "blood_type": data.blood_type or "O+",
+            "blood_type": data.blood_type or "",
             "allergies": data.allergies or ""
         })
         external_pid = new_pid or f"HIS-CC-{clean_cccd[-6:] if len(clean_cccd) >= 6 else uuid.uuid4().hex[:6].upper()}"
         his_action = "created_new_his"
-        final_dob = data.dob or "1990-01-01"
-        final_gender = data.gender or "Nam"
+        final_dob = data.dob or ""
+        final_gender = data.gender or ""
         final_bhyt = data.bhyt_code or ""
         final_address = data.address or ""
-        final_blood = data.blood_type or "O+"
+        final_blood = data.blood_type or ""
         msg = f"Đăng ký tài khoản thành công! Đã tạo mới hồ sơ bệnh nhân điện tử HIS ({external_pid})."
 
     email_val = data.email.lower().strip() if data.email and data.email.strip() else f"{clean_phone}@patient.careconnect.local"
@@ -1401,14 +1402,14 @@ def get_clinical_record(appointment_id: int, db: Session = Depends(get_db), user
             "full_name": patient.full_name if patient else "",
             "phone_number": patient.phone_number if patient else "",
             "external_patient_id": patient.external_patient_id if patient else "",
-            "date_of_birth": (patient.date_of_birth if patient else "") or "1992-08-16",
-            "gender": (patient.gender if patient else "Nam") or "Nam",
-            "identity_card": (patient.identity_card if patient else "") or "079092014829",
-            "ethnicity": (getattr(patient, "ethnicity", None) if patient else "Kinh") or "Kinh",
-            "blood_type": (patient.blood_type if patient else "O+") or "O+",
-            "address": (patient.address if patient else "") or "124 Điện Biên Phủ, Phường Đa Kao, Quận 1, TP. Hồ Chí Minh",
-            "province_code": getattr(patient, "province_code", None) or "79",
-            "ward_code": getattr(patient, "ward_code", None) or "26740",
+            "date_of_birth": (patient.date_of_birth if patient else "") or "",
+            "gender": (patient.gender if patient else "") or "",
+            "identity_card": (patient.identity_card if patient else "") or "",
+            "ethnicity": (getattr(patient, "ethnicity", None) if patient else "") or "",
+            "blood_type": (patient.blood_type if patient else "") or "",
+            "address": (patient.address if patient else "") or "",
+            "province_code": getattr(patient, "province_code", None) or "",
+            "ward_code": getattr(patient, "ward_code", None) or "",
             "allergies": getattr(patient, "allergies", None) or "",
             "companion_name": (getattr(patient, "companion_name", None) if patient else "") or getattr(appt, "companion_name", None) or "",
             "companion_id_card": (getattr(patient, "companion_id_card", None) if patient else "") or getattr(appt, "companion_id_card", None) or "",
@@ -2039,6 +2040,15 @@ def get_my_patient_profile(
     completed_appts = db.query(Appointment).filter(Appointment.patient_id == user.id, Appointment.status == "completed").count()
     prescriptions_count = db.query(PrescriptionRef).join(Appointment).filter(Appointment.patient_id == user.id).count()
 
+    latest_vital = db.query(RPMVitalLog).filter_by(patient_id=user.id).order_by(RPMVitalLog.measured_at.desc()).first()
+    bp_val = getattr(user, "blood_pressure", None) or (latest_vital.blood_pressure if latest_vital else None)
+    hr_val = getattr(user, "heart_rate", None) or ((latest_vital.pulse or latest_vital.heart_rate) if latest_vital else None)
+    temp_val = getattr(user, "temperature", None) or (latest_vital.temperature_celsius if latest_vital else None)
+    spo2_val = getattr(user, "spo2", None) or (latest_vital.spo2 if latest_vital else None)
+    gluc_val = getattr(user, "blood_glucose", None) or (latest_vital.glucose_value if latest_vital else None)
+    height_val = getattr(user, "height", None) or (latest_vital.height_cm if latest_vital else None)
+    weight_val = getattr(user, "weight", None) or (latest_vital.weight_kg if latest_vital else None)
+
     return {
         "id": user.id,
         "full_name": user.full_name,
@@ -2048,14 +2058,14 @@ def get_my_patient_profile(
         "bhyt_code": user.bhyt_code or "",
         "external_patient_id": user.external_patient_id or f"CC-{user.id:05d}",
         "date_of_birth": user.date_of_birth or "",
-        "gender": user.gender or "Nam",
+        "gender": user.gender or "",
         "identity_card": user.identity_card or "",
         "address": user.address or "",
         "province_code": getattr(user, "province_code", None) or "",
         "district_code": getattr(user, "district_code", None) or "",
         "ward_code": getattr(user, "ward_code", None) or "",
-        "ethnicity": getattr(user, "ethnicity", None) or "Kinh",
-        "blood_type": user.blood_type or "O+",
+        "ethnicity": getattr(user, "ethnicity", None) or "",
+        "blood_type": user.blood_type or "",
         "allergies": user.allergies or "",
         "emergency_contact_name": user.emergency_contact_name or "",
         "emergency_contact_phone": user.emergency_contact_phone or "",
@@ -2070,16 +2080,16 @@ def get_my_patient_profile(
         "family_history_notes": getattr(user, "family_history_notes", None) or "",
         "epidemiological_history": getattr(user, "epidemiological_history", None) or "",
         "avatar_url": getattr(user, "avatar_url", None) or "",
-        "height": getattr(user, "height", None),
-        "weight": getattr(user, "weight", None),
-        "blood_pressure": getattr(user, "blood_pressure", None),
-        "heart_rate": getattr(user, "heart_rate", None),
-        "temperature": getattr(user, "temperature", None),
-        "spo2": getattr(user, "spo2", None),
-        "blood_glucose": getattr(user, "blood_glucose", None),
+        "height": height_val,
+        "weight": weight_val,
+        "blood_pressure": bp_val,
+        "heart_rate": hr_val,
+        "temperature": temp_val,
+        "spo2": spo2_val,
+        "blood_glucose": gluc_val,
         "last_his_sync_at": getattr(user, "last_his_sync_at", None),
         "consent_agreed": bool(consent) if consent else True,
-        "consent_agreed_at": consent.consented_at if consent else datetime.now(timezone.utc),
+        "consent_agreed_at": consent.consented_at if consent else None,
         "total_appointments": total_appts,
         "completed_appointments": completed_appts,
         "total_prescriptions": prescriptions_count
@@ -2481,14 +2491,24 @@ def delete_cabinet_item(item_id: int, db: Session = Depends(get_db), user: User 
 
 @app.post("/api/v1/patients/me/cabinet/{item_id}/take-dose")
 def log_take_dose(item_id: int, db: Session = Depends(get_db), user: User = Depends(require_roles("patient"))):
-    """Đánh dấu bệnh nhân đã uống 1 liều thuốc hôm nay (giảm số viên còn lại)"""
+    """Đánh dấu bệnh nhân đã uống 1 liều thuốc hôm nay (giảm số viên còn lại và ghi vào bảng medication_dose_logs)"""
     item = db.query(PatientCabinetItem).filter_by(id=item_id, patient_id=user.id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Thuốc không tồn tại trong tủ thuốc")
     
     if item.quantity_remaining > 0:
         item.quantity_remaining -= 1
-    item.last_taken_at = datetime.now(timezone.utc)
+    now_utc = datetime.now(timezone.utc)
+    item.last_taken_at = now_utc
+    db.add(MedicationDoseLog(
+        patient_id=user.id,
+        cabinet_item_id=item.id,
+        medicine_name=item.name,
+        dosage=item.dosage,
+        schedule_slot=item.schedule_slot,
+        status="taken",
+        taken_at=now_utc
+    ))
     db.commit()
     db.refresh(item)
     return {
@@ -2581,110 +2601,44 @@ def get_my_prescriptions(db: Session = Depends(get_db), user: User = Depends(req
     results = []
     for a in appts:
         rx = db.query(PrescriptionRef).filter_by(appointment_id=a.id).first()
+        if not rx or not rx.summary:
+            continue
         cr = db.query(ClinicalRecord).filter_by(appointment_id=a.id).first()
         doc = db.get(User, a.doctor_id)
         dept = db.get(Department, a.department_id) if a.department_id else None
         
         medications = []
-        if rx and rx.summary:
-            lines = [l.strip() for l in rx.summary.split("\n") if l.strip()]
-            for l in lines:
-                cleaned = re.sub(r"^\d+[\.\)]\s*", "", l)
-                parts = cleaned.split(" - ")
-                med_name = parts[0].strip() if len(parts) > 0 else cleaned
-                qty = "30"
-                instructions = "Uống theo chỉ định"
-                if len(parts) > 1:
-                    sub_parts = parts[1].split("(")
-                    qty = sub_parts[0].strip()
-                    if len(sub_parts) > 1:
-                        instructions = sub_parts[1].rstrip(")")
-                
-                slot = "morning"
-                if "tối" in instructions.lower() or "trước ngủ" in instructions.lower():
-                    slot = "night"
-                elif "trưa" in instructions.lower():
-                    slot = "noon"
-                elif "sốt" in instructions.lower() or "khi cần" in instructions.lower():
-                    slot = "as_needed"
-                
-                medications.append({
-                    "name": med_name,
-                    "active_ingredient": "Theo dược thư Quốc gia",
-                    "dosage": "1 viên/lần",
-                    "quantity": qty,
-                    "unit": "viên" if "gói" not in qty else "gói",
-                    "usage_instructions": instructions,
-                    "schedule_slot": slot,
-                    "doctor_advice": "Uống đúng giờ, đủ liều theo hướng dẫn"
-                })
-        else:
-            if "huyết áp" in (a.reason or "").lower() or "đầu" in (a.reason or "").lower():
-                medications = [
-                    {
-                        "name": "Micardis 40mg",
-                        "active_ingredient": "Telmisartan",
-                        "dosage": "1 viên/lần",
-                        "quantity": "30 viên",
-                        "unit": "viên",
-                        "usage_instructions": "Uống 1 viên vào buổi sáng sau ăn 30 phút",
-                        "schedule_slot": "morning",
-                        "doctor_advice": "Đo huyết áp hàng ngày, nếu huyết áp tâm thu > 140 mmHg liên hệ lại bác sĩ."
-                    },
-                    {
-                        "name": "Lipitor 20mg",
-                        "active_ingredient": "Atorvastatin",
-                        "dosage": "1 viên/lần",
-                        "quantity": "30 viên",
-                        "unit": "viên",
-                        "usage_instructions": "Uống 1 viên vào buổi tối trước khi đi ngủ",
-                        "schedule_slot": "night",
-                        "doctor_advice": "Kiểm soát chế độ ăn giảm mỡ động vật."
-                    },
-                    {
-                        "name": "Concor 2.5mg",
-                        "active_ingredient": "Bisoprolol fumarate",
-                        "dosage": "1 viên/lần",
-                        "quantity": "30 viên",
-                        "unit": "viên",
-                        "usage_instructions": "Uống 1 viên vào buổi sáng (giúp ổn định nhịp tim)",
-                        "schedule_slot": "morning",
-                        "doctor_advice": "Không tự ý ngừng thuốc đột ngột."
-                    }
-                ]
-            else:
-                medications = [
-                    {
-                        "name": "Paracetamol 500mg",
-                        "active_ingredient": "Paracetamol",
-                        "dosage": "1 viên/lần",
-                        "quantity": "10 viên",
-                        "unit": "viên",
-                        "usage_instructions": "Uống 1 viên khi sốt > 38.5°C hoặc đau đầu nhiều, cách nhau >= 4-6h",
-                        "schedule_slot": "as_needed",
-                        "doctor_advice": "Uống nhiều nước ấm, nghỉ ngơi tại nơi thoáng khí."
-                    },
-                    {
-                        "name": "Acetylcysteine 200mg",
-                        "active_ingredient": "Acetylcysteine",
-                        "dosage": "1 gói/lần",
-                        "quantity": "10 gói",
-                        "unit": "gói",
-                        "usage_instructions": "Pha 1 gói với 50ml nước đun sôi để nguội, uống sau bữa ăn ngày 2 lần",
-                        "schedule_slot": "morning",
-                        "doctor_advice": "Long đờm, hỗ trợ đường hô hấp."
-                    },
-                    {
-                        "name": "Vitamin C 500mg",
-                        "active_ingredient": "Acid ascorbic",
-                        "dosage": "1 viên/lần",
-                        "quantity": "10 viên",
-                        "unit": "viên",
-                        "usage_instructions": "Uống 1 viên sau ăn sáng (tăng cường đề kháng)",
-                        "schedule_slot": "morning",
-                        "doctor_advice": "Bổ sung cùng nước cam, chanh."
-                    }
-                ]
+        lines = [l.strip() for l in rx.summary.split("\n") if l.strip()]
+        for l in lines:
+            cleaned = re.sub(r"^\d+[\.\)]\s*", "", l)
+            parts = cleaned.split(" - ")
+            med_name = parts[0].strip() if len(parts) > 0 else cleaned
+            qty = "30"
+            instructions = "Uống theo chỉ định"
+            if len(parts) > 1:
+                sub_parts = parts[1].split("(")
+                qty = sub_parts[0].strip()
+                if len(sub_parts) > 1:
+                    instructions = sub_parts[1].rstrip(")")
+            
+            slot = "morning"
+            if "tối" in instructions.lower() or "trước ngủ" in instructions.lower():
+                slot = "night"
+            elif "trưa" in instructions.lower():
+                slot = "noon"
+            elif "sốt" in instructions.lower() or "khi cần" in instructions.lower():
+                slot = "as_needed"
+            
+            medications.append({
+                "name": med_name,
+                "active_ingredient": "Theo dược thư Quốc gia",
+                "dosage": "1 viên/lần",
+                "quantity": qty,
+                "unit": "viên" if "gói" not in qty else "gói",
+                "usage_instructions": instructions,
+                "schedule_slot": slot,
+                "doctor_advice": "Uống đúng giờ, đủ liều theo hướng dẫn"
+            })
         
         cab_count = db.query(PatientCabinetItem).filter_by(patient_id=user.id, appointment_id=a.id).count()
         
@@ -2696,19 +2650,19 @@ def get_my_prescriptions(db: Session = Depends(get_db), user: User = Depends(req
             "encounter_code": a.encounter_code or f"LK-{a.id:06d}",
             "starts_at": a.starts_at.isoformat() if hasattr(a.starts_at, 'isoformat') else str(a.starts_at),
             "doctor_id": a.doctor_id,
-            "doctor_name": doc.full_name if doc else "BS.CKII Trần Minh",
-            "doctor_cchn": getattr(doc, "doctor_cchn", None) or "012345/BYT-CCHN",
-            "department_name": dept.name if dept else "Khoa Nội Tổng Quát",
+            "doctor_name": doc.full_name if doc else "Bác sĩ điều trị",
+            "doctor_cchn": getattr(doc, "doctor_cchn", None) or "",
+            "department_name": dept.name if dept else "Khoa Khám Bệnh",
             "hospital_code": getattr(a, "hospital_code", None) or "79014 (GLN: 8938500000018)",
-            "diagnosis": cr.diagnosis if (cr and cr.diagnosis) else (a.reason or "Khám và tư vấn chuyên khoa"),
-            "icd10_code": cr.icd10_code if (cr and cr.icd10_code) else "I10",
-            "icd10_name": cr.icd10_name if (cr and cr.icd10_name) else "Tăng huyết áp vô căn (nguyên phát)",
+            "diagnosis": cr.diagnosis if (cr and cr.diagnosis) else (a.reason or ""),
+            "icd10_code": cr.icd10_code if (cr and cr.icd10_code) else "",
+            "icd10_name": cr.icd10_name if (cr and cr.icd10_name) else "",
             "national_code": national_code,
             "national_qr_url": national_qr_url,
-            "is_digitally_signed": True,
+            "is_digitally_signed": bool(cr and cr.digital_signature),
             "pdf_url": f"/api/v1/appointments/{a.id}/records/pdf",
             "medications": medications,
-            "doctor_advice": cr.plan if (cr and cr.plan) else "Uống thuốc đúng giờ, tái khám theo hẹn hoặc khi có triệu chứng bất thường.",
+            "doctor_advice": cr.plan if (cr and cr.plan) else "",
             "imported_to_cabinet": cab_count > 0
         })
     
@@ -3981,7 +3935,7 @@ def update_patient_vitals_in_waiting_room(
             if latest_vital.bmi:
                 appt.bmi = latest_vital.bmi
 
-        # Đồng bộ từ user profile nếu appointment còn thiếu
+        # Đồng bộ từ user profile nếu appointment còn thiếu (không gán chỉ số giả định)
         patient = db.get(User, appt.patient_id)
         if patient:
             if not appt.weight and getattr(patient, "weight", None):
@@ -3990,20 +3944,12 @@ def update_patient_vitals_in_waiting_room(
                 appt.height = patient.height
             if not appt.blood_pressure and getattr(patient, "blood_pressure", None):
                 appt.blood_pressure = patient.blood_pressure
-            elif not appt.blood_pressure:
-                appt.blood_pressure = "120/80"
             if not appt.pulse and getattr(patient, "heart_rate", None):
                 appt.pulse = patient.heart_rate
-            elif not appt.pulse:
-                appt.pulse = 76
             if not appt.temperature and getattr(patient, "temperature", None):
                 appt.temperature = patient.temperature
-            elif not appt.temperature:
-                appt.temperature = 36.8
             if not appt.spo2 and getattr(patient, "spo2", None):
                 appt.spo2 = patient.spo2
-            elif not appt.spo2:
-                appt.spo2 = 98
             if not appt.blood_glucose and getattr(patient, "blood_glucose", None):
                 appt.blood_glucose = patient.blood_glucose
     else:
@@ -5411,6 +5357,13 @@ def record_rpm_vitals(
     spo2_val = data.spo2 or (int(data.spo2_percent) if data.spo2_percent else None)
     spo2_pct = data.spo2_percent or (float(data.spo2) if data.spo2 else None)
 
+    target_patient = db.get(User, target_patient_id)
+    effective_weight = data.weight_kg or (getattr(target_patient, "weight", None) if target_patient else None)
+    effective_height = data.height_cm or (getattr(target_patient, "height", None) if target_patient else None)
+    computed_bmi = data.bmi
+    if not computed_bmi and effective_weight and effective_height and effective_height > 0:
+        computed_bmi = round(effective_weight / ((effective_height / 100.0) ** 2), 1)
+
     vital = RPMVitalLog(
         patient_id=target_patient_id,
         device_type=data.device_type,
@@ -5428,7 +5381,7 @@ def record_rpm_vitals(
         temperature_celsius=data.temperature_celsius,
         weight_kg=data.weight_kg,
         height_cm=data.height_cm,
-        bmi=data.bmi,
+        bmi=computed_bmi,
         bp_mean=data.bp_mean,
         battery_level=data.battery_level,
         steps=data.steps,
@@ -5438,6 +5391,23 @@ def record_rpm_vitals(
         measured_at=datetime.now(timezone.utc)
     )
     db.add(vital)
+
+    # Đồng bộ chỉ số sinh hiệu mới nhất vào bảng User để hiển thị nhất quán trên Hồ sơ & Dashboard
+    if target_patient:
+        if bp_formatted:
+            target_patient.blood_pressure = bp_formatted
+        if pulse_val is not None:
+            target_patient.heart_rate = pulse_val
+        if spo2_val is not None:
+            target_patient.spo2 = spo2_val
+        if data.temperature_celsius is not None:
+            target_patient.temperature = data.temperature_celsius
+        if data.glucose_value is not None:
+            target_patient.blood_glucose = data.glucose_value
+        if data.weight_kg is not None:
+            target_patient.weight = data.weight_kg
+        if data.height_cm is not None:
+            target_patient.height = data.height_cm
     
     if is_warning:
         notif = Notification(
@@ -5466,6 +5436,74 @@ def get_patient_rpm_vitals(
     
     vitals = db.query(RPMVitalLog).filter_by(patient_id=patient_id).order_by(RPMVitalLog.measured_at.desc()).limit(30).all()
     return vitals
+
+@app.get("/api/v1/patients/me/devices", response_model=list[PatientMedicalDeviceOut])
+def get_my_medical_devices(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Danh sách thiết bị y tế cá nhân BLE/IoT đã ghép đôi của bệnh nhân từ CSDL"""
+    devices = db.query(PatientMedicalDevice).filter_by(patient_id=user.id).order_by(PatientMedicalDevice.id.asc()).all()
+    return devices
+
+@app.post("/api/v1/patients/me/devices", response_model=PatientMedicalDeviceOut)
+def save_my_medical_device(
+    data: PatientMedicalDeviceIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Thêm hoặc cập nhật thiết bị y tế cá nhân đã ghép đôi của bệnh nhân vào CSDL"""
+    existing = None
+    if data.device_code:
+        existing = db.query(PatientMedicalDevice).filter_by(patient_id=user.id, device_code=data.device_code).first()
+    if not existing:
+        existing = db.query(PatientMedicalDevice).filter_by(patient_id=user.id, device_name=data.device_name).first()
+    now_utc = datetime.now(timezone.utc)
+    if existing:
+        existing.device_type = data.device_type
+        existing.manufacturer = data.manufacturer or existing.manufacturer
+        existing.mac_address = data.mac_address or existing.mac_address
+        existing.connection_method = data.connection_method or existing.connection_method
+        existing.battery_level = data.battery_level if data.battery_level is not None else existing.battery_level
+        existing.status = data.status or "connected"
+        existing.last_synced_at = now_utc
+        db.commit()
+        db.refresh(existing)
+        return existing
+    dev = PatientMedicalDevice(
+        patient_id=user.id,
+        device_code=data.device_code,
+        device_name=data.device_name,
+        device_type=data.device_type,
+        manufacturer=data.manufacturer,
+        mac_address=data.mac_address,
+        connection_method=data.connection_method,
+        battery_level=data.battery_level if data.battery_level is not None else 100,
+        status=data.status or "connected",
+        last_synced_at=now_utc
+    )
+    db.add(dev)
+    db.commit()
+    db.refresh(dev)
+    return dev
+
+@app.delete("/api/v1/patients/me/devices/{device_id}")
+def delete_my_medical_device(
+    device_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Hủy ghép đôi và xóa thiết bị y tế cá nhân khỏi CSDL"""
+    dev = None
+    if device_id.isdigit():
+        dev = db.query(PatientMedicalDevice).filter_by(id=int(device_id), patient_id=user.id).first()
+    if not dev:
+        dev = db.query(PatientMedicalDevice).filter_by(device_code=device_id, patient_id=user.id).first()
+    if not dev:
+        raise HTTPException(status_code=404, detail="Không tìm thấy thiết bị y tế đã ghép đôi")
+    db.delete(dev)
+    db.commit()
+    return {"success": True, "message": "Đã hủy ghép đôi thiết bị y tế khỏi tài khoản."}
 
 # -------------------------------------------------------------
 # PHÂN HỆ 4: HỒ SƠ SỨC KHỎE GIA ĐÌNH (FAMILY HEALTH VAULT)

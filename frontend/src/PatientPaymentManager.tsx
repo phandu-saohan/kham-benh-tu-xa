@@ -76,7 +76,7 @@ export function PatientPaymentManager({
   const [refundProgressAppt, setRefundProgressAppt] = useState<Appointment | null>(null)
 
   // Refund Form State
-  const [refundReason, setRefundReason] = useState('Bác sĩ báo đổi lịch / Bận công tác đột xuất')
+  const [refundReason, setRefundReason] = useState('')
   const [refundNotes, setRefundNotes] = useState('')
   const [bankName, setBankName] = useState('MB Bank (Quân Đội)')
   const [bankAccount, setBankAccount] = useState('')
@@ -183,7 +183,7 @@ export function PatientPaymentManager({
   // Mở modal hoàn tiền
   function handleOpenRefundModal(a: Appointment) {
     setRefundModalAppt(a)
-    setRefundReason('Bác sĩ báo đổi lịch / Bận công tác đột xuất')
+    setRefundReason('')
     setRefundNotes('')
     setBankName('MB Bank (Quân Đội)')
     setBankAccount('')

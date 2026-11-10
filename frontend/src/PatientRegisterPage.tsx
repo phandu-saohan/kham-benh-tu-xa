@@ -220,11 +220,11 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
   // Step 2: Bộ dữ liệu chuẩn theo QĐ 2682/QĐ-BYT & Luật KCB 2023
   // 1. Hành chính
   const [dob, setDob] = useState('')
-  const [gender, setGender] = useState('Nam')
-  const [ethnicity, setEthnicity] = useState('Kinh')
+  const [gender, setGender] = useState('')
+  const [ethnicity, setEthnicity] = useState('')
   const [bloodType, setBloodType] = useState('Không rõ')
   const [address, setAddress] = useState('')
-  const [provinceCode, setProvinceCode] = useState('79')
+  const [provinceCode, setProvinceCode] = useState('')
   const [wardCode, setWardCode] = useState('')
   
   // Người đi cùng / Giám hộ
@@ -232,7 +232,7 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
   const [companionName, setCompanionName] = useState('')
   const [companionIdCard, setCompanionIdCard] = useState('')
   const [companionPhone, setCompanionPhone] = useState('')
-  const [companionRelationship, setCompanionRelationship] = useState('Bố/Mẹ')
+  const [companionRelationship, setCompanionRelationship] = useState('')
 
   // 2. Tiền sử sức khỏe & Dịch tễ
   const [hasMedicalHistory, setHasMedicalHistory] = useState(false)
@@ -448,28 +448,6 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
     if (raw.length === 12) {
       triggerHisCheck(raw, fullName)
     }
-  }
-
-  // Chọn bộ dữ liệu Test nhanh trên HIS Bệnh viện
-  function handleSelectPreset(presetCCCD: string, presetName: string, presetPhone: string, presetDob?: string, presetGender?: string, presetAddress?: string) {
-    setIdentityCard(presetCCCD)
-    setFullName(presetName)
-    setPhoneNumber(presetPhone)
-    if (presetDob) setDob(presetDob)
-    if (presetGender) setGender(presetGender)
-    if (presetAddress) setAddress(presetAddress)
-
-    setScannedCccdData({
-      cccd: presetCCCD,
-      fullName: presetName,
-      dobIso: presetDob || '1980-08-15',
-      gender: presetGender || 'Nữ',
-      address: presetAddress || 'Số 123 Đường Nguyễn Trãi, Phường 2, Quận 5, TP. Hồ Chí Minh',
-      provinceCode: '79'
-    })
-
-    setOcrSuccessMsg(`Đã nạp mẫu thử nghiệm ${presetName}. Đang tự động đối soát với HIS bệnh viện...`)
-    triggerHisCheck(presetCCCD, presetName)
   }
 
   // Chuyển sang Bước 2

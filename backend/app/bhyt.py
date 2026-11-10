@@ -40,12 +40,27 @@ PROVINCES = {
     "75": "Đồng Nai"
 }
 
-def verify_and_lookup_bhyt(bhyt_code: str, patient_name: str = "Nguyễn Minh An") -> Dict[str, Any]:
+def verify_and_lookup_bhyt(bhyt_code: str, patient_name: str = "Bệnh nhân") -> Dict[str, Any]:
     """
     Tra cứu thông tin quyền lợi thẻ BHYT qua cổng Giám định BHYT.
     Định dạng thẻ chuẩn 15 ký tự hoặc 10 ký tự số (mã số BHXH mới).
     """
-    code = bhyt_code.strip().upper().replace(" ", "").replace("-", "")
+    code = (bhyt_code or "").strip().upper().replace(" ", "").replace("-", "")
+    if not code or len(code) < 10:
+        return {
+            "success": False,
+            "is_valid": False,
+            "bhyt_code": code,
+            "patient_name": patient_name,
+            "benefit_rate_percent": 0,
+            "object_group": "Chưa xác định",
+            "primary_healthcare_facility": "Chưa có dữ liệu KCB ban đầu",
+            "valid_from": "",
+            "valid_to": "",
+            "five_years_consecutive": "Chưa đủ thông tin",
+            "telehealth_covered": False,
+            "message": "Mã số thẻ BHYT / BHXH không hợp lệ (cần nhập đúng 10 số mã BHXH hoặc 15 ký tự mã thẻ BHYT)."
+        }
     
     # Kiểm tra độ dài thẻ
     if len(code) == 10 and code.isdigit():

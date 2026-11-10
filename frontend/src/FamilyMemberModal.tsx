@@ -62,10 +62,10 @@ export const FamilyMemberModal: React.FC<FamilyMemberModalProps> = ({
   const [fullName, setFullName] = useState(memberToEdit?.full_name || '')
   const [relationship, setRelationship] = useState(memberToEdit?.relationship || 'child')
   const [gender, setGender] = useState(memberToEdit?.gender || 'male')
-  const [dob, setDob] = useState(memberToEdit?.date_of_birth || '2018-01-01')
+  const [dob, setDob] = useState(memberToEdit?.date_of_birth || '')
   const [nationalId, setNationalId] = useState(memberToEdit?.national_id || '')
   const [ethnicity, setEthnicity] = useState(memberToEdit?.ethnicity || 'Kinh')
-  const [bloodGroup, setBloodGroup] = useState(memberToEdit?.blood_group || 'O+')
+  const [bloodGroup, setBloodGroup] = useState(memberToEdit?.blood_group || 'Không rõ')
   const [bhytCode, setBhytCode] = useState(memberToEdit?.bhyt_code || '')
   const [phone, setPhone] = useState(memberToEdit?.phone_number || '')
   const [address, setAddress] = useState(memberToEdit?.address || '')
@@ -76,7 +76,7 @@ export const FamilyMemberModal: React.FC<FamilyMemberModalProps> = ({
   const [companionName, setCompanionName] = useState(memberToEdit?.companion_name || '')
   const [companionIdCard, setCompanionIdCard] = useState(memberToEdit?.companion_id_card || '')
   const [companionPhone, setCompanionPhone] = useState(memberToEdit?.companion_phone || '')
-  const [companionRel, setCompanionRel] = useState(memberToEdit?.companion_relationship || 'Bố/Mẹ')
+  const [companionRel, setCompanionRel] = useState(memberToEdit?.companion_relationship || '')
 
   // 3. Tiền sử sức khỏe & Dịch tễ
   const [hasMedicalHistory, setHasMedicalHistory] = useState(!!memberToEdit?.has_medical_history)

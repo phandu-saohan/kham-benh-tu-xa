@@ -89,23 +89,23 @@ export const RPMDeviceCenter: React.FC<RPMDeviceCenterProps> = ({
   // =========================================================================
   // 3. STATE CHẾ ĐỘ NHẬP TAY THỰC TẾ
   // =========================================================================
-  const [manualSys, setManualSys] = useState<number | ''>(120)
-  const [manualDia, setManualDia] = useState<number | ''>(80)
-  const [manualPulse, setManualPulse] = useState<number | ''>(75)
-  const [manualGlucose, setManualGlucose] = useState<number | ''>(5.6)
+  const [manualSys, setManualSys] = useState<number | ''>('')
+  const [manualDia, setManualDia] = useState<number | ''>('')
+  const [manualPulse, setManualPulse] = useState<number | ''>('')
+  const [manualGlucose, setManualGlucose] = useState<number | ''>('')
   const [manualGlucoseContext, setManualGlucoseContext] = useState<'fasting' | 'postprandial' | 'random'>('fasting')
-  const [manualSpo2, setManualSpo2] = useState<number | ''>(98)
-  const [manualTemp, setManualTemp] = useState<number | ''>(36.8)
-  const [manualHeight, setManualHeight] = useState<number | ''>(168)
-  const [manualWeight, setManualWeight] = useState<number | ''>(65)
+  const [manualSpo2, setManualSpo2] = useState<number | ''>('')
+  const [manualTemp, setManualTemp] = useState<number | ''>('')
+  const [manualHeight, setManualHeight] = useState<number | ''>('')
+  const [manualWeight, setManualWeight] = useState<number | ''>('')
   const [savingManual, setSavingManual] = useState(false)
 
   // =========================================================================
   // 4. STATE LIVE OSCILLOSCOPE MONITOR
   // =========================================================================
   const monitorCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const [monitorBpm, setMonitorBpm] = useState(72)
-  const [monitorRhythm, setMonitorRhythm] = useState('Normal Sinus Rhythm (Nhịp xoang đều)')
+  const [monitorBpm, setMonitorBpm] = useState<number | string>('--')
+  const [monitorRhythm, setMonitorRhythm] = useState('Chờ tín hiệu nhịp tim từ thiết bị đo')
   const [monitorActive, setMonitorActive] = useState(true)
   // Phân trang lịch sử sinh hiệu (Tab 5)
   const [historyPage, setHistoryPage] = useState(1)
@@ -367,7 +367,7 @@ export const RPMDeviceCenter: React.FC<RPMDeviceCenterProps> = ({
       setBleLastReading(result)
       setToastMessage(`Đã đọc số đo thành công từ ${result.deviceName}`)
     } catch (err: any) {
-      setErrorMessage(err.message || 'Lỗi kết nối Bluetooth. Bạn có thể sử dụng chế độ Đo Thử Nghiệm Chuẩn Lâm Sàng.')
+      setErrorMessage(err.message || 'Lỗi kết nối Bluetooth. Vui lòng bật Bluetooth trên thiết bị hoặc nhập số đo thủ công.')
     } finally {
       setBleConnecting(false)
     }
@@ -436,7 +436,8 @@ export const RPMDeviceCenter: React.FC<RPMDeviceCenterProps> = ({
         glucose_context: manualGlucoseContext,
         spo2_percent: typeof manualSpo2 === 'number' ? manualSpo2 : undefined,
         temperature_celsius: typeof manualTemp === 'number' ? manualTemp : undefined,
-        weight_kg: typeof manualWeight === 'number' ? manualWeight : undefined
+        weight_kg: typeof manualWeight === 'number' ? manualWeight : undefined,
+        height_cm: typeof manualHeight === 'number' ? manualHeight : undefined
       })
 
       setToastMessage('Đã ghi nhận toàn bộ chỉ số sinh hiệu thực tế vào Bệnh án EMR thành công!')
@@ -467,25 +468,27 @@ export const RPMDeviceCenter: React.FC<RPMDeviceCenterProps> = ({
 
     const render = () => {
       t += 0.08
-      // Mô phỏng sóng P-Q-R-S-T nhịp tim
-      const phase = (t * (monitorBpm / 60)) % (2 * Math.PI)
+      const activeBpm = Number(vitalsHistory.find(v => v.pulse)?.pulse || monitorBpm) || 0
+      const phase = activeBpm > 0 ? (t * (activeBpm / 60)) % (2 * Math.PI) : 0
       let wave = 0
 
-      // Sóng P
-      if (phase > 0.4 && phase < 0.8) {
-        wave = Math.sin((phase - 0.4) * (Math.PI / 0.4)) * 6
-      }
-      // Phức bộ QRS
-      else if (phase >= 1.0 && phase < 1.1) {
-        wave = -8 // Q
-      } else if (phase >= 1.1 && phase < 1.25) {
-        wave = 38 // R cao vút
-      } else if (phase >= 1.25 && phase < 1.35) {
-        wave = -14 // S sâu
-      }
-      // Sóng T
-      else if (phase > 1.6 && phase < 2.2) {
-        wave = Math.sin((phase - 1.6) * (Math.PI / 0.6)) * 9
+      if (activeBpm > 0) {
+        // Sóng P
+        if (phase > 0.4 && phase < 0.8) {
+          wave = Math.sin((phase - 0.4) * (Math.PI / 0.4)) * 6
+        }
+        // Phức bộ QRS
+        else if (phase >= 1.0 && phase < 1.1) {
+          wave = -8 // Q
+        } else if (phase >= 1.1 && phase < 1.25) {
+          wave = 38 // R cao vút
+        } else if (phase >= 1.25 && phase < 1.35) {
+          wave = -14 // S sâu
+        }
+        // Sóng T
+        else if (phase > 1.6 && phase < 2.2) {
+          wave = Math.sin((phase - 1.6) * (Math.PI / 0.6)) * 9
+        }
       }
 
       tracePoints.shift()
@@ -884,16 +887,6 @@ export const RPMDeviceCenter: React.FC<RPMDeviceCenterProps> = ({
               <Bluetooth size={18} className={bleConnecting ? 'spin' : ''} />
               {bleConnecting ? 'Đang dò quét thiết bị Bluetooth...' : 'Dò Quét & Kết Nối Thiết Bị Thật'}
             </button>
-
-            <button
-              type="button"
-              className="secondary"
-              disabled={bleConnecting}
-              onClick={() => handleConnectBle(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 18px', fontSize: '14px' }}
-            >
-              <Zap size={16} /> Đo Thử Nghiệm Chuẩn Lâm Sàng (Simulator)
-            </button>
           </div>
 
           {/* Hiển thị số đo Bluetooth mới nhận */}
@@ -1155,14 +1148,14 @@ export const RPMDeviceCenter: React.FC<RPMDeviceCenterProps> = ({
               <div style={{ textAlign: 'right' }}>
                 <span style={{ fontSize: '11px', color: '#94a3b8' }}>HEART RATE</span>
                 <div style={{ fontSize: '36px', fontWeight: 900, color: '#00ff66', lineHeight: 1 }}>
-                  {monitorBpm} <small style={{ fontSize: '14px' }}>BPM</small>
+                  {vitalsHistory.find(v => v.pulse)?.pulse || monitorBpm} <small style={{ fontSize: '14px' }}>BPM</small>
                 </div>
               </div>
 
               <div style={{ textAlign: 'right' }}>
                 <span style={{ fontSize: '11px', color: '#94a3b8' }}>SpO2</span>
                 <div style={{ fontSize: '36px', fontWeight: 900, color: '#38bdf8', lineHeight: 1 }}>
-                  98 <small style={{ fontSize: '14px' }}>%</small>
+                  {vitalsHistory.find(v => v.spo2_percent)?.spo2_percent || '--'} <small style={{ fontSize: '14px' }}>%</small>
                 </div>
               </div>
             </div>

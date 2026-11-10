@@ -87,8 +87,8 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
   const [newFamilyData, setNewFamilyData] = useState({
     full_name: '',
     relationship: 'Con',
-    gender: 'Nam',
-    date_of_birth: '2015-05-10',
+    gender: '',
+    date_of_birth: '',
     national_id: '',
     bhyt_code: '',
     phone_number: ''
@@ -319,8 +319,8 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
       setNewFamilyData({
         full_name: '',
         relationship: 'Con',
-        gender: 'Nam',
-        date_of_birth: '2015-05-10',
+        gender: '',
+        date_of_birth: '',
         national_id: '',
         bhyt_code: '',
         phone_number: ''
@@ -358,7 +358,7 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
   const getSelectedPatientInfo = () => {
     if (targetType === 'self') {
       const activeName = profile?.full_name || user.full_name
-      const activeGender = profile?.gender || user.gender || 'Nam'
+      const activeGender = profile?.gender || user.gender || 'Chưa cập nhật'
       const rawDob = profile?.date_of_birth || user.date_of_birth
       const activeDob = rawDob ? formatDateVN(rawDob) : 'Chưa cập nhật'
       const activeIdCard = profile?.identity_card || user.identity_card || user.national_id || 'Chưa cập nhật'
