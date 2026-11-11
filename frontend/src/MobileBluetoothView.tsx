@@ -14,9 +14,7 @@ import {
   Sparkles,
   Info,
   X,
-  Play,
-  ShieldCheck,
-  Lock
+  Play
 } from 'lucide-react'
 import {
   DiscoveredBleDevice,
@@ -39,46 +37,6 @@ interface MobileBluetoothViewProps {
   onRefreshVitals?: () => Promise<void> | void
 }
 
-// Danh sách thiết bị y tế kết nối mẫu tiêu chuẩn (KHÔNG BAO GIỜ XÓA - luôn sẵn sàng phục vụ khám từ xa & đo sinh hiệu)
-export const DEFAULT_SAMPLE_CONNECTED_DEVICES: PatientMedicalDeviceItem[] = [
-  {
-    id: 9001,
-    patient_id: 0,
-    device_code: 'BLE_OMRON_7361T',
-    device_name: 'Omron HEM-7361T Smart BP',
-    device_type: 'bp',
-    manufacturer: 'Omron Healthcare Japan',
-    connection_method: 'bluetooth_ble',
-    battery_level: 95,
-    status: 'connected',
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 9002,
-    patient_id: 0,
-    device_code: 'BLE_ACCUCHEK_INSTANT',
-    device_name: 'Roche Accu-Chek Instant',
-    device_type: 'glucose',
-    manufacturer: 'Roche Diabetes Care',
-    connection_method: 'bluetooth_ble',
-    battery_level: 88,
-    status: 'connected',
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 9003,
-    patient_id: 0,
-    device_code: 'BLE_CONTEC_CMS50D',
-    device_name: 'Contec CMS50D-BT Pulse Oximeter',
-    device_type: 'spo2',
-    manufacturer: 'Contec Medical Systems',
-    connection_method: 'bluetooth_ble',
-    battery_level: 92,
-    status: 'connected',
-    created_at: new Date().toISOString()
-  }
-]
-
 export const MobileBluetoothView: React.FC<MobileBluetoothViewProps> = ({
   user,
   onRefreshVitals
@@ -86,7 +44,7 @@ export const MobileBluetoothView: React.FC<MobileBluetoothViewProps> = ({
   // Trạng thái quét thiết bị
   const [isScanning, setIsScanning] = useState(false)
   const [discoveredDevices, setDiscoveredDevices] = useState<DiscoveredBleDevice[]>([])
-  const [pairedDevices, setPairedDevices] = useState<PatientMedicalDeviceItem[]>(DEFAULT_SAMPLE_CONNECTED_DEVICES)
+  const [pairedDevices, setPairedDevices] = useState<PatientMedicalDeviceItem[]>([])
   const [loadingPaired, setLoadingPaired] = useState(false)
 
   // Trạng thái kết nối & ghép đôi
@@ -107,30 +65,15 @@ export const MobileBluetoothView: React.FC<MobileBluetoothViewProps> = ({
     setTimeout(() => setToast(null), 3800)
   }
 
-  // Tải danh sách thiết bị đã ghép đôi từ CSDL thật & hợp nhất thiết bị mẫu (không xóa thiết bị mẫu)
+  // Tải danh sách thiết bị đã ghép đôi thực tế từ CSDL PostgreSQL (100% dữ liệu thật, không dùng dữ liệu mẫu)
   const loadPairedDevices = async () => {
     try {
       setLoadingPaired(true)
       const data = await getMyMedicalDevices()
-      const dbList: PatientMedicalDeviceItem[] = Array.isArray(data) ? data : []
-
-      // Hợp nhất: Giữ nguyên thiết bị thực từ DB + bảo toàn đầy đủ các thiết bị mẫu đã kết nối
-      const mergedList = [...dbList]
-      DEFAULT_SAMPLE_CONNECTED_DEVICES.forEach((sampleDev) => {
-        const exists = mergedList.some(
-          (d) =>
-            (d.device_code && d.device_code === sampleDev.device_code) ||
-            (d.device_name && d.device_name.toLowerCase() === sampleDev.device_name.toLowerCase())
-        )
-        if (!exists) {
-          mergedList.push(sampleDev)
-        }
-      })
-
-      setPairedDevices(mergedList)
+      setPairedDevices(Array.isArray(data) ? data : [])
     } catch (err: any) {
-      console.warn('Lỗi tải thiết bị đã ghép đôi, giữ danh sách mẫu:', err)
-      setPairedDevices(DEFAULT_SAMPLE_CONNECTED_DEVICES)
+      console.warn('Lỗi tải thiết bị đã ghép đôi:', err)
+      setPairedDevices([])
     } finally {
       setLoadingPaired(false)
     }
@@ -196,14 +139,9 @@ export const MobileBluetoothView: React.FC<MobileBluetoothViewProps> = ({
     }
   }
 
-  // Hủy ghép đôi thiết bị tùy chỉnh (Bảo vệ: không xóa thiết bị mẫu)
+  // Hủy ghép đôi thiết bị
   const handleUnpairDevice = async (id: number, name: string) => {
-    if (id >= 9000) {
-      showToast('info', 'Thiết bị mẫu kết nối sẵn phục vụ khám từ xa - Không thể xóa!')
-      return
-    }
-
-    if (!confirm(`Bạn có chắc muốn hủy ghép đôi máy "${name}"?`)) return
+    if (!confirm(`Bạn có chắc muốn hủy kết nối máy "${name}"?`)) return
     try {
       await deleteMyMedicalDevice(id)
       showToast('info', `Đã hủy kết nối thiết bị ${name}`)
@@ -213,7 +151,7 @@ export const MobileBluetoothView: React.FC<MobileBluetoothViewProps> = ({
     }
   }
 
-  // Đọc số đo thực tế từ thiết bị (Hỗ trợ cả thiết bị thật và thiết bị mẫu)
+  // Đọc số đo thực tế từ thiết bị đã ghép đôi
   const handleReadMeasurement = async (deviceItem: PatientMedicalDeviceItem) => {
     setReadingDeviceId(deviceItem.id)
     try {
@@ -306,7 +244,7 @@ export const MobileBluetoothView: React.FC<MobileBluetoothViewProps> = ({
         </div>
       )}
 
-      {/* Mini Status & Guide Pill Bar (gọn gàng, không bị trùng header với Shell) */}
+      {/* Mini Status & Guide Pill Bar */}
       <div
         style={{
           display: 'flex',
@@ -354,7 +292,7 @@ export const MobileBluetoothView: React.FC<MobileBluetoothViewProps> = ({
         </button>
       </div>
 
-      {/* Radar Scanner Hero Card (Bo góc gọn gàng, không tràn viền, tỷ lệ cân đối) */}
+      {/* Radar Scanner Hero Card */}
       <div
         style={{
           background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 55%, #0284c7 100%)',
@@ -459,7 +397,7 @@ export const MobileBluetoothView: React.FC<MobileBluetoothViewProps> = ({
         </button>
       </div>
 
-      {/* Discovered Devices Section (Nếu tìm thấy) */}
+      {/* Discovered Devices Section (Nếu tìm thấy thiết bị qua sóng BLE) */}
       {discoveredDevices.length > 0 && (
         <div style={{ marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
@@ -549,7 +487,7 @@ export const MobileBluetoothView: React.FC<MobileBluetoothViewProps> = ({
         </div>
       )}
 
-      {/* Paired Medical Devices Section (Bảo toàn thiết bị mẫu & dữ liệu kết nối thật) */}
+      {/* Paired Medical Devices Section (Chỉ hiển thị thiết bị thật trong CSDL) */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
           <h4 style={{ margin: 0, fontSize: '14.5px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -574,11 +512,60 @@ export const MobileBluetoothView: React.FC<MobileBluetoothViewProps> = ({
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {pairedDevices.map((item) => {
-            const isSample = item.id >= 9000 || item.device_code?.startsWith('BLE_')
-
-            return (
+        {pairedDevices.length === 0 ? (
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              padding: '28px 16px',
+              textAlign: 'center',
+              border: '1px dashed #cbd5e1',
+              boxSizing: 'border-box'
+            }}
+          >
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                background: '#f1f5f9',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 10px',
+                color: '#94a3b8'
+              }}
+            >
+              <Bluetooth size={22} />
+            </div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+              Chưa có máy đo nào được kết nối
+            </div>
+            <div style={{ fontSize: '12px', color: '#64748b', lineHeight: 1.5, marginBottom: '14px', maxWidth: '300px', marginLeft: 'auto', marginRight: 'auto' }}>
+              Đặt máy đo y tế gần điện thoại và bấm nút phía trên để quét và ghép đôi qua Bluetooth BLE.
+            </div>
+            <button
+              onClick={handleStartScan}
+              style={{
+                background: '#0f766e',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '9px 18px',
+                fontSize: '12.5px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <Bluetooth size={14} /> Quét thiết bị ngay
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {pairedDevices.map((item) => (
               <div
                 key={item.id}
                 style={{
@@ -617,41 +604,22 @@ export const MobileBluetoothView: React.FC<MobileBluetoothViewProps> = ({
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', flexShrink: 0 }}>
-                    <span
-                      style={{
-                        background: '#ecfdf5',
-                        color: '#065f46',
-                        fontSize: '10.5px',
-                        fontWeight: 700,
-                        padding: '2px 7px',
-                        borderRadius: '6px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                    >
-                      <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981' }} /> Đã kết nối
-                    </span>
-                    {isSample && (
-                      <span
-                        style={{
-                          background: '#f0fdfa',
-                          color: '#0f766e',
-                          border: '1px solid #ccfbf1',
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          padding: '1px 6px',
-                          borderRadius: '5px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '3px'
-                        }}
-                      >
-                        <ShieldCheck size={10} /> Mẫu sẵn sàng
-                      </span>
-                    )}
-                  </div>
+                  <span
+                    style={{
+                      background: '#ecfdf5',
+                      color: '#065f46',
+                      fontSize: '10.5px',
+                      fontWeight: 700,
+                      padding: '2px 7px',
+                      borderRadius: '6px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      flexShrink: 0
+                    }}
+                  >
+                    <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981' }} /> Đã kết nối
+                  </span>
                 </div>
 
                 {/* Bottom Row: Battery Status & Action Button */}
@@ -702,49 +670,31 @@ export const MobileBluetoothView: React.FC<MobileBluetoothViewProps> = ({
                       )}
                     </button>
 
-                    {/* Không xóa thiết bị mẫu: Chỉ hiển thị nút xóa cho thiết bị do người dùng tự quét thêm */}
-                    {!isSample ? (
-                      <button
-                        onClick={() => handleUnpairDevice(item.id, item.device_name)}
-                        style={{
-                          background: '#fef2f2',
-                          color: '#dc2626',
-                          border: 'none',
-                          borderRadius: '8px',
-                          padding: '7px 9px',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                        title="Hủy ghép đôi thiết bị này"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    ) : (
-                      <div
-                        style={{
-                          background: '#f8fafc',
-                          color: '#94a3b8',
-                          padding: '6px 8px',
-                          borderRadius: '8px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                        title="Thiết bị mẫu cố định - Không xóa"
-                      >
-                        <Lock size={12} />
-                      </div>
-                    )}
+                    <button
+                      onClick={() => handleUnpairDevice(item.id, item.device_name)}
+                      style={{
+                        background: '#fef2f2',
+                        color: '#dc2626',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '7px 9px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      title="Hủy ghép đôi thiết bị này"
+                    >
+                      <Trash2 size={13} />
+                    </button>
                   </div>
                 </div>
               </div>
-            )
-          })}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Modal / Bottom Sheet: Kết Quả Đo Sinh Hiệu */}
