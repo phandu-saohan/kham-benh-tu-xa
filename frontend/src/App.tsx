@@ -114,6 +114,8 @@ import { PatientPacsCenter } from './PatientPacsCenter'
 
 import { formatDateVN, formatDateTimeVN } from './dateFormatters'
 
+import { useIsMobilePatient, MobilePatientLogin, MobilePatientShell } from './MobilePatientApp'
+
 
 
 const money = (n: number) =>
@@ -127,6 +129,8 @@ const dateText = (s: string) => formatDateTimeVN(s)
 
 
 export default function App() {
+
+  const isMobilePatient = useIsMobilePatient()
 
   const [user, setUser] = useState<User | null>(null)
 
@@ -1526,6 +1530,40 @@ export default function App() {
 
 
 
+    // CỔNG ĐĂNG NHẬP MOBILE DÀNH RIÊNG CHO BỆNH NHÂN (CAPACITOR ANDROID / MOBILE VIEWPORT)
+
+    if (isMobilePatient && loginPortal === 'patient') {
+
+      return (
+
+        <MobilePatientLogin
+
+          onSuccess={(u) => {
+
+            setUser(u)
+
+            setView('overview')
+
+            loadDashboard(u)
+
+          }}
+
+          onNavigateToRegister={() => {
+
+            setAuthScreen('register')
+
+            setError('')
+
+          }}
+
+        />
+
+      )
+
+    }
+
+
+
     // CỔNG ĐĂNG NHẬP (CLINICAL SANCTUARY LOGIN PAGE)
 
     return (
@@ -1792,301 +1830,9 @@ export default function App() {
 
 
 
-  return (
+  const mainWorkspaceContent = (
 
-    <div className="app-shell with-global-header">
-
-      {/* 1. Global Unified Top Header */}
-
-      <header className="global-system-header">
-
-        <div className="header-left">
-
-          {/* Mobile hamburger menu toggle */}
-
-          <button
-
-            type="button"
-
-            className="mobile-menu-toggle-btn"
-
-            onClick={() => setShowMobileDrawer(true)}
-
-            aria-label="Mở menu điều hướng"
-
-          >
-
-            <Menu size={20} />
-
-          </button>
-
-
-
-          <div className="brand-logo" onClick={() => setView('overview')} title="Về trang chủ">
-
-            <div className="brand-icon">
-
-              <HeartPulse size={22} />
-
-            </div>
-
-            <div className="brand-titles">
-
-              <span className="brand-name">CareConnect</span>
-
-              <span className="brand-badge">BỘ Y TẾ · TELEMED</span>
-
-            </div>
-
-          </div>
-
-
-
-          <div className="header-divider" />
-
-
-
-          {/* Module / Breadcrumb */}
-
-          <div className="header-breadcrumb">
-
-            <span className={`breadcrumb-role-tag ${isPatient ? 'patient' : isDoctor ? 'doctor' : isNurse ? 'nurse' : 'admin'}`}>
-
-              {isPatient ? 'Cổng Bệnh nhân' : isDoctor ? 'Bàn Bác sĩ' : isNurse ? 'Tiếp đón Triage' : 'Quản trị Viện'}
-
-            </span>
-
-            <span className="breadcrumb-separator">/</span>
-
-            <span className="breadcrumb-current-view">
-
-              {(navItems.find(([id]: any) => id === view)?.[1] as string) || 'Tổng quan'}
-
-            </span>
-
-          </div>
-
-        </div>
-
-
-
-        {/* Center: Smart Multi-Entity Search Bar */}
-
-        <div className="header-center">
-
-          <HeaderSmartSearch
-
-            userRole={user.role}
-
-            appointments={appointments}
-
-            doctors={doctors}
-
-            departments={departments}
-
-            onNavigate={(v) => setView(v as any)}
-
-            onOpenBooking={() => setShowBooking(true)}
-
-            onSelectAppointment={(appt) => {
-
-              if (user.role === 'doctor') {
-
-                setActiveAppointment(appt)
-
-              } else {
-
-                handleJoinConsultation(appt)
-
-              }
-
-            }}
-
-          />
-
-        </div>
-
-
-
-        {/* Right: Quick Actions, Notifications, User Profile & Logout */}
-
-        <div className="header-right">
-
-          {isPatient && (
-
-            <button className="header-cta-btn" onClick={() => setShowBooking(true)} title="Tạo lịch khám mới">
-
-              <Plus size={15} /> Đặt khám nhanh
-
-            </button>
-
-          )}
-
-          {isDoctor && (
-
-            <button className="header-cta-btn" onClick={() => setView('overview')} title="Về bàn làm việc bác sĩ">
-
-              <Stethoscope size={15} /> Bàn khám bác sĩ
-
-            </button>
-
-          )}
-
-
-
-          {/* Notification Center */}
-
-          <div className="header-notif-wrap">
-
-            <NotificationCenter
-
-              userRole={user.role}
-
-              onNavigate={(url) => {
-
-                if (url.includes('appointments') || url.includes('booking')) setView(isDoctor ? 'overview' : 'appointments')
-
-                else if (url.includes('prescriptions')) setView('prescriptions')
-
-                else if (url.includes('paraclinical') || url.includes('labs')) setView('paraclinical')
-
-                else if (url.includes('profile')) setView('profile')
-
-                else if (url.includes('admin')) setView('admin')
-
-              }}
-
-            />
-
-          </div>
-
-
-
-          <div className="header-divider" />
-
-
-
-          {/* User Profile Capsule */}
-
-          <div
-
-            className="header-user-capsule"
-
-            onClick={() => setView(isPatient ? 'profile' : 'overview')}
-
-            title={`Hồ sơ: ${user.full_name} (${isPatient ? 'Bệnh nhân' : isDoctor ? user.doctor_cchn || 'Bác sĩ' : user.role})`}
-
-          >
-
-            <div className="user-avatar-wrap">
-
-              {user.avatar_url ? (
-
-                <img src={user.avatar_url} alt={user.full_name} style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} />
-
-              ) : (
-
-                <UserRound size={16} />
-
-              )}
-
-              <span className="avatar-online-dot" />
-
-            </div>
-
-            <div className="user-meta">
-
-              <span className="user-name">{user.full_name}</span>
-
-              <span className="user-role-label">
-
-                {isPatient
-
-                  ? 'Bệnh nhân'
-
-                  : isDoctor
-
-                  ? `Bác sĩ (${user.doctor_cchn || 'CCHN'})`
-
-                  : isNurse
-
-                  ? 'Điều dưỡng'
-
-                  : 'Quản trị viên'}
-
-              </span>
-
-            </div>
-
-          </div>
-
-
-
-          {/* Logout button */}
-
-          <button className="header-logout-btn" onClick={logout} title="Đăng xuất khỏi hệ thống">
-
-            <LogOut size={15} />
-
-            <span className="logout-text">Đăng xuất</span>
-
-          </button>
-
-        </div>
-
-      </header>
-
-
-
-      {/* 2. Body Container with Sidebar + Main Content */}
-
-      <div className="app-body-layout">
-
-        <aside className="sidebar">
-
-          <div className="sidebar-nav-title">Chức năng & Điều hướng</div>
-
-
-
-
-
-        {/* Desktop Navigation */}
-
-        <nav className="desktop-nav">
-
-          {navItems.map(([id, label, Icon]: any) => (
-
-            <button
-
-              key={id}
-
-              className={`nav-item ${view === id ? 'selected' : ''}`}
-
-              onClick={() => setView(id)}
-
-            >
-
-              <Icon size={18} />
-
-              <span>{label}</span>
-
-            </button>
-
-          ))}
-
-        </nav>
-
-      </aside>
-
-
-
-      {/* Main Content */}
-
-      <main className="main-content">
-
-
-
-
+    <>
 
         {error && (
 
@@ -2120,7 +1866,7 @@ export default function App() {
 
           <>
 
-            {isPatient && (
+            {isPatient && !isMobilePatient && (
 
               <PatientDashboard
 
@@ -4158,7 +3904,341 @@ export default function App() {
 
         )}
 
-      </main>
+    </>
+
+  )
+
+
+
+  if (isMobilePatient && isPatient) {
+
+    return (
+
+      <MobilePatientShell
+
+        user={user}
+
+        view={view}
+
+        setView={setView}
+
+        appointments={appointments}
+
+        rpmVitals={rpmVitals}
+
+        onOpenBooking={() => setShowBooking(true)}
+
+        onJoinConsultation={handleJoinConsultation}
+
+        onPayAppointment={(appt) => setQrAppointment(appt)}
+
+        onLogout={logout}
+
+      >
+
+        {mainWorkspaceContent}
+
+      </MobilePatientShell>
+
+    )
+
+  }
+
+
+
+  return (
+
+    <div className="app-shell with-global-header">
+
+      {/* 1. Global Unified Top Header */}
+
+      <header className="global-system-header">
+
+        <div className="header-left">
+
+          {/* Mobile hamburger menu toggle */}
+
+          <button
+
+            type="button"
+
+            className="mobile-menu-toggle-btn"
+
+            onClick={() => setShowMobileDrawer(true)}
+
+            aria-label="Mở menu điều hướng"
+
+          >
+
+            <Menu size={20} />
+
+          </button>
+
+
+
+          <div className="brand-logo" onClick={() => setView('overview')} title="Về trang chủ">
+
+            <div className="brand-icon">
+
+              <HeartPulse size={22} />
+
+            </div>
+
+            <div className="brand-titles">
+
+              <span className="brand-name">CareConnect</span>
+
+              <span className="brand-badge">BỘ Y TẾ · TELEMED</span>
+
+            </div>
+
+          </div>
+
+
+
+          <div className="header-divider" />
+
+
+
+          {/* Module / Breadcrumb */}
+
+          <div className="header-breadcrumb">
+
+            <span className={`breadcrumb-role-tag ${isPatient ? 'patient' : isDoctor ? 'doctor' : isNurse ? 'nurse' : 'admin'}`}>
+
+              {isPatient ? 'Cổng Bệnh nhân' : isDoctor ? 'Bàn Bác sĩ' : isNurse ? 'Tiếp đón Triage' : 'Quản trị Viện'}
+
+            </span>
+
+            <span className="breadcrumb-separator">/</span>
+
+            <span className="breadcrumb-current-view">
+
+              {(navItems.find(([id]: any) => id === view)?.[1] as string) || 'Tổng quan'}
+
+            </span>
+
+          </div>
+
+        </div>
+
+
+
+        {/* Center: Smart Multi-Entity Search Bar */}
+
+        <div className="header-center">
+
+          <HeaderSmartSearch
+
+            userRole={user.role}
+
+            appointments={appointments}
+
+            doctors={doctors}
+
+            departments={departments}
+
+            onNavigate={(v) => setView(v as any)}
+
+            onOpenBooking={() => setShowBooking(true)}
+
+            onSelectAppointment={(appt) => {
+
+              if (user.role === 'doctor') {
+
+                setActiveAppointment(appt)
+
+              } else {
+
+                handleJoinConsultation(appt)
+
+              }
+
+            }}
+
+          />
+
+        </div>
+
+
+
+        {/* Right: Quick Actions, Notifications, User Profile & Logout */}
+
+        <div className="header-right">
+
+          {isPatient && (
+
+            <button className="header-cta-btn" onClick={() => setShowBooking(true)} title="Tạo lịch khám mới">
+
+              <Plus size={15} /> Đặt khám nhanh
+
+            </button>
+
+          )}
+
+          {isDoctor && (
+
+            <button className="header-cta-btn" onClick={() => setView('overview')} title="Về bàn làm việc bác sĩ">
+
+              <Stethoscope size={15} /> Bàn khám bác sĩ
+
+            </button>
+
+          )}
+
+
+
+          {/* Notification Center */}
+
+          <div className="header-notif-wrap">
+
+            <NotificationCenter
+
+              userRole={user.role}
+
+              onNavigate={(url) => {
+
+                if (url.includes('appointments') || url.includes('booking')) setView(isDoctor ? 'overview' : 'appointments')
+
+                else if (url.includes('prescriptions')) setView('prescriptions')
+
+                else if (url.includes('paraclinical') || url.includes('labs')) setView('paraclinical')
+
+                else if (url.includes('profile')) setView('profile')
+
+                else if (url.includes('admin')) setView('admin')
+
+              }}
+
+            />
+
+          </div>
+
+
+
+          <div className="header-divider" />
+
+
+
+          {/* User Profile Capsule */}
+
+          <div
+
+            className="header-user-capsule"
+
+            onClick={() => setView(isPatient ? 'profile' : 'overview')}
+
+            title={`Hồ sơ: ${user.full_name} (${isPatient ? 'Bệnh nhân' : isDoctor ? user.doctor_cchn || 'Bác sĩ' : user.role})`}
+
+          >
+
+            <div className="user-avatar-wrap">
+
+              {user.avatar_url ? (
+
+                <img src={user.avatar_url} alt={user.full_name} style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} />
+
+              ) : (
+
+                <UserRound size={16} />
+
+              )}
+
+              <span className="avatar-online-dot" />
+
+            </div>
+
+            <div className="user-meta">
+
+              <span className="user-name">{user.full_name}</span>
+
+              <span className="user-role-label">
+
+                {isPatient
+
+                  ? 'Bệnh nhân'
+
+                  : isDoctor
+
+                  ? `Bác sĩ (${user.doctor_cchn || 'CCHN'})`
+
+                  : isNurse
+
+                  ? 'Điều dưỡng'
+
+                  : 'Quản trị viên'}
+
+              </span>
+
+            </div>
+
+          </div>
+
+
+
+          {/* Logout button */}
+
+          <button className="header-logout-btn" onClick={logout} title="Đăng xuất khỏi hệ thống">
+
+            <LogOut size={15} />
+
+            <span className="logout-text">Đăng xuất</span>
+
+          </button>
+
+        </div>
+
+      </header>
+
+
+
+      {/* 2. Body Container with Sidebar + Main Content */}
+
+      <div className="app-body-layout">
+
+        <aside className="sidebar">
+
+          <div className="sidebar-nav-title">Chức năng & Điều hướng</div>
+
+
+
+          {/* Desktop Navigation */}
+
+          <nav className="desktop-nav">
+
+            {navItems.map(([id, label, Icon]: any) => (
+
+              <button
+
+                key={id}
+
+                className={`nav-item ${view === id ? 'selected' : ''}`}
+
+                onClick={() => setView(id)}
+
+              >
+
+                <Icon size={18} />
+
+                <span>{label}</span>
+
+              </button>
+
+            ))}
+
+          </nav>
+
+        </aside>
+
+
+
+        {/* Main Content */}
+
+        <main className="main-content">
+
+          {mainWorkspaceContent}
+
+        </main>
 
       </div>
 

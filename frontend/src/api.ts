@@ -20,6 +20,9 @@ export function getApiBaseUrl(): string {
   if (import.meta.env.VITE_API_BASE_URL) {
     return (import.meta.env.VITE_API_BASE_URL as string).replace(/\/+$/, '')
   }
+  if (isCapacitorNative()) {
+    return 'https://telemed.medicalcenter.vn'
+  }
   if (import.meta.env.DEV) {
     return 'http://localhost:8000'
   }

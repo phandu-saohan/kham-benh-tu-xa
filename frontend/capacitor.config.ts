@@ -8,6 +8,8 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
     cleartext: false,
     allowNavigation: [
+      'telemed.medicalcenter.vn',
+      'supabase-supabase-7c4fe6-72-61-123-73.sslip.io',
       'app-bypass-back-end-circuit-7mgyyh-664221-72-61-123-73.sslip.io',
       'viewer.ohif.org'
     ]

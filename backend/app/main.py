@@ -132,9 +132,16 @@ def storage_status():
 
 @app.post("/api/v1/auth/login", response_model=TokenOut)
 def login(data: LoginIn, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == data.email.lower()).first()
+    identifier = data.email.strip()
+    user = db.query(User).filter(
+        or_(
+            User.email == identifier.lower(),
+            User.phone_number == identifier,
+            User.identity_card == identifier,
+        )
+    ).first()
     if not user or not verify_password(data.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Email hoặc mật khẩu không chính xác")
+        raise HTTPException(status_code=401, detail="Tài khoản (Email/SĐT/CCCD) hoặc mật khẩu không chính xác")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Tài khoản đã bị tạm khóa")
     
@@ -152,7 +159,12 @@ def login(data: LoginIn, db: Session = Depends(get_db)):
             "phone_number": user.phone_number,
             "full_name": user.full_name,
             "role": user.role,
-            "doctor_cchn": user.doctor_cchn
+            "doctor_cchn": user.doctor_cchn,
+            "gender": user.gender,
+            "date_of_birth": user.date_of_birth,
+            "identity_card": user.identity_card,
+            "bhyt_code": user.bhyt_code,
+            "avatar_url": user.avatar_url,
         }
     }
 
