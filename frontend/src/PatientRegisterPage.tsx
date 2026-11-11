@@ -1,10 +1,10 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import {
   HeartPulse, ShieldCheck, UserRound, Lock,
   CheckCircle2, AlertCircle, Building2, Eye, EyeOff,
   Sparkles, ArrowLeft, Check,
   Camera, Droplets, ChevronRight,
-  QrCode, RefreshCw, Upload, Shield
+  QrCode, RefreshCw, Upload, Shield, Phone, ArrowRight
 } from 'lucide-react'
 import jsQR from 'jsqr'
 import {
@@ -14,6 +14,7 @@ import {
   type PatientHisCheckResponse,
   type User
 } from './api'
+import { useIsMobilePatient } from './MobilePatientApp'
 import './patient-register.css'
 
 interface PatientRegisterPageProps {
@@ -79,7 +80,7 @@ export function detectProvinceCodeFromAddress(addr: string): string {
 }
 
 // Giải mã chuỗi QR Code CCCD gắn chip theo chuẩn Bộ Công An
-// Cú pháp chuẩn: <Số CCCD 12 số>|<Số CMND 9 số cũ nếu có>|<Họ và tên>|<Ngày sinh DDMMYYYY>|<Giới tính>|<Địa chỉ thường trú>|<Ngày cấp DDMMYYYY>
+// Cú pháp: <Số CCCD>|<Số CMND cũ>|<Họ tên>|<Ngày sinh DDMMYYYY>|<Giới tính>|<Địa chỉ>|<Ngày cấp>
 export function parseVietnamCccdQr(raw: string): ParsedCccdQr | null {
   if (!raw || !raw.includes('|')) return null
   const parts = raw.split('|').map(p => p.trim())
@@ -178,11 +179,10 @@ export async function scanQrCodeFromImage(imageSrc: string): Promise<string | nu
               return
             }
           } catch {
-            // bỏ qua lỗi detector
+            // ignore
           }
         }
 
-        // Nếu fullQr có bất kỳ text nào
         if (fullQr && fullQr.data) {
           resolve(fullQr.data)
           return
@@ -200,6 +200,8 @@ export async function scanQrCodeFromImage(imageSrc: string): Promise<string | nu
 }
 
 export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegisterPageProps) {
+  const isMobile = useIsMobilePatient()
+
   // Step indicator: 1 = Quét CCCD & Tra cứu HIS, 2 = Bổ sung thông tin Y tế chuẩn, 3 = Mật khẩu & Kích hoạt
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1)
 
@@ -218,21 +220,20 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
   const [hisChecked, setHisChecked] = useState(false)
 
   // Step 2: Bộ dữ liệu chuẩn theo QĐ 2682/QĐ-BYT & Luật KCB 2023
-  // 1. Hành chính
   const [dob, setDob] = useState('')
-  const [gender, setGender] = useState('')
-  const [ethnicity, setEthnicity] = useState('')
+  const [gender, setGender] = useState('Nam')
+  const [ethnicity, setEthnicity] = useState('Kinh')
   const [bloodType, setBloodType] = useState('Không rõ')
   const [address, setAddress] = useState('')
-  const [provinceCode, setProvinceCode] = useState('')
+  const [provinceCode, setProvinceCode] = useState('79')
   const [wardCode, setWardCode] = useState('')
-  
+
   // Người đi cùng / Giám hộ
   const [hasCompanion, setHasCompanion] = useState(false)
   const [companionName, setCompanionName] = useState('')
   const [companionIdCard, setCompanionIdCard] = useState('')
   const [companionPhone, setCompanionPhone] = useState('')
-  const [companionRelationship, setCompanionRelationship] = useState('')
+  const [companionRelationship, setCompanionRelationship] = useState('Bố/Mẹ')
 
   // 2. Tiền sử sức khỏe & Dịch tễ
   const [hasMedicalHistory, setHasMedicalHistory] = useState(false)
@@ -256,98 +257,90 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // Đánh giá độ mạnh mật khẩu
   function getPasswordStrength(pwd: string) {
-    if (!pwd) return { score: 0, text: '', color: '' }
+    if (!pwd) return { text: '', color: '' }
+    if (pwd.length < 6) return { text: 'Quá ngắn (Tối thiểu 6 ký tự)', color: '#ef4444' }
     let score = 0
-    if (pwd.length >= 6) score += 1
-    if (pwd.length >= 8) score += 1
-    if (/[A-Z]/.test(pwd)) score += 1
-    if (/[0-9]/.test(pwd)) score += 1
-    if (/[^A-Za-z0-9]/.test(pwd)) score += 1
+    if (pwd.length >= 8) score++
+    if (/[A-Z]/.test(pwd)) score++
+    if (/[0-9]/.test(pwd)) score++
+    if (/[^A-Za-z0-9]/.test(pwd)) score++
 
-    if (score <= 2) return { score: 1, text: 'Mật khẩu yếu', color: '#dc2626' }
-    if (score <= 4) return { score: 2, text: 'Mật khẩu trung bình', color: '#d97706' }
-    return { score: 3, text: 'Mật khẩu mạnh & đạt chuẩn bảo mật', color: '#16a34a' }
+    if (score <= 1) return { text: 'Mật khẩu yếu', color: '#f59e0b' }
+    if (score === 2) return { text: 'Mật khẩu trung bình', color: '#0284c7' }
+    return { text: 'Mật khẩu mạnh & bảo mật', color: '#16a34a' }
   }
 
   const pwdStrength = getPasswordStrength(password)
 
-  // Hàm tự động check HIS bệnh viện bằng CCCD
+  // Tự động kích hoạt đối soát HIS Bệnh viện
   async function triggerHisCheck(cccdToTest: string, nameToTest?: string) {
-    const cleanCCCD = cccdToTest.trim()
-    if (!cleanCCCD || cleanCCCD.length < 9) {
-      setError('Vui lòng nhập hoặc quét số CCCD hợp lệ (9 đến 12 số).')
-      return
-    }
+    const cleanCccd = (cccdToTest || '').trim()
+    if (!cleanCccd || cleanCccd.length < 9) return
 
+    setCheckingHis(true)
+    setError('')
     try {
-      setCheckingHis(true)
-      setError('')
       const res = await checkPatientHis({
-        identity_card: cleanCCCD,
-        full_name: nameToTest?.trim() || fullName.trim() || undefined,
-        phone_number: phoneNumber.trim() || undefined
+        identity_card: cleanCccd,
+        full_name: (nameToTest || fullName).trim()
       })
       setHisCheckResult(res)
       setHisChecked(true)
 
-      // TỰ ĐỘNG ĐỔ DỮ LIỆU TỪ HIS VÀO CÁC Ô THÔNG TIN (PRE-FILL)
-      if (res.full_name && (!fullName || fullName.trim() === '')) {
-        setFullName(res.full_name)
-      }
-      if (res.phone_number && (!phoneNumber || phoneNumber.trim() === '')) {
-        setPhoneNumber(res.phone_number)
-      }
-      if (res.dob) setDob(res.dob)
-      if (res.gender) setGender(res.gender === 'Nữ' || res.gender === 'female' ? 'Nữ' : 'Nam')
-      if (res.bhyt_no) setBhytCode(res.bhyt_no)
-      if (res.address) setAddress(res.address)
-      if (res.blood_type) setBloodType(res.blood_type)
-      if (res.ethnicity) setEthnicity(res.ethnicity)
-      if (res.province_code) setProvinceCode(res.province_code)
-      if (res.ward_code) setWardCode(res.ward_code)
+      // Nếu tìm thấy trong HIS -> Tự động điền dữ liệu
+      if (res.exists_in_his) {
+        if (res.full_name && !fullName) setFullName(res.full_name)
+        if (res.dob && !dob) setDob(res.dob)
+        if (res.gender && !gender) setGender(res.gender)
+        if (res.bhyt_no && !bhytCode) setBhytCode(res.bhyt_no)
+        if (res.blood_type && bloodType === 'Không rõ') setBloodType(res.blood_type)
+        if (res.address && !address) setAddress(res.address)
+        if (res.ethnicity && !ethnicity) setEthnicity(res.ethnicity)
 
-      // Tiền sử EMR cũ từ bệnh viện
-      if (res.conditions && res.conditions.length > 0) {
-        setHasMedicalHistory(true)
-        const codes = res.conditions.map(c => c.code || '').filter(Boolean).join('; ')
-        if (codes) setMedicalHistoryIcd10(codes)
-        const notes = res.conditions.map(c => c.display || c.note || '').filter(Boolean).join(', ')
-        if (notes) setMedicalHistoryNotes(notes)
-      }
-
-      // Cảnh báo dị ứng từ bệnh viện
-      if (res.allergies && res.allergies.length > 0) {
-        const algs = res.allergies.map(a => a.substance || (typeof a === 'string' ? a : '')).filter(Boolean).join(', ')
-        if (algs) setAllergies(algs)
+        if (res.conditions && res.conditions.length > 0) {
+          setHasMedicalHistory(true)
+          const icdCodes = res.conditions.map(c => c.code).filter(Boolean).join(', ')
+          const descNotes = res.conditions.map(c => c.display).filter(Boolean).join('; ')
+          if (icdCodes) setMedicalHistoryIcd10(icdCodes)
+          if (descNotes) setMedicalHistoryNotes(descNotes)
+        }
       }
     } catch (err: any) {
-      setError(err.message || 'Lỗi kết nối đối soát với hệ thống HIS Bệnh viện')
+      console.warn('Lỗi đối soát HIS:', err)
+      setHisCheckResult({
+        exists_in_his: false,
+        already_registered_in_app: false,
+        conditions: [],
+        allergies: [],
+        message: 'Không thể kết nối đến hệ thống HIS đối soát lúc này. Bạn vẫn có thể tiếp tục đăng ký hồ sơ y tế mới.'
+      })
+      setHisChecked(true)
     } finally {
       setCheckingHis(false)
     }
   }
 
-  // Quét mã QR code trên ảnh CCCD và tự động điền form đăng ký
+  // Tải ảnh CCCD / VNeID và trích xuất thông tin tự động bằng AI OCR & QR Scanner
   async function handleOcrUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+
+    setError('')
+    setOcrLoading(true)
+    setOcrSuccessMsg('')
+
     try {
-      setOcrLoading(true)
-      setError('')
-      setOcrSuccessMsg('')
       const reader = new FileReader()
       reader.onload = async () => {
         try {
-          const base64 = reader.result as string
+          const base64Data = reader.result as string
 
-          // 1. QUÉT TRỰC TIẾP MÃ QR CODE TRÊN ẢNH CCCD (Client-side jsQR)
-          const detectedQr = await scanQrCodeFromImage(base64)
-          if (detectedQr) {
-            const parsed = parseVietnamCccdQr(detectedQr)
+          // 1. Quét QR code trực tiếp từ canvas bằng jsQR
+          const qrRaw = await scanQrCodeFromImage(base64Data)
+          if (qrRaw && qrRaw.includes('|')) {
+            const parsed = parseVietnamCccdQr(qrRaw)
             if (parsed && parsed.cccd) {
-              // TỰ ĐỘNG ĐIỀN ĐẦY ĐỦ THÔNG TIN VÀO FORM ĐĂNG KÝ
               setIdentityCard(parsed.cccd)
               setFullName(parsed.fullName)
               if (parsed.dobIso) setDob(parsed.dobIso)
@@ -356,56 +349,37 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
               if (parsed.provinceCode) setProvinceCode(parsed.provinceCode)
 
               setScannedCccdData(parsed)
-              setOcrSuccessMsg(
-                `Đã quét thành công mã QR trên thẻ CCCD của ${parsed.fullName} (CCCD: ${parsed.cccd})! Toàn bộ thông tin đã được tự động điền vào form.`
-              )
-
-              // TỰ ĐỘNG ĐỐI SOÁT NGAY VỚI HIS BỆNH VIỆN
+              setOcrSuccessMsg(`Đã giải mã thành công mã QR CCCD của ${parsed.fullName} (${parsed.cccd})! Đang tra cứu HIS...`)
               await triggerHisCheck(parsed.cccd, parsed.fullName)
-              setOcrLoading(false)
-              if (e.target) e.target.value = ''
               return
             }
           }
 
-          // 2. NẾU MÃ QR MỜ HOẶC KHÔNG CÓ -> GỬI SANG AI OCR (Gemini Vision)
-          const res = await ocrMedicalDocument(base64, 'CCCD')
-          if (res.success && res.extracted_data) {
-            const d = res.extracted_data
-            const scannedCCCD = d.cccd_number || identityCard
-            const scannedName = (d.full_name || fullName).toUpperCase()
-            const scannedDob = d.dob || dob
-            const scannedGender = d.gender === 'female' || d.gender === 'Nữ' ? 'Nữ' : 'Nam'
-            const scannedAddress = d.address || address
-            const matchedProv = detectProvinceCodeFromAddress(scannedAddress)
+          // 2. Fallback sang AI Gemini OCR từ backend
+          const ocrRes = await ocrMedicalDocument(base64Data, 'cccd_card')
+          if (ocrRes && ocrRes.extracted_data) {
+            const f = ocrRes.extracted_data
+            const scannedCCCD = f.cccd_number || ''
+            const scannedName = (f.full_name || '').toUpperCase()
 
-            // Tự động điền thông tin vào form
             if (scannedCCCD) setIdentityCard(scannedCCCD)
             if (scannedName) setFullName(scannedName)
-            if (scannedDob) setDob(scannedDob)
-            setGender(scannedGender)
-            if (scannedAddress) setAddress(scannedAddress)
-            if (matchedProv) setProvinceCode(matchedProv)
-            if (d.bhyt_code) setBhytCode(d.bhyt_code)
-
-            setScannedCccdData({
-              cccd: scannedCCCD,
-              fullName: scannedName,
-              dobIso: scannedDob,
-              gender: scannedGender,
-              address: scannedAddress,
-              provinceCode: matchedProv
-            })
+            if (f.dob) setDob(f.dob)
+            if (f.gender) setGender(f.gender)
+            if (f.address) {
+              setAddress(f.address)
+              setProvinceCode(detectProvinceCodeFromAddress(f.address))
+            }
 
             setOcrSuccessMsg(
-              `AI OCR đã bóc tách thành công thông tin thẻ CCCD của ${scannedName}! Đã tự động điền vào hồ sơ và đang đối soát HIS...`
+              `AI OCR đã nhận diện thành công thẻ CCCD của ${scannedName || scannedCCCD}! Đang đối soát với HIS...`
             )
 
             if (scannedCCCD && scannedCCCD.trim().length >= 9) {
               await triggerHisCheck(scannedCCCD, scannedName)
             }
           } else {
-            setError('Không nhận diện được rõ mã QR hoặc thông tin trên ảnh CCCD. Bạn có thể chụp lại ảnh rõ nét hơn hoặc nhập trực tiếp số CCCD.')
+            setError('Không nhận diện được rõ mã QR trên ảnh CCCD. Bạn có thể chụp lại ảnh rõ nét hơn hoặc nhập trực tiếp 12 số CCCD.')
           }
         } catch (err: any) {
           setError(err.message || 'Lỗi quét mã QR / OCR CCCD')
@@ -424,9 +398,11 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
   // Quét hoặc dán chuỗi QR Code CCCD / VNeID chuẩn Bộ Công An
   function handleQrPaste(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value.trim()
-    if (!raw) return
+    if (!raw) {
+      setIdentityCard('')
+      return
+    }
 
-    // Chuẩn QR CCCD: CCCD|CMND|Họ tên|DDMMYYYY|Giới tính|Địa chỉ|Ngày cấp
     if (raw.includes('|')) {
       const parsed = parseVietnamCccdQr(raw)
       if (parsed && parsed.cccd) {
@@ -438,7 +414,7 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
         if (parsed.provinceCode) setProvinceCode(parsed.provinceCode)
 
         setScannedCccdData(parsed)
-        setOcrSuccessMsg(`Đã giải mã chuỗi QR CCCD của ${parsed.fullName} (${parsed.cccd})! Đã tự động điền vào form đăng ký.`)
+        setOcrSuccessMsg(`Đã giải mã chuỗi QR CCCD của ${parsed.fullName} (${parsed.cccd})!`)
         triggerHisCheck(parsed.cccd, parsed.fullName)
         return
       }
@@ -450,50 +426,63 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
     }
   }
 
+  const scrollPageToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    const body = document.querySelector('.mp-subscreen-body')
+    if (body) body.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   // Chuyển sang Bước 2
   function goToStep2() {
     if (!identityCard.trim() || identityCard.trim().length < 9) {
-      setError('Vui lòng quét hoặc nhập số CCCD hợp lệ trước khi tiếp tục.')
+      setError('Vui lòng quét hoặc nhập số CCCD hợp lệ (tối thiểu 9 số) trước khi tiếp tục.')
+      scrollPageToTop()
       return
     }
     if (!hisChecked) {
       setError('Vui lòng thực hiện kiểm tra đối soát với hệ thống HIS Bệnh viện.')
+      scrollPageToTop()
       return
     }
     if (hisCheckResult?.already_registered_in_app) {
       setError('Tài khoản này đã tồn tại trên CareConnect. Vui lòng bấm Đăng nhập.')
+      scrollPageToTop()
       return
     }
     setError('')
     setCurrentStep(2)
+    scrollPageToTop()
   }
 
   // Chuyển sang Bước 3
   function goToStep3() {
     if (!fullName.trim()) {
       setError('Vui lòng nhập Họ và tên đầy đủ của người bệnh.')
+      scrollPageToTop()
       return
     }
     if (!dob) {
       setError('Vui lòng chọn ngày, tháng, năm sinh của người bệnh.')
+      scrollPageToTop()
       return
     }
     setError('')
     setCurrentStep(3)
+    scrollPageToTop()
   }
 
-  // Gửi Form đăng ký chính thức
+  // Gửi form đăng ký
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
     setError('')
 
-    if (!phoneNumber.trim() || phoneNumber.trim().length < 9) {
-      setError('Vui lòng nhập Số điện thoại hợp lệ (tối thiểu 9 số) để tạo tài khoản.')
+    if (!phoneNumber.trim()) {
+      setError('Vui lòng nhập Số điện thoại liên lạc chính xác để tạo tài khoản.')
       return
     }
 
-    if (password.length < 6) {
-      setError('Mật khẩu đăng nhập phải có ít nhất 6 ký tự.')
+    if (!password || password.length < 6) {
+      setError('Mật khẩu đăng nhập tối thiểu 6 ký tự để bảo mật hồ sơ.')
       return
     }
 
@@ -544,11 +533,962 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
     }
   }
 
+  // =========================================================================
+  // GIAO DIỆN CHUYÊN BIỆT CHO APP MOBILE (NATIVE-FEEL, TIỆN DỤNG, THÂN THIỆN)
+  // =========================================================================
+  if (isMobile) {
+    return (
+      <div className="mobile-patient-app" style={{ minHeight: '100vh', background: '#f8fafc' }}>
+        {/* Hidden Camera Input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept="image/*"
+          capture="environment"
+          style={{ display: 'none' }}
+          onChange={handleOcrUpload}
+        />
+
+        {/* 1. Sticky Native Top Header */}
+        <header
+          className="mp-top-header"
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 100,
+            background: '#ffffff',
+            borderBottom: '1px solid #e2e8f0',
+            padding: '10px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              className="mp-header-back-btn"
+              onClick={() => {
+                if (currentStep === 1) onBackToLogin()
+                else if (currentStep === 2) setCurrentStep(1)
+                else if (currentStep === 3) setCurrentStep(2)
+              }}
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                background: '#f1f5f9',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#334155',
+                cursor: 'pointer'
+              }}
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <div>
+              <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
+                Đăng Ký Hồ Sơ Bệnh Nhân
+              </div>
+              <div style={{ fontSize: '11px', color: '#0f766e', fontWeight: 700 }}>
+                {currentStep === 1 && 'Bước 1/3: Quét CCCD & Tra cứu HIS'}
+                {currentStep === 2 && 'Bước 2/3: Y bạ & Tiền sử bệnh'}
+                {currentStep === 3 && 'Bước 3/3: Mật khẩu & Kích hoạt'}
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onBackToLogin}
+            style={{
+              border: 'none',
+              background: '#f0fdfa',
+              color: '#0f766e',
+              fontSize: '12px',
+              fontWeight: 700,
+              padding: '6px 12px',
+              borderRadius: '20px',
+              cursor: 'pointer'
+            }}
+          >
+            Đăng nhập
+          </button>
+        </header>
+
+        {/* 2. Body Container */}
+        <div className="mp-subscreen-body" style={{ padding: '14px', maxWidth: '540px', margin: '0 auto', paddingBottom: '90px' }}>
+          {/* Progress Segmented Bar */}
+          <div style={{ marginBottom: '14px' }}>
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+              <div
+                onClick={() => {
+                  setError('')
+                  setCurrentStep(1)
+                  scrollPageToTop()
+                }}
+                style={{ flex: 1, height: '5px', borderRadius: '4px', background: currentStep >= 1 ? '#0f766e' : '#e2e8f0', transition: 'all 0.3s', cursor: 'pointer' }}
+              />
+              <div
+                onClick={() => {
+                  if (hisChecked) {
+                    setError('')
+                    setCurrentStep(2)
+                    scrollPageToTop()
+                  }
+                }}
+                style={{ flex: 1, height: '5px', borderRadius: '4px', background: currentStep >= 2 ? '#0f766e' : '#e2e8f0', transition: 'all 0.3s', cursor: hisChecked ? 'pointer' : 'default' }}
+              />
+              <div
+                onClick={() => {
+                  if (hisChecked && fullName.trim() && dob) {
+                    setError('')
+                    setCurrentStep(3)
+                    scrollPageToTop()
+                  }
+                }}
+                style={{ flex: 1, height: '5px', borderRadius: '4px', background: currentStep >= 3 ? '#0f766e' : '#e2e8f0', transition: 'all 0.3s', cursor: (hisChecked && fullName.trim() && dob) ? 'pointer' : 'default' }}
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700 }}>
+              <span
+                onClick={() => {
+                  setError('')
+                  setCurrentStep(1)
+                  scrollPageToTop()
+                }}
+                style={{ color: currentStep === 1 ? '#0f766e' : currentStep > 1 ? '#059669' : '#94a3b8', display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer' }}
+              >
+                {currentStep > 1 && <Check size={12} />} 1. Định danh CCCD
+              </span>
+              <span
+                onClick={() => {
+                  if (hisChecked) {
+                    setError('')
+                    setCurrentStep(2)
+                    scrollPageToTop()
+                  }
+                }}
+                style={{ color: currentStep === 2 ? '#0f766e' : currentStep > 2 ? '#059669' : '#94a3b8', display: 'flex', alignItems: 'center', gap: '3px', cursor: hisChecked ? 'pointer' : 'default' }}
+              >
+                {currentStep > 2 && <Check size={12} />} 2. Hồ sơ Y bạ
+              </span>
+              <span
+                onClick={() => {
+                  if (hisChecked && fullName.trim() && dob) {
+                    setError('')
+                    setCurrentStep(3)
+                    scrollPageToTop()
+                  }
+                }}
+                style={{ color: currentStep === 3 ? '#0f766e' : '#94a3b8', cursor: (hisChecked && fullName.trim() && dob) ? 'pointer' : 'default' }}
+              >
+                3. Bảo mật
+              </span>
+            </div>
+          </div>
+
+          {/* Compliance Mini Badges */}
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
+            <span style={{ background: '#f0fdfa', color: '#0f766e', border: '1px solid #ccfbf1', fontSize: '10.5px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <Sparkles size={11} /> Đề án 06/CP
+            </span>
+            <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', fontSize: '10.5px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <ShieldCheck size={11} /> QĐ 2682/QĐ-BYT
+            </span>
+            <span style={{ background: '#f8fafc', color: '#475569', border: '1px solid #e2e8f0', fontSize: '10.5px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <Lock size={11} /> NĐ 13/2023/NĐ-CP
+            </span>
+          </div>
+
+          {/* Error Alert */}
+          {error && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', padding: '10px 14px', color: '#b91c1c', fontSize: '12.5px', display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '14px' }}>
+              <AlertCircle size={16} style={{ flexShrink: 0 }} />
+              <div style={{ flex: 1, lineHeight: 1.4 }}>{error}</div>
+            </div>
+          )}
+
+          {/* =========================================================================
+              BƯỚC 1: QUÉT CCCD & ĐỐI SOÁT HIS BỆNH VIỆN
+             ========================================================================= */}
+          {currentStep === 1 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Hero Card: Quét CCCD Gắn Chip & AI OCR */}
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 55%, #0284c7 100%)',
+                  borderRadius: '18px',
+                  padding: '20px 16px',
+                  color: '#ffffff',
+                  boxShadow: '0 8px 24px rgba(15, 118, 110, 0.22)',
+                  boxSizing: 'border-box'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#ffffff', color: '#0f766e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Camera size={22} />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Chụp / Tải Ảnh Thẻ CCCD</h3>
+                    <div style={{ fontSize: '11.5px', opacity: 0.9, marginTop: '2px' }}>Tự động đọc mã QR & trích xuất thông tin y tế</div>
+                  </div>
+                </div>
+
+                <p style={{ fontSize: '12px', opacity: 0.92, lineHeight: 1.45, margin: '0 0 14px' }}>
+                  Hệ thống AI tự động giải mã QR code trên thẻ CCCD gắn chip để tự động điền hồ sơ và đối soát lịch sử khám tại Bệnh viện.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={ocrLoading || checkingHis}
+                  style={{
+                    width: '100%',
+                    height: '46px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    background: '#ffffff',
+                    color: '#0f766e',
+                    fontSize: '13.5px',
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.12)'
+                  }}
+                >
+                  {ocrLoading ? (
+                    <>
+                      <RefreshCw size={16} className="spin" /> Đang đọc dữ liệu thẻ CCCD...
+                    </>
+                  ) : (
+                    <>
+                      <Upload size={16} /> Chụp / Tải ảnh CCCD (Quét QR & OCR)
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Card Nhập số CCCD thủ công / Dán QR */}
+              <div
+                style={{
+                  background: '#ffffff',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 2px 6px rgba(15, 23, 42, 0.03)'
+                }}
+              >
+                <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', marginBottom: '8px' }}>
+                  Hoặc nhập số CCCD 12 số / Dán mã QR
+                </div>
+
+                <div style={{ position: 'relative', marginBottom: '12px' }}>
+                  <QrCode size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#0f766e' }} />
+                  <input
+                    type="text"
+                    value={identityCard}
+                    onChange={handleQrPaste}
+                    placeholder="Nhập 12 số CCCD hoặc dán chuỗi QR..."
+                    style={{
+                      width: '100%',
+                      height: '46px',
+                      borderRadius: '12px',
+                      border: '1.5px solid #cbd5e1',
+                      padding: '0 14px 0 38px',
+                      fontSize: '13.5px',
+                      fontWeight: 600,
+                      color: '#0f172a',
+                      background: '#f8fafc',
+                      boxSizing: 'border-box',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                {/* Nút Tra Cứu HIS Bệnh Viện (Full Width) */}
+                <button
+                  type="button"
+                  onClick={() => triggerHisCheck(identityCard, fullName)}
+                  disabled={checkingHis || !identityCard.trim()}
+                  style={{
+                    width: '100%',
+                    height: '46px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    background: checkingHis ? '#94a3b8' : '#0f766e',
+                    color: '#ffffff',
+                    fontSize: '13.5px',
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(15, 118, 110, 0.2)'
+                  }}
+                >
+                  <RefreshCw size={15} className={checkingHis ? 'spin' : ''} />
+                  <span>{checkingHis ? 'Đang đối soát HIS Bệnh viện...' : 'Tra cứu & Đối soát với HIS Bệnh viện'}</span>
+                </button>
+
+                <div style={{ textAlign: 'center', fontSize: '11.5px', color: '#64748b', marginTop: '8px', lineHeight: 1.4 }}>
+                  Hệ thống tự động tra cứu hồ sơ cũ và BHYT khi quét xong CCCD hoặc nhập đủ 12 số.
+                </div>
+              </div>
+
+              {/* Thông báo quét thành công */}
+              {ocrSuccessMsg && (
+                <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '12px', padding: '10px 14px', color: '#065f46', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
+                  <span>{ocrSuccessMsg}</span>
+                </div>
+              )}
+
+              {/* Card Dữ liệu đã trích xuất từ QR */}
+              {scannedCccdData && (
+                <div style={{ background: '#f0fdfa', border: '1.5px solid #ccfbf1', borderRadius: '16px', padding: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 800, color: '#0f766e' }}>
+                      <CheckCircle2 size={16} /> Đã Trích Xuất Dữ Liệu CCCD
+                    </div>
+                    <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#065f46', background: '#ecfdf5', padding: '2px 6px', borderRadius: '4px' }}>
+                      TỰ ĐỘNG ĐIỀN
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px', color: '#334155' }}>
+                    <div>
+                      <span style={{ color: '#64748b' }}>Số CCCD: </span>
+                      <b style={{ fontFamily: 'monospace' }}>{scannedCccdData.cccd}</b>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748b' }}>Họ tên: </span>
+                      <b>{scannedCccdData.fullName}</b>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748b' }}>Ngày sinh: </span>
+                      <b>{scannedCccdData.dobIso || 'Theo CCCD'}</b>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748b' }}>Giới tính: </span>
+                      <b>{scannedCccdData.gender}</b>
+                    </div>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <span style={{ color: '#64748b' }}>Nơi thường trú: </span>
+                      <span>{scannedCccdData.address || 'Theo CCCD'}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Card Kết quả đối soát HIS */}
+              {hisChecked && hisCheckResult && (
+                <div>
+                  {hisCheckResult.exists_in_his ? (
+                    <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '16px', padding: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                        <CheckCircle2 size={22} color="#16a34a" style={{ flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 800, color: '#166534' }}>
+                            Đã tìm thấy Hồ sơ Y tế (Mã PID: {hisCheckResult.external_patient_id})
+                          </div>
+                          <div style={{ fontSize: '11.5px', color: '#15803d', marginTop: '2px' }}>
+                            {hisCheckResult.message}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px', color: '#334155', background: '#ffffff', padding: '12px', borderRadius: '12px', marginBottom: '12px' }}>
+                        <div>Họ tên: <b>{hisCheckResult.full_name || fullName}</b></div>
+                        <div>Ngày sinh: <b>{hisCheckResult.dob || dob || 'Theo hồ sơ'}</b></div>
+                        <div>Giới tính: <b>{hisCheckResult.gender || gender}</b></div>
+                        <div>BHYT: <b style={{ color: '#0f766e', fontFamily: 'monospace' }}>{hisCheckResult.bhyt_no || 'Chưa liên kết'}</b></div>
+                        <div>Nhóm máu: <b style={{ color: '#dc2626' }}>{hisCheckResult.blood_type || 'Chưa rõ'}</b></div>
+                        <div>Dân tộc: <b>{hisCheckResult.ethnicity || ethnicity}</b></div>
+                        {hisCheckResult.conditions && hisCheckResult.conditions.length > 0 && (
+                          <div style={{ gridColumn: 'span 2', paddingTop: '6px', borderTop: '1px dashed #e2e8f0', color: '#0f766e' }}>
+                            Tiền sử EMR: <b>{hisCheckResult.conditions.map(c => c.display).join(', ')}</b>
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={goToStep2}
+                        style={{
+                          width: '100%',
+                          height: '46px',
+                          borderRadius: '12px',
+                          border: 'none',
+                          background: '#0f766e',
+                          color: '#ffffff',
+                          fontSize: '13.5px',
+                          fontWeight: 800,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          cursor: 'pointer',
+                          boxShadow: '0 4px 12px rgba(15, 118, 110, 0.2)'
+                        }}
+                      >
+                        <span>Tiếp tục: Bổ sung Y bạ (Bước 2)</span>
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ background: '#f0f9ff', border: '1.5px solid #bae6fd', borderRadius: '16px', padding: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0369a1', fontWeight: 800, fontSize: '13.5px', marginBottom: '6px' }}>
+                        <AlertCircle size={18} />
+                        <span>Chưa có hồ sơ cũ tại Bệnh viện</span>
+                      </div>
+                      <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#0c4a6e', lineHeight: 1.45 }}>
+                        {hisCheckResult.message || 'Hệ thống sẽ tự động khởi tạo Mã hồ sơ bệnh nhân điện tử mới khi hoàn tất đăng ký.'}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={goToStep2}
+                        style={{
+                          width: '100%',
+                          height: '46px',
+                          borderRadius: '12px',
+                          border: 'none',
+                          background: '#0f766e',
+                          color: '#ffffff',
+                          fontSize: '13.5px',
+                          fontWeight: 800,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <span>Tiếp tục: Khởi tạo hồ sơ mới (Bước 2)</span>
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* =========================================================================
+              BƯỚC 2: BỔ SUNG THÔNG TIN Y TẾ (CHUẨN QĐ 2682/QĐ-BYT)
+             ========================================================================= */}
+          {currentStep === 2 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Thẻ 1: Thông tin hành chính */}
+              <div style={{ background: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+                <h4 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <UserRound size={16} color="#0f766e" /> 1. Thông tin Hành chính Cá nhân
+                </h4>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      Họ và tên người bệnh: <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value.toUpperCase())}
+                      placeholder="NGUYỄN VĂN A"
+                      required
+                      style={{ width: '100%', height: '44px', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '13px', fontWeight: 700, boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      Ngày, tháng, năm sinh: <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={dob}
+                      onChange={(e) => setDob(e.target.value)}
+                      required
+                      style={{ width: '100%', height: '44px', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '13px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  {/* Giới tính: 3 nút chọn nhanh */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      Giới tính sinh học: <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                      {['Nam', 'Nữ', 'Khác'].map((g) => (
+                        <button
+                          key={g}
+                          type="button"
+                          onClick={() => setGender(g)}
+                          style={{
+                            height: '40px',
+                            borderRadius: '10px',
+                            border: gender === g ? '2px solid #0f766e' : '1px solid #cbd5e1',
+                            background: gender === g ? '#f0fdfa' : '#ffffff',
+                            color: gender === g ? '#0f766e' : '#475569',
+                            fontWeight: 700,
+                            fontSize: '13px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {g}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Nhóm máu: 5 nút chọn nhanh */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      Nhóm máu hệ ABO:
+                    </label>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      {['A', 'B', 'AB', 'O', 'Không rõ'].map((b) => (
+                        <button
+                          key={b}
+                          type="button"
+                          onClick={() => setBloodType(b)}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '20px',
+                            border: bloodType === b ? '1.5px solid #dc2626' : '1px solid #cbd5e1',
+                            background: bloodType === b ? '#fef2f2' : '#ffffff',
+                            color: bloodType === b ? '#dc2626' : '#475569',
+                            fontWeight: 700,
+                            fontSize: '12px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {b}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      Dân tộc:
+                    </label>
+                    <select
+                      value={ethnicity}
+                      onChange={(e) => setEthnicity(e.target.value)}
+                      style={{ width: '100%', height: '44px', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '13px', boxSizing: 'border-box' }}
+                    >
+                      {VIETNAM_ETHNICITIES.map(e => (
+                        <option key={e} value={e}>{e}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      Địa chỉ thường trú:
+                    </label>
+                    <input
+                      type="text"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="Số nhà, đường, phường/xã..."
+                      style={{ width: '100%', height: '44px', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '13px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      Tỉnh / Thành phố:
+                    </label>
+                    <select
+                      value={provinceCode}
+                      onChange={(e) => setProvinceCode(e.target.value)}
+                      style={{ width: '100%', height: '44px', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '13px', boxSizing: 'border-box' }}
+                    >
+                      {VIETNAM_PROVINCES.map(p => (
+                        <option key={p.code} value={p.code}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Thẻ 2: Bảo hiểm Y tế */}
+              <div style={{ background: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+                <h4 style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ShieldCheck size={16} color="#0f766e" /> 2. Thẻ Bảo Hiểm Y Tế (BHYT)
+                </h4>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                    Mã số thẻ BHYT (15 ký tự):
+                  </label>
+                  <input
+                    type="text"
+                    value={bhytCode}
+                    onChange={(e) => setBhytCode(e.target.value.toUpperCase())}
+                    placeholder="VD: DN4790123456789"
+                    maxLength={15}
+                    style={{ width: '100%', height: '44px', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '13.5px', fontFamily: 'monospace', fontWeight: 700, color: '#0f766e', boxSizing: 'border-box' }}
+                  />
+                  <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                    Hưởng quyền lợi chi trả BHYT khi đặt lịch khám từ xa theo quy định Bộ Y tế.
+                  </div>
+                </div>
+              </div>
+
+              {/* Thẻ 3: Tiền sử sức khỏe & Dị ứng */}
+              <div style={{ background: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+                <h4 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <HeartPulse size={16} color="#dc2626" /> 3. Tiền Sử Bệnh & Dị Ứng
+                </h4>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700, color: '#1e293b', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={hasMedicalHistory}
+                      onChange={(e) => setHasMedicalHistory(e.target.checked)}
+                      style={{ width: '18px', height: '18px', accentColor: '#0f766e' }}
+                    />
+                    <span>Có tiền sử bệnh mãn tính (Tăng HA, Tiểu đường, Tim mạch...)</span>
+                  </label>
+
+                  {hasMedicalHistory && (
+                    <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                          Mã ICD-10 hoặc Tên bệnh:
+                        </label>
+                        <input
+                          type="text"
+                          value={medicalHistoryIcd10}
+                          onChange={(e) => setMedicalHistoryIcd10(e.target.value)}
+                          placeholder="VD: I10 (Tăng HA), E11 (Tiểu đường type 2)..."
+                          style={{ width: '100%', height: '40px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '12.5px', boxSizing: 'border-box' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                          Ghi chú điều trị / Thuốc đang dùng:
+                        </label>
+                        <input
+                          type="text"
+                          value={medicalHistoryNotes}
+                          onChange={(e) => setMedicalHistoryNotes(e.target.value)}
+                          placeholder="VD: Đang dùng Amlodipine 5mg ngày 1 viên..."
+                          style={{ width: '100%', height: '40px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '12.5px', boxSizing: 'border-box' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      Tiền sử dị ứng thuốc & thực phẩm:
+                    </label>
+                    <input
+                      type="text"
+                      value={allergies}
+                      onChange={(e) => setAllergies(e.target.value)}
+                      placeholder="VD: Dị ứng Penicillin, Paracetamol, hải sản... (Ghi 'Không' nếu không có)"
+                      style={{ width: '100%', height: '44px', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '13px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Thẻ 4: Người giám hộ / Liên hệ khẩn cấp */}
+              <div style={{ background: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700, color: '#1e293b', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={hasCompanion}
+                    onChange={(e) => setHasCompanion(e.target.checked)}
+                    style={{ width: '18px', height: '18px', accentColor: '#0f766e' }}
+                  />
+                  <span>Khai báo Người giám hộ / Người liên hệ khẩn cấp</span>
+                </label>
+
+                {hasCompanion && (
+                  <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>Họ tên người giám hộ:</label>
+                      <input
+                        type="text"
+                        value={companionName}
+                        onChange={(e) => setCompanionName(e.target.value.toUpperCase())}
+                        placeholder="NGUYỄN VĂN B"
+                        style={{ width: '100%', height: '40px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '12.5px', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>Số điện thoại liên hệ:</label>
+                      <input
+                        type="tel"
+                        value={companionPhone}
+                        onChange={(e) => setCompanionPhone(e.target.value)}
+                        placeholder="0912345678"
+                        style={{ width: '100%', height: '40px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '12.5px', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Navigation Action Buttons Row */}
+              {error && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', padding: '10px 14px', color: '#b91c1c', fontSize: '12px', display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
+                  <AlertCircle size={15} style={{ flexShrink: 0 }} />
+                  <div style={{ flex: 1, lineHeight: 1.4 }}>{error}</div>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError('')
+                    setCurrentStep(1)
+                    scrollPageToTop()
+                  }}
+                  style={{
+                    flex: 1,
+                    height: '46px',
+                    borderRadius: '12px',
+                    border: '1px solid #cbd5e1',
+                    background: '#ffffff',
+                    color: '#334155',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <ArrowLeft size={15} /> Quay lại
+                </button>
+
+                <button
+                  type="button"
+                  onClick={goToStep3}
+                  style={{
+                    flex: 1.6,
+                    height: '46px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    background: '#0f766e',
+                    color: '#ffffff',
+                    fontSize: '13px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    boxShadow: '0 4px 12px rgba(15, 118, 110, 0.2)'
+                  }}
+                >
+                  <span>Tiếp tục: Bước 3</span>
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* =========================================================================
+              BƯỚC 3: MẬT KHẨU & KÍCH HOẠT HỒ SƠ Y TẾ
+             ========================================================================= */}
+          {currentStep === 3 && (
+            <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ background: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+                <h4 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Lock size={16} color="#0f766e" /> Thiết Lập Tài Khoản & Mật Khẩu
+                </h4>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      Số điện thoại đăng nhập: <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="0912345678"
+                      required
+                      style={{ width: '100%', height: '44px', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '13.5px', fontWeight: 700, boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      Email nhận toa thuốc & kết quả:
+                    </label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="benhnhan@email.com (tùy chọn)"
+                      style={{ width: '100%', height: '44px', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '13px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      Mật khẩu: <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Tối thiểu 6 ký tự..."
+                        required
+                        style={{ width: '100%', height: '44px', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '0 40px 0 12px', fontSize: '13px', boxSizing: 'border-box' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                    {password && (
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: pwdStrength.color, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Shield size={12} /> {pwdStrength.text}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      Xác nhận lại mật khẩu: <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Nhập lại mật khẩu..."
+                      required
+                      style={{ width: '100%', height: '44px', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '13px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Thẻ Điều khoản & Pháp lý */}
+              <div style={{ background: '#f8fafc', borderRadius: '14px', padding: '14px', border: '1px solid #e2e8f0' }}>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px', color: '#334155', lineHeight: 1.5, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={consentNghiDinh13}
+                    onChange={(e) => setConsentNghiDinh13(e.target.checked)}
+                    style={{ width: '18px', height: '18px', accentColor: '#0f766e', marginTop: '2px', flexShrink: 0 }}
+                  />
+                  <span>
+                    Tôi cam kết thông tin khai báo là chính xác và đồng ý điều khoản bảo vệ dữ liệu y tế cá nhân theo <strong>Nghị định 13/2023/NĐ-CP</strong> và <strong>Luật Khám bệnh, chữa bệnh 2023</strong>.
+                  </span>
+                </label>
+              </div>
+
+              {/* Action Buttons */}
+              {error && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', padding: '10px 14px', color: '#b91c1c', fontSize: '12px', display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
+                  <AlertCircle size={15} style={{ flexShrink: 0 }} />
+                  <div style={{ flex: 1, lineHeight: 1.4 }}>{error}</div>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError('')
+                    setCurrentStep(2)
+                    scrollPageToTop()
+                  }}
+                  style={{
+                    flex: 1,
+                    height: '46px',
+                    borderRadius: '12px',
+                    border: '1px solid #cbd5e1',
+                    background: '#ffffff',
+                    color: '#334155',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <ArrowLeft size={15} /> Bước 2
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  style={{
+                    flex: 1.8,
+                    height: '46px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)',
+                    color: '#ffffff',
+                    fontSize: '13.5px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    boxShadow: '0 4px 12px rgba(15, 118, 110, 0.25)'
+                  }}
+                >
+                  {loading ? (
+                    <>
+                      <RefreshCw size={16} className="spin" /> Đang tạo hồ sơ...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={16} /> Hoàn tất & Kích hoạt EMR
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div style={{ textAlign: 'center', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={onBackToLogin}
+                  style={{ background: 'none', border: 'none', color: '#0f766e', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Đã có tài khoản? <u>Đăng nhập ngay</u>
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // =========================================================================
+  // GIAO DIỆN DESKTOP / WEB TRUYỀN THỐNG (ĐÃ ĐƯỢC TỐI ƯU CĂN CHỈNH)
+  // =========================================================================
   return (
     <div className="pr-viewport">
       <div className="pr-single-column">
-        
-        {/* Top Header & Brand Lockup (Single Column Centered) */}
+        {/* Top Header & Brand Lockup */}
         <header className="pr-single-header">
           <div className="pr-topbar">
             <button type="button" className="pr-back-link" onClick={onBackToLogin}>
@@ -641,12 +1581,9 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
             </div>
           )}
 
-          {/* =========================================================================
-              BƯỚC 1: QUÉT CCCD & TRA CỨU HIS BỆNH VIỆN (ƯU TIÊN SỐ 1)
-             ========================================================================= */}
+          {/* BƯỚC 1: QUÉT CCCD & TRA CỨU HIS */}
           {currentStep === 1 && (
             <div>
-              {/* Thẻ Quét CCCD Gắn Chip & VNeID */}
               <div className="pr-scanner-box">
                 <div className="pr-scanner-header">
                   <div className="pr-scanner-icon">
@@ -658,9 +1595,7 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                   </div>
                 </div>
 
-                {/* Các phương thức quét */}
                 <div className="pr-scanner-actions">
-                  {/* Nút Upload / Chụp ảnh CCCD */}
                   <input
                     type="file"
                     ref={fileInputRef}
@@ -679,7 +1614,6 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                     <span>{ocrLoading ? 'Đang giải mã QR & OCR ảnh...' : 'Chụp / Tải ảnh CCCD (Quét QR & AI OCR)'}</span>
                   </button>
 
-                  {/* Nhập hoặc Quét QR CCCD */}
                   <div className="pr-input-icon-wrap">
                     <QrCode size={17} className="pr-input-icon" />
                     <input
@@ -692,7 +1626,6 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                   </div>
                 </div>
 
-                {/* Thông báo quét thành công */}
                 {ocrSuccessMsg && (
                   <div className="pr-alert success" style={{ marginTop: '12px', marginBottom: 0 }}>
                     <CheckCircle2 size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
@@ -700,7 +1633,6 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                   </div>
                 )}
 
-                {/* Card hiển thị chi tiết dữ liệu vừa được Quét & Tự động điền */}
                 {scannedCccdData && (
                   <div className="pr-qr-card">
                     <div className="pr-qr-card-header">
@@ -739,17 +1671,19 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                 )}
               </div>
 
-              {/* Bấm Tra Cứu HIS thủ công nếu cần */}
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '18px' }}>
-                <button
-                  type="button"
-                  className="pr-btn pr-btn-accent"
-                  onClick={() => triggerHisCheck(identityCard, fullName)}
-                  disabled={checkingHis || !identityCard.trim()}
-                >
-                  <RefreshCw size={15} className={checkingHis ? 'pr-spin' : ''} />
-                  <span>{checkingHis ? 'Đang đối soát HIS Bệnh viện...' : 'Tra cứu & Đối soát với HIS Bệnh viện'}</span>
-                </button>
+              {/* Tra Cứu HIS */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '18px' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="pr-btn pr-btn-accent"
+                    onClick={() => triggerHisCheck(identityCard, fullName)}
+                    disabled={checkingHis || !identityCard.trim()}
+                  >
+                    <RefreshCw size={15} className={checkingHis ? 'pr-spin' : ''} />
+                    <span>{checkingHis ? 'Đang đối soát HIS Bệnh viện...' : 'Tra cứu & Đối soát với HIS Bệnh viện'}</span>
+                  </button>
+                </div>
                 <span style={{ fontSize: '12px', color: 'var(--pr-text-muted)' }}>
                   (Hệ thống tự động tra cứu khi quét xong QR CCCD hoặc nhập đủ 12 số)
                 </span>
@@ -771,7 +1705,6 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                         <span className="pr-his-tag">LIÊN THÔNG HIS THÀNH CÔNG</span>
                       </div>
 
-                      {/* Thông tin tự động lấy từ HIS */}
                       <div className="pr-his-data-grid">
                         <div className="pr-his-data-item">
                           <span className="label">Họ và tên:</span>
@@ -840,12 +1773,9 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
             </div>
           )}
 
-          {/* =========================================================================
-              BƯỚC 2: BỔ SUNG THÔNG TIN Y TẾ CHUẨN QĐ 2682/QĐ-BYT & LUẬT KCB 2023
-             ========================================================================= */}
+          {/* BƯỚC 2: BỔ SUNG THÔNG TIN Y TẾ */}
           {currentStep === 2 && (
             <div>
-              {/* 1. Thông tin hành chính cá nhân (Bắt buộc) */}
               <div className="pr-card">
                 <div className="pr-card-header">
                   <div>
@@ -887,12 +1817,13 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
 
                   <div className="pr-form-group">
                     <label className="pr-label">
-                      Giới tính: <span className="required">*</span>
+                      Giới tính sinh học: <span className="required">*</span>
                     </label>
                     <select
                       className="pr-select"
                       value={gender}
                       onChange={(e) => setGender(e.target.value)}
+                      required
                     >
                       <option value="Nam">Nam</option>
                       <option value="Nữ">Nữ</option>
@@ -901,42 +1832,17 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                   </div>
 
                   <div className="pr-form-group">
-                    <label className="pr-label">Số CCCD / Định danh:</label>
-                    <input
-                      type="text"
-                      className="pr-input monospace"
-                      value={identityCard}
-                      readOnly
-                    />
-                  </div>
-
-                  <div className="pr-form-group">
-                    <label className="pr-label">Mã số thẻ BHYT (nếu có):</label>
-                    <input
-                      type="text"
-                      className="pr-input monospace"
-                      value={bhytCode}
-                      onChange={(e) => setBhytCode(e.target.value.toUpperCase())}
-                      placeholder="DN479..."
-                    />
-                  </div>
-
-                  <div className="pr-form-group">
-                    <label className="pr-label">Nhóm máu:</label>
+                    <label className="pr-label">Nhóm máu hệ ABO:</label>
                     <select
                       className="pr-select"
                       value={bloodType}
                       onChange={(e) => setBloodType(e.target.value)}
                     >
-                      <option value="Không rõ">Không rõ</option>
-                      <option value="A+">Nhóm A (Rh+)</option>
-                      <option value="A-">Nhóm A (Rh-)</option>
-                      <option value="B+">Nhóm B (Rh+)</option>
-                      <option value="B-">Nhóm B (Rh-)</option>
-                      <option value="AB+">Nhóm AB (Rh+)</option>
-                      <option value="AB-">Nhóm AB (Rh-)</option>
-                      <option value="O+">Nhóm O (Rh+)</option>
-                      <option value="O-">Nhóm O (Rh-)</option>
+                      <option value="Không rõ">Chưa xác định / Không rõ</option>
+                      <option value="A">Nhóm máu A</option>
+                      <option value="B">Nhóm máu B</option>
+                      <option value="AB">Nhóm máu AB</option>
+                      <option value="O">Nhóm máu O</option>
                     </select>
                   </div>
 
@@ -947,13 +1853,13 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                       value={ethnicity}
                       onChange={(e) => setEthnicity(e.target.value)}
                     >
-                      {VIETNAM_ETHNICITIES.map(eth => (
-                        <option key={eth} value={eth}>{eth}</option>
+                      {VIETNAM_ETHNICITIES.map(e => (
+                        <option key={e} value={e}>{e}</option>
                       ))}
                     </select>
                   </div>
 
-                  <div className="pr-form-group" style={{ gridColumn: 'span 2' }}>
+                  <div className="pr-form-group">
                     <label className="pr-label">Tỉnh / Thành phố:</label>
                     <select
                       className="pr-select"
@@ -966,134 +1872,116 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                     </select>
                   </div>
 
-                  <div className="pr-form-group pr-col-full">
-                    <label className="pr-label">Địa chỉ thường trú / Số nhà, Phường/Xã:</label>
+                  <div className="pr-form-group pr-col-span-3">
+                    <label className="pr-label">Địa chỉ thường trú (Số nhà, đường, thôn/xóm):</label>
                     <input
                       type="text"
                       className="pr-input"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
-                      placeholder="Số nhà, tên đường, Phường/Xã, Quận/Huyện..."
+                      placeholder="Số nhà, tên đường, phường/xã..."
                     />
-                  </div>
-
-                  {/* Checkbox Người đi cùng / Giám hộ */}
-                  <div className="pr-col-full" style={{ marginTop: '4px', paddingTop: '10px', borderTop: '1px dashed var(--pr-border)' }}>
-                    <label className="pr-checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={hasCompanion}
-                        onChange={(e) => setHasCompanion(e.target.checked)}
-                      />
-                      <span>Đăng ký kèm Người đi cùng / Người giám hộ hợp pháp (trẻ em hoặc người cao tuổi)</span>
-                    </label>
-
-                    {hasCompanion && (
-                      <div className="pr-sub-panel">
-                        <div className="pr-grid-4">
-                          <div className="pr-form-group">
-                            <label className="pr-label">Họ tên người giám hộ:</label>
-                            <input
-                              type="text"
-                              className="pr-input"
-                              value={companionName}
-                              onChange={(e) => setCompanionName(e.target.value)}
-                              placeholder="Họ tên người đi cùng..."
-                            />
-                          </div>
-                          <div className="pr-form-group">
-                            <label className="pr-label">Số CCCD người giám hộ:</label>
-                            <input
-                              type="text"
-                              className="pr-input monospace"
-                              value={companionIdCard}
-                              onChange={(e) => setCompanionIdCard(e.target.value)}
-                              placeholder="CCCD 12 số..."
-                            />
-                          </div>
-                          <div className="pr-form-group">
-                            <label className="pr-label">Số điện thoại liên hệ:</label>
-                            <input
-                              type="text"
-                              className="pr-input"
-                              value={companionPhone}
-                              onChange={(e) => setCompanionPhone(e.target.value)}
-                              placeholder="09xxxx..."
-                            />
-                          </div>
-                          <div className="pr-form-group">
-                            <label className="pr-label">Mối quan hệ:</label>
-                            <select
-                              className="pr-select"
-                              value={companionRelationship}
-                              onChange={(e) => setCompanionRelationship(e.target.value)}
-                            >
-                              <option value="Bố/Mẹ">Bố / Mẹ</option>
-                              <option value="Vợ/Chồng">Vợ / Chồng</option>
-                              <option value="Con">Con</option>
-                              <option value="Người giám hộ">Người giám hộ hợp pháp</option>
-                              <option value="Người thân khác">Người thân khác</option>
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
 
-              {/* 2. Tiền sử dị ứng thuốc & thực phẩm */}
+              {/* BHYT */}
               <div className="pr-card">
                 <div className="pr-card-header">
                   <div>
                     <h4 className="pr-card-title">
-                      <Droplets size={17} color="#dc2626" />
-                      <span>2. Tiền sử dị ứng thuốc & thực phẩm</span>
+                      <ShieldCheck size={17} color="var(--pr-primary)" />
+                      <span>2. Thẻ Bảo hiểm Y tế (BHYT)</span>
                     </h4>
-                    <span className="pr-card-subtitle">Hỗ trợ Bác sĩ kê đơn và ra phác đồ điều trị an toàn</span>
+                  </div>
+                </div>
+                <div className="pr-form-group">
+                  <label className="pr-label">Mã số thẻ BHYT (15 ký tự):</label>
+                  <input
+                    type="text"
+                    className="pr-input"
+                    value={bhytCode}
+                    onChange={(e) => setBhytCode(e.target.value.toUpperCase())}
+                    placeholder="VD: DN4790123456789"
+                    maxLength={15}
+                    style={{ fontFamily: 'monospace', fontWeight: 600 }}
+                  />
+                </div>
+              </div>
+
+              {/* Tiền sử & Dị ứng */}
+              <div className="pr-card">
+                <div className="pr-card-header">
+                  <div>
+                    <h4 className="pr-card-title">
+                      <HeartPulse size={17} color="#dc2626" />
+                      <span>3. Tiền sử Bệnh & Dị Ứng</span>
+                    </h4>
                   </div>
                 </div>
 
                 <div className="pr-form-group">
-                  <label className="pr-label">
-                    <span>Tiền sử dị ứng thuốc & thực phẩm (nếu có):</span>
+                  <label className="pr-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={hasMedicalHistory}
+                      onChange={(e) => setHasMedicalHistory(e.target.checked)}
+                    />
+                    <span>Có tiền sử bệnh mãn tính (Tăng huyết áp, Đái tháo đường...)</span>
                   </label>
+                </div>
+
+                {hasMedicalHistory && (
+                  <div className="pr-grid-2" style={{ marginTop: '10px' }}>
+                    <div className="pr-form-group">
+                      <label className="pr-label">Mã ICD-10 hoặc Tên bệnh:</label>
+                      <input
+                        type="text"
+                        className="pr-input"
+                        value={medicalHistoryIcd10}
+                        onChange={(e) => setMedicalHistoryIcd10(e.target.value)}
+                        placeholder="VD: I10, E11..."
+                      />
+                    </div>
+                    <div className="pr-form-group">
+                      <label className="pr-label">Ghi chú điều trị:</label>
+                      <input
+                        type="text"
+                        className="pr-input"
+                        value={medicalHistoryNotes}
+                        onChange={(e) => setMedicalHistoryNotes(e.target.value)}
+                        placeholder="VD: Dùng thuốc thường xuyên..."
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="pr-form-group" style={{ marginTop: '12px' }}>
+                  <label className="pr-label">Dị ứng thuốc & thực phẩm:</label>
                   <input
                     type="text"
                     className="pr-input"
                     value={allergies}
                     onChange={(e) => setAllergies(e.target.value)}
-                    placeholder="Ví dụ: Dị ứng Penicillin, Paracetamol, hải sản... (Ghi 'Không' nếu không có)"
+                    placeholder="VD: Dị ứng Penicillin, hải sản... (Ghi 'Không' nếu không có)"
                   />
                 </div>
               </div>
 
-              {/* Cụm nút hành động */}
+              {/* Actions */}
               <div className="pr-action-bar">
-                <button
-                  type="button"
-                  className="pr-btn pr-btn-secondary"
-                  onClick={() => setCurrentStep(1)}
-                >
-                  <ArrowLeft size={15} />
-                  <span>Quay lại Bước 1</span>
+                <button type="button" className="pr-btn pr-btn-secondary" onClick={() => setCurrentStep(1)}>
+                  <ArrowLeft size={15} /> Quay lại Bước 1
                 </button>
-
-                <button
-                  type="button"
-                  className="pr-btn pr-btn-primary"
-                  onClick={goToStep3}
-                >
-                  <span>Tiếp tục: Thiết lập bảo mật tài khoản (Bước 3)</span>
+                <button type="button" className="pr-btn pr-btn-primary" onClick={goToStep3}>
+                  <span>Tiếp tục: Bước 3</span>
                   <ChevronRight size={16} />
                 </button>
               </div>
             </div>
           )}
 
-          {/* =========================================================================
-              BƯỚC 3: MẬT KHẨU BẢO MẬT & ĐIỀU KHOẢN PHÁP LÝ NGHỊ ĐỊNH 13
-             ========================================================================= */}
+          {/* BƯỚC 3: MẬT KHẨU & KÍCH HOẠT */}
           {currentStep === 3 && (
             <form onSubmit={handleRegister}>
               <div className="pr-card">
@@ -1101,9 +1989,8 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                   <div>
                     <h4 className="pr-card-title">
                       <Lock size={17} color="var(--pr-primary)" />
-                      <span>3. Thông tin Đăng nhập & Bảo mật Tài khoản</span>
+                      <span>3. Thông tin Đăng nhập & Bảo mật</span>
                     </h4>
-                    <span className="pr-card-subtitle">Sử dụng Số điện thoại và Mật khẩu để đăng nhập hồ sơ trên ứng dụng</span>
                   </div>
                 </div>
 
@@ -1158,9 +2045,7 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                           background: 'transparent',
                           border: 'none',
                           color: '#94a3b8',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center'
+                          cursor: 'pointer'
                         }}
                       >
                         {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -1188,9 +2073,8 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                     />
                   </div>
 
-                  {/* Cam kết pháp lý */}
                   <div className="pr-col-full" style={{ marginTop: '6px', paddingTop: '12px', borderTop: '1px solid var(--pr-border)' }}>
-                    <label className="pr-checkbox-label" style={{ alignItems: 'flex-start', color: 'var(--pr-text-body)', fontWeight: 500, lineHeight: 1.5 }}>
+                    <label className="pr-checkbox-label" style={{ alignItems: 'flex-start' }}>
                       <input
                         type="checkbox"
                         checked={consentNghiDinh13}
@@ -1198,24 +2082,17 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                         style={{ marginTop: '2px' }}
                       />
                       <span>
-                        Tôi cam kết thông tin khai báo trên là chính xác và đồng ý cho phép hệ thống CareConnect xử lý, bảo mật dữ liệu y tế theo quy định tại <strong>Nghị định 13/2023/NĐ-CP</strong> về bảo vệ dữ liệu cá nhân và <strong>Luật Khám bệnh, chữa bệnh số 15/2023/QH15</strong>.
+                        Tôi cam kết thông tin khai báo trên là chính xác và đồng ý cho phép hệ thống CareConnect xử lý, bảo mật dữ liệu y tế theo quy định tại <strong>Nghị định 13/2023/NĐ-CP</strong> và <strong>Luật Khám bệnh, chữa bệnh 2023</strong>.
                       </span>
                     </label>
                   </div>
                 </div>
               </div>
 
-              {/* Cụm nút hành động */}
               <div className="pr-action-bar">
-                <button
-                  type="button"
-                  className="pr-btn pr-btn-secondary"
-                  onClick={() => setCurrentStep(2)}
-                >
-                  <ArrowLeft size={15} />
-                  <span>Quay lại Bước 2</span>
+                <button type="button" className="pr-btn pr-btn-secondary" onClick={() => setCurrentStep(2)}>
+                  <ArrowLeft size={15} /> Quay lại Bước 2
                 </button>
-
                 <button
                   type="submit"
                   className="pr-btn pr-btn-primary"
@@ -1224,13 +2101,11 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                 >
                   {loading ? (
                     <>
-                      <RefreshCw size={16} className="pr-spin" />
-                      <span>Đang khởi tạo hồ sơ y tế...</span>
+                      <RefreshCw size={16} className="pr-spin" /> Đang tạo hồ sơ...
                     </>
                   ) : (
                     <>
-                      <span>Hoàn tất Đăng Ký & Kích Hoạt Hồ Sơ Y Tế</span>
-                      <Check size={17} />
+                      <Check size={17} /> Hoàn tất Đăng Ký & Kích Hoạt
                     </>
                   )}
                 </button>
@@ -1239,7 +2114,6 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
           )}
         </main>
 
-        {/* Single Column Footer */}
         <footer className="pr-single-footer">
           <button type="button" className="pr-btn-link-login" onClick={onBackToLogin}>
             <ArrowLeft size={14} />
@@ -1249,7 +2123,6 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
             <span>Hotline hỗ trợ kỹ thuật: <strong>1900 8888</strong> &bull; CareConnect Telemedicine</span>
           </div>
         </footer>
-
       </div>
     </div>
   )
