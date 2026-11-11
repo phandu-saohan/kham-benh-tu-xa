@@ -550,12 +550,12 @@ export function PatientWaitingRoom({
       <div className="ps-waiting-viewport">
         {/* Top Navigation Bar */}
         <header className="ps-waiting-topbar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="ps-waiting-topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button className="ps-btn-back" onClick={onBack} title="Về trang chủ (vẫn giữ số thứ tự)">
               <ArrowLeft size={16} /> Về trang chủ
             </button>
             <button
-              className="ps-btn-back"
+              className="ps-btn-back ps-btn-leave"
               onClick={handleLeave}
               disabled={isLeaving}
               style={{ color: '#dc2626', borderColor: '#fca5a5', background: '#fef2f2' }}
@@ -564,9 +564,9 @@ export function PatientWaitingRoom({
               {isLeaving ? 'Đang rời...' : 'Rời phòng chờ'}
             </button>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', fontWeight: 700, color: 'var(--ps-navy)' }}>
+          <div className="ps-waiting-topbar-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', fontWeight: 700, color: 'var(--ps-navy)' }}>
             <Stethoscope size={17} color="var(--ps-primary)" />
-            <span>CareConnect • <b>Phòng Chờ Khám Trực Tuyến & Điều Dưỡng Điều Phối</b></span>
+            <span>CareConnect • <b>Phòng Chờ Khám</b></span>
           </div>
           <div className="ps-waiting-live-chip">
             <span className="ps-live-dot" /> Đang Trực Tuyến

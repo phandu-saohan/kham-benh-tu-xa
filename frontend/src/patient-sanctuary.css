@@ -1937,6 +1937,42 @@
     color: #0e7490 !important;
     transform: scale(1.1) !important;
   }
+
+  .ps-waiting-viewport {
+    padding: 10px 12px 70px !important;
+    gap: 12px !important;
+  }
+
+  .ps-waiting-topbar {
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+    padding: 10px 12px !important;
+    border-radius: 10px !important;
+  }
+
+  .ps-waiting-topbar-actions {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+
+  .ps-waiting-topbar-title {
+    font-size: 13px !important;
+    flex: 1 !important;
+  }
+
+  .ps-waiting-tabs-nav {
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 6px !important;
+  }
+
+  .ps-waiting-tabs-nav button {
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    font-size: 12.5px !important;
+    padding: 6px 12px !important;
+  }
 }
 
 /* --------------------------------------------------------------------------

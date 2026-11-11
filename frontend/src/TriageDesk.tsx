@@ -85,12 +85,12 @@ export const TriageDesk: React.FC<TriageDeskProps> = ({ onSelectPatientForDoctor
 
   const openAssessment = (item: TriageItem) => {
     setSelectedItem(item)
-    setPulse(item.pulse || '')
-    setBloodPressure(item.blood_pressure || '120/80')
-    setTemperature(item.temperature || 36.8)
-    setSpo2(item.spo2 || 98)
-    setWeight(item.weight || 60)
-    setHeight(item.height || 165)
+    setPulse(item.pulse !== undefined && item.pulse !== null ? item.pulse : '')
+    setBloodPressure(item.blood_pressure || '')
+    setTemperature(item.temperature !== undefined && item.temperature !== null ? item.temperature : '')
+    setSpo2(item.spo2 !== undefined && item.spo2 !== null ? item.spo2 : '')
+    setWeight(item.weight !== undefined && item.weight !== null ? item.weight : '')
+    setHeight(item.height !== undefined && item.height !== null ? item.height : '')
     setTriageLevel(item.triage_level || 'normal')
     setTriageNotes(item.triage_notes || '')
   }

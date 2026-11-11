@@ -118,17 +118,17 @@ export function DoctorWorkspace({
   const [encounterInfo, setEncounterInfo] = useState<any>(null)
 
   // Computed full set of clinical vital signs from Triage Desk & RPM IoT
-  const triageBp = appointment.blood_pressure || encounterInfo?.blood_pressure || (rpmVitals.find(v => v.systolic) ? `${rpmVitals.find(v => v.systolic)?.systolic}/${rpmVitals.find(v => v.diastolic)?.diastolic}` : '128/82')
-  const triagePulse = appointment.pulse || encounterInfo?.pulse || rpmVitals.find(v => v.pulse)?.pulse || 74
-  const triageTemp = appointment.temperature || encounterInfo?.temperature || (rpmVitals.find(v => v.temperature_celsius) ? rpmVitals.find(v => v.temperature_celsius)?.temperature_celsius : 36.8)
-  const triageSpo2 = appointment.spo2 || encounterInfo?.spo2 || (rpmVitals.find(v => v.spo2_percent) ? rpmVitals.find(v => v.spo2_percent)?.spo2_percent : 98.5)
-  const triageWeight = appointment.weight || encounterInfo?.weight || (rpmVitals.find(v => v.weight_kg) ? rpmVitals.find(v => v.weight_kg)?.weight_kg : 65)
-  const triageHeight = appointment.height || encounterInfo?.height || 168
-  const triageBmi = (Number(triageWeight) / Math.pow(Number(triageHeight) / 100, 2)).toFixed(1)
-  const triageGlucose = (rpmVitals.find(v => v.glucose_value)?.glucose_value) || 5.8
+  const triageBp = appointment.blood_pressure || encounterInfo?.blood_pressure || (rpmVitals.find(v => v.systolic) ? `${rpmVitals.find(v => v.systolic)?.systolic}/${rpmVitals.find(v => v.diastolic)?.diastolic}` : null)
+  const triagePulse = appointment.pulse || encounterInfo?.pulse || rpmVitals.find(v => v.pulse)?.pulse || null
+  const triageTemp = appointment.temperature || encounterInfo?.temperature || (rpmVitals.find(v => v.temperature_celsius) ? rpmVitals.find(v => v.temperature_celsius)?.temperature_celsius : null)
+  const triageSpo2 = appointment.spo2 || encounterInfo?.spo2 || (rpmVitals.find(v => v.spo2_percent) ? rpmVitals.find(v => v.spo2_percent)?.spo2_percent : null)
+  const triageWeight = appointment.weight || encounterInfo?.weight || (rpmVitals.find(v => v.weight_kg) ? rpmVitals.find(v => v.weight_kg)?.weight_kg : null)
+  const triageHeight = appointment.height || encounterInfo?.height || null
+  const triageBmi = triageWeight && triageHeight ? (Number(triageWeight) / Math.pow(Number(triageHeight) / 100, 2)).toFixed(1) : null
+  const triageGlucose = (rpmVitals.find(v => v.glucose_value)?.glucose_value) || null
   const triageLevel = appointment.triage_level || encounterInfo?.triage_level || 'standard'
-  const triageNotes = appointment.triage_notes || encounterInfo?.triage_notes || 'Bệnh nhân tỉnh táo, tiếp xúc tốt, huyết động ổn định, đủ điều kiện khám Telemedicine.'
-  const triageNurse = appointment.nurse_name || encounterInfo?.nurse_name || 'ĐD. Nguyễn Thị Mai (Khoa Khám bệnh)'
+  const triageNotes = appointment.triage_notes || encounterInfo?.triage_notes || ''
+  const triageNurse = appointment.nurse_name || encounterInfo?.nurse_name || ''
   const [prescription, setPrescription] = useState('')
   const [isLocked, setIsLocked] = useState(false)
   const [patientData, setPatientData] = useState<any>(null)
@@ -785,18 +785,23 @@ export function DoctorWorkspace({
 
   // Đưa toàn bộ chỉ số sinh hiệu thực tế vào Phiếu khám EMR
   function handleApplyRpmToRecord() {
-    const parts = [
-      `Huyết áp: ${triageBp} mmHg`,
-      `Mạch: ${triagePulse} bpm`,
-      `Thân nhiệt: ${triageTemp}°C`,
-      `SpO2: ${triageSpo2}%`,
-      `Cân nặng: ${triageWeight} kg`,
-      `Chiều cao: ${triageHeight} cm`,
-      `BMI: ${triageBmi} kg/m²`,
-      `Đường huyết mao mạch: ${triageGlucose} mmol/L`,
-      `Phân loại Triage: ${triageLevel === 'emergency' ? 'Cấp cứu (Đỏ)' : triageLevel === 'priority' ? 'Ưu tiên (Vàng)' : 'Tiêu chuẩn (Xanh)'}`,
-      `Điều dưỡng sàng lọc: ${triageNurse}`
-    ]
+    const parts: string[] = []
+    if (triageBp) parts.push(`Huyết áp: ${triageBp} mmHg`)
+    if (triagePulse) parts.push(`Mạch: ${triagePulse} bpm`)
+    if (triageTemp) parts.push(`Thân nhiệt: ${triageTemp}°C`)
+    if (triageSpo2) parts.push(`SpO2: ${triageSpo2}%`)
+    if (triageWeight) parts.push(`Cân nặng: ${triageWeight} kg`)
+    if (triageHeight) parts.push(`Chiều cao: ${triageHeight} cm`)
+    if (triageBmi) parts.push(`BMI: ${triageBmi} kg/m²`)
+    if (triageGlucose) parts.push(`Đường huyết mao mạch: ${triageGlucose} mmol/L`)
+    if (triageLevel) parts.push(`Phân loại Triage: ${triageLevel === 'emergency' ? 'Cấp cứu (Đỏ)' : triageLevel === 'priority' ? 'Ưu tiên (Vàng)' : 'Tiêu chuẩn (Xanh)'}`)
+    if (triageNurse) parts.push(`Điều dưỡng sàng lọc: ${triageNurse}`)
+
+    if (parts.length === 0) {
+      setToast('⚠️ Bệnh nhân chưa có chỉ số sinh hiệu thực tế nào!')
+      setTimeout(() => setToast(''), 3500)
+      return
+    }
 
     const text = `[SINH HIỆU LÂM SÀNG & SÀNG LỌC TRIAGE]: ` + parts.join(' · ')
     setClinicalNotes(prev => prev ? `${prev}\n\n${text}` : text)
@@ -1606,14 +1611,14 @@ export function DoctorWorkspace({
               <div className="doctor-rpm-card bp">
                 <div className="rpm-card-top">
                   <span className="rpm-card-label">Huyết áp (Triage / Omron)</span>
-                  <span className="rpm-card-badge">Tự động</span>
+                  <span className="rpm-card-badge">{triageBp ? 'Tự động' : 'Chưa đo'}</span>
                 </div>
-                <div className="rpm-card-val">
-                  {triageBp}
+                <div className="rpm-card-val" style={{ color: triageBp ? 'inherit' : '#94a3b8' }}>
+                  {triageBp || '-- / --'}
                   <small> mmHg</small>
                 </div>
-                <div className="rpm-card-status good">
-                  🟢 Mạch: <strong>{triagePulse}</strong> bpm · Ổn định
+                <div className={`rpm-card-status ${triageBp ? 'good' : 'muted'}`}>
+                  {triagePulse ? `🟢 Mạch: ${triagePulse} bpm · Ổn định` : '⚪ Chưa có chỉ số'}
                 </div>
               </div>
 
@@ -1621,65 +1626,73 @@ export function DoctorWorkspace({
               <div className="doctor-rpm-card hr">
                 <div className="rpm-card-top">
                   <span className="rpm-card-label">Nhịp tim (Pulse)</span>
-                  <span className="rpm-card-badge">ECG / Mạch</span>
+                  <span className="rpm-card-badge">{triagePulse ? 'ECG / Mạch' : 'Chưa đo'}</span>
                 </div>
-                <div className="rpm-card-val">
-                  {triagePulse}
+                <div className="rpm-card-val" style={{ color: triagePulse ? 'inherit' : '#94a3b8' }}>
+                  {triagePulse || '--'}
                   <small> bpm</small>
                 </div>
-                <div className="rpm-card-status good">🟢 Nhịp xoang đều</div>
+                <div className={`rpm-card-status ${triagePulse ? 'good' : 'muted'}`}>
+                  {triagePulse ? '🟢 Nhịp xoang đều' : '⚪ Chưa đo'}
+                </div>
               </div>
 
               {/* 3. Thân nhiệt */}
               <div className="doctor-rpm-card temp">
                 <div className="rpm-card-top">
                   <span className="rpm-card-label">Thân nhiệt (Nhiệt độ)</span>
-                  <span className="rpm-card-badge">Nhiệt kế</span>
+                  <span className="rpm-card-badge">{triageTemp ? 'Nhiệt kế' : 'Chưa đo'}</span>
                 </div>
-                <div className="rpm-card-val">
-                  {triageTemp}
+                <div className="rpm-card-val" style={{ color: triageTemp ? 'inherit' : '#94a3b8' }}>
+                  {triageTemp || '--'}
                   <small> °C</small>
                 </div>
-                <div className="rpm-card-status good">🟢 Thân nhiệt bình thường</div>
+                <div className={`rpm-card-status ${triageTemp ? 'good' : 'muted'}`}>
+                  {triageTemp ? '🟢 Thân nhiệt bình thường' : '⚪ Chưa đo'}
+                </div>
               </div>
 
               {/* 4. SpO2 */}
               <div className="doctor-rpm-card spo2">
                 <div className="rpm-card-top">
                   <span className="rpm-card-label">Bão hòa Oxy (SpO2)</span>
-                  <span className="rpm-card-badge">Oximeter</span>
+                  <span className="rpm-card-badge">{triageSpo2 ? 'Oximeter' : 'Chưa đo'}</span>
                 </div>
-                <div className="rpm-card-val">
-                  {triageSpo2}
+                <div className="rpm-card-val" style={{ color: triageSpo2 ? 'inherit' : '#94a3b8' }}>
+                  {triageSpo2 || '--'}
                   <small> %</small>
                 </div>
-                <div className="rpm-card-status good">🟢 Bão hòa oxy tối ưu</div>
+                <div className={`rpm-card-status ${triageSpo2 ? 'good' : 'muted'}`}>
+                  {triageSpo2 ? '🟢 Bão hòa oxy tối ưu' : '⚪ Chưa đo'}
+                </div>
               </div>
 
               {/* 5. Đường huyết */}
               <div className="doctor-rpm-card glucose">
                 <div className="rpm-card-top">
                   <span className="rpm-card-label">Đường huyết (Accu-Chek)</span>
-                  <span className="rpm-card-badge">Mao mạch</span>
+                  <span className="rpm-card-badge">{triageGlucose ? 'Mao mạch' : 'Chưa đo'}</span>
                 </div>
-                <div className="rpm-card-val">
-                  {triageGlucose}
+                <div className="rpm-card-val" style={{ color: triageGlucose ? 'inherit' : '#94a3b8' }}>
+                  {triageGlucose || '--'}
                   <small> mmol/L</small>
                 </div>
-                <div className="rpm-card-status good">🟢 Đường huyết đói tốt</div>
+                <div className={`rpm-card-status ${triageGlucose ? 'good' : 'muted'}`}>
+                  {triageGlucose ? '🟢 Đường huyết đói tốt' : '⚪ Chưa đo'}
+                </div>
               </div>
 
               {/* 6. Thể trọng & BMI */}
               <div className="doctor-rpm-card bmi">
                 <div className="rpm-card-top">
                   <span className="rpm-card-label">Thể trọng & BMI</span>
-                  <span className="rpm-card-badge">Cân & Thước</span>
+                  <span className="rpm-card-badge">{triageWeight && triageHeight ? 'Cân & Thước' : 'Chưa đo'}</span>
                 </div>
-                <div className="rpm-card-val" style={{ fontSize: '13.5px', fontWeight: 800 }}>
-                  {triageWeight} kg · {triageHeight} cm
+                <div className="rpm-card-val" style={{ fontSize: '13.5px', fontWeight: 800, color: (triageWeight || triageHeight) ? 'inherit' : '#94a3b8' }}>
+                  {triageWeight ? `${triageWeight} kg` : '-- kg'} · {triageHeight ? `${triageHeight} cm` : '-- cm'}
                 </div>
-                <div className="rpm-card-status good">
-                  🟢 BMI: <strong>{triageBmi}</strong> kg/m² · Thể trạng chuẩn
+                <div className={`rpm-card-status ${triageBmi ? 'good' : 'muted'}`}>
+                  {triageBmi ? `🟢 BMI: ${triageBmi} kg/m²` : '⚪ Chưa tính BMI'}
                 </div>
               </div>
             </div>
