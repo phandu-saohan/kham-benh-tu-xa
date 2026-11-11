@@ -499,21 +499,21 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
     try {
       setLoading(true)
       const res = await registerPatientAccount({
-        full_name: fullName.trim(),
+        full_name: fullName.trim().toUpperCase(),
         phone_number: phoneNumber.trim(),
         identity_card: identityCard.trim(),
         password: password,
         email: email.trim() || undefined,
         dob: dob || undefined,
         gender: gender || 'Nam',
-        bhyt_code: bhytCode.trim() || undefined,
+        bhyt_code: bhytCode.trim() ? bhytCode.trim().toUpperCase() : undefined,
         address: address.trim() || undefined,
         blood_type: bloodType,
         allergies: allergies.trim() || undefined,
         ethnicity: ethnicity || 'Kinh',
         province_code: provinceCode || undefined,
         ward_code: wardCode.trim() || undefined,
-        companion_name: hasCompanion ? companionName.trim() : undefined,
+        companion_name: hasCompanion && companionName.trim() ? companionName.trim().toUpperCase() : undefined,
         companion_id_card: hasCompanion ? companionIdCard.trim() : undefined,
         companion_phone: hasCompanion ? companionPhone.trim() : undefined,
         companion_relationship: hasCompanion ? companionRelationship : undefined,
@@ -996,10 +996,14 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                     <input
                       type="text"
                       value={fullName}
-                      onChange={(e) => setFullName(e.target.value.toUpperCase())}
+                      onChange={(e) => setFullName(e.target.value)}
+                      onBlur={() => setFullName(prev => prev.trim().toUpperCase())}
                       placeholder="NGUYỄN VĂN A"
                       required
-                      style={{ width: '100%', height: '44px', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '13px', fontWeight: 700, boxSizing: 'border-box' }}
+                      autoComplete="name"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      style={{ width: '100%', height: '44px', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '13px', fontWeight: 700, boxSizing: 'border-box', textTransform: 'uppercase' }}
                     />
                   </div>
 
@@ -1129,10 +1133,13 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                   <input
                     type="text"
                     value={bhytCode}
-                    onChange={(e) => setBhytCode(e.target.value.toUpperCase())}
+                    onChange={(e) => setBhytCode(e.target.value)}
+                    onBlur={() => setBhytCode(prev => prev.trim().toUpperCase())}
                     placeholder="VD: DN4790123456789"
                     maxLength={15}
-                    style={{ width: '100%', height: '44px', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '13.5px', fontFamily: 'monospace', fontWeight: 700, color: '#0f766e', boxSizing: 'border-box' }}
+                    autoCorrect="off"
+                    spellCheck={false}
+                    style={{ width: '100%', height: '44px', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '13.5px', fontFamily: 'monospace', fontWeight: 700, color: '#0f766e', boxSizing: 'border-box', textTransform: 'uppercase' }}
                   />
                   <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
                     Hưởng quyền lợi chi trả BHYT khi đặt lịch khám từ xa theo quy định Bộ Y tế.
@@ -1220,9 +1227,12 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                       <input
                         type="text"
                         value={companionName}
-                        onChange={(e) => setCompanionName(e.target.value.toUpperCase())}
+                        onChange={(e) => setCompanionName(e.target.value)}
+                        onBlur={() => setCompanionName(prev => prev.trim().toUpperCase())}
                         placeholder="NGUYỄN VĂN B"
-                        style={{ width: '100%', height: '40px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '12.5px', boxSizing: 'border-box' }}
+                        autoCorrect="off"
+                        spellCheck={false}
+                        style={{ width: '100%', height: '40px', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 10px', fontSize: '12.5px', fontWeight: 700, boxSizing: 'border-box', textTransform: 'uppercase' }}
                       />
                     </div>
                     <div>
@@ -1792,9 +1802,14 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                       type="text"
                       className="pr-input"
                       value={fullName}
-                      onChange={(e) => setFullName(e.target.value.toUpperCase())}
+                      onChange={(e) => setFullName(e.target.value)}
+                      onBlur={() => setFullName(prev => prev.trim().toUpperCase())}
                       placeholder="NGUYỄN VĂN A"
                       required
+                      autoComplete="name"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      style={{ textTransform: 'uppercase' }}
                     />
                   </div>
 
@@ -1897,10 +1912,13 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                     type="text"
                     className="pr-input"
                     value={bhytCode}
-                    onChange={(e) => setBhytCode(e.target.value.toUpperCase())}
+                    onChange={(e) => setBhytCode(e.target.value)}
+                    onBlur={() => setBhytCode(prev => prev.trim().toUpperCase())}
                     placeholder="VD: DN4790123456789"
                     maxLength={15}
-                    style={{ fontFamily: 'monospace', fontWeight: 600 }}
+                    autoCorrect="off"
+                    spellCheck={false}
+                    style={{ fontFamily: 'monospace', fontWeight: 600, textTransform: 'uppercase' }}
                   />
                 </div>
               </div>

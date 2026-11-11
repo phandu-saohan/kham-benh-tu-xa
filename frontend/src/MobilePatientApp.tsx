@@ -469,6 +469,8 @@ export function MobileAppointmentsView({
           placeholder="Tìm theo bác sĩ, chuyên khoa, mã khám..."
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
+          autoCorrect="off"
+          spellCheck={false}
         />
       </div>
 
@@ -904,6 +906,8 @@ export function MobilePrescriptionsView({
                   placeholder="Ví dụ: Amlodipine 5mg, Panadol..."
                   value={newMedName}
                   onChange={e => setNewMedName(e.target.value)}
+                  autoCorrect="off"
+                  spellCheck={false}
                   required
                 />
               </div>
@@ -916,6 +920,8 @@ export function MobilePrescriptionsView({
                   placeholder="Ví dụ: 1 viên, 2 giọt..."
                   value={newMedDosage}
                   onChange={e => setNewMedDosage(e.target.value)}
+                  autoCorrect="off"
+                  spellCheck={false}
                 />
               </div>
               <div className="mp-field-group">
@@ -927,6 +933,8 @@ export function MobilePrescriptionsView({
                   placeholder="Ví dụ: Ngày 1 lần sau ăn sáng"
                   value={newMedFreq}
                   onChange={e => setNewMedFreq(e.target.value)}
+                  autoCorrect="off"
+                  spellCheck={false}
                 />
               </div>
               <div className="mp-field-group">
@@ -1846,6 +1854,8 @@ export function MobileProfileView({
                   placeholder="Nhập họ tên đầy đủ"
                   value={famName}
                   onChange={e => setFamName(e.target.value)}
+                  autoCorrect="off"
+                  spellCheck={false}
                   required
                 />
               </div>

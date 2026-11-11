@@ -1129,7 +1129,10 @@ export function PatientPaymentManager({
                       required
                       placeholder="NGUYEN VAN A"
                       value={accountHolder}
-                      onChange={(e) => setAccountHolder(e.target.value.toUpperCase())}
+                      onChange={(e) => setAccountHolder(e.target.value)}
+                      onBlur={() => setAccountHolder(prev => prev.trim().toUpperCase())}
+                      autoCorrect="off"
+                      spellCheck={false}
                       style={{
                         width: '100%',
                         padding: '8px 12px',

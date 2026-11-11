@@ -843,6 +843,8 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
                     setSymptoms(e.target.value)
                     setCompiledSummary(e.target.value)
                   }}
+                  autoCorrect="off"
+                  spellCheck={false}
                   placeholder="Ví dụ: Đau đầu nhiều từ hôm qua, kèm sốt 38.5 độ, ho khan và hắt hơi nhiều, cảm thấy mệt mỏi và chán ăn..."
                   style={{
                     width: '100%',

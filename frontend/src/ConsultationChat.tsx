@@ -43,6 +43,7 @@ export function ConsultationChat({
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const isComposingRef = useRef(false)
 
   // Resolve media đã xác thực cho mọi tin nhắn có file
   useEffect(() => {
@@ -85,6 +86,7 @@ export function ConsultationChat({
   // 4. Gửi tin nhắn văn bản
   async function handleSendText(e?: React.FormEvent) {
     if (e) e.preventDefault()
+    if (isComposingRef.current) return
     const trimmed = inputText.trim()
     if (!trimmed || isSending) return
 
@@ -95,7 +97,7 @@ export function ConsultationChat({
         content: trimmed,
         message_type: 'text'
       })
-      setInputText('')
+      setTimeout(() => setInputText(''), 20)
       setMessages(prev => (prev.some(m => m.id === msg.id) ? prev : [...prev, msg]))
     } catch (err: any) {
       setUploadError(err.message || 'Không thể gửi tin nhắn')
@@ -315,6 +317,16 @@ export function ConsultationChat({
           placeholder="Nhập tin nhắn..."
           value={inputText}
           onChange={e => setInputText(e.target.value)}
+          onCompositionStart={() => { isComposingRef.current = true }}
+          onCompositionEnd={() => { isComposingRef.current = false }}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && (isComposingRef.current || (e.nativeEvent as any).isComposing)) {
+              e.preventDefault()
+            }
+          }}
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
           disabled={isSending}
         />
 

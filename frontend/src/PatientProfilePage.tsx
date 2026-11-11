@@ -814,6 +814,8 @@ export function PatientProfilePage({
                       className="ps-form-input"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
+                      autoCorrect="off"
+                      spellCheck={false}
                       placeholder="Ghi rõ họ tên..."
                       style={{ borderRadius: '6px' }}
                     />
@@ -890,6 +892,8 @@ export function PatientProfilePage({
                       className="ps-form-input"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
+                      autoCorrect="off"
+                      spellCheck={false}
                       placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành..."
                       style={{ borderRadius: '6px' }}
                     />
@@ -902,6 +906,8 @@ export function PatientProfilePage({
                       className="ps-form-input"
                       value={companionName}
                       onChange={(e) => setCompanionName(e.target.value)}
+                      autoCorrect="off"
+                      spellCheck={false}
                       placeholder="Để trống nếu tự đi khám..."
                       style={{ borderRadius: '6px' }}
                     />
