@@ -48,6 +48,7 @@ import {
 } from './firebase'
 import { NotificationCenter } from './NotificationCenter'
 import { formatDateVN, formatDateTimeVN } from './dateFormatters'
+import { MobileBluetoothView } from './MobileBluetoothView'
 import './mobile-patient.css'
 
 export function useIsMobilePatient(): boolean {
@@ -1282,12 +1283,14 @@ interface MobileVitalsViewProps {
   user: User
   rpmVitals: RPMVitalItem[]
   onRefreshVitals?: () => void
+  onOpenBleScan?: () => void
 }
 
 export function MobileVitalsView({
   user,
   rpmVitals,
-  onRefreshVitals
+  onRefreshVitals,
+  onOpenBleScan
 }: MobileVitalsViewProps) {
   const [showManualModal, setShowManualModal] = useState(false)
   const [systolic, setSystolic] = useState('')
@@ -1329,6 +1332,39 @@ export function MobileVitalsView({
 
   return (
     <div className="mp-subscreen-body">
+      {/* Bluetooth Scanner Banner */}
+      {onOpenBleScan && (
+        <button
+          type="button"
+          onClick={onOpenBleScan}
+          style={{
+            width: '100%',
+            background: 'linear-gradient(135deg, #0f766e 0%, #0284c7 100%)',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '14px',
+            padding: '12px 16px',
+            marginBottom: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 4px 12px rgba(15, 118, 110, 0.2)',
+            cursor: 'pointer'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Bluetooth size={20} />
+            </div>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: '13.5px', fontWeight: 800 }}>Quét Thiết Bị Bluetooth (BLE)</div>
+              <div style={{ fontSize: '11px', opacity: 0.9 }}>Kết nối Omron, Accu-Chek, SpO2, Cân điện tử</div>
+            </div>
+          </div>
+          <ChevronRight size={18} />
+        </button>
+      )}
+
       {/* Action Buttons Row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
         <button
@@ -2354,13 +2390,14 @@ export function MobilePatientShell({
           user={user}
           rpmVitals={rpmVitals}
           onRefreshVitals={onRefreshVitals}
+          onOpenBleScan={() => setView('devices')}
         />
       )}
 
       {view === 'devices' && (
-        <MobileVitalsView
+        <MobileBluetoothView
           user={user}
-          rpmVitals={rpmVitals}
+          onBack={() => setView('home')}
           onRefreshVitals={onRefreshVitals}
         />
       )}
