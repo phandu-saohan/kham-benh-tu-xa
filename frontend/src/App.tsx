@@ -3924,6 +3924,10 @@ export default function App() {
 
         appointments={appointments}
 
+        doctors={doctors}
+
+        departments={departments}
+
         rpmVitals={rpmVitals}
 
         onOpenBooking={() => setShowBooking(true)}
@@ -3932,11 +3936,229 @@ export default function App() {
 
         onPayAppointment={(appt) => setQrAppointment(appt)}
 
+        onCancelAppointment={(appt) => setCancelModalAppt(appt)}
+
+        onDownloadPdf={handleDownloadPdf}
+
+        onRefreshVitals={loadVitals}
+
+        onUpdateUser={(updated) => setUser(updated)}
+
         onLogout={logout}
 
       >
 
-        {mainWorkspaceContent}
+        {showBooking && user && (
+
+          <BookingFlowModal
+
+            user={user}
+
+            departments={departments}
+
+            doctors={doctors}
+
+            initialReason={reason}
+
+            onClose={() => setShowBooking(false)}
+
+            onSuccess={async (newAppt, openQr) => {
+
+              setShowBooking(false)
+
+              setToast('Lịch hẹn đã được khởi tạo thành công!')
+
+              await loadDashboard(user)
+
+              if (openQr) {
+
+                setQrAppointment(newAppt)
+
+              }
+
+            }}
+
+            onError={(msg) => setError(msg)}
+
+          />
+
+        )}
+
+
+
+        {cancelModalAppt && (
+
+          <div className="modal-backdrop">
+
+            <div className="modal" style={{ maxWidth: '500px', width: '100%' }}>
+
+              <div className="panel-heading">
+
+                <div>
+
+                  <h3>Hủy lịch khám & Hoàn tiền</h3>
+
+                  <p>Lịch hẹn #{cancelModalAppt.id} · {dateText(cancelModalAppt.starts_at)}</p>
+
+                </div>
+
+                <button type="button" className="icon-button" onClick={() => setCancelModalAppt(null)}>
+
+                  <X />
+
+                </button>
+
+              </div>
+
+
+
+              <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px', padding: '12px', marginBottom: '14px', fontSize: '13px', color: '#166534' }}>
+
+                <strong>💰 Chính sách hoàn tiền 100%:</strong>
+
+                <ul style={{ margin: '6px 0 0', paddingLeft: '18px' }}>
+
+                  <li>Hủy trước giờ khám được hoàn <strong>100% viện phí</strong> ({money(cancelModalAppt.fee_amount)}).</li>
+
+                  <li>Kích hoạt hoàn tiền tự động qua Napas 247/VietQR và cập nhật hệ thống.</li>
+
+                </ul>
+
+              </div>
+
+
+
+              <label>
+
+                Lý do hủy lịch khám
+
+                <textarea
+
+                  value={cancelReasonText}
+
+                  onChange={e => setCancelReasonText(e.target.value)}
+
+                  required
+
+                  minLength={3}
+
+                  placeholder="Vui lòng cho biết lý do hủy lịch..."
+
+                  rows={3}
+
+                />
+
+              </label>
+
+
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+
+                <button
+
+                  type="button"
+
+                  className="ghost"
+
+                  onClick={() => setCancelModalAppt(null)}
+
+                  style={{ flex: 1 }}
+
+                >
+
+                  Đóng
+
+                </button>
+
+                <button
+
+                  type="button"
+
+                  className="danger"
+
+                  disabled={cancelling}
+
+                  onClick={handleConfirmCancel}
+
+                  style={{ flex: 2, background: '#dc2626', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, padding: '10px', cursor: 'pointer' }}
+
+                >
+
+                  {cancelling ? 'Đang hủy...' : 'Xác nhận hủy & Hoàn tiền'}
+
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        )}
+
+
+
+        {qrAppointment && (
+
+          <VietQRModal
+
+            appointment={qrAppointment}
+
+            onClose={() => setQrAppointment(null)}
+
+            onPaymentSuccess={() => {
+
+              setQrAppointment(null)
+
+              setToast('Thanh toán VietQR thành công! Lịch hẹn đã được xác nhận.')
+
+              if (user) loadDashboard(user)
+
+            }}
+
+          />
+
+        )}
+
+
+
+        {pendingConsentAppointment && (
+
+          <ConsentModal
+
+            appointmentId={pendingConsentAppointment.id}
+
+            onClose={() => setPendingConsentAppointment(null)}
+
+            onAgreed={() => {
+
+              const appt = pendingConsentAppointment
+
+              setPendingConsentAppointment(null)
+
+              setActiveAppointment(appt)
+
+            }}
+
+          />
+
+        )}
+
+
+
+        {incomingCall && (
+
+          <IncomingCallModal
+
+            call={incomingCall}
+
+            onAccept={handleAcceptIncomingCall}
+
+            onDecline={handleDeclineIncomingCall}
+
+          />
+
+        )}
 
       </MobilePatientShell>
 
