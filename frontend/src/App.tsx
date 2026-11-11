@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, Suspense, lazy } from 'react'
 
 import {
 
@@ -52,45 +52,46 @@ import {
 
 import type { ConfirmationResult } from 'firebase/auth'
 
-import { VideoRoom } from './VideoRoom'
-
 import { PatientWaitingRoom } from './PatientWaitingRoom'
-
-import { DoctorWorkspace } from './DoctorWorkspace'
-
 import { VietQRModal } from './VietQRModal'
-
 import { ConsentModal } from './ConsentModal'
-
 import { IncomingCallModal } from './IncomingCallModal'
-
-import { TriageDesk } from './TriageDesk'
-
-import { AdminDashboard } from './AdminDashboard'
-
 import { NotificationCenter } from './NotificationCenter'
-
 import { PatientProfilePage } from './PatientProfilePage'
-
 import { PatientRegisterPage } from './PatientRegisterPage'
-
 import { LoginPage } from './LoginPage'
-
-import { DoctorDashboard } from './DoctorDashboard'
-
-import { DoctorSchedulePage } from './DoctorSchedulePage'
-
-import { DoctorDepartmentSupport } from './DoctorDepartmentSupport'
-
-import { DoctorProfilePage } from './DoctorProfilePage'
-
 import { PatientDashboard } from './PatientDashboard'
 
-import { NurseDashboard } from './NurseDashboard'
+// Code splitting: Lazy-load heavy staff & specialized portal chunks
+const VideoRoom = lazy(() => import('./VideoRoom').then(m => ({ default: m.VideoRoom })))
+const DoctorWorkspace = lazy(() => import('./DoctorWorkspace').then(m => ({ default: m.DoctorWorkspace })))
+const TriageDesk = lazy(() => import('./TriageDesk').then(m => ({ default: m.TriageDesk })))
+const AdminDashboard = lazy(() => import('./AdminDashboard').then(m => ({ default: m.AdminDashboard })))
+const DoctorDashboard = lazy(() => import('./DoctorDashboard').then(m => ({ default: m.DoctorDashboard })))
+const DoctorSchedulePage = lazy(() => import('./DoctorSchedulePage').then(m => ({ default: m.DoctorSchedulePage })))
+const DoctorDepartmentSupport = lazy(() => import('./DoctorDepartmentSupport').then(m => ({ default: m.DoctorDepartmentSupport })))
+const DoctorProfilePage = lazy(() => import('./DoctorProfilePage').then(m => ({ default: m.DoctorProfilePage })))
+const NurseDashboard = lazy(() => import('./NurseDashboard').then(m => ({ default: m.NurseDashboard })))
+const RPMDeviceCenter = lazy(() => import('./RPMDeviceCenter').then(m => ({ default: m.RPMDeviceCenter })))
+const SmartDevicesHub = lazy(() => import('./SmartDevicesHub').then(m => ({ default: m.SmartDevicesHub })))
 
-import { RPMDeviceCenter } from './RPMDeviceCenter'
-
-import { SmartDevicesHub } from './SmartDevicesHub'
+const LazyFallback: React.FC<{ message?: string }> = ({ message = 'Đang tải dữ liệu phân hệ...' }) => (
+  <div style={{
+    minHeight: '360px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '12px',
+    color: '#0f766e',
+    fontWeight: 600,
+    fontSize: '14px',
+    padding: '32px 16px'
+  }}>
+    <RefreshCw className="spin" size={26} />
+    <span>{message}</span>
+  </div>
+)
 
 import { Pagination } from './Pagination'
 
@@ -1604,23 +1605,27 @@ export default function App() {
 
     return (
 
-      <DoctorWorkspace
+      <Suspense fallback={<LazyFallback message="Đang kết nối buồng khám bác sĩ..." />}>
 
-        appointment={activeAppointment}
+        <DoctorWorkspace
 
-        user={user}
+          appointment={activeAppointment}
 
-        onBack={() => setActiveAppointment(null)}
+          user={user}
 
-        onCompleted={() => {
+          onBack={() => setActiveAppointment(null)}
 
-          setActiveAppointment(null)
+          onCompleted={() => {
 
-          loadDashboard(user)
+            setActiveAppointment(null)
 
-        }}
+            loadDashboard(user)
 
-      />
+          }}
+
+        />
+
+      </Suspense>
 
     )
 
@@ -1664,15 +1669,19 @@ export default function App() {
 
     return (
 
-      <VideoRoom
+      <Suspense fallback={<LazyFallback message="Đang khởi tạo phòng gọi video WebRTC..." />}>
 
-        appointment={activeAppointment}
+        <VideoRoom
 
-        onBack={() => setActiveAppointment(null)}
+          appointment={activeAppointment}
 
-        user={user}
+          onBack={() => setActiveAppointment(null)}
 
-      />
+          user={user}
+
+        />
+
+      </Suspense>
 
     )
 
@@ -4458,7 +4467,11 @@ export default function App() {
 
         <main className="main-content">
 
-          {mainWorkspaceContent}
+          <Suspense fallback={<LazyFallback message="Đang tải dữ liệu phân hệ..." />}>
+
+            {mainWorkspaceContent}
+
+          </Suspense>
 
         </main>
 

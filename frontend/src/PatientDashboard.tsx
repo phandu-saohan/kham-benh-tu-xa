@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import {
   CalendarDays,
   Clock,
@@ -30,7 +30,7 @@ import {
 import { Appointment, RPMVitalItem, recordRPMVitals, uploadUserAvatar, updateMyProfile } from './api'
 import { cameraPpgService, PPGMeasurementResult, PPGFrameData } from './cameraPpgService'
 import { readGlucoseBLE, isWebBluetoothSupported } from './bluetoothService'
-import { SmartDevicesHub } from './SmartDevicesHub'
+const SmartDevicesHub = lazy(() => import('./SmartDevicesHub').then(m => ({ default: m.SmartDevicesHub })))
 import './patient-sanctuary.css'
 
 interface PatientDashboardProps {
@@ -961,7 +961,9 @@ export function PatientDashboard({
 
         {/* 5. SMART DEVICES HUB EMBEDDED */}
         <section>
-          <SmartDevicesHub user={user} vitalsLogs={vitalsLogs} embedded={true} onRefreshVitals={onRefreshVitals} onNavigate={onNavigate} />
+          <Suspense fallback={<div style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>Đang tải trung tâm thiết bị...</div>}>
+            <SmartDevicesHub user={user} vitalsLogs={vitalsLogs} embedded={true} onRefreshVitals={onRefreshVitals} onNavigate={onNavigate} />
+          </Suspense>
         </section>
 
         {/* 6. HEALTHCARE ECOSYSTEM GRID (8 SERVICES TILES) */}

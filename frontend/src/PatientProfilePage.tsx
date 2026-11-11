@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import {
   UserRound,
   ShieldCheck,
@@ -31,7 +31,7 @@ import {
   RefreshCw,
   Cpu
 } from 'lucide-react'
-import { SmartDevicesHub } from './SmartDevicesHub'
+const SmartDevicesHub = lazy(() => import('./SmartDevicesHub').then(m => ({ default: m.SmartDevicesHub })))
 import {
   getMyProfile,
   updateMyProfile,
@@ -1040,7 +1040,9 @@ export function PatientProfilePage({
                 <Cpu size={20} color="#0284c7" />
                 <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>Thiết bị Giám sát Sinh hiệu Từ xa (RPM IoT)</h3>
               </div>
-              <SmartDevicesHub user={currentUser} embedded={true} onNavigate={onNavigate} />
+              <Suspense fallback={<div style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>Đang tải kết nối thiết bị...</div>}>
+                <SmartDevicesHub user={currentUser} embedded={true} onNavigate={onNavigate} />
+              </Suspense>
             </div>
 
             {/* Privacy & Legal Compliance */}
