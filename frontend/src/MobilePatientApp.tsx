@@ -2397,7 +2397,7 @@ export function MobilePatientShell({
       {view === 'devices' && (
         <MobileBluetoothView
           user={user}
-          onBack={() => setView('home')}
+          onBack={() => setView('overview')}
           onRefreshVitals={onRefreshVitals}
         />
       )}
