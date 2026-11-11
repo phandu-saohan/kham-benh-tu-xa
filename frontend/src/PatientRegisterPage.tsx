@@ -692,9 +692,6 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
 
           {/* Compliance Mini Badges */}
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
-            <span style={{ background: '#f0fdfa', color: '#0f766e', border: '1px solid #ccfbf1', fontSize: '10.5px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-              <Sparkles size={11} /> Đề án 06/CP
-            </span>
             <span style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', fontSize: '10.5px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
               <ShieldCheck size={11} /> QĐ 2682/QĐ-BYT
             </span>
@@ -1513,7 +1510,6 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
             </div>
             
             <div className="pr-compliance-pills">
-              <span className="pr-pill"><Sparkles size={12} color="#0d9488" /> Đề án 06/CP</span>
               <span className="pr-pill"><ShieldCheck size={12} color="#059669" /> Chuẩn QĐ 2682 & QĐ 130</span>
               <span className="pr-pill"><Shield size={12} color="#0284c7" /> NĐ 13/2023/NĐ-CP</span>
             </div>

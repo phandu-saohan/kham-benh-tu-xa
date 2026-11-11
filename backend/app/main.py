@@ -437,7 +437,7 @@ def identify_patient_by_cccd(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Nhận diện Bệnh nhân đã có hồ sơ khám bệnh bằng CCCD / VNeID (Đề án 06/CP).
+    Nhận diện Bệnh nhân đã có hồ sơ khám bệnh bằng CCCD / VNeID.
     Tự động truy xuất lịch sử các lượt khám (EMR), toa thuốc đã dùng, BHYT và cảnh báo tiền sử dị ứng.
     """
     parsed = parse_vneid_or_cccd(data.identity_card)

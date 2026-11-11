@@ -2000,7 +2000,7 @@ export async function submitPACSFeedback(consultationId: number, data: {
 
 
 
-// --- NHẬN DIỆN BỆNH NHÂN ĐÃ CÓ HỒ SƠ KHÁM BỆNH BẰNG CCCD / VNeID (ĐỀ ÁN 06) ---
+// --- NHẬN DIỆN BỆNH NHÂN ĐÃ CÓ HỒ SƠ KHÁM BỆNH BẰNG CCCD / VNeID ---
 
 export interface PreviousVisitSummary {
   appointment_id: number

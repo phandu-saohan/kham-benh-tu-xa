@@ -1237,7 +1237,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
               </div>
               <div className="command-gateway-chip">
                 <span className="chip-dot"></span>
-                <span>Định danh Dân cư: CCCD & VNeID Mức 2 (Đề án 06)</span>
+                <span>Định danh Dân cư: CCCD & VNeID Mức 2</span>
               </div>
               <div className="command-gateway-chip">
                 <span className="chip-dot"></span>

@@ -206,7 +206,7 @@
 }
 
 /* ==========================================================================
-   2. COLLAPSIBLE CCCD & VNEID LOOKUP DOCK (ĐỀ ÁN 06)
+   2. COLLAPSIBLE CCCD & VNEID LOOKUP DOCK
    ========================================================================== */
 .nurse-cccd-dock {
   background: #ffffff;
@@ -244,16 +244,6 @@
   font-size: 14.5px;
   font-weight: 800;
   color: #065f46;
-}
-
-.cccd-dock-title span.badge-dean06 {
-  background: #047857;
-  color: #ffffff;
-  font-size: 10.5px;
-  font-weight: 800;
-  padding: 2px 6px;
-  border-radius: 4px;
-  letter-spacing: 0.04em;
 }
 
 .cccd-dock-chips {

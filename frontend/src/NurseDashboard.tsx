@@ -172,7 +172,7 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
   const [triageNotes, setTriageNotes] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Nhận diện Bệnh nhân CCCD / VNeID Đề án 06
+  // Nhận diện Bệnh nhân CCCD / VNeID
   const [showCccdDock, setShowCccdDock] = useState(false)
   const [cccdSearch, setCccdSearch] = useState('')
   const [identifying, setIdentifying] = useState(false)
@@ -538,10 +538,10 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
             <button
               className={`btn-nurse-toggle-cccd ${showCccdDock ? 'active' : ''}`}
               onClick={() => setShowCccdDock(v => !v)}
-              title="Tra cứu CCCD gắn chip & VNeID Đề án 06"
+              title="Tra cứu CCCD gắn chip & VNeID"
             >
               <CreditCard size={15} />
-              <span>{showCccdDock ? 'Đóng Đề án 06' : 'Đề án 06: CCCD / VNeID'}</span>
+              <span>{showCccdDock ? 'Đóng tra cứu CCCD' : 'CCCD / VNeID'}</span>
             </button>
           </div>
         </div>
@@ -573,12 +573,11 @@ export const NurseDashboard: React.FC<NurseDashboardProps> = ({
         </div>
       )}
 
-      {/* 2. COLLAPSIBLE ĐỀ ÁN 06 DOCK */}
+      {/* 2. COLLAPSIBLE CCCD & VNEID DOCK */}
       {showCccdDock && (
         <section className="nurse-cccd-dock">
           <div className="cccd-dock-header">
             <div className="cccd-dock-title">
-              <span className="badge-dean06">ĐỀ ÁN 06/CP</span>
               <h3>Tra Cứu & Nhận Diện Hồ Sơ EMR Bằng Thẻ CCCD Gắn Chip / VNeID</h3>
             </div>
           </div>

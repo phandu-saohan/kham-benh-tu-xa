@@ -84,20 +84,6 @@ export const PatientIdentificationModal: React.FC<PatientIdentificationModalProp
               display: 'inline-flex',
               alignItems: 'center',
               gap: '4px',
-              background: 'rgba(255, 255, 255, 0.25)',
-              padding: '3px 10px',
-              borderRadius: '20px',
-              fontSize: '11px',
-              fontWeight: 700,
-              letterSpacing: '0.5px',
-              textTransform: 'uppercase'
-            }}>
-              <ShieldCheck size={14} /> ĐỀ ÁN 06 - BỘ CÔNG AN & BỘ Y TẾ
-            </span>
-            <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
               background: '#ffffff',
               color: isExisting ? '#065f46' : '#0e7490',
               padding: '3px 10px',
@@ -364,7 +350,7 @@ export const PatientIdentificationModal: React.FC<PatientIdentificationModalProp
           gap: '10px'
         }}>
           <span style={{ fontSize: '12px', color: '#64748b' }}>
-            Hệ thống liên thông dữ liệu y tế Đề án 06/CP
+            Hệ thống liên thông dữ liệu y tế
           </span>
 
           <div style={{ display: 'flex', gap: '10px' }}>
