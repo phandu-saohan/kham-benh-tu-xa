@@ -11,6 +11,7 @@ import {
   Camera,
   LogOut,
   Bell,
+  PhoneCall,
   Sparkles,
   ShieldCheck,
   Stethoscope,
@@ -66,7 +67,6 @@ export function PatientWaitingRoom({
   const [waitingStatus, setWaitingStatus] = useState<WaitingRoomStatus | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isDoctorCalling, setIsDoctorCalling] = useState(false)
-  const [autoJoinCountdown, setAutoJoinCountdown] = useState<number | null>(null)
   const [isLeaving, setIsLeaving] = useState(false)
 
   // Active Tab
@@ -118,7 +118,6 @@ export function PatientWaitingRoom({
 
   // Refs for timers & audio
   const pollTimerRef = useRef<any>(null)
-  const countdownTimerRef = useRef<any>(null)
   const audioChimePlayedRef = useRef(false)
 
   // Chime playback
@@ -169,9 +168,6 @@ export function PatientWaitingRoom({
           if (!audioChimePlayedRef.current) {
             audioChimePlayedRef.current = true
             playCallChime()
-          }
-          if (autoJoinCountdown === null) {
-            setAutoJoinCountdown(5)
           }
         }
       }
@@ -225,20 +221,6 @@ export function PatientWaitingRoom({
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight
     }
   }, [messages, activeTab])
-
-  // Countdown auto join
-  useEffect(() => {
-    if (autoJoinCountdown !== null && autoJoinCountdown > 0) {
-      countdownTimerRef.current = setTimeout(() => {
-        setAutoJoinCountdown(autoJoinCountdown - 1)
-      }, 1000)
-    } else if (autoJoinCountdown === 0) {
-      handleJoin()
-    }
-    return () => {
-      if (countdownTimerRef.current) clearTimeout(countdownTimerRef.current)
-    }
-  }, [autoJoinCountdown])
 
   const handleJoin = () => {
     stopCameraTest()
@@ -574,25 +556,24 @@ export function PatientWaitingRoom({
           <div className="pwr-calling-banner">
             <div className="pwr-calling-info">
               <div className="pwr-calling-bell">
-                <Bell size={22} className="pwr-bell-ring" />
+                <PhoneCall size={22} className="pwr-bell-ring" />
               </div>
               <div>
                 <h4 className="pwr-calling-title">
-                  Bác sĩ {waitingStatus?.doctor_name || 'phụ trách'} đang mời bạn vào khám!
+                  Bác sĩ {waitingStatus?.doctor_name || 'phụ trách'} đang gọi bạn vào khám!
                 </h4>
                 <p className="pwr-calling-desc">
-                  Buồng khám đã sẵn sàng.
-                  {autoJoinCountdown !== null && (
-                    <span style={{ marginLeft: '6px', fontWeight: 800 }}>
-                      Tự động chuyển vào sau {autoJoinCountdown}s
-                    </span>
-                  )}
+                  Buồng khám trực tuyến đã sẵn sàng kết nối.
                 </p>
               </div>
             </div>
 
-            <button className="pwr-btn-join-now" onClick={handleJoin}>
-              <Video size={17} /> Vào Gặp Bác Sĩ Ngay
+            <button
+              className="pwr-btn-join-now"
+              onClick={handleJoin}
+              title="Nhấn để nhận cuộc gọi và vào phòng khám ngay lập tức"
+            >
+              <PhoneCall size={17} /> Nhận Cuộc Gọi Vào Khám
             </button>
           </div>
         )}
