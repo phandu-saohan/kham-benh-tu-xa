@@ -15,6 +15,7 @@ import {
   generateAiScribeSoap, callPatient, getAIStatus, switchAIMode, type AIStatusInfo,
   suggestIcd10, auditBhytClaim, analyzePacsImage, interpretLabResults,
   getAppointmentLabResults, getAppointmentPacsStudies,
+  getAppointmentDocuments, resolveAuthedMediaUrl, type AppointmentDocument,
   shareLabResult, getAppointmentHistory, getPatientConsultationHistory,
   getBHYTClaim, getBHYTXML4210, submitBHYTClaim,
   getConsultationMembers, inviteConsultationMember, submitConsultationOpinion,
@@ -61,6 +62,10 @@ export function DoctorWorkspace({
   const [consultationHistory, setConsultationHistory] = useState<ConsultationHistoryItem[]>([])
   const [appointmentEvents, setAppointmentEvents] = useState<AppointmentEventItem[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
+
+  // Hồ sơ, tài liệu người bệnh tải lên đính kèm ca khám
+  const [appointmentDocs, setAppointmentDocs] = useState<AppointmentDocument[]>([])
+  const [loadingDocs, setLoadingDocs] = useState(false)
 
   // Phân hệ 1: Giám định BHYT XML 4210
   const [bhytClaim, setBhytClaim] = useState<BHYTClaimItem | null>(null)
@@ -700,7 +705,21 @@ export function DoctorWorkspace({
       .then(setPacsData)
       .catch(console.error)
       .finally(() => setLoadingPacs(false))
-  }, [appointment.id])
+
+    // Tải tài liệu do người bệnh đính kèm (đơn thuốc, KQ XN, CDHA)
+    setLoadingDocs(true)
+    getAppointmentDocuments(appointment.id)
+      .then(setAppointmentDocs)
+      .catch(console.error)
+      .finally(() => setLoadingDocs(false))
+
+    // Tải lịch sử ca khám của người bệnh từ EMR/HIS
+    if (appointment.patient_id) {
+      getPatientConsultationHistory(appointment.patient_id)
+        .then(setConsultationHistory)
+        .catch(console.error)
+    }
+  }, [appointment.id, appointment.patient_id])
 
   // Đồng bộ 3 kết quả xét nghiệm mới nhất vào Phiếu khám EMR
   function handleSyncLatest3LabResults() {
@@ -1052,14 +1071,14 @@ export function DoctorWorkspace({
         const res = await generateAiScribeSoap(textToAnalyze, patientData?.full_name || (appointment as any).patient_name || "Bệnh nhân", patientData?.age || 35)
         setSoapResult(res)
         setSoapEditState({
-          subjective: res.soap?.subjective || res.extracted_symptoms || symptoms || appointment.reason || '',
-          objective: res.soap?.objective || clinicalExamination || 'Thể trạng chung tốt, niêm mạc hồng, tim đều, phổi trong, không phù ngoại biên.',
+          subjective: res.soap?.subjective || res.extracted_symptoms || symptoms || encounterInfo?.reason || appointment.reason || '',
+          objective: res.soap?.objective || clinicalExamination || (triageBp ? `Thể trạng chung tốt, HA ${triageBp} mmHg, Mạch ${triagePulse || '--'} bpm, SpO2 ${triageSpo2 || '--'}%` : 'Thể trạng chung tốt, tiếp xúc tốt.'),
           assessment: res.soap?.assessment || diagnosis || res.extracted_symptoms || encounterInfo?.reason || appointment.reason || '',
-          icd10Code: res.suggested_icd10_code || icd10Code || 'E11.9',
-          icd10Name: res.suggested_icd10_name || icd10Name || 'Bệnh đái tháo đường typ 2, không biến chứng',
-          plan: res.soap?.plan || plan || 'Duy trì chế độ dinh dưỡng giảm tinh bột, tập thể dục nhẹ 30 phút/ngày, tái khám định kỳ sau 1 tháng.',
-          prescriptionDraft: res.prescription_draft || prescription || '1. Metformin 500mg - Uống 1 viên x 2 lần/ngày (sau ăn sáng, tối)\n2. Amlodipine 5mg - Uống 1 viên/ngày (sau ăn sáng)',
-          allergiesWarning: res.allergies_warning || allergies || 'Dị ứng: Penicillin, Kháng sinh nhóm Beta-lactam'
+          icd10Code: res.suggested_icd10_code || icd10Code || '',
+          icd10Name: res.suggested_icd10_name || icd10Name || '',
+          plan: res.soap?.plan || plan || '',
+          prescriptionDraft: res.prescription_draft || prescription || '',
+          allergiesWarning: res.allergies_warning || allergies || patientData?.allergies || 'Không ghi nhận tiền sử dị ứng'
         })
         setShowSoapModal(true)
         setToast('✨ AI đã kết nối & tự động tạo bản thảo SOAP! Bác sĩ kiểm tra và duyệt phiếu khám.')
@@ -1078,14 +1097,14 @@ export function DoctorWorkspace({
 
   const handleOpenManualSoap = () => {
     setSoapEditState({
-      subjective: symptoms || encounterInfo?.reason || appointment.reason || 'Khám sức khỏe tổng quát và theo dõi đường huyết',
-      objective: clinicalExamination || 'Thể trạng tỉnh táo, niêm mạc hồng, huyết áp ổn định.',
-      assessment: diagnosis || 'Theo dõi đái tháo đường typ 2',
-      icd10Code: icd10Code || 'E11.9',
-      icd10Name: icd10Name || 'Bệnh đái tháo đường typ 2, không biến chứng',
-      plan: plan || 'Tiếp tục duy trì phác đồ thuốc hiện tại, theo dõi đường huyết mao mạch.',
-      prescriptionDraft: prescription || '1. Metformin 500mg - Uống 1 viên x 2 lần/ngày (sau ăn sáng, tối)',
-      allergiesWarning: allergies || 'Dị ứng: Penicillin, Kháng sinh nhóm Beta-lactam'
+      subjective: symptoms || encounterInfo?.reason || appointment.reason || '',
+      objective: clinicalExamination || (triageBp ? `Thể trạng tỉnh táo, HA ${triageBp} mmHg, Mạch ${triagePulse || '--'} bpm, SpO2 ${triageSpo2 || '--'}%` : 'Thể trạng tỉnh táo, tiếp xúc tốt.'),
+      assessment: diagnosis || '',
+      icd10Code: icd10Code || '',
+      icd10Name: icd10Name || '',
+      plan: plan || '',
+      prescriptionDraft: prescription || '',
+      allergiesWarning: allergies || patientData?.allergies || 'Không ghi nhận tiền sử dị ứng'
     })
     setShowSoapModal(true)
     setToast('📝 Mở Phiếu khám lâm sàng: Bác sĩ nhập tay trực tiếp.')
@@ -1832,18 +1851,18 @@ export function DoctorWorkspace({
                   <div className="essential-patient-strip">
                     <div className="patient-mini-item">
                       <span className="mini-label">Bệnh nhân:</span>
-                      <strong className="mini-val" style={{ color: '#0f766e' }}>{patientData?.full_name || appointment.patient_name || user.full_name || 'Bệnh nhân test'}</strong>
-                      <span className="mini-sub">({patientData?.gender === 'female' ? 'Nữ' : 'Nam'} &bull; {patientData?.date_of_birth ? `${patientData.date_of_birth} (${patientData.age || 34} tuổi)` : '34 tuổi'})</span>
+                      <strong className="mini-val" style={{ color: '#0f766e' }}>{patientData?.full_name || appointment.patient_name || user.full_name || 'Bệnh nhân'}</strong>
+                      <span className="mini-sub">({patientData?.gender === 'female' ? 'Nữ' : (patientData?.gender === 'male' ? 'Nam' : 'Chưa cập nhật')}{patientData?.date_of_birth ? ` &bull; ${patientData.date_of_birth}${patientData.age ? ` (${patientData.age} tuổi)` : ''}` : ''})</span>
                     </div>
                     <div className="patient-mini-item">
                       <span className="mini-label">Mã PID / CCCD:</span>
-                      <span className="mini-val font-mono">{patientData?.external_patient_id || `VN-0933413486`}</span>
-                      <span className="mini-sub">&bull; CCCD: {patientData?.national_id || '079092014829'}</span>
+                      <span className="mini-val font-mono">{patientData?.external_patient_id || (appointment.patient_id ? `PID-${appointment.patient_id.toString().padStart(5, '0')}` : '--')}</span>
+                      <span className="mini-sub">&bull; CCCD: {patientData?.national_id || patientData?.identity_card || 'Chưa cập nhật'}</span>
                     </div>
                     <div className="patient-mini-item">
                       <span className="mini-label">Số điện thoại:</span>
-                      <span className="mini-val font-mono">{patientData?.phone_number || (appointment as any).patient_phone || '0933413486'}</span>
-                      <span className="mini-sub">&bull; Định danh: VNeID Cấp 2</span>
+                      <span className="mini-val font-mono">{patientData?.phone_number || (appointment as any).patient_phone || 'Chưa cập nhật'}</span>
+                      <span className="mini-sub">&bull; Định danh: {patientData?.national_id || patientData?.identity_card ? 'VNeID Cấp 2' : 'Chưa liên kết'}</span>
                     </div>
                     <div className="patient-mini-item">
                       <span className="mini-label">Người đi cùng:</span>
@@ -1870,7 +1889,7 @@ export function DoctorWorkspace({
                     </span>
                   </div>
                   <div className="booking-reason-quote-box">
-                    "{encounterInfo?.reason || appointment.reason || symptoms || 'Khám sức khỏe tổng quát và theo dõi đường huyết'}"
+                    "{encounterInfo?.reason || appointment.reason || symptoms || 'Bệnh nhân chưa ghi rõ lý do khi đặt khám.'}"
                   </div>
                 </div>
 
@@ -1891,9 +1910,16 @@ export function DoctorWorkspace({
                         <span className="medgemma-subtitle">Trích xuất tự động từ phiếu đặt khám & sàng lọc lâm sàng chuyên sâu</span>
                       </div>
                     </div>
-                    <span className="ai-urgency-badge normal">
-                      🟢 KHÁM THƯỜNG / TIÊU CHUẨN (P3)
-                    </span>
+                    {(() => {
+                      const urg = (encounterInfo?.medgemma_analysis?.urgency_level || encounterInfo?.triage_level || appointment.triage_level || '').toUpperCase()
+                      if (urg === 'EMERGENCY' || urg === 'P1') {
+                        return <span className="ai-urgency-badge emergency">🔴 CẤP CỨU / ƯU TIÊN CAO (P1)</span>
+                      }
+                      if (urg === 'HIGH' || urg === 'P2') {
+                        return <span className="ai-urgency-badge high">🟡 KHÁM ƯU TIÊN (P2)</span>
+                      }
+                      return <span className="ai-urgency-badge normal">🟢 KHÁM TIÊU CHUẨN (P3)</span>
+                    })()}
                   </div>
 
                   <div className="medgemma-body-grid" style={{ marginTop: '12px' }}>
@@ -1904,8 +1930,16 @@ export function DoctorWorkspace({
                           📋 Tóm tắt y khoa ban đầu từ AI:
                         </span>
                         <div className="medgemma-explanation-box" style={{ marginTop: '4px' }}>
-                          {encounterInfo?.medgemma_analysis?.explanation || (
-                            "Bệnh nhân có nhu cầu theo dõi chỉ số đường huyết mao mạch và hiệu chỉnh đơn thuốc điều trị. AI MedGemma đánh giá nguy cơ dao động đường huyết, khuyến nghị rà soát chỉ số lúc đói và sau ăn 2 giờ, đồng thời tầm soát triệu chứng hạ đường huyết phản ứng để tối ưu liều thuốc an toàn."
+                          {encounterInfo?.medgemma_analysis?.explanation ? (
+                            encounterInfo.medgemma_analysis.explanation
+                          ) : (
+                            <span style={{ color: '#64748b', fontStyle: 'italic', fontSize: '12.5px' }}>
+                              {encounterInfo?.reason || appointment.reason || symptoms ? (
+                                `Lý do khám: "${encounterInfo?.reason || appointment.reason || symptoms}". Hệ thống chưa ghi nhận tóm tắt AI chuyên sâu cho lượt khám này.`
+                              ) : (
+                                'Chưa có dữ liệu tóm tắt y khoa từ AI cho lượt khám này.'
+                              )}
+                            </span>
                           )}
                         </div>
                       </div>
@@ -1916,10 +1950,10 @@ export function DoctorWorkspace({
                         </span>
                         <div className="safety-alert-strip" style={{ marginTop: '4px' }}>
                           <span className="safety-item allergy" style={{ color: '#b91c1c', fontWeight: 600 }}>
-                            Dị ứng: {patientData?.allergies || allergies || 'Penicillin, Kháng sinh nhóm Beta-lactam'}
+                            Dị ứng: {patientData?.allergies || allergies || 'Không ghi nhận dị ứng thuốc'}
                           </span>
                           <span className="safety-item history" style={{ color: '#4338ca', fontWeight: 600 }}>
-                            &bull; Bệnh mạn tính: {patientData?.medical_history_notes || 'Đái tháo đường typ 2, Tăng huyết áp'}
+                            &bull; Bệnh mạn tính: {patientData?.medical_history_notes || (patientData?.has_medical_history && patientData?.medical_history_icd10 ? `Mã ICD: ${patientData.medical_history_icd10}` : (patientData?.has_medical_history ? 'Có tiền sử bệnh án' : 'Không ghi nhận bệnh mạn tính'))}
                           </span>
                         </div>
                       </div>
@@ -1931,20 +1965,20 @@ export function DoctorWorkspace({
                         <span className="medgemma-card-label" style={{ color: '#0369a1', fontWeight: 700 }}>
                           🔍 Các câu hỏi / Khảo sát thêm AI đề xuất Bác sĩ khai thác:
                         </span>
-                        <div className="ai-survey-checklist" style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <div className="ai-survey-item">
-                            <span className="survey-bullet">1.</span>
-                            <span><strong>Khảo sát cơn hạ đường huyết:</strong> Hỏi về dấu hiệu đói cồn cào, vã mồ hôi lạnh, run tay lúc gần trưa (10h-11h) hoặc chiều muộn (16h-17h).</span>
+                        {encounterInfo?.medgemma_analysis?.suggested_questions && encounterInfo.medgemma_analysis.suggested_questions.length > 0 ? (
+                          <div className="ai-survey-checklist" style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {(encounterInfo.medgemma_analysis.suggested_questions as string[]).map((q: string, idx: number) => (
+                              <div className="ai-survey-item" key={idx}>
+                                <span className="survey-bullet">{idx + 1}.</span>
+                                <span>{q}</span>
+                              </div>
+                            ))}
                           </div>
-                          <div className="ai-survey-item">
-                            <span className="survey-bullet">2.</span>
-                            <span><strong>Khảo sát tuân thủ phác đồ:</strong> Tần suất uống thuốc 2 tuần qua, có quên liều hoặc tự ý giảm nửa viên khi thấy mệt không.</span>
+                        ) : (
+                          <div style={{ marginTop: '8px', color: '#64748b', fontSize: '12px', fontStyle: 'italic', padding: '10px 4px' }}>
+                            Chưa có khảo sát chuyên sâu đề xuất từ AI cho ca khám này. Bác sĩ khai thác triệu chứng trực tiếp trong cuộc gọi tư vấn.
                           </div>
-                          <div className="ai-survey-item">
-                            <span className="survey-bullet">3.</span>
-                            <span><strong>Khảo sát triệu chứng thần kinh ngoại biên:</strong> Cảm giác tê bì, châm chích kiến bò đầu ngón tay ngón chân hoặc nhìn mờ gần đây.</span>
-                          </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1958,12 +1992,32 @@ export function DoctorWorkspace({
                       <strong style={{ fontSize: '13.5px', color: '#0f172a' }}>Ghi chú của Điều dưỡng (Bàn Sàng lọc & Tiếp đón Triage)</strong>
                     </div>
                     <span style={{ fontSize: '11px', color: '#0369a1', background: '#e0f2fe', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
-                      ĐD. Nguyễn Thị Mai &bull; Bàn Triage #01
+                      {encounterInfo?.nurse_name || appointment?.nurse_name || triageNurse ? (
+                        `ĐD. ${encounterInfo?.nurse_name || appointment?.nurse_name || triageNurse}${(encounterInfo as any)?.triage_station || (appointment as any)?.triage_station ? ` • ${(encounterInfo as any)?.triage_station || (appointment as any)?.triage_station}` : ' • Bàn Triage'}`
+                      ) : (
+                        'Bàn Sàng lọc & Tiếp đón Triage'
+                      )}
                     </span>
                   </div>
                   <div className="nurse-notes-content" style={{ marginTop: '8px', fontSize: '13px', lineHeight: '1.6', color: '#334155', background: '#f8fafc', padding: '10px 14px', borderRadius: '6px', borderLeft: '3px solid #0284c7' }}>
-                    {encounterInfo?.nurse_notes || (
-                      "Bệnh nhân đã được kiểm tra định danh CCCD gắn chip (VNeID Cấp 2) hợp lệ. Chỉ số sinh hiệu đo tự động tại buồng tiếp đón: HA 130/84 mmHg, Mạch 73 bpm, SpO2 93%, Nhiệt độ 36.8°C, Thể trạng BMI 23.0 kg/m² (Chiều cao 168cm, Cân nặng 65kg). Bệnh nhân tỉnh táo, tiếp xúc tốt. Đã hướng dẫn chuẩn bị đơn thuốc cũ và kết quả XN gần nhất để Bác sĩ đối chiếu."
+                    {encounterInfo?.nurse_notes || triageNotes ? (
+                      encounterInfo?.nurse_notes || triageNotes
+                    ) : (triageBp || triagePulse || triageTemp || triageSpo2 || triageWeight || triageHeight) ? (
+                      <div>
+                        <strong>Sinh hiệu tiếp đón: </strong>
+                        {[
+                          triageBp ? `HA ${triageBp} mmHg` : '',
+                          triagePulse ? `Mạch ${triagePulse} bpm` : '',
+                          triageSpo2 ? `SpO2 ${triageSpo2}%` : '',
+                          triageTemp ? `Thân nhiệt ${triageTemp}°C` : '',
+                          triageWeight ? `Cân nặng ${triageWeight} kg` : '',
+                          triageHeight ? `Chiều cao ${triageHeight} cm` : ''
+                        ].filter(Boolean).join(', ')}. Người bệnh đã sẵn sàng tư vấn trực tuyến cùng Bác sĩ.
+                      </div>
+                    ) : (
+                      <span style={{ color: '#64748b', fontStyle: 'italic' }}>
+                        Chưa có ghi chú lâm sàng từ Điều dưỡng tiếp đón. Người bệnh đã vào phòng khám trực tuyến.
+                      </span>
                     )}
                   </div>
                 </div>
@@ -1997,19 +2051,43 @@ export function DoctorWorkspace({
                         </button>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: '#334155' }}>
-                        <div style={{ padding: '4px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #f1f5f9' }}>
-                          <strong>1. Metformin 500mg</strong> &bull; 1 viên x 2 lần/ngày (sau ăn sáng, tối)
-                        </div>
-                        <div style={{ padding: '4px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #f1f5f9' }}>
-                          <strong>2. Amlodipine 5mg</strong> &bull; 1 viên/ngày (sau ăn sáng)
-                        </div>
-                        <div style={{ padding: '4px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #f1f5f9' }}>
-                          <strong>3. Atorvastatin 10mg</strong> &bull; 1 viên/ngày (trước khi đi ngủ)
-                        </div>
+                        {(() => {
+                          const docPrescriptions = appointmentDocs.filter(d => d.document_type === 'prescription')
+                          const pastRxHistory = consultationHistory.filter(h => h.prescription_status || h.national_code || h.diagnosis)
+                          
+                          if (docPrescriptions.length > 0) {
+                            return docPrescriptions.map(doc => (
+                              <div key={doc.id} style={{ padding: '6px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>
+                                  <strong>📄 {doc.title || doc.file_name || 'Đơn thuốc đã tải lên'}</strong>
+                                  {doc.description && <div style={{ fontSize: '11px', color: '#64748b' }}>{doc.description}</div>}
+                                </div>
+                                <a href={resolveAuthedMediaUrl(doc.file_url)} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#0284c7', textDecoration: 'none', fontWeight: 600 }}>Xem file ↗</a>
+                              </div>
+                            ))
+                          }
+                          
+                          if (pastRxHistory.length > 0) {
+                            return pastRxHistory.slice(0, 3).map(h => (
+                              <div key={h.appointment_id} style={{ padding: '6px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #f1f5f9' }}>
+                                <div style={{ fontWeight: 600, color: '#0f172a' }}>
+                                  Lần khám #{h.appointment_id} {h.starts_at ? `(${new Date(h.starts_at).toLocaleDateString('vi-VN')})` : ''}
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#475569' }}>
+                                  {h.diagnosis ? `Chẩn đoán: ${h.diagnosis}` : `Lý do: ${h.reason}`}
+                                  {h.national_code ? ` • Mã đơn: ${h.national_code}` : ''}
+                                </div>
+                              </div>
+                            ))
+                          }
+
+                          return (
+                            <div style={{ color: '#64748b', fontSize: '12px', fontStyle: 'italic', padding: '12px 6px', textAlign: 'center' }}>
+                              Chưa có đơn thuốc cũ được tải lên hoặc liên thông EMR.
+                            </div>
+                          )
+                        })()}
                       </div>
-                      <small style={{ display: 'block', marginTop: '6px', color: '#94a3b8', fontSize: '10.5px' }}>
-                        Đơn ngoại trú BV Đa khoa (cách đây 1 tháng)
-                      </small>
                     </div>
 
                     {/* 5.2 Kết quả Xét nghiệm (KQ XN) cũ */}
@@ -2028,22 +2106,46 @@ export function DoctorWorkspace({
                         </button>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11.5px', color: '#334155' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 6px', background: '#fff', borderRadius: '4px' }}>
-                          <span>Glucose đói:</span>
-                          <strong style={{ color: '#059669' }}>6.2 mmol/L (Bình thường)</strong>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 6px', background: '#fff', borderRadius: '4px' }}>
-                          <span>HbA1c:</span>
-                          <strong style={{ color: '#059669' }}>6.8% (Mục tiêu &lt; 7.0%)</strong>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 6px', background: '#fff', borderRadius: '4px' }}>
-                          <span>Creatinin:</span>
-                          <strong>82 µmol/L (eGFR 88 mL/phút)</strong>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 6px', background: '#fff', borderRadius: '4px' }}>
-                          <span>Lipid máu:</span>
-                          <span>Cholesterol 4.8 &bull; TG 1.9 mmol/L</span>
-                        </div>
+                        {(() => {
+                          const docLabTests = appointmentDocs.filter(d => d.document_type === 'lab_test')
+                          const hasReports = labData?.reports && labData.reports.length > 0
+
+                          if (hasReports) {
+                            return labData.reports.slice(0, 2).map(rep => (
+                              <div key={rep.report_id} style={{ marginBottom: '6px' }}>
+                                <div style={{ fontSize: '11px', fontWeight: 700, color: '#0369a1', marginBottom: '2px' }}>
+                                  {rep.title || rep.category_name} ({rep.sampled_at ? new Date(rep.sampled_at).toLocaleDateString('vi-VN') : 'Gần nhất'})
+                                </div>
+                                {rep.indicators?.slice(0, 4).map(ind => (
+                                  <div key={ind.code} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 6px', background: '#fff', borderRadius: '4px', marginBottom: '2px' }}>
+                                    <span>{ind.name}:</span>
+                                    <strong style={{ color: ind.flag === 'HIGH' ? '#dc2626' : (ind.flag === 'LOW' ? '#d97706' : '#059669') }}>
+                                      {ind.value} {ind.unit} {ind.flag_label ? `(${ind.flag_label})` : ''}
+                                    </strong>
+                                  </div>
+                                ))}
+                              </div>
+                            ))
+                          }
+
+                          if (docLabTests.length > 0) {
+                            return docLabTests.map(doc => (
+                              <div key={doc.id} style={{ padding: '6px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>
+                                  <strong>🧪 {doc.title || doc.file_name || 'Phiếu kết quả xét nghiệm'}</strong>
+                                  {doc.description && <div style={{ fontSize: '11px', color: '#64748b' }}>{doc.description}</div>}
+                                </div>
+                                <a href={resolveAuthedMediaUrl(doc.file_url)} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#0284c7', textDecoration: 'none', fontWeight: 600 }}>Xem file ↗</a>
+                              </div>
+                            ))
+                          }
+
+                          return (
+                            <div style={{ color: '#64748b', fontSize: '12px', fontStyle: 'italic', padding: '12px 6px', textAlign: 'center' }}>
+                              Chưa có kết quả xét nghiệm cũ trong hồ sơ EMR/LIS.
+                            </div>
+                          )
+                        })()}
                       </div>
                     </div>
 
@@ -2063,12 +2165,37 @@ export function DoctorWorkspace({
                         </button>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11.5px', color: '#334155' }}>
-                        <div style={{ padding: '4px 8px', background: '#fff', borderRadius: '4px', border: '1px solid #f1f5f9' }}>
-                          <strong>📷 X-Quang ngực thẳng (PA):</strong> Tim phổi bình thường, rốn phổi đậm nhẹ.
-                        </div>
-                        <div style={{ padding: '4px 8px', background: '#fff', borderRadius: '4px', border: '1px solid #f1f5f9' }}>
-                          <strong>📷 Siêu âm bụng tổng quát:</strong> Gan nhiễm mỡ nhẹ độ 1, tụy/lách/thận bình thường.
-                        </div>
+                        {(() => {
+                          const docPacs = appointmentDocs.filter(d => d.document_type === 'cdha')
+                          const hasStudies = pacsData?.studies && pacsData.studies.length > 0
+
+                          if (hasStudies) {
+                            return pacsData.studies.slice(0, 2).map(study => (
+                              <div key={study.study_id} style={{ padding: '6px 8px', background: '#fff', borderRadius: '4px', border: '1px solid #f1f5f9', marginBottom: '4px' }}>
+                                <strong>📷 [{study.modality}] {study.description || study.body_part}:</strong> {study.impression || study.findings || 'Đã liên thông PACS'}
+                                {study.date && <div style={{ fontSize: '10.5px', color: '#94a3b8', marginTop: '2px' }}>Ngày: {study.date} &bull; {study.institution || 'Bệnh viện'}</div>}
+                              </div>
+                            ))
+                          }
+
+                          if (docPacs.length > 0) {
+                            return docPacs.map(doc => (
+                              <div key={doc.id} style={{ padding: '6px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>
+                                  <strong>📷 {doc.title || doc.file_name || 'Phim / Ảnh chụp chẩn đoán'}</strong>
+                                  {doc.description && <div style={{ fontSize: '11px', color: '#64748b' }}>{doc.description}</div>}
+                                </div>
+                                <a href={resolveAuthedMediaUrl(doc.file_url)} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#7c3aed', textDecoration: 'none', fontWeight: 600 }}>Xem file ↗</a>
+                              </div>
+                            ))
+                          }
+
+                          return (
+                            <div style={{ color: '#64748b', fontSize: '12px', fontStyle: 'italic', padding: '12px 6px', textAlign: 'center' }}>
+                              Chưa có dữ liệu hình ảnh PACS hoặc chẩn đoán hình ảnh cũ.
+                            </div>
+                          )
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -2142,7 +2269,7 @@ export function DoctorWorkspace({
                     <div>
                       <h3 style={{ margin: 0, fontSize: '17px', color: '#064e3b' }}>Hồ sơ Giám định BHYT Quốc gia (XML 4210 / QĐ 130)</h3>
                       <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#047857' }}>
-                        Mã liên kết: <strong>{bhytClaim?.ma_lk || '79014_20261102_000001'}</strong> · Mã thẻ BHYT: <strong>{bhytClaim?.ma_the_bhyt || 'GD4797931812345'}</strong> · Mức hưởng: <strong>{bhytClaim?.muc_huong || 80}%</strong>
+                        Mã liên kết: <strong>{bhytClaim?.ma_lk || (encounterInfo as any)?.encounter_code || (appointment as any)?.encounter_code || (appointment.id ? `LK-${appointment.id}` : '--')}</strong> · Mã thẻ BHYT: <strong>{bhytClaim?.ma_the_bhyt || patientData?.bhyt_code || encounterInfo?.bhyt_code || (appointment as any)?.bhyt_code || 'Chưa liên kết thẻ BHYT'}</strong> · Mức hưởng: <strong>{bhytClaim?.muc_huong || encounterInfo?.bhyt_rate || 80}%</strong>
                       </p>
                     </div>
                   </div>
@@ -2461,33 +2588,41 @@ export function DoctorWorkspace({
                   <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', borderLeft: '4px solid #ef4444' }}>
                     <span style={{ fontSize: '11px', color: '#64748b' }}>Huyết áp (Omron BLE)</span>
                     <div style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>
-                      {rpmVitals.find(v => v.systolic)?.systolic || 128} / {rpmVitals.find(v => v.diastolic)?.diastolic || 82} <small style={{ fontSize: '12px', fontWeight: 500 }}>mmHg</small>
+                      {rpmVitals.find(v => v.systolic)?.systolic || (triageBp ? triageBp.split('/')[0] : '--')} / {rpmVitals.find(v => v.diastolic)?.diastolic || (triageBp ? triageBp.split('/')[1] : '--')} <small style={{ fontSize: '12px', fontWeight: 500 }}>mmHg</small>
                     </div>
-                    <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600 }}>🟢 Tiền tăng huyết áp nhẹ - Ổn định</span>
+                    <span style={{ fontSize: '11px', color: triageBp || rpmVitals.some(v => v.systolic) ? '#16a34a' : '#94a3b8', fontWeight: 600 }}>
+                      {triageBp || rpmVitals.some(v => v.systolic) ? '🟢 Huyết áp tiếp đón' : '⚪ Chưa có chỉ số'}
+                    </span>
                   </div>
 
                   <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', borderLeft: '4px solid #f59e0b' }}>
                     <span style={{ fontSize: '11px', color: '#64748b' }}>Đường huyết (Accu-Chek)</span>
                     <div style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>
-                      {rpmVitals.find(v => v.glucose_value)?.glucose_value || 5.8} <small style={{ fontSize: '12px', fontWeight: 500 }}>mmol/L</small>
+                      {rpmVitals.find(v => v.glucose_value)?.glucose_value || triageGlucose || '--'} <small style={{ fontSize: '12px', fontWeight: 500 }}>mmol/L</small>
                     </div>
-                    <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600 }}>🟢 Đường huyết đói tốt</span>
+                    <span style={{ fontSize: '11px', color: rpmVitals.find(v => v.glucose_value)?.glucose_value || triageGlucose ? '#16a34a' : '#94a3b8', fontWeight: 600 }}>
+                      {rpmVitals.find(v => v.glucose_value)?.glucose_value || triageGlucose ? '🟢 Đường huyết đói' : '⚪ Chưa đo'}
+                    </span>
                   </div>
 
                   <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', borderLeft: '4px solid #0284c7' }}>
                     <span style={{ fontSize: '11px', color: '#64748b' }}>Nồng độ Oxy (SpO2)</span>
                     <div style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>
-                      {rpmVitals.find(v => v.spo2_percent)?.spo2_percent || 98.5} <small style={{ fontSize: '12px', fontWeight: 500 }}>%</small>
+                      {rpmVitals.find(v => v.spo2_percent)?.spo2_percent || triageSpo2 || '--'} <small style={{ fontSize: '12px', fontWeight: 500 }}>%</small>
                     </div>
-                    <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600 }}>🟢 Bão hòa oxy tối ưu</span>
+                    <span style={{ fontSize: '11px', color: rpmVitals.find(v => v.spo2_percent)?.spo2_percent || triageSpo2 ? '#16a34a' : '#94a3b8', fontWeight: 600 }}>
+                      {rpmVitals.find(v => v.spo2_percent)?.spo2_percent || triageSpo2 ? '🟢 Bão hòa oxy SpO2' : '⚪ Chưa đo'}
+                    </span>
                   </div>
 
                   <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', borderLeft: '4px solid #8b5cf6' }}>
                     <span style={{ fontSize: '11px', color: '#64748b' }}>Nhịp tim (Pulse)</span>
                     <div style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>
-                      {rpmVitals.find(v => v.pulse)?.pulse || 74} <small style={{ fontSize: '12px', fontWeight: 500 }}>bpm</small>
+                      {rpmVitals.find(v => v.pulse)?.pulse || triagePulse || '--'} <small style={{ fontSize: '12px', fontWeight: 500 }}>bpm</small>
                     </div>
-                    <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600 }}>🟢 Nhịp xoang đều</span>
+                    <span style={{ fontSize: '11px', color: rpmVitals.find(v => v.pulse)?.pulse || triagePulse ? '#16a34a' : '#94a3b8', fontWeight: 600 }}>
+                      {rpmVitals.find(v => v.pulse)?.pulse || triagePulse ? '🟢 Mạch tiếp đón' : '⚪ Chưa đo'}
+                    </span>
                   </div>
                 </div>
 
@@ -2568,11 +2703,11 @@ export function DoctorWorkspace({
                   </div>
                   <div>
                     <label>Số định danh / CCCD / Hộ chiếu:</label>
-                    <b style={{ color: '#047857' }}>{patientData?.identity_card || '079092014829'} (VNeID Cấp 2)</b>
+                    <b style={{ color: '#047857' }}>{patientData?.identity_card || patientData?.national_id || 'Chưa cập nhật'}{patientData?.identity_card || patientData?.national_id ? ' (VNeID Cấp 2)' : ''}</b>
                   </div>
                   <div>
                     <label>Dân tộc & Nhóm máu:</label>
-                    <b>{patientData?.ethnicity || 'Kinh'} • Nhóm máu {patientData?.blood_type || 'O+'}</b>
+                    <b>{patientData?.ethnicity || 'Kinh'} • Nhóm máu {patientData?.blood_type || 'Chưa xác định'}</b>
                   </div>
                   <div>
                     <label>Mã hồ sơ y tế (PID):</label>
@@ -3343,7 +3478,7 @@ export function DoctorWorkspace({
                     <div>
                       <h3 style={{ margin: 0, fontSize: '17px', color: '#064e3b' }}>Hồ sơ Giám định BHYT Quốc gia (XML 4210 / QĐ 130)</h3>
                       <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#047857' }}>
-                        Mã liên kết: <strong>{bhytClaim?.ma_lk || '79014_20261102_000001'}</strong> · Mã thẻ BHYT: <strong>{bhytClaim?.ma_the_bhyt || 'GD4797931812345'}</strong> · Mức hưởng: <strong>{bhytClaim?.muc_huong || 80}%</strong>
+                        Mã liên kết: <strong>{bhytClaim?.ma_lk || (encounterInfo as any)?.encounter_code || (appointment as any)?.encounter_code || (appointment.id ? `LK-${appointment.id}` : '--')}</strong> · Mã thẻ BHYT: <strong>{bhytClaim?.ma_the_bhyt || patientData?.bhyt_code || encounterInfo?.bhyt_code || (appointment as any)?.bhyt_code || 'Chưa liên kết thẻ BHYT'}</strong> · Mức hưởng: <strong>{bhytClaim?.muc_huong || encounterInfo?.bhyt_rate || 80}%</strong>
                       </p>
                     </div>
                   </div>
@@ -3662,11 +3797,15 @@ export function DoctorWorkspace({
                     <span className="rpm-card-badge">Omron BLE</span>
                   </div>
                   <div className="rpm-card-val">
-                    {rpmVitals.find(v => v.systolic)?.systolic || 128} / {rpmVitals.find(v => v.diastolic)?.diastolic || 82}
+                    {rpmVitals.find(v => v.systolic)?.systolic || (triageBp ? triageBp.split('/')[0] : '--')} / {rpmVitals.find(v => v.diastolic)?.diastolic || (triageBp ? triageBp.split('/')[1] : '--')}
                     <small> mmHg</small>
                   </div>
-                  <div className="rpm-card-status good">
-                    🟢 Mạch: <strong>{rpmVitals.find(v => v.pulse)?.pulse || 74}</strong> bpm
+                  <div className={`rpm-card-status ${triageBp || rpmVitals.some(v => v.systolic) ? 'good' : 'muted'}`}>
+                    {triagePulse || rpmVitals.find(v => v.pulse)?.pulse ? (
+                      <span>🟢 Mạch: <strong>{rpmVitals.find(v => v.pulse)?.pulse || triagePulse}</strong> bpm</span>
+                    ) : (
+                      <span>⚪ Chưa có chỉ số</span>
+                    )}
                   </div>
                 </div>
 
@@ -3676,10 +3815,12 @@ export function DoctorWorkspace({
                     <span className="rpm-card-badge">Accu-Chek</span>
                   </div>
                   <div className="rpm-card-val">
-                    {rpmVitals.find(v => v.glucose_value)?.glucose_value || 5.8}
+                    {rpmVitals.find(v => v.glucose_value)?.glucose_value || triageGlucose || '--'}
                     <small> mmol/L</small>
                   </div>
-                  <div className="rpm-card-status good">🟢 Đường huyết đói tốt</div>
+                  <div className={`rpm-card-status ${rpmVitals.find(v => v.glucose_value)?.glucose_value || triageGlucose ? 'good' : 'muted'}`}>
+                    {rpmVitals.find(v => v.glucose_value)?.glucose_value || triageGlucose ? '🟢 Đường huyết đói tốt' : '⚪ Chưa đo'}
+                  </div>
                 </div>
 
                 <div className="doctor-rpm-card spo2">
@@ -3688,10 +3829,12 @@ export function DoctorWorkspace({
                     <span className="rpm-card-badge">Oximeter</span>
                   </div>
                   <div className="rpm-card-val">
-                    {rpmVitals.find(v => v.spo2_percent)?.spo2_percent || 98.5}
+                    {rpmVitals.find(v => v.spo2_percent)?.spo2_percent || triageSpo2 || '--'}
                     <small> %</small>
                   </div>
-                  <div className="rpm-card-status good">🟢 Bão hòa oxy tối ưu</div>
+                  <div className={`rpm-card-status ${rpmVitals.find(v => v.spo2_percent)?.spo2_percent || triageSpo2 ? 'good' : 'muted'}`}>
+                    {rpmVitals.find(v => v.spo2_percent)?.spo2_percent || triageSpo2 ? '🟢 Bão hòa oxy SpO2' : '⚪ Chưa đo'}
+                  </div>
                 </div>
 
                 <div className="doctor-rpm-card hr">
@@ -3700,10 +3843,12 @@ export function DoctorWorkspace({
                     <span className="rpm-card-badge">ECG/Vòng</span>
                   </div>
                   <div className="rpm-card-val">
-                    {rpmVitals.find(v => v.pulse)?.pulse || 74}
+                    {rpmVitals.find(v => v.pulse)?.pulse || triagePulse || '--'}
                     <small> bpm</small>
                   </div>
-                  <div className="rpm-card-status good">🟢 Nhịp xoang đều</div>
+                  <div className={`rpm-card-status ${rpmVitals.find(v => v.pulse)?.pulse || triagePulse ? 'good' : 'muted'}`}>
+                    {rpmVitals.find(v => v.pulse)?.pulse || triagePulse ? '🟢 Nhịp xoang đều' : '⚪ Chưa đo'}
+                  </div>
                 </div>
               </div>
 
