@@ -9,7 +9,7 @@ import {
   Video,
   Mic,
   Camera,
-  ArrowLeft,
+  LogOut,
   Bell,
   Sparkles,
   ShieldCheck,
@@ -249,16 +249,14 @@ export function PatientWaitingRoom({
   }
 
   const handleLeave = async () => {
-    if (window.confirm('Bạn có chắc chắn muốn rời khỏi phòng chờ? Bạn có thể vào lại bất kỳ lúc nào.')) {
-      setIsLeaving(true)
-      try {
-        await leaveWaitingRoom(appointment.id)
-      } catch (e) {
-        console.warn('Error leaving waiting room:', e)
-      } finally {
-        stopCameraTest()
-        onBack()
-      }
+    setIsLeaving(true)
+    try {
+      await leaveWaitingRoom(appointment.id)
+    } catch (e) {
+      console.warn('Error leaving waiting room:', e)
+    } finally {
+      stopCameraTest()
+      onBack()
     }
   }
 
@@ -550,14 +548,9 @@ export function PatientWaitingRoom({
       <div className="pwr-viewport">
         {/* 1. Mobile App Topbar */}
         <header className="pwr-topbar">
-          <button className="pwr-back-btn" onClick={onBack} title="Về trang chủ (vẫn giữ số thứ tự)">
-            <ArrowLeft size={16} />
-            <span>Trang chủ</span>
-          </button>
-
-          <div className="pwr-topbar-center">
+          <div className="pwr-topbar-left">
             <div className="pwr-topbar-title">
-              <Stethoscope size={16} color="#0f766e" />
+              <Stethoscope size={18} color="#0f766e" />
               <span>Phòng Chờ</span>
             </div>
             <div className="pwr-live-badge">
@@ -569,9 +562,10 @@ export function PatientWaitingRoom({
             className="pwr-leave-btn"
             onClick={handleLeave}
             disabled={isLeaving}
-            title="Rời khỏi phòng chờ"
+            title="Rời phòng chờ về trang chủ"
           >
-            {isLeaving ? 'Đang rời...' : 'Rời phòng'}
+            <LogOut size={14} />
+            <span>{isLeaving ? 'Đang rời...' : 'Rời phòng'}</span>
           </button>
         </header>
 
