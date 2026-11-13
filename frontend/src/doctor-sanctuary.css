@@ -1081,15 +1081,15 @@
 .ds-scope .workspace-split,
 .workspace-split {
   display: grid !important;
-  grid-template-columns: 6fr 4fr !important;
+  grid-template-columns: 46fr 54fr !important;
   height: calc(100vh - 64px);
   overflow: hidden;
-  background: #f1f5f9;
+  background: #f8fafc;
 }
 
 @media (max-width: 1024px) {
   .workspace-split {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
     height: auto;
     overflow-y: auto;
   }
@@ -1112,14 +1112,14 @@
 .doctor-video-stage {
   position: relative;
   width: 100%;
-  height: 280px;
-  flex: 0 0 280px;
+  height: clamp(250px, 34vh, 340px);
+  flex: 0 0 clamp(250px, 34vh, 340px);
   display: flex;
   align-items: center;
   justify-content: center;
   background: #07101e;
   overflow: hidden;
-  border-bottom: 2px solid #0f172a;
+  border-bottom: 1px solid #1e293b;
 }
 
 .room-secure-indicator {
@@ -3974,3 +3974,1021 @@
 .btn-create-sheet-view:hover {
   background: #dcfce7;
 }
+
+/* ==========================================================================
+   MODERN CLINICAL WORKSTATION: ERGONOMIC REDESIGN (2026 BENCHMARK)
+   ========================================================================== */
+
+/* 1. COMPACT HORIZONTAL VITALS STRIP (LEFT PANE) */
+.doctor-vitals-strip {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.vitals-strip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.vitals-strip-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vitals-mini-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.vitals-strip-title strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.vitals-source-label {
+  font-size: 11px;
+  color: #64748b;
+  margin-left: 8px;
+  background: #f1f5f9;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.vitals-strip-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-vitals-history {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.btn-vitals-history:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.btn-vitals-apply {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.btn-vitals-apply:hover {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+}
+
+.vitals-chips-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+@media (max-width: 1200px) {
+  .vitals-chips-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.vitals-chip {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  transition: all 0.15s ease;
+}
+
+.vitals-chip.has-data {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.vitals-chip:hover {
+  border-color: #0e7490;
+  transform: translateY(-1px);
+}
+
+.chip-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chip-code {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.chip-dot.good {
+  background: #10b981;
+  box-shadow: 0 0 5px #10b981;
+}
+
+.chip-dot.muted {
+  background: #cbd5e1;
+}
+
+.chip-dot.warn {
+  background: #f59e0b;
+  box-shadow: 0 0 5px #f59e0b;
+}
+
+.chip-value {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  margin-top: 1px;
+}
+
+.chip-value strong {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.3px;
+}
+
+.chip-unit {
+  font-size: 10px;
+  color: #64748b;
+}
+
+.chip-sub {
+  font-size: 10px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 2. COMPACT AI SCRIBE DOCK (LEFT PANE) */
+.ai-scribe-compact-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ai-scribe-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-sparkle-pill {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #0e7490 0%, #06b6d4 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.ai-scribe-subtext {
+  font-size: 11px;
+  color: #64748b;
+  display: block;
+  margin-top: 1px;
+}
+
+.ai-scribe-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-scribe-toggle {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.btn-scribe-toggle.listening {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+  animation: ds-pulse 1.8s infinite;
+}
+
+.btn-scribe-transcript {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  position: relative;
+}
+
+.btn-scribe-transcript.has-data {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.transcript-badge {
+  background: #2563eb;
+  color: #ffffff;
+  border-radius: 9999px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.btn-scribe-autofill {
+  background: linear-gradient(135deg, #0e7490 0%, #0d9488 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  box-shadow: 0 1px 3px rgba(14, 116, 144, 0.2);
+  transition: all 0.15s ease;
+}
+
+.btn-scribe-autofill:hover:not(:disabled) {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+
+.btn-scribe-autofill:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-scribe-clear {
+  background: transparent;
+  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 5px 7px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-scribe-clear:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+/* 3. COLLAPSIBLE INTAKE & TRIAGE SUMMARY (RIGHT PANE) */
+.booking-intake-collapsible {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.booking-intake-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.booking-intake-header:hover {
+  background: #f8fafc;
+}
+
+.intake-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.intake-header-left strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.badge-live-online {
+  font-size: 11px;
+  font-weight: 600;
+  color: #047857;
+  background: #ecfdf5;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  border: 1px solid #a7f3d0;
+}
+
+.btn-toggle-intake {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.intake-collapsed-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: #334155;
+  background: #f8fafc;
+  flex-wrap: wrap;
+}
+
+.intake-summary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11.5px;
+}
+
+.intake-summary-chip.alert {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+  font-weight: 600;
+}
+
+.intake-expanded-body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 4. CLINICAL SOAP FORM CONTAINER (RIGHT PANE) */
+.clinical-soap-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.clinical-soap-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #0e7490 0%, #0891b2 100%);
+  border-radius: 8px;
+  color: #ffffff;
+}
+
+.clinical-soap-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clinical-soap-header-title h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.clinical-soap-header-title span {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.soap-fast-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-soap-header-action {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.btn-soap-header-action:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+/* Individual SOAP Section Cards */
+.soap-section {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.15s ease;
+}
+
+.soap-section.s {
+  border-left: 4.5px solid #0e7490;
+}
+
+.soap-section.o {
+  border-left: 4.5px solid #0284c7;
+}
+
+.soap-section.a {
+  border-left: 4.5px solid #8b5cf6;
+}
+
+.soap-section.p {
+  border-left: 4.5px solid #10b981;
+}
+
+.soap-section:focus-within {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(14, 116, 144, 0.08);
+}
+
+.soap-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.soap-section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.soap-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.soap-letter.s {
+  background: #0e7490;
+}
+
+.soap-letter.o {
+  background: #0284c7;
+}
+
+.soap-letter.a {
+  background: #8b5cf6;
+}
+
+.soap-letter.p {
+  background: #10b981;
+}
+
+.soap-section-helpers {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-soap-helper {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.btn-soap-helper:hover {
+  background: #f1f5f9;
+  color: #0e7490;
+  border-color: #0e7490;
+}
+
+.soap-field-textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 9px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #0f172a;
+  background: #ffffff;
+  font-family: inherit;
+  resize: vertical;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.soap-field-textarea:focus {
+  outline: none;
+  border-color: #0e7490;
+  box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.12);
+}
+
+/* Assessment Section (Diagnosis & ICD-10 Search) */
+.assessment-inputs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .assessment-inputs-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.soap-field-input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #0f172a;
+  background: #ffffff;
+  font-family: inherit;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.soap-field-input:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
+}
+
+.icd10-search-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.icd10-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.icd10-search-icon {
+  position: absolute;
+  left: 10px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.soap-field-input.icd10-input {
+  padding-left: 32px;
+  padding-right: 28px;
+}
+
+.btn-clear-query {
+  position: absolute;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px;
+  display: inline-flex;
+}
+
+.btn-clear-query:hover {
+  color: #ef4444;
+}
+
+.selected-icd-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  border-radius: 6px;
+  padding: 5px 10px;
+}
+
+.icd-code-tag {
+  background: #7c3aed;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.icd-name-text {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #5b21b6;
+  flex: 1;
+}
+
+.btn-remove-icd {
+  background: transparent;
+  border: none;
+  color: #7c3aed;
+  cursor: pointer;
+  padding: 2px;
+  display: inline-flex;
+  border-radius: 4px;
+}
+
+.btn-remove-icd:hover {
+  background: #ede9fe;
+  color: #4c1d95;
+}
+
+.icd10-dropdown-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
+.icd10-dropdown-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.15s ease;
+}
+
+.icd10-dropdown-item:hover {
+  background: #f5f3ff;
+}
+
+.icd-drop-code {
+  background: #ede9fe;
+  color: #6d28d9;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.icd-drop-name {
+  font-size: 12px;
+  color: #1e293b;
+}
+
+.icd10-quick-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.quick-chip-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.icd-quick-chip {
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.icd-quick-chip strong {
+  color: #7c3aed;
+}
+
+.icd-quick-chip:hover {
+  background: #f5f3ff;
+  border-color: #c4b5fd;
+  color: #5b21b6;
+}
+
+.icd-quick-chip.selected {
+  background: #7c3aed;
+  color: #ffffff;
+  border-color: #7c3aed;
+}
+
+.icd-quick-chip.selected strong {
+  color: #ffffff;
+}
+
+.btn-ai-suggest-icd {
+  background: #faf5ff;
+  color: #7c3aed;
+  border: 1px solid #ddd6fe;
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-ai-suggest-icd:hover {
+  background: #f3e8ff;
+}
+
+/* Plan Navigation Action Row */
+.soap-plan-nav-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.btn-soap-nav {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.btn-soap-nav.rx {
+  color: #0369a1;
+  background: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+.btn-soap-nav.rx:hover {
+  background: #e0f2fe;
+}
+
+.btn-soap-nav.lab {
+  color: #0d9488;
+  background: #f0fdfa;
+  border-color: #99f6e4;
+}
+
+.btn-soap-nav.lab:hover {
+  background: #ccfbf1;
+}
+
+.btn-soap-nav.pacs {
+  color: #7c3aed;
+  background: #faf5ff;
+  border-color: #ddd6fe;
+}
+
+.btn-soap-nav.pacs:hover {
+  background: #f3e8ff;
+}
+
+/* 5. STICKY CLINICAL SOAP FOOTER DOCK */
+.clinical-soap-footer {
+  position: sticky;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-top: 1px solid #e2e8f0;
+  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  z-index: 10;
+  margin: 16px -24px -24px -24px;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.footer-status-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #64748b;
+}
+
+.footer-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-footer-draft {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.btn-footer-draft:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.btn-footer-view {
+  background: #f8fafc;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.btn-footer-view:hover {
+  background: #e0f2fe;
+}
+
+.btn-footer-sign {
+  background: linear-gradient(135deg, #0e7490 0%, #0891b2 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  box-shadow: 0 1px 3px rgba(14, 116, 144, 0.2);
+}
+
+.btn-footer-sign:hover {
+  opacity: 0.95;
+}
+
+.signed-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.btn-footer-complete {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
+}
+
+.btn-footer-complete:hover {
+  opacity: 0.95;
+}
+

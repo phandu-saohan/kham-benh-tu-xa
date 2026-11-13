@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import {
-  ArrowLeft, ArrowRightLeft, ShieldCheck, Save, CheckCircle2, Lock, FileText, Edit3,
+  ArrowLeft, ArrowRightLeft, ChevronUp, ChevronDown, ShieldCheck, Save, CheckCircle2, Lock, FileText, Edit3,
   Pill, User, Search, AlertCircle, Stethoscope, Video, VideoOff, X,
   FileDown, PenTool, Share2, Code2, QrCode, Sparkles, Mic, MicOff, Bot, PhoneCall, Volume2,
   ScreenShare, ScreenShareOff, MessageSquare, FlaskConical, ScanLine, ExternalLink, Activity, Clock,
@@ -219,6 +219,7 @@ export function DoctorWorkspace({
   const [showRpmHistoryModal, setShowRpmHistoryModal] = useState(false)
   const [showOhifModal, setShowOhifModal] = useState(false)
   const [showMoreTabs, setShowMoreTabs] = useState(false)
+  const [collapseIntake, setCollapseIntake] = useState(false)
   const [soapEditState, setSoapEditState] = useState({
     subjective: '',
     objective: '',
@@ -865,7 +866,7 @@ export function DoctorWorkspace({
     setActiveTab('record')
   }
 
-  // Đưa toàn bộ chỉ số sinh hiệu thực tế vào Phiếu khám EMR
+  // Đưa toàn bộ chỉ số sinh hiệu thực tế vào Phiếu khám EMR (Mục O - Khám thực thể)
   function handleApplyRpmToRecord() {
     const parts: string[] = []
     if (triageBp) parts.push(`Huyết áp: ${triageBp} mmHg`)
@@ -875,9 +876,8 @@ export function DoctorWorkspace({
     if (triageWeight) parts.push(`Cân nặng: ${triageWeight} kg`)
     if (triageHeight) parts.push(`Chiều cao: ${triageHeight} cm`)
     if (triageBmi) parts.push(`BMI: ${triageBmi} kg/m²`)
-    if (triageGlucose) parts.push(`Đường huyết mao mạch: ${triageGlucose} mmol/L`)
+    if (triageGlucose) parts.push(`Đường huyết: ${triageGlucose} mmol/L`)
     if (triageLevel) parts.push(`Phân loại Triage: ${triageLevel === 'emergency' ? 'Cấp cứu (Đỏ)' : triageLevel === 'priority' ? 'Ưu tiên (Vàng)' : 'Tiêu chuẩn (Xanh)'}`)
-    if (triageNurse) parts.push(`Điều dưỡng sàng lọc: ${triageNurse}`)
 
     if (parts.length === 0) {
       setToast('⚠️ Bệnh nhân chưa có chỉ số sinh hiệu thực tế nào!')
@@ -887,9 +887,72 @@ export function DoctorWorkspace({
 
     const text = `[SINH HIỆU LÂM SÀNG & SÀNG LỌC TRIAGE]: ` + parts.join(' · ')
     setClinicalNotes(prev => prev ? `${prev}\n\n${text}` : text)
-    setToast('⚡ Đã đưa đầy đủ các chỉ số mới nhất từ Bàn Sàng lọc Triage Điều dưỡng vào Bệnh án EMR!')
+    
+    // Đưa trực tiếp vào Mục O (Khám thực thể) của SOAP
+    const objText = `Thể trạng tỉnh táo, tiếp xúc tốt. Sinh hiệu: ` + parts.join(', ') + '.'
+    setClinicalExamination(prev => prev ? `${prev}\n${objText}` : objText)
+    
+    setToast('⚡ Đã đưa Sinh hiệu Triage & RPM vào Mục O (Khám thực thể) của Bệnh án!')
     setTimeout(() => setToast(''), 3500)
     setActiveTab('record')
+  }
+
+  // Tự động phân tích hội thoại & điền trực tiếp vào các mục SOAP trên màn hình
+  async function handleAutoFillSoapFromAi() {
+    const textToAnalyze = scribeTranscript.trim() || encounterInfo?.reason || appointment.reason || symptoms.trim() || ''
+    if (!textToAnalyze) {
+      setError('Chưa có nội dung hội thoại hoặc lý do khám để AI phân tích.')
+      return
+    }
+    setGeneratingSoap(true)
+    setError('')
+    try {
+      const res = await generateAiScribeSoap(
+        textToAnalyze,
+        patientData?.full_name || (appointment as any).patient_name || 'Bệnh nhân',
+        patientData?.age || 35
+      )
+      setSoapResult(res)
+      
+      const subj = res.soap?.subjective || res.extracted_symptoms || symptoms || encounterInfo?.reason || appointment.reason || ''
+      const obj = res.soap?.objective || clinicalExamination || (triageBp ? `Thể trạng tỉnh táo, tiếp xúc tốt. HA ${triageBp} mmHg, Mạch ${triagePulse || '--'} bpm, SpO2 ${triageSpo2 || '--'}%` : 'Thể trạng tỉnh táo, tiếp xúc tốt.')
+      const ass = res.soap?.assessment || diagnosis || res.extracted_symptoms || ''
+      const code = res.suggested_icd10_code || icd10Code || ''
+      const name = res.suggested_icd10_name || icd10Name || ''
+      const pl = res.soap?.plan || plan || ''
+
+      if (subj) setSymptoms(subj)
+      if (obj) setClinicalExamination(obj)
+      if (ass) setDiagnosis(ass)
+      if (code) setIcd10Code(code)
+      if (name) setIcd10Name(name)
+      if (pl) setPlan(pl)
+      if (res.prescription_draft && !prescription.trim()) {
+        setPrescription(res.prescription_draft)
+      }
+      if (res.allergies_warning && !allergies) {
+        setAllergies(res.allergies_warning)
+      }
+
+      setSoapEditState({
+        subjective: subj,
+        objective: obj,
+        assessment: ass,
+        icd10Code: code,
+        icd10Name: name,
+        plan: pl,
+        prescriptionDraft: res.prescription_draft || prescription || '',
+        allergiesWarning: res.allergies_warning || allergies || 'Không ghi nhận tiền sử dị ứng'
+      })
+
+      setActiveTab('record')
+      setToast('✨ AI Scribe đã tự động điền đầy đủ các mục SOAP vào Bệnh án! Bác sĩ có thể chỉnh sửa trực tiếp.')
+    } catch (e: any) {
+      console.warn('Lỗi AI Scribe:', e)
+      setError(e instanceof Error ? e.message : 'Không thể kết nối AI Scribe.')
+    } finally {
+      setGeneratingSoap(false)
+    }
   }
 
   async function handleSyncTriageVitals() {
@@ -905,7 +968,7 @@ export function DoctorWorkspace({
     searchICD10(icdSearchQuery).then(setIcdOptions).catch(console.error)
   }, [icdSearchQuery])
 
-  function selectICD(item: ICD10Item) {
+  function selectICD(item: { code: string; name: string; chapter?: string }) {
     setIcd10Code(item.code)
     setIcd10Name(item.name)
     if (!diagnosis) setDiagnosis(item.name)
@@ -1383,7 +1446,7 @@ export function DoctorWorkspace({
       </div>
 
       {/* Main Split View: Left = Video, Right = Clinical Documentation */}
-      <div className="workspace-split" style={{ gridTemplateColumns: "6fr 4fr" }}>
+      <div className="workspace-split">
         {/* Left Pane: WebRTC Full-Duplex Video & Audio Workspace */}
         <div className="video-pane">
           <div className="doctor-video-stage">
@@ -1506,21 +1569,134 @@ export function DoctorWorkspace({
             </div>
           </div>
 
-          {/* 2. Trợ lý Y tế AI Scribe (Đặt trực tiếp trên Sinh hiệu RPM IoT) */}
+          {/* 1. Sinh hiệu Lâm sàng & Sàng lọc Triage (Horizontal Vitals Strip) */}
+          <div className="doctor-vitals-strip">
+            <div className="vitals-strip-header">
+              <div className="vitals-strip-title">
+                <div className="vitals-mini-badge">
+                  <HeartPulse size={15} />
+                </div>
+                <div>
+                  <strong>Sinh hiệu Triage & RPM IoT</strong>
+                  <span className="vitals-source-label">
+                    {triageNurse ? `ĐD. ${triageNurse} · Bàn Triage` : 'Omron BLE · Accu-Chek · SpO2'}
+                  </span>
+                </div>
+              </div>
+              <div className="vitals-strip-actions">
+                <button
+                  type="button"
+                  className="btn-vitals-history"
+                  onClick={() => setShowRpmHistoryModal(true)}
+                  title="Xem lịch sử đo sinh hiệu của bệnh nhân"
+                >
+                  <Clock size={12} /> Lịch sử ({rpmVitals.length || 3})
+                </button>
+                <button
+                  type="button"
+                  className="btn-vitals-apply"
+                  onClick={handleApplyRpmToRecord}
+                  title="Đưa các chỉ số sinh hiệu vào Mục O (Khám thực thể) của Bệnh án"
+                >
+                  <FileCheck size={12} /> Đưa vào SOAP
+                </button>
+              </div>
+            </div>
+
+            <div className="vitals-chips-row">
+              {/* 1. Huyết áp */}
+              <div className={`vitals-chip ${triageBp ? 'has-data' : 'empty'}`}>
+                <div className="chip-top">
+                  <span className="chip-code">HA</span>
+                  <span className={`chip-dot ${triageBp ? 'good' : 'muted'}`} />
+                </div>
+                <div className="chip-value">
+                  <strong>{triageBp || '--/--'}</strong>
+                  <span className="chip-unit">mmHg</span>
+                </div>
+                <div className="chip-sub">{triagePulse ? `Mạch: ${triagePulse} bpm` : 'Huyết áp'}</div>
+              </div>
+
+              {/* 2. Nhịp tim */}
+              <div className={`vitals-chip ${triagePulse ? 'has-data' : 'empty'}`}>
+                <div className="chip-top">
+                  <span className="chip-code">Mạch</span>
+                  <span className={`chip-dot ${triagePulse ? 'good' : 'muted'}`} />
+                </div>
+                <div className="chip-value">
+                  <strong>{triagePulse || '--'}</strong>
+                  <span className="chip-unit">bpm</span>
+                </div>
+                <div className="chip-sub">Nhịp xoang</div>
+              </div>
+
+              {/* 3. Thân nhiệt */}
+              <div className={`vitals-chip ${triageTemp ? 'has-data' : 'empty'}`}>
+                <div className="chip-top">
+                  <span className="chip-code">Nhiệt độ</span>
+                  <span className={`chip-dot ${triageTemp ? 'good' : 'muted'}`} />
+                </div>
+                <div className="chip-value">
+                  <strong>{triageTemp || '--'}</strong>
+                  <span className="chip-unit">°C</span>
+                </div>
+                <div className="chip-sub">{triageTemp ? 'Bình thường' : 'Chưa đo'}</div>
+              </div>
+
+              {/* 4. SpO2 */}
+              <div className={`vitals-chip ${triageSpo2 ? 'has-data' : 'empty'}`}>
+                <div className="chip-top">
+                  <span className="chip-code">SpO2</span>
+                  <span className={`chip-dot ${triageSpo2 ? 'good' : 'muted'}`} />
+                </div>
+                <div className="chip-value">
+                  <strong>{triageSpo2 || '--'}</strong>
+                  <span className="chip-unit">%</span>
+                </div>
+                <div className="chip-sub">Bão hòa Oxy</div>
+              </div>
+
+              {/* 5. Đường huyết */}
+              <div className={`vitals-chip ${triageGlucose ? 'has-data' : 'empty'}`}>
+                <div className="chip-top">
+                  <span className="chip-code">Đường huyết</span>
+                  <span className={`chip-dot ${triageGlucose ? 'good' : 'muted'}`} />
+                </div>
+                <div className="chip-value">
+                  <strong>{triageGlucose || '--'}</strong>
+                  <span className="chip-unit">mmol/L</span>
+                </div>
+                <div className="chip-sub">Mao mạch</div>
+              </div>
+
+              {/* 6. BMI / Thể trạng */}
+              <div className={`vitals-chip ${triageBmi || triageWeight ? 'has-data' : 'empty'}`}>
+                <div className="chip-top">
+                  <span className="chip-code">BMI</span>
+                  <span className={`chip-dot ${triageBmi ? 'good' : 'muted'}`} />
+                </div>
+                <div className="chip-value">
+                  <strong>{triageBmi || '--'}</strong>
+                  <span className="chip-unit">kg/m²</span>
+                </div>
+                <div className="chip-sub">{triageWeight && triageHeight ? `${triageWeight}kg · ${triageHeight}cm` : 'Thể trạng'}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Trợ lý Y tế AI Scribe (Compact Single-Row Dock) */}
           <div className="doctor-ai-scribe-dock">
-            <div className="doctor-ai-scribe-header">
-              <div className="doctor-ai-scribe-title">
-                <div className="doctor-ai-scribe-badge">
-                  <Sparkles size={16} color="#ffffff" />
+            <div className="ai-scribe-compact-row">
+              <div className="ai-scribe-left">
+                <div className="ai-sparkle-pill">
+                  <Sparkles size={15} />
                 </div>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
-                      Trợ lý AI Scribe (Lắng nghe & Tạo bệnh án)
-                    </h4>
+                    <strong style={{ fontSize: '13px', color: '#0f172a' }}>Trợ lý AI Scribe</strong>
                     {isListening ? (
                       <span className="scribe-live-pill recording">
-                        <span className="live-dot" /> Đang nghe trực tiếp...
+                        <span className="live-dot" /> Đang nghe...
                       </span>
                     ) : (
                       <span className="scribe-live-pill ready">
@@ -1528,35 +1704,33 @@ export function DoctorWorkspace({
                       </span>
                     )}
                   </div>
-                  
-                    <span className="doctor-ai-scribe-sub">
-                    Tự động nghe hội thoại khám, trích xuất triệu chứng & tạo Phiếu khám chuẩn SOAP (QĐ 130/Bộ Y tế)
+                  <span className="ai-scribe-subtext">
+                    Tự động nghe hội thoại khám & tạo bệnh án chuẩn SOAP
                   </span>
                 </div>
               </div>
 
-              <div className="doctor-ai-scribe-actions">
+              <div className="ai-scribe-btn-group">
                 <button
                   type="button"
-                  className={`btn-ai-listen ${isListening ? 'listening' : ''}`}
+                  className={`btn-scribe-toggle ${isListening ? 'listening' : ''}`}
                   onClick={toggleListening}
-                  title={isListening ? 'Bấm để dừng nghe' : 'Bật tự động nghe từ Mic cuộc gọi'}
+                  title={isListening ? 'Dừng lắng nghe' : 'Bật tự động nghe từ Mic cuộc gọi'}
                 >
                   {isListening ? <MicOff size={13} /> : <Mic size={13} />}
-                  {isListening ? 'Dừng nghe' : 'Tự động nghe'}
+                  <span>{isListening ? 'Dừng nghe' : 'Tự động nghe'}</span>
                 </button>
 
-                {/* Nút Popup Hội thoại giữa Bác sĩ và Bệnh nhân */}
                 <button
                   type="button"
-                  className={`btn-ai-transcript ${scribeTranscript.trim() ? 'active-has-data' : ''}`}
+                  className={`btn-scribe-transcript ${scribeTranscript.trim() ? 'has-data' : ''}`}
                   onClick={() => setShowTranscriptModal(true)}
-                  title="Mở popup xem đầy đủ và chỉnh sửa nội dung hội thoại cuộc khám"
+                  title="Xem và chỉnh sửa toàn bộ biên bản hội thoại"
                 >
                   <MessageSquare size={13} />
                   <span>Hội thoại</span>
                   {scribeTranscript.trim() && (
-                    <span className="transcript-counter-badge">
+                    <span className="transcript-badge">
                       {scribeTranscript.trim().split('\n').filter(Boolean).length}
                     </span>
                   )}
@@ -1564,218 +1738,25 @@ export function DoctorWorkspace({
 
                 <button
                   type="button"
-                  className="btn-ai-analyze"
-                  onClick={handleAnalyzeAiScribe}
-                  disabled={generatingSoap || !scribeTranscript.trim()}
-                  title="AI phân tích hội thoại và mở Popup đầy đủ thông tin để Bác sĩ xem & chỉnh sửa"
+                  className="btn-scribe-autofill"
+                  onClick={handleAutoFillSoapFromAi}
+                  disabled={generatingSoap || (!scribeTranscript.trim() && !encounterInfo?.reason && !appointment.reason && !symptoms.trim())}
+                  title="AI phân tích và tự động điền các mục SOAP trực tiếp vào bệnh án bên phải"
                 >
                   <Sparkles size={13} className={generatingSoap ? 'spin-icon' : ''} />
-                  {generatingSoap ? 'Đang tóm tắt...' : '✨ AI Tóm tắt & Tạo SOAP'}
+                  <span>{generatingSoap ? 'Đang tóm tắt...' : '✨ Tự động điền SOAP'}</span>
                 </button>
-
-                {soapResult && (
-                  <button
-                    type="button"
-                    className="btn-ai-apply"
-                    onClick={() => setShowSoapModal(true)}
-                    title="Mở popup xem đầy đủ và chỉnh sửa thông tin SOAP trước khi tạo phiếu khám"
-                  >
-                    <Edit3 size={13} /> Xem & Sửa SOAP (Popup)
-                  </button>
-                )}
 
                 {scribeTranscript && (
                   <button
                     type="button"
-                    className="btn-ai-clear"
-                    onClick={() => { setScribeTranscript(''); setSoapResult(null); setToast('Đã làm mới lượt hội thoại'); }}
-                    title="Xóa hội thoại để nghe lượt mới"
+                    className="btn-scribe-clear"
+                    onClick={() => { setScribeTranscript(''); setToast('Đã làm mới hội thoại'); }}
+                    title="Xóa biên bản hội thoại để ghi lượt mới"
                   >
                     <X size={13} />
                   </button>
                 )}
-              </div>
-            </div>
-
-{/* Khung tóm tắt SOAP & Gợi ý ICD-10 sau khi AI phân tích */}
-            {soapResult && (
-              <div className="scribe-soap-result-card">
-                <div className="scribe-soap-top">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <CheckCircle2 size={15} color="#16a34a" />
-                    <strong style={{ fontSize: '11.5px', color: '#0f172a' }}>
-                      Biên bản tóm tắt chuẩn SOAP (Đã phân tích từ hội thoại)
-                    </strong>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn-apply-soap-inline"
-                    onClick={() => setShowSoapModal(true)}
-                    title="Mở popup đầy đủ thông tin để kiểm tra và chỉnh sửa trước khi tạo phiếu khám"
-                  >
-                    <Edit3 size={12} /> Xem chi tiết & Chỉnh sửa (Popup) &rarr;
-                  </button>
-                </div>
-
-                <div className="scribe-soap-grid">
-                  <div className="soap-block s">
-                    <span className="soap-tag">S - Triệu chứng cơ năng</span>
-                    <p>{soapResult.soap?.subjective || 'Chưa ghi nhận'}</p>
-                  </div>
-                  <div className="soap-block o">
-                    <span className="soap-tag">O - Khám khách quan / Video</span>
-                    <p>{soapResult.soap?.objective || 'Chưa ghi nhận'}</p>
-                  </div>
-                  <div className="soap-block a">
-                    <span className="soap-tag">A - Chẩn đoán & ICD-10</span>
-                    <p>
-                      <strong>{soapResult.soap?.assessment || 'Chưa rõ'}</strong>
-                      {soapResult.suggested_icd10_code && (
-                        <span className="icd-tag">
-                          [{soapResult.suggested_icd10_code}] {soapResult.suggested_icd10_name}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  <div className="soap-block p">
-                    <span className="soap-tag">P - Phác đồ & Đơn thuốc</span>
-                    <p>{soapResult.soap?.plan || 'Theo dõi'}</p>
-                    {soapResult.prescription_draft && (
-                      <div className="rx-preview">{soapResult.prescription_draft}</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Khối Sinh hiệu RPM IoT đặt trực tiếp dưới AI Scribe */}
-          <div className="doctor-rpm-dock">
-            <div className="doctor-rpm-header">
-              <div className="doctor-rpm-title">
-                <div className="doctor-rpm-icon-badge" style={{ background: '#059669' }}>
-                  <HeartPulse size={18} color="#ffffff" />
-                </div>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
-                      Sinh hiệu Lâm sàng & Sàng lọc Triage (Điều dưỡng & RPM IoT)
-                    </h4>
-</div>
-                  <span className="doctor-rpm-sub">
-                    Chỉ số đo thực tế từ Bàn Sàng lọc & Phân luồng Điều dưỡng (kết nối thiết bị Omron BLE, Accu-Chek, SpO2)
-                  </span>
-                </div>
-              </div>
-              <div className="doctor-rpm-actions">
-                <button
-                  type="button"
-                  className="btn-rpm-history-popup"
-                  onClick={() => setShowRpmHistoryModal(true)}
-                  title="Xem toàn bộ lịch sử đo sinh hiệu của bệnh nhân (Popup)"
-                >
-                  <Clock size={13} /> Lịch sử đo ({rpmVitals.length || 3})
-                </button>
-<button
-                  type="button"
-                  className="btn-apply-rpm"
-                  onClick={handleApplyRpmToRecord}
-                  title="Đưa toàn bộ chỉ số sinh hiệu Triage & RPM vào Bệnh án EMR"
-                >
-                  <FileCheck size={13} /> Đưa vào Bệnh án
-                </button>
-              </div>
-            </div>
-
-            {/* Dashboard 6 chỉ số sinh hiệu đầy đủ từ Bàn Sàng lọc Triage Điều dưỡng */}
-            <div className="doctor-rpm-metrics-grid">
-              {/* 1. Huyết áp */}
-              <div className="doctor-rpm-card bp">
-                <div className="rpm-card-top">
-                  <span className="rpm-card-label">Huyết áp (Triage / Omron)</span>
-                  <span className="rpm-card-badge">{triageBp ? 'Tự động' : 'Chưa đo'}</span>
-                </div>
-                <div className="rpm-card-val" style={{ color: triageBp ? 'inherit' : '#94a3b8' }}>
-                  {triageBp || '-- / --'}
-                  <small> mmHg</small>
-                </div>
-                <div className={`rpm-card-status ${triageBp ? 'good' : 'muted'}`}>
-                  {triagePulse ? `🟢 Mạch: ${triagePulse} bpm · Ổn định` : '⚪ Chưa có chỉ số'}
-                </div>
-              </div>
-
-              {/* 2. Nhịp tim */}
-              <div className="doctor-rpm-card hr">
-                <div className="rpm-card-top">
-                  <span className="rpm-card-label">Nhịp tim (Pulse)</span>
-                  <span className="rpm-card-badge">{triagePulse ? 'ECG / Mạch' : 'Chưa đo'}</span>
-                </div>
-                <div className="rpm-card-val" style={{ color: triagePulse ? 'inherit' : '#94a3b8' }}>
-                  {triagePulse || '--'}
-                  <small> bpm</small>
-                </div>
-                <div className={`rpm-card-status ${triagePulse ? 'good' : 'muted'}`}>
-                  {triagePulse ? '🟢 Nhịp xoang đều' : '⚪ Chưa đo'}
-                </div>
-              </div>
-
-              {/* 3. Thân nhiệt */}
-              <div className="doctor-rpm-card temp">
-                <div className="rpm-card-top">
-                  <span className="rpm-card-label">Thân nhiệt (Nhiệt độ)</span>
-                  <span className="rpm-card-badge">{triageTemp ? 'Nhiệt kế' : 'Chưa đo'}</span>
-                </div>
-                <div className="rpm-card-val" style={{ color: triageTemp ? 'inherit' : '#94a3b8' }}>
-                  {triageTemp || '--'}
-                  <small> °C</small>
-                </div>
-                <div className={`rpm-card-status ${triageTemp ? 'good' : 'muted'}`}>
-                  {triageTemp ? '🟢 Thân nhiệt bình thường' : '⚪ Chưa đo'}
-                </div>
-              </div>
-
-              {/* 4. SpO2 */}
-              <div className="doctor-rpm-card spo2">
-                <div className="rpm-card-top">
-                  <span className="rpm-card-label">Bão hòa Oxy (SpO2)</span>
-                  <span className="rpm-card-badge">{triageSpo2 ? 'Oximeter' : 'Chưa đo'}</span>
-                </div>
-                <div className="rpm-card-val" style={{ color: triageSpo2 ? 'inherit' : '#94a3b8' }}>
-                  {triageSpo2 || '--'}
-                  <small> %</small>
-                </div>
-                <div className={`rpm-card-status ${triageSpo2 ? 'good' : 'muted'}`}>
-                  {triageSpo2 ? '🟢 Bão hòa oxy tối ưu' : '⚪ Chưa đo'}
-                </div>
-              </div>
-
-              {/* 5. Đường huyết */}
-              <div className="doctor-rpm-card glucose">
-                <div className="rpm-card-top">
-                  <span className="rpm-card-label">Đường huyết (Accu-Chek)</span>
-                  <span className="rpm-card-badge">{triageGlucose ? 'Mao mạch' : 'Chưa đo'}</span>
-                </div>
-                <div className="rpm-card-val" style={{ color: triageGlucose ? 'inherit' : '#94a3b8' }}>
-                  {triageGlucose || '--'}
-                  <small> mmol/L</small>
-                </div>
-                <div className={`rpm-card-status ${triageGlucose ? 'good' : 'muted'}`}>
-                  {triageGlucose ? '🟢 Đường huyết đói tốt' : '⚪ Chưa đo'}
-                </div>
-              </div>
-
-              {/* 6. Thể trọng & BMI */}
-              <div className="doctor-rpm-card bmi">
-                <div className="rpm-card-top">
-                  <span className="rpm-card-label">Thể trọng & BMI</span>
-                  <span className="rpm-card-badge">{triageWeight && triageHeight ? 'Cân & Thước' : 'Chưa đo'}</span>
-                </div>
-                <div className="rpm-card-val" style={{ fontSize: '13.5px', fontWeight: 800, color: (triageWeight || triageHeight) ? 'inherit' : '#94a3b8' }}>
-                  {triageWeight ? `${triageWeight} kg` : '-- kg'} · {triageHeight ? `${triageHeight} cm` : '-- cm'}
-                </div>
-                <div className={`rpm-card-status ${triageBmi ? 'good' : 'muted'}`}>
-                  {triageBmi ? `🟢 BMI: ${triageBmi} kg/m²` : '⚪ Chưa tính BMI'}
-                </div>
               </div>
             </div>
           </div>
@@ -1790,7 +1771,7 @@ export function DoctorWorkspace({
               onClick={() => setActiveTab('record')}
               title="Thông tin đăng ký đặt khám & Phiếu khám lâm sàng EMR"
             >
-              <FileText size={15} /> Thông tin đặt khám
+              <FileText size={15} /> Khám bệnh & SOAP
             </button>
 
             {/* 2. CLS */}
@@ -1901,7 +1882,56 @@ export function DoctorWorkspace({
           <div className="clinical-content">
                         {activeTab === 'record' && (
               <div className="booking-info-tab-container">
-                {/* 1. ĐƠN ĐẶT KHÁM */}
+              <div className="booking-intake-collapsible">
+                <div
+                  className="booking-intake-header"
+                  onClick={() => setCollapseIntake(!collapseIntake)}
+                  title={collapseIntake ? 'Bấm để mở rộng thông tin tiếp đón' : 'Bấm để thu gọn'}
+                >
+                  <div className="intake-header-left">
+                    <CalendarCheck size={16} color="#0e7490" />
+                    <strong>Thông tin Đặt khám & Sàng lọc Tiếp đón Triage</strong>
+                    <span className="badge-live-online">🟢 Đang khám trực tuyến</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-toggle-intake"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setCollapseIntake(!collapseIntake)
+                    }}
+                  >
+                    {collapseIntake ? (
+                      <>
+                        <ChevronDown size={14} /> Mở rộng chi tiết
+                      </>
+                    ) : (
+                      <>
+                        <ChevronUp size={14} /> Thu gọn
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {collapseIntake ? (
+                  <div className="intake-collapsed-summary">
+                    <span className="intake-summary-chip">
+                      👤 <strong>{patientData?.full_name || appointment.patient_name || 'Bệnh nhân'}</strong>
+                      {calculatedAge !== null ? ` (${calculatedAge}t)` : ''}
+                    </span>
+                    <span className="intake-summary-chip">
+                      💬 Lý do: <em>"{(encounterInfo?.reason || appointment.reason || symptoms || 'Khai báo trực tuyến').substring(0, 40)}..."</em>
+                    </span>
+                    <span className={`intake-summary-chip ${(patientData?.allergies || allergies) ? 'alert' : ''}`}>
+                      ⚠️ Dị ứng: {patientData?.allergies || allergies || 'Không ghi nhận'}
+                    </span>
+                    <span className="intake-summary-chip">
+                      🩺 ĐD: {encounterInfo?.nurse_name || appointment?.nurse_name || triageNurse || 'Nguyễn Thị Mai (Bàn Triage)'}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="intake-expanded-body">
+                    {/* 1. ĐƠN ĐẶT KHÁM */}
                 <div className="booking-section-card">
                   <div className="essential-header">
                     <div className="essential-header-left">
@@ -2262,61 +2292,372 @@ export function DoctorWorkspace({
                     )
                   })()}
                 </div>
-
-                {/* 6. NÚT TẠO PHIẾU KHÁM (KẾT NỐI AI TÓM TẮT & TẠO SOAP, NẾU AI KO CÓ KẾT NỐI CHO PHÉP BS NHẬP TAY) */}
-                <div className="create-clinical-sheet-action-dock">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff' }}>
-                        <Sparkles size={20} />
-                      </div>
-                      <div>
-                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
-                          Phiếu khám lâm sàng & Biên bản SOAP EMR
-                        </h4>
-                        <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
-                          Kết nối AI MedGemma tóm tắt tự động, hoặc Bác sĩ tự nhập tay trực tiếp đầy đủ các mục chuẩn Bộ Y tế.
-                        </p>
-                      </div>
+                  </div>
+                )}
+              </div>
+              {/* BỆNH ÁN ĐIỆN TỬ NGOẠI TRÚ (CHUẨN SOAP TRỰC TIẾP TRÊN MÀN HÌNH) */}
+              <div className="clinical-soap-container">
+                <div className="clinical-soap-header">
+                  <div className="clinical-soap-header-title">
+                    <FileText size={18} />
+                    <div>
+                      <h3>Bệnh án Khám bệnh Điện tử (Chuẩn SOAP - QĐ 130/Bộ Y tế)</h3>
+                      <span>Bác sĩ ghi nhận trực tiếp triệu chứng, khám thực thể, chẩn đoán ICD-10 và phác đồ điều trị</span>
                     </div>
+                  </div>
+                  <div className="soap-fast-actions">
+                    <button
+                      type="button"
+                      className="btn-soap-header-action"
+                      onClick={handleAutoFillSoapFromAi}
+                      disabled={generatingSoap}
+                      title="AI Scribe tự động phân tích hội thoại & điền vào các mục SOAP"
+                    >
+                      <Sparkles size={13} className={generatingSoap ? 'spin-icon' : ''} />
+                      {generatingSoap ? 'Đang tóm tắt...' : '✨ AI Điền tự động SOAP'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-soap-header-action"
+                      onClick={handleApplyRpmToRecord}
+                      title="Đưa chỉ số sinh hiệu Triage & RPM vào Mục O"
+                    >
+                      <HeartPulse size={13} />
+                      ⚡ Đồng bộ Sinh hiệu
+                    </button>
+                  </div>
+                </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      {/* Nút chính: Tạo phiếu khám qua AI SOAP (kết nối AI) */}
+                {/* S (Subjective) - Triệu chứng cơ năng */}
+                <div className="soap-section s">
+                  <div className="soap-section-header">
+                    <div className="soap-section-label">
+                      <span className="soap-letter s">S</span>
+                      <span>Lý do khám & Triệu chứng cơ năng (Subjective)</span>
+                    </div>
+                    <div className="soap-section-helpers">
+                      {((encounterInfo?.reason || appointment.reason) && !symptoms) && (
+                        <button
+                          type="button"
+                          className="btn-soap-helper"
+                          onClick={() => {
+                            const raw = (encounterInfo?.reason || appointment.reason || '').trim()
+                            const clean = raw.includes('[Khảo sát thêm AI]:') ? raw.split('[Khảo sát thêm AI]:')[0].trim() : raw
+                            setSymptoms(clean)
+                            setToast('Đã dán lý do khám của bệnh nhân vào Mục S')
+                          }}
+                          title="Lấy nội dung lý do bệnh nhân đã khai báo khi đặt lịch"
+                        >
+                          ⚡ Lấy từ lý do BN khai
+                        </button>
+                      )}
+                      {(soapResult?.soap?.subjective || soapResult?.extracted_symptoms) && (
+                        <button
+                          type="button"
+                          className="btn-soap-helper"
+                          onClick={() => {
+                            setSymptoms(soapResult.soap?.subjective || soapResult.extracted_symptoms)
+                            setToast('Đã điền triệu chứng từ AI Scribe')
+                          }}
+                          title="Lấy triệu chứng đã phân tích từ AI Scribe"
+                        >
+                          ✨ Lấy từ AI Scribe
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <textarea
+                    className="soap-field-textarea"
+                    rows={3}
+                    value={symptoms}
+                    onChange={e => setSymptoms(e.target.value)}
+                    placeholder="Nhập lý do vào khám, thời gian khởi phát, vị trí, tính chất, mức độ đau, sốt, ho, khó thở, các yếu tố tăng giảm..."
+                  />
+                </div>
+
+                {/* O (Objective) - Khám thực thể & Dấu hiệu khách quan */}
+                <div className="soap-section o">
+                  <div className="soap-section-header">
+                    <div className="soap-section-label">
+                      <span className="soap-letter o">O</span>
+                      <span>Khám thực thể, Tri giác & Sinh hiệu (Objective)</span>
+                    </div>
+                    <div className="soap-section-helpers">
                       <button
                         type="button"
-                        className="btn-create-sheet-primary"
-                        onClick={handleCreateClinicalSheet}
-                        disabled={generatingSoap}
-                        title="Kết nối AI MedGemma tóm tắt tự động và mở Popup tạo Phiếu khám SOAP"
+                        className="btn-soap-helper"
+                        onClick={handleApplyRpmToRecord}
+                        title="Tự động đồng bộ các chỉ số sinh hiệu đo được từ Bàn Triage / RPM IoT"
                       >
-                        <Sparkles size={16} />
-                        <span>{generatingSoap ? 'Đang kết nối AI tóm tắt...' : '✨ Tạo phiếu khám (AI SOAP)'}</span>
+                        ⚡ Đồng bộ Sinh hiệu Triage & RPM
                       </button>
+                      {paraclinicalResults && (
+                        <button
+                          type="button"
+                          className="btn-soap-helper"
+                          onClick={() => {
+                            setClinicalExamination(prev => prev ? `${prev}\n${paraclinicalResults}` : paraclinicalResults)
+                            setToast('Đã đưa tóm tắt kết quả xét nghiệm / CĐHA vào Mục O')
+                          }}
+                          title="Đưa kết quả xét nghiệm / CĐHA đã trích xuất vào Mục O"
+                        >
+                          🧪 Chèn KQ Xét nghiệm / PACS
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <textarea
+                    className="soap-field-textarea"
+                    rows={3}
+                    value={clinicalExamination}
+                    onChange={e => setClinicalExamination(e.target.value)}
+                    placeholder="Ghi nhận thể trạng chung, tri giác, tiếp xúc, niêm mạc qua video, nhịp thở, sinh hiệu, các dấu hiệu lâm sàng quan sát được..."
+                  />
+                </div>
 
-                      {/* Nút phụ: Tự nhập tay (nếu AI không có kết nối hoặc BS muốn tự điền) */}
+                {/* A (Assessment) - Chẩn đoán & Mã bệnh ICD-10 */}
+                <div className="soap-section a">
+                  <div className="soap-section-header">
+                    <div className="soap-section-label">
+                      <span className="soap-letter a">A</span>
+                      <span>Chẩn đoán bệnh lý & Mã bệnh ICD-10 (Assessment)</span>
+                    </div>
+                    <div className="soap-section-helpers">
                       <button
                         type="button"
-                        className="btn-create-sheet-manual"
-                        onClick={handleOpenManualSoap}
-                        title="Mở Popup Phiếu khám để Bác sĩ tự gõ / nhập tay trực tiếp"
+                        className="btn-soap-helper"
+                        onClick={handleSuggestIcd}
+                        disabled={loadingIcdAi}
+                        title="AI phân tích triệu chứng để gợi ý mã ICD-10 phù hợp"
                       >
-                        <Edit3 size={15} />
-                        <span>✍️ Tự nhập tay</span>
-                      </button>
-
-                      {/* Nút xem lại nếu đã tạo/lưu */}
-                      <button
-                        type="button"
-                        className="btn-create-sheet-view"
-                        onClick={() => setShowClinicalSheetModal(true)}
-                        title="Xem lại Phiếu khám lâm sàng EMR đã lưu"
-                      >
-                        <Eye size={15} />
-                        <span>Xem phiếu EMR</span>
+                        <Sparkles size={11} className={loadingIcdAi ? 'spin-icon' : ''} />
+                        {loadingIcdAi ? 'Đang gợi ý...' : '✨ AI Gợi ý ICD'}
                       </button>
                     </div>
                   </div>
+
+                  <div className="assessment-inputs-grid">
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                        Chẩn đoán xác định / Sơ bộ của Bác sĩ:
+                      </label>
+                      <input
+                        type="text"
+                        className="soap-field-input"
+                        value={diagnosis}
+                        onChange={e => setDiagnosis(e.target.value)}
+                        placeholder="Nhập chẩn đoán xác định (ví dụ: Viêm họng cấp / Tăng huyết áp độ 1 / Cúm mùa)..."
+                      />
+                    </div>
+
+                    <div className="icd10-search-container">
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                        Tra cứu danh mục Mã bệnh ICD-10 (Bộ Y tế):
+                      </label>
+                      <div className="icd10-input-wrapper">
+                        <Search size={14} className="icd10-search-icon" />
+                        <input
+                          type="text"
+                          className="soap-field-input icd10-input"
+                          value={icdSearchQuery}
+                          onChange={e => {
+                            setIcdSearchQuery(e.target.value)
+                            setShowIcdList(true)
+                          }}
+                          onFocus={() => setShowIcdList(true)}
+                          placeholder="Gõ mã hoặc tên bệnh (ví dụ: J02, Viêm họng, I10)..."
+                        />
+                        {icdSearchQuery && (
+                          <button
+                            type="button"
+                            className="btn-clear-query"
+                            onClick={() => {
+                              setIcdSearchQuery('')
+                              setShowIcdList(false)
+                            }}
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Selected ICD-10 Badge */}
+                      {icd10Code && (
+                        <div className="selected-icd-badge">
+                          <span className="icd-code-tag">{icd10Code}</span>
+                          <span className="icd-name-text">{icd10Name || 'Bệnh lý đã chọn'}</span>
+                          <button
+                            type="button"
+                            className="btn-remove-icd"
+                            onClick={() => {
+                              setIcd10Code('')
+                              setIcd10Name('')
+                            }}
+                            title="Xóa mã ICD-10"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Autocomplete Dropdown */}
+                      {showIcdList && icdOptions.length > 0 && (
+                        <div className="icd10-dropdown-list">
+                          {icdOptions.slice(0, 8).map(item => (
+                            <div
+                              key={item.code}
+                              className="icd10-dropdown-item"
+                              onClick={() => selectICD(item)}
+                            >
+                              <span className="icd-drop-code">{item.code}</span>
+                              <span className="icd-drop-name">{item.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Quick ICD-10 Suggestion Chips */}
+                  <div className="icd10-quick-chips">
+                    <span className="quick-chip-label">Mã phổ biến:</span>
+                    {[
+                      { code: 'J02.9', name: 'Viêm họng cấp, không xác định' },
+                      { code: 'J06.9', name: 'Nhiễm khuẩn đường hô hấp trên cấp' },
+                      { code: 'J20.9', name: 'Viêm phế quản cấp' },
+                      { code: 'I10', name: 'Tăng huyết áp vô căn' },
+                      { code: 'E11.9', name: 'Đái tháo đường typ 2' },
+                      { code: 'K29.7', name: 'Viêm dạ dày tá tràng' },
+                      { code: 'M54.5', name: 'Đau thắt lưng' },
+                    ].map(c => (
+                      <button
+                        key={c.code}
+                        type="button"
+                        className={`icd-quick-chip ${icd10Code === c.code ? 'selected' : ''}`}
+                        onClick={() => selectICD(c)}
+                      >
+                        <strong>{c.code}</strong> {c.name.split(',')[0]}
+                      </button>
+                    ))}
+                    {icdSuggestions.length > 0 && (
+                      icdSuggestions.slice(0, 3).map((s: any) => (
+                        <button
+                          key={s.code}
+                          type="button"
+                          className="icd-quick-chip"
+                          style={{ borderColor: '#ddd6fe', background: '#faf5ff', color: '#6d28d9' }}
+                          onClick={() => selectICD({ code: s.code, name: s.name })}
+                        >
+                          <Sparkles size={10} color="#7c3aed" /> <strong>{s.code}</strong> {s.name.split(',')[0]}
+                        </button>
+                      ))
+                    )}
+                  </div>
                 </div>
+
+                {/* P (Plan) - Phác đồ điều trị & Dặn dò */}
+                <div className="soap-section p">
+                  <div className="soap-section-header">
+                    <div className="soap-section-label">
+                      <span className="soap-letter p">P</span>
+                      <span>Kế hoạch điều trị & Dặn dò theo dõi (Plan)</span>
+                    </div>
+                  </div>
+                  <textarea
+                    className="soap-field-textarea"
+                    rows={3}
+                    value={plan}
+                    onChange={e => setPlan(e.target.value)}
+                    placeholder="Chế độ dùng thuốc, dinh dưỡng, nghỉ ngơi, uống nhiều nước ấm, theo dõi thân nhiệt, lịch tái khám sau 3-5 ngày hoặc khi có dấu hiệu nặng..."
+                  />
+
+                  {/* Workflow Jump Row */}
+                  <div className="soap-plan-nav-row">
+                    <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#475569' }}>Tiếp tục quy trình khám:</span>
+                    <button
+                      type="button"
+                      className="btn-soap-nav rx"
+                      onClick={() => setActiveTab('prescription')}
+                      title="Chuyển sang Tab Kê đơn thuốc"
+                    >
+                      <Pill size={14} />
+                      <span>Kê đơn thuốc {prescription.trim() ? '(Đã có đơn)' : '(Sang Tab Đơn thuốc →)'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-soap-nav lab"
+                      onClick={() => setActiveTab('lab')}
+                      title="Chuyển sang Tab Cận lâm sàng"
+                    >
+                      <FlaskConical size={14} />
+                      <span>Xem / Chỉ định Xét nghiệm (CLS →)</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-soap-nav pacs"
+                      onClick={() => setActiveTab('pacs')}
+                      title="Chuyển sang Tab PACS DICOM"
+                    >
+                      <ScanLine size={14} />
+                      <span>Xem Phim PACS (CĐHA →)</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sticky Action Footer */}
+                <div className="clinical-soap-footer">
+                  <div className="footer-status-info">
+                    <ShieldCheck size={16} color="#059669" />
+                    <span>Bệnh án Telehealth chuẩn QĐ 130/Bộ Y tế &bull; E2EE Bảo mật</span>
+                  </div>
+                  <div className="footer-actions-group">
+                    <button
+                      type="button"
+                      className="btn-footer-draft"
+                      onClick={handleSaveDraft}
+                      disabled={saving}
+                      title="Lưu lại toàn bộ nội dung bệnh án hiện tại"
+                    >
+                      <Save size={15} />
+                      <span>{saving ? 'Đang lưu...' : 'Lưu nháp'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-footer-view"
+                      onClick={() => setShowClinicalSheetModal(true)}
+                      title="Xem trước Phiếu khám lâm sàng EMR"
+                    >
+                      <Eye size={15} />
+                      <span>Xem phiếu EMR</span>
+                    </button>
+                    {!signatureInfo ? (
+                      <button
+                        type="button"
+                        className="btn-footer-sign"
+                        onClick={handleDigitalSign}
+                        disabled={signing}
+                        title="Ký số chứng thư số bác sĩ SmartCA"
+                      >
+                        <PenTool size={15} />
+                        <span>{signing ? 'Đang ký...' : 'Ký số SmartCA'}</span>
+                      </button>
+                    ) : (
+                      <span className="signed-tag">
+                        <CheckCircle2 size={15} color="#16a34a" /> Đã ký SmartCA
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      className="btn-footer-complete"
+                      onClick={() => setShowConfirmModal(true)}
+                      title="Hoàn tất và đóng ca khám"
+                    >
+                      <CheckCircle2 size={16} />
+                      <span>Hoàn tất buổi khám</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
               </div>
             )}
 
@@ -3525,295 +3866,6 @@ export function DoctorWorkspace({
                       ))}
                     </div>
                   )}
-                </div>
-              </div>
-            )}
-
-            {/* TAB BHYT XML 4210 */}
-            {activeTab === 'bhyt' && (
-              <div className="form-section bhyt-xml-section">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ background: '#059669', color: '#fff', borderRadius: '10px', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <FileCheck size={24} />
-                    </div>
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: '17px', color: '#064e3b' }}>Hồ sơ Giám định BHYT Quốc gia (XML 4210 / QĐ 130)</h3>
-                      <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#047857' }}>
-                        Mã liên kết: <strong>{bhytClaim?.ma_lk || (encounterInfo as any)?.encounter_code || (appointment as any)?.encounter_code || (appointment.id ? `LK-${appointment.id}` : '--')}</strong> · Mã thẻ BHYT: <strong>{bhytClaim?.ma_the_bhyt || patientData?.bhyt_code || encounterInfo?.bhyt_code || (appointment as any)?.bhyt_code || 'Chưa liên kết thẻ BHYT'}</strong> · Mức hưởng: <strong>{bhytClaim?.muc_huong || encounterInfo?.bhyt_rate || 80}%</strong>
-                      </p>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{
-                      display: 'inline-block',
-                      padding: '4px 12px',
-                      borderRadius: '20px',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      background: bhytClaim?.status === 'approved' ? '#dcfce7' : '#fef3c7',
-                      color: bhytClaim?.status === 'approved' ? '#15803d' : '#b45309'
-                    }}>
-                      {bhytClaim?.status === 'approved' ? `✅ Đã tiếp nhận: ${bhytClaim.gdbhyt_code}` : '⏳ Chờ gửi Cổng BHXH'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Financial Summary */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '18px' }}>
-                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
-                    <span style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase' }}>T_TONGCHI (Tổng chi phí)</span>
-                    <div style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
-                      {bhytClaim?.t_tongchi ? bhytClaim.t_tongchi.toLocaleString('vi-VN') : '314.000'} đ
-                    </div>
-                  </div>
-                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px' }}>
-                    <span style={{ fontSize: '11px', color: '#166534', textTransform: 'uppercase' }}>T_BHYTTT (Quỹ BHYT chi trả)</span>
-                    <div style={{ fontSize: '18px', fontWeight: 700, color: '#15803d', marginTop: '2px' }}>
-                      {bhytClaim?.t_bhyttt ? bhytClaim.t_bhyttt.toLocaleString('vi-VN') : '251.200'} đ
-                    </div>
-                  </div>
-                  <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px' }}>
-                    <span style={{ fontSize: '11px', color: '#991b1b', textTransform: 'uppercase' }}>T_BNTT (Bệnh nhân cùng chi trả)</span>
-                    <div style={{ fontSize: '18px', fontWeight: 700, color: '#b91c1c', marginTop: '2px' }}>
-                      {bhytClaim?.t_bntt ? bhytClaim.t_bntt.toLocaleString('vi-VN') : '62.800'} đ
-                    </div>
-                  </div>
-                </div>
-
-                {/* Submit Action */}
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '16px' }}>
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={handleSendBhytClaim}
-                    disabled={submittingBhyt || bhytClaim?.status === 'approved'}
-                    style={{ background: '#059669', borderColor: '#059669', display: 'flex', alignItems: 'center', gap: '8px' }}
-                  >
-                    <Check size={16} />
-                    {submittingBhyt ? 'Đang gửi Cổng Giám định...' : bhytClaim?.status === 'approved' ? 'Đã gửi Cổng Giám định thành công' : '🚀 Gửi Cổng Giám định BHYT Quốc gia'}
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => {
-                      if (!bhytPackage) return
-                      const blob = new Blob([bhytPackage.xml1_tonghop], { type: 'application/xml' })
-                      const url = URL.createObjectURL(blob)
-                      const a = document.createElement('a')
-                      a.href = url
-                      a.download = `XML4210_${bhytClaim?.ma_lk || 'hoso'}.xml`
-                      a.click()
-                    }}
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                  >
-                    <Download size={16} /> Tải file XML 4210
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={loadBhytData}
-                    disabled={loadingBhyt}
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                  >
-                    <RefreshCw size={14} /> Làm mới
-                  </button>
-                </div>
-
-                {/* 5 XML Tables Switcher */}
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', overflowX: 'auto' }}>
-                    {[
-                      ['xml1', 'Bảng 1: Tổng hợp (XML1)'],
-                      ['xml2', 'Bảng 2: Thuốc tân dược (XML2)'],
-                      ['xml3', 'Bảng 3: Dịch vụ kỹ thuật (XML3)'],
-                      ['xml4', 'Bảng 4: Cận lâm sàng (XML4)'],
-                      ['xml5', 'Bảng 5: Diễn biến lâm sàng (XML5)']
-                    ].map(([key, label]) => (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setActiveXmlTable(key as any)}
-                        style={{
-                          padding: '10px 16px',
-                          border: 'none',
-                          borderBottom: activeXmlTable === key ? '2px solid #059669' : 'none',
-                          background: activeXmlTable === key ? '#fff' : 'transparent',
-                          color: activeXmlTable === key ? '#064e3b' : '#64748b',
-                          fontWeight: activeXmlTable === key ? 700 : 500,
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div style={{ padding: '14px', background: '#1e293b', color: '#f8fafc', fontSize: '12px', fontFamily: 'Consolas, monospace', overflowX: 'auto', maxHeight: '350px' }}>
-                    <pre style={{ margin: 0 }}>
-                      {bhytPackage
-                        ? activeXmlTable === 'xml1'
-                          ? bhytPackage.xml1_tonghop
-                          : activeXmlTable === 'xml2'
-                          ? bhytPackage.xml2_chitietthuoc
-                          : activeXmlTable === 'xml3'
-                          ? bhytPackage.xml3_chitietdvkt
-                          : activeXmlTable === 'xml4'
-                          ? bhytPackage.xml4_chitietcls
-                          : bhytPackage.xml5_dienbien
-                        : 'Đang tải dữ liệu XML 4210...'}
-                    </pre>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* TAB HỘI CHẨN LIÊN VIỆN & ĐA CHUYÊN KHOA */}
-            {activeTab === 'multidoctor' && (
-              <div className="form-section multidoctor-section">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ background: '#4338ca', color: '#fff', borderRadius: '10px', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Users size={24} />
-                    </div>
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: '17px', color: '#312e81' }}>Hội đồng Hội chẩn Đa chuyên khoa & Tuyến trên</h3>
-                      <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#4338ca' }}>
-                        Mời chuyên gia đầu ngành tuyến trung ương cùng tham gia phòng khám trực tuyến và cho ý kiến chuyên môn
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={loadConsultationMembers}
-                    disabled={loadingMembers}
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
-                  >
-                    <RefreshCw size={14} /> Làm mới
-                  </button>
-                </div>
-
-                {/* Form Mời Chuyên gia */}
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', marginBottom: '20px' }}>
-                  <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: '#1e293b' }}>🤝 Mời Bác sĩ / Chuyên gia tham gia hội chẩn ca bệnh</h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Tên Bác sĩ / Chuyên gia *</label>
-                      <input
-                        type="text"
-                        placeholder="Ví dụ: PGS.TS.BS Nguyễn Văn Thông"
-                        value={inviteName}
-                        onChange={e => setInviteName(e.target.value)}
-                        style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Bệnh viện / Đơn vị công tác</label>
-                      <select
-                        value={inviteHospital}
-                        onChange={e => setInviteHospital(e.target.value)}
-                        style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                      >
-                        <option value="Bệnh viện Bạch Mai - Tuyến Trung Ương">Bệnh viện Bạch Mai - Tuyến Trung Ương</option>
-                        <option value="Bệnh viện Chợ Rẫy - TP. Hồ Chí Minh">Bệnh viện Chợ Rẫy - TP. Hồ Chí Minh</option>
-                        <option value="Bệnh viện Đại học Y Dược TP.HCM">Bệnh viện Đại học Y Dược TP.HCM</option>
-                        <option value="Bệnh viện Trung ương Huế">Bệnh viện Trung ương Huế</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Chuyên khoa hội chẩn</label>
-                      <select
-                        value={inviteSpecialty}
-                        onChange={e => setInviteSpecialty(e.target.value)}
-                        style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                      >
-                        <option value="Hô hấp & Phổi can thiệp">Hô hấp & Phổi can thiệp</option>
-                        <option value="Tim mạch can thiệp & Đột quỵ">Tim mạch can thiệp & Đột quỵ</option>
-                        <option value="Nội tiết & Chuyển hóa">Nội tiết & Chuyển hóa</option>
-                        <option value="Hồi sức tích cực & Chống độc (ICU)">Hồi sức tích cực & Chống độc (ICU)</option>
-                        <option value="Ung bướu & Xạ trị">Ung bướu & Xạ trị</option>
-                      </select>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={handleInviteConsultationMember}
-                    disabled={invitingMember || !inviteName.trim()}
-                    style={{ background: '#4338ca', borderColor: '#4338ca', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}
-                  >
-                    <Plus size={16} /> {invitingMember ? 'Đang gửi lời mời...' : 'Gửi lời mời tham gia hội chẩn'}
-                  </button>
-                </div>
-
-                {/* Danh sách thành viên hội chẩn */}
-                <h4 style={{ margin: '0 0 12px', fontSize: '15px', color: '#0f172a' }}>Danh sách Thành viên Hội đồng Hội chẩn ({consultationMembers.length})</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {consultationMembers.map(member => (
-                    <div key={member.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{
-                              background: member.role === 'host' ? '#dbeafe' : '#f3e8ff',
-                              color: member.role === 'host' ? '#1d4ed8' : '#7e22ce',
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              fontSize: '11px',
-                              fontWeight: 700
-                            }}>
-                              {member.role === 'host' ? 'Bác sĩ Chủ trì' : 'Chuyên gia Hội chẩn'}
-                            </span>
-                            <h4 style={{ margin: 0, fontSize: '15px', color: '#0f172a' }}>{member.doctor_name}</h4>
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-                            🏥 {member.hospital_name} · Chuyên khoa: <strong>{member.specialty}</strong>
-                          </div>
-                        </div>
-                        <span style={{
-                          padding: '3px 10px',
-                          borderRadius: '12px',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          background: member.status === 'joined' ? '#dcfce7' : '#fef3c7',
-                          color: member.status === 'joined' ? '#15803d' : '#b45309'
-                        }}>
-                          {member.status === 'joined' ? '🟢 Đã tham gia' : '⏳ Đã gửi thư mời'}
-                        </span>
-                      </div>
-
-                      {member.clinical_opinion ? (
-                        <div style={{ background: '#f8fafc', borderLeft: '3px solid #4338ca', padding: '10px 14px', borderRadius: '6px', fontSize: '13px', color: '#1e293b', marginTop: '10px' }}>
-                          <strong style={{ color: '#4338ca', display: 'block', marginBottom: '4px' }}>📝 Ý kiến chuyên môn của chuyên gia:</strong>
-                          <p style={{ margin: 0, lineHeight: 1.5 }}>{member.clinical_opinion}</p>
-                          <small style={{ color: '#94a3b8', display: 'block', marginTop: '4px' }}>
-                            Ghi nhận lúc: {member.joined_at ? new Date(member.joined_at).toLocaleString('vi-VN') : '—'}
-                          </small>
-                        </div>
-                      ) : (
-                        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #e2e8f0' }}>
-                          <textarea
-                            placeholder={`Nhập ý kiến chuyên môn hội chẩn cho ${member.doctor_name}...`}
-                            value={opinionTexts[member.id] || ''}
-                            onChange={e => setOpinionTexts({ ...opinionTexts, [member.id]: e.target.value })}
-                            style={{ width: '100%', minHeight: '60px', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
-                          />
-                          <button
-                            type="button"
-                            className="secondary small-secondary"
-                            onClick={() => handleSubmitMemberOpinion(member.id)}
-                            disabled={submittingOpinionId === member.id}
-                            style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', background: '#eef2ff', color: '#4338ca', borderColor: '#c7d2fe' }}
-                          >
-                            <Check size={14} /> {submittingOpinionId === member.id ? 'Đang lưu...' : 'Ghi nhận ý kiến vào biên bản'}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
