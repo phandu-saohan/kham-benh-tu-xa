@@ -258,15 +258,23 @@ export function LoginPage({
               {patientAuthMode === 'otp' ? (
                 <form onSubmit={handleVerifyOtp} className="cs-login-form">
                   <div className="cs-field-group">
-                    <label>Số điện thoại di động đăng ký</label>
+                    <label>Số điện thoại di động đăng ký (hoặc chuyển sang tab Đăng nhập Mật khẩu)</label>
                     <div className="cs-input-with-btn">
                       <div className="cs-input-box">
                         <Phone size={17} className="cs-input-icon" />
                         <input
-                          type="tel"
-                          placeholder="Ví dụ: 0912 345 678"
+                          type="text"
+                          placeholder="Ví dụ: 0912 345 678 (hoặc gõ email)"
                           value={phone}
-                          onChange={e => setPhone(e.target.value)}
+                          onChange={e => {
+                            const val = e.target.value
+                            if (val.includes('@')) {
+                              setPatientAuthMode('password')
+                              setEmail(val)
+                            } else {
+                              setPhone(val)
+                            }
+                          }}
                           required
                         />
                       </div>
@@ -357,12 +365,12 @@ export function LoginPage({
                 /* Mode B: Password Login for Patient */
                 <form onSubmit={handlePasswordLogin} className="cs-login-form">
                   <div className="cs-field-group">
-                    <label>Email hoặc Số điện thoại</label>
+                    <label>Email, Số điện thoại hoặc Số CCCD</label>
                     <div className="cs-input-box">
                       <Mail size={17} className="cs-input-icon" />
                       <input
                         type="text"
-                        placeholder="Nhập email hoặc số điện thoại đã đăng ký"
+                        placeholder="Nhập email, số điện thoại hoặc CCCD đã đăng ký"
                         value={email}
                         onChange={e => setEmail(e.target.value)}
                         required

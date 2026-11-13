@@ -6,7 +6,7 @@ from pydantic import BaseModel, EmailStr, Field, ConfigDict
 email_validator.TEST_ENVIRONMENT = True
 
 class LoginIn(BaseModel):
-    email: EmailStr
+    email: str = Field(min_length=1, description="Email, Số điện thoại hoặc Số CCCD")
     password: str
 
 class OtpSendIn(BaseModel):
