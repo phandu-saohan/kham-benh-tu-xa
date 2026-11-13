@@ -565,8 +565,8 @@ export function MobileAppointmentsView({
                     style={{ flex: 1 }}
                     onClick={() => onJoinConsultation(a)}
                   >
-                    {isLive ? <Video size={16} /> : <Clock size={16} />}
-                    <span>{isLive ? 'Vào gặp Bác sĩ ngay' : isWaiting ? 'Đang trong phòng chờ' : 'Vào phòng chờ'}</span>
+                    <Clock size={16} />
+                    <span>{isWaiting ? 'Đang trong phòng chờ' : 'Vào phòng chờ'}</span>
                   </button>
                 )}
 
@@ -2133,7 +2133,7 @@ export function MobilePatientShell({
                     cursor: 'pointer'
                   }}
                 >
-                  <Video size={16} /> Vào Phòng Chờ / Khám
+                  <Clock size={16} /> Vào phòng chờ
                 </button>
                 {!nextAppt.paid_at && nextAppt.status === 'scheduled' && (
                   <button

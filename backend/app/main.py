@@ -3759,7 +3759,8 @@ def patient_enter_waiting_room(
 
     now = datetime.now(timezone.utc)
     old_status = appt.status
-    appt.status = "waiting"
+    if appt.status != "in_progress":
+        appt.status = "waiting"
     if not appt.triage_status or appt.triage_status == "pending":
         appt.triage_status = "waiting_room"
     appt.waiting_room_entered_at = now
@@ -3770,7 +3771,7 @@ def patient_enter_waiting_room(
         appointment_id=appt.id,
         action="patient_enter_waiting_room",
         from_status=old_status,
-        to_status="waiting",
+        to_status=appt.status,
         actor=user,
         notes=f"{user_title} {user.full_name} đã vào phòng chờ ảo để chờ điều dưỡng điều phối."
     )

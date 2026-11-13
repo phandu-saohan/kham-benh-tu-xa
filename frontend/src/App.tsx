@@ -194,6 +194,7 @@ export default function App() {
   // Modal states
 
   const [activeAppointment, setActiveAppointment] = useState<Appointment | null>(null)
+  const [patientRoomMode, setPatientRoomMode] = useState<'waiting_room' | 'video_room'>('waiting_room')
 
   const [qrAppointment, setQrAppointment] = useState<Appointment | null>(null)
 
@@ -1106,6 +1107,7 @@ export default function App() {
     setView('overview')
 
     setActiveAppointment(null)
+    setPatientRoomMode('waiting_room')
 
     setQrAppointment(null)
 
@@ -1175,9 +1177,9 @@ export default function App() {
 
       try {
 
-        if (a.status !== 'in_progress') {
+        const res = await enterWaitingRoom(a.id)
 
-          const res = await enterWaitingRoom(a.id)
+        if (a.status !== 'in_progress') {
 
           a = { ...a, status: 'waiting', triage_status: (res.triage_status || 'waiting_room') as any }
 
@@ -1187,9 +1189,15 @@ export default function App() {
 
         console.warn('Enter waiting room error:', e)
 
-        a = { ...a, status: 'waiting' }
+        if (a.status !== 'in_progress') {
+
+          a = { ...a, status: 'waiting' }
+
+        }
 
       }
+
+      setPatientRoomMode('waiting_room')
 
     }
 
@@ -1468,6 +1476,7 @@ export default function App() {
     // Bệnh nhân đã đồng ý điều khoản khi đăng ký tài khoản -> vào thẳng phòng gọi ngay
 
     setPendingConsentAppointment(null)
+    setPatientRoomMode('video_room')
 
     setActiveAppointment(targetAppt)
 
@@ -1637,7 +1646,7 @@ export default function App() {
 
   if (activeAppointment && user.role === 'patient') {
 
-    if (activeAppointment.status === 'waiting') {
+    if (patientRoomMode === 'waiting_room') {
 
       return (
 
@@ -1650,6 +1659,7 @@ export default function App() {
           onBack={() => {
 
             setActiveAppointment(null)
+            setPatientRoomMode('waiting_room')
 
             loadDashboard(user)
 
@@ -1657,6 +1667,7 @@ export default function App() {
 
           onEnterConsultation={(appt) => {
 
+            setPatientRoomMode('video_room')
             setActiveAppointment(appt)
 
           }}
@@ -1675,7 +1686,10 @@ export default function App() {
 
           appointment={activeAppointment}
 
-          onBack={() => setActiveAppointment(null)}
+          onBack={() => {
+            setActiveAppointment(null)
+            setPatientRoomMode('waiting_room')
+          }}
 
           user={user}
 
@@ -3887,7 +3901,9 @@ export default function App() {
 
               setPendingConsentAppointment(null)
 
-              setActiveAppointment(appt)
+              if (appt) {
+                handleJoinConsultation(appt)
+              }
 
             }}
 
@@ -4145,7 +4161,9 @@ export default function App() {
 
               setPendingConsentAppointment(null)
 
-              setActiveAppointment(appt)
+              if (appt) {
+                handleJoinConsultation(appt)
+              }
 
             }}
 
@@ -5493,15 +5511,11 @@ function AppointmentList({
 
                             ? 'Vào phòng khám'
 
-                            : a.status === 'in_progress'
-
-                            ? 'Vào gặp Bác sĩ ngay'
-
                             : a.status === 'waiting'
 
                             ? 'Đang ở phòng chờ'
 
-                            : 'Vào phòng chờ để điều dưỡng điều phối'}
+                            : 'Vào phòng chờ'}
 
                         </span>
 

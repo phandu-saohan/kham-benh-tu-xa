@@ -685,17 +685,13 @@ export function PatientDashboard({
                     gap: '8px'
                   }}
                 >
-                  {nextAppt.status === 'in_progress' ? (
-                    <>
-                      <Video size={18} /> Vào khám với Bác sĩ ngay
-                    </>
-                  ) : nextAppt.status === 'waiting' ? (
+                  {nextAppt.status === 'waiting' ? (
                     <>
                       <Clock size={18} /> Đang ở phòng chờ
                     </>
                   ) : (
                     <>
-                      <Activity size={18} /> Vào phòng chờ để điều dưỡng điều phối
+                      <Clock size={18} /> Vào phòng chờ
                     </>
                   )}
                 </button>
