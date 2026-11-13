@@ -54,6 +54,8 @@ import {
   getAdminOverview,
   getAdminAuditLogs,
   getAdminUsers,
+  adminCreateUser,
+  adminDeleteUser,
   getAdminSettings,
   updateAdminSettings, getAIStatus, switchAIMode, type AIStatusInfo,
   getPermissionsMatrix,
@@ -359,6 +361,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   const [updatingUserId, setUpdatingUserId] = useState<number | null>(null)
   const [usersPage, setUsersPage] = useState(1)
   const [usersPageSize, setUsersPageSize] = useState(10)
+  const [userSearch, setUserSearch] = useState('')
+  const [userRoleFilter, setUserRoleFilter] = useState('all')
+  const [showCreateUserModal, setShowCreateUserModal] = useState(false)
+  const [createUserData, setCreateUserData] = useState({
+    full_name: '',
+    email: '',
+    phone_number: '',
+    role: 'doctor',
+    password: 'Password123!',
+    doctor_cchn: '',
+    bhyt_code: '',
+    specialty: 'Nội Tổng Quát'
+  })
+  const [creatingUser, setCreatingUser] = useState(false)
 
   // RBAC Matrix data & Interactive Editor
   const [matrixData, setMatrixData] = useState<PermissionsMatrixData | null>(null)
@@ -472,6 +488,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     }
   }
 
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!createUserData.full_name.trim() || !createUserData.email.trim()) {
+      alert('Vui lòng nhập đầy đủ Họ Tên và Email!')
+      return
+    }
+    setCreatingUser(true)
+    try {
+      const res = await adminCreateUser(createUserData)
+      setToastMessage(`✅ ${res.message}`)
+      setTimeout(() => setToastMessage(''), 4000)
+      setShowCreateUserModal(false)
+      setCreateUserData({
+        full_name: '',
+        email: '',
+        phone_number: '',
+        role: 'doctor',
+        password: 'Password123!',
+        doctor_cchn: '',
+        bhyt_code: '',
+        specialty: 'Nội Tổng Quát'
+      })
+      const u = await getAdminUsers()
+      setUsersList(u)
+    } catch (err: any) {
+      alert(err.message || 'Lỗi khi tạo cán bộ / người dùng')
+    } finally {
+      setCreatingUser(false)
+    }
+  }
+
+  const handleDeleteUser = async (userId: number, userName: string) => {
+    if (!window.confirm(`Xác nhận xóa hoặc vô hiệu hóa tài khoản "${userName}" (#${userId}) khỏi hệ thống?`)) return
+    try {
+      const res = await adminDeleteUser(userId)
+      setToastMessage(`✅ ${res.message}`)
+      setTimeout(() => setToastMessage(''), 4000)
+      const u = await getAdminUsers()
+      setUsersList(u)
+    } catch (err: any) {
+      alert(err.message || 'Lỗi khi xóa người dùng')
+    }
+  }
+
   const handleToggleUserStatus = async (userId: number, currentActive: boolean) => {
     setUpdatingUserId(userId)
     try {
@@ -564,6 +624,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
 
   const money = (n: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n)
+
+  const filteredUsers = usersList.filter(u => {
+    const term = userSearch.trim().toLowerCase()
+    const matchesSearch = !term ||
+      (u.full_name && u.full_name.toLowerCase().includes(term)) ||
+      (u.email && u.email.toLowerCase().includes(term)) ||
+      (u.phone_number && u.phone_number.includes(term)) ||
+      (u.doctor_cchn && u.doctor_cchn.toLowerCase().includes(term)) ||
+      (u.bhyt_code && u.bhyt_code.toLowerCase().includes(term))
+    const matchesRole = userRoleFilter === 'all' || u.role === userRoleFilter
+    return matchesSearch && matchesRole
+  })
 
   return (
     <div className="admin-dashboard-container">
@@ -1402,15 +1474,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                 <div className="subsystem-metrics-row">
                   <div className="subsystem-mini-metric">
                     <span>Đặt trực tuyến</span>
-                    <strong>94%</strong>
+                    <strong>{overview?.online_booking_rate ?? 100}%</strong>
                   </div>
                   <div className="subsystem-mini-metric">
                     <span>VNeID Cấp 2</span>
-                    <strong>88%</strong>
+                    <strong>{overview?.vneid_verified_rate ?? 100}%</strong>
                   </div>
                   <div className="subsystem-mini-metric">
                     <span>VietQR NAPAS</span>
-                    <strong>100%</strong>
+                    <strong>{overview?.vietqr_payment_rate ?? 100}%</strong>
                   </div>
                 </div>
 
@@ -1423,44 +1495,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                     </span>
                   </div>
                   <div className="command-queue-list">
-                    <div className="command-queue-item">
-                      <div className="queue-patient-info">
-                        <div className="queue-avatar">TN</div>
-                        <div className="queue-name-meta">
-                          <strong>Tổng lượt hẹn trực tuyến</strong>
-                          <span>Dữ liệu thực tế từ hệ thống đặt khám</span>
+                    {overview?.recent_appointments && overview.recent_appointments.length > 0 ? (
+                      overview.recent_appointments.map((appt) => (
+                        <div className="command-queue-item" key={appt.id}>
+                          <div className="queue-patient-info">
+                            <div className="queue-avatar">
+                              {appt.patient_name ? appt.patient_name.split(' ').pop()?.slice(0, 2).toUpperCase() : 'BN'}
+                            </div>
+                            <div className="queue-name-meta">
+                              <strong>
+                                {appt.patient_name} <small style={{ color: '#0284c7', fontSize: '11px' }}>#{appt.id}</small>
+                              </strong>
+                              <span>{appt.reason} · {appt.doctor_name}</span>
+                            </div>
+                          </div>
+                          <div className="queue-badges" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span className="badge-vneid-tag" style={{
+                              background: appt.status === 'completed' ? '#ecfdf5' : appt.status === 'in_progress' ? '#eff6ff' : '#fef9c3',
+                              color: appt.status === 'completed' ? '#047857' : appt.status === 'in_progress' ? '#1d4ed8' : '#b45309',
+                              border: 'none',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              padding: '2px 6px',
+                              borderRadius: '4px'
+                            }}>
+                              {appt.status === 'completed' ? '🟢 Hoàn tất' : appt.status === 'in_progress' ? '🔵 Đang khám' : '🟡 Chờ khám'}
+                            </span>
+                            {appt.has_vneid && <span className="badge-vneid-tag">VNeID</span>}
+                          </div>
                         </div>
-                      </div>
-                      <div className="queue-badges">
-                        <span className="badge-vneid-tag">{overview?.total_appointments || 0} ca</span>
-                      </div>
-                    </div>
-
-                    <div className="command-queue-item">
-                      <div className="queue-patient-info">
-                        <div className="queue-avatar">CK</div>
-                        <div className="queue-name-meta">
-                          <strong>Lịch hẹn chờ khám / Triage</strong>
-                          <span>Đang trong hàng đợi sàng lọc & kết nối</span>
-                        </div>
-                      </div>
-                      <div className="queue-badges">
-                        <span className="text-xs text-amber-600 font-bold">🟡 {overview?.scheduled_appointments || 0} ca</span>
-                      </div>
-                    </div>
-
-                    <div className="command-queue-item">
-                      <div className="queue-patient-info">
-                        <div className="queue-avatar">HT</div>
-                        <div className="queue-name-meta">
-                          <strong>Lượt khám đã hoàn tất EMR</strong>
-                          <span>Đã ký số & trả kết quả về Portal</span>
-                        </div>
-                      </div>
-                      <div className="queue-badges">
-                        <span className="text-xs text-emerald-600 font-bold">🟢 {overview?.completed_appointments || 0} ca</span>
-                      </div>
-                    </div>
+                      ))
+                    ) : (
+                      <div className="p-3 text-xs text-slate-500 text-center">Chưa có lượt hẹn khám nào trong hệ thống</div>
+                    )}
                   </div>
                 </div>
 
@@ -1497,24 +1564,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                 <div>
                   <div className="subsystem-section-title">
                     <span>Phân luồng Cấp cứu ESI</span>
-                    <span className="text-xs text-slate-500 font-medium">12 ca hôm nay</span>
+                    <span className="text-xs text-slate-500 font-medium">
+                      {overview?.triage_distribution?.total ?? overview?.total_appointments ?? 0} ca ghi nhận
+                    </span>
                   </div>
                   <div className="esi-distribution-bar">
                     <div className="esi-level-row esi-red">
                       <span>🔴 P1 - Đỏ (Hồi sức cấp cứu / ESI 1)</span>
-                      <strong>0 ca (0%)</strong>
+                      <strong>{overview?.triage_distribution?.p1 ?? 0} ca ({overview?.triage_distribution?.p1_percent ?? 0}%)</strong>
                     </div>
                     <div className="esi-level-row esi-yellow">
                       <span>🟡 P2 - Vàng (Nguy kịch / Cảnh báo - ESI 2)</span>
-                      <strong>1 ca (8%)</strong>
+                      <strong>{overview?.triage_distribution?.p2 ?? 0} ca ({overview?.triage_distribution?.p2_percent ?? 0}%)</strong>
                     </div>
                     <div className="esi-level-row esi-green">
                       <span>🟢 P3 - Xanh (Tiêu chuẩn / Ổn định - ESI 3-4)</span>
-                      <strong>8 ca (67%)</strong>
+                      <strong>{overview?.triage_distribution?.p3 ?? 0} ca ({overview?.triage_distribution?.p3_percent ?? 0}%)</strong>
                     </div>
                     <div className="esi-level-row esi-white">
                       <span>⚪ P4 - Trắng (Không khẩn / ESI 5)</span>
-                      <strong>3 ca (25%)</strong>
+                      <strong>{overview?.triage_distribution?.p4 ?? 0} ca ({overview?.triage_distribution?.p4_percent ?? 0}%)</strong>
                     </div>
                   </div>
                 </div>
@@ -1528,49 +1597,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                     </span>
                   </div>
                   <div className="rpm-devices-grid">
-                    <div className="rpm-device-chip">
-                      <div className="rpm-chip-header">
-                        <span>Huyết áp Omron</span>
-                        <span className="text-emerald-600 font-bold">Bluetooth</span>
-                      </div>
-                      <div className="rpm-chip-val">
-                        130/90 <small>mmHg</small>
-                      </div>
-                      <div className="text-[10px] text-slate-500">Mạch: 72 bpm · Nhịp xoang</div>
-                    </div>
-
-                    <div className="rpm-device-chip">
-                      <div className="rpm-chip-header">
-                        <span>Đường huyết Accu-Chek</span>
-                        <span className="text-emerald-600 font-bold">Mao mạch</span>
-                      </div>
-                      <div className="rpm-chip-val">
-                        5.6 <small>mmol/L</small>
-                      </div>
-                      <div className="text-[10px] text-slate-500">Đường huyết đói tối ưu</div>
-                    </div>
-
-                    <div className="rpm-device-chip">
-                      <div className="rpm-chip-header">
-                        <span>SpO2 Oximeter</span>
-                        <span className="text-emerald-600 font-bold">Quang phổ</span>
-                      </div>
-                      <div className="rpm-chip-val">
-                        98% <small>SpO2</small>
-                      </div>
-                      <div className="text-[10px] text-slate-500">Bão hòa oxy bình thường</div>
-                    </div>
-
-                    <div className="rpm-device-chip">
-                      <div className="rpm-chip-header">
-                        <span>Thân nhiệt IR</span>
-                        <span className="text-emerald-600 font-bold">Hồng ngoại</span>
-                      </div>
-                      <div className="rpm-chip-val">
-                        36.8 <small>°C</small>
-                      </div>
-                      <div className="text-[10px] text-slate-500">Nhiệt độ cơ thể chuẩn</div>
-                    </div>
+                    {overview?.latest_rpm_vitals && overview.latest_rpm_vitals.length > 0 ? (
+                      overview.latest_rpm_vitals.map((v) => (
+                        <div className="rpm-device-chip" key={v.id}>
+                          <div className="rpm-chip-header">
+                            <span title={v.device_name}>{v.device_name.slice(0, 18)}</span>
+                            <span className={v.is_warning ? "text-rose-600 font-bold" : "text-emerald-600 font-bold"}>
+                              {v.is_warning ? "Cảnh báo" : (v.connection_method === 'bluetooth_ble' ? 'BLE' : 'IoT Live')}
+                            </span>
+                          </div>
+                          <div className="rpm-chip-val">
+                            {v.blood_pressure ? (
+                              <>{v.blood_pressure} <small>mmHg</small></>
+                            ) : v.glucose_value ? (
+                              <>{v.glucose_value} <small>mmol/L</small></>
+                            ) : v.spo2 ? (
+                              <>{v.spo2}% <small>SpO2</small></>
+                            ) : v.temperature_celsius ? (
+                              <>{v.temperature_celsius} <small>°C</small></>
+                            ) : (
+                              <>{v.pulse || '--'} <small>bpm</small></>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            {v.patient_name} {v.measured_at ? `· ${v.measured_at}` : ''}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-xs text-slate-500 p-2 col-span-2 text-center">Chưa có bản ghi sinh hiệu IoT</div>
+                    )}
                   </div>
                 </div>
 
@@ -1578,7 +1634,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                 <div className="text-xs text-amber-800 bg-amber-50 p-3 rounded-lg border border-amber-200 flex items-start gap-2">
                   <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <strong>Cảnh báo sớm NEWS2:</strong> 11/12 ca có NEWS2 = 0-1 (Nguy cơ thấp). 1 ca NEWS2 = 4 (Khoa Hô Hấp) đã được Điều dưỡng gắn cờ ưu tiên chuyển Bác sĩ khám trước.
+                    <strong>Cảnh báo sớm NEWS2 & IoT:</strong> Kết nối liên tục với hệ thống thiết bị y tế qua chuẩn BLE/HL7. {overview?.latest_rpm_vitals?.some(v => v.is_warning) ? 'Phát hiện chỉ số bất thường đã được gắn cờ ưu tiên chuyển Bác sĩ xử trí.' : 'Toàn bộ dữ liệu sinh hiệu thu nhận nằm trong ngưỡng an toàn.'}
                   </div>
                 </div>
               </div>
@@ -1597,7 +1653,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                   </div>
                 </div>
                 <span className="subsystem-status-pill online">
-                  <span className="chip-dot"></span> 4 Buồng trực
+                  <span className="chip-dot"></span> {clinicRooms.filter(r => r.status === 'active').length} Buồng trực
                 </span>
               </div>
 
@@ -1644,9 +1700,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                   <div className="font-semibold mb-1 flex items-center gap-1 text-purple-800">
                     <Sparkles size={14} /> Tự động hóa Lâm sàng Toàn viện:
                   </div>
-                  <div>• <strong>AI Scribe:</strong> 98% biên bản SOAP sinh chuẩn QĐ 130/BYT</div>
-                  <div>• <strong>AI MedGemma 3 PACS:</strong> Phân tích tổn thương phổi độ nhạy 96.8%</div>
-                  <div>• <strong>Ký số SmartCA PKI:</strong> 100% đơn thuốc số hóa & liên thông Bộ Y tế</div>
+                  <div>• <strong>AI Scribe:</strong> {overview?.soap_completed_count ?? 0} biên bản SOAP sinh chuẩn QĐ 130/BYT</div>
+                  <div>• <strong>AI MedGemma 3 PACS:</strong> Phân tích tổn thương X-quang/CT độ nhạy cao</div>
+                  <div>• <strong>Ký số SmartCA PKI:</strong> {overview?.smartca_signed_count ?? 0} đơn thuốc số hóa & liên thông Bộ Y tế</div>
                 </div>
               </div>
             </div>
@@ -1671,19 +1727,115 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       {activeTab === 'users' && (
         <div className="admin-users-workspace">
           <div className="users-table-card">
-            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <h4>Danh sách Cán bộ Y tế & Người dùng ({usersList.length})</h4>
-                <p className="tiny muted">Quản lý định danh y tế, phân bổ vai trò bác sĩ, điều dưỡng và trạng thái tài khoản</p>
+                <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
+                  Danh sách Cán bộ Y tế & Người dùng ({usersList.length})
+                </h4>
+                <p className="tiny muted" style={{ margin: '4px 0 0 0' }}>
+                  Quản lý định danh y tế, phân bổ vai trò bác sĩ, điều dưỡng, bệnh nhân và trạng thái tài khoản
+                </p>
               </div>
-              <button
-                type="button"
-                className="btn-refresh-admin"
-                onClick={() => setActiveTab('rbac')}
-                style={{ fontSize: '12px', padding: '6px 12px' }}
-              >
-                <SlidersHorizontal size={14} /> Xem Ma trận Quyền hạn (RBAC)
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateUserModal(true)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: '#0d9488',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(13, 148, 136, 0.3)'
+                  }}
+                >
+                  <Plus size={15} /> Thêm Cán Bộ / Người Dùng Mới
+                </button>
+                <button
+                  type="button"
+                  className="btn-refresh-admin"
+                  onClick={() => setActiveTab('rbac')}
+                  style={{ fontSize: '12px', padding: '7px 12px' }}
+                >
+                  <SlidersHorizontal size={14} /> Xem Ma trận Quyền hạn (RBAC)
+                </button>
+              </div>
+            </div>
+
+            {/* Search and Filters Toolbar */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              padding: '12px 16px',
+              background: '#f8fafc',
+              borderBottom: '1px solid #e2e8f0',
+              flexWrap: 'wrap'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 280px' }}>
+                <div style={{ position: 'relative', width: '100%', maxWidth: '360px' }}>
+                  <Search size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                  <input
+                    type="text"
+                    value={userSearch}
+                    onChange={(e) => {
+                      setUserSearch(e.target.value)
+                      setUsersPage(1)
+                    }}
+                    placeholder="Tìm theo tên, email, SĐT, CCHN, BHYT..."
+                    style={{
+                      width: '100%',
+                      padding: '7px 12px 7px 32px',
+                      borderRadius: '7px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '13px',
+                      outline: 'none',
+                      background: '#ffffff'
+                    }}
+                  />
+                </div>
+                {userSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setUserSearch('')}
+                    style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}
+                  >
+                    Xóa tìm kiếm
+                  </button>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12.5px', color: '#64748b', fontWeight: 600 }}>Lọc vai trò:</span>
+                <select
+                  value={userRoleFilter}
+                  onChange={(e) => {
+                    setUserRoleFilter(e.target.value)
+                    setUsersPage(1)
+                  }}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: '7px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12.5px',
+                    background: '#ffffff',
+                    fontWeight: 600
+                  }}
+                >
+                  <option value="all">Tất cả vai trò ({usersList.length})</option>
+                  <option value="doctor">👨‍⚕️ Bác sĩ ({usersList.filter(u => u.role === 'doctor').length})</option>
+                  <option value="nurse">👩‍⚕️ Điều dưỡng ({usersList.filter(u => u.role === 'nurse').length})</option>
+                  <option value="admin">⚙️ Quản trị viên ({usersList.filter(u => u.role === 'admin').length})</option>
+                  <option value="patient">🧑 Bệnh nhân ({usersList.filter(u => u.role === 'patient').length})</option>
+                </select>
+              </div>
             </div>
 
             <div className="table-responsive">
@@ -1698,10 +1850,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                     <th>Mã thẻ BHYT</th>
                     <th>Trạng thái</th>
                     <th>Đổi phân quyền</th>
+                    <th style={{ textAlign: 'center' }}>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {usersList.slice((usersPage - 1) * usersPageSize, usersPage * usersPageSize).map(u => (
+                  {filteredUsers.slice((usersPage - 1) * usersPageSize, usersPage * usersPageSize).map(u => (
                     <tr key={u.id}>
                       <td>#{u.id}</td>
                       <td>
@@ -1763,21 +1916,258 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                           {updatingUserId === u.id && <RefreshCw size={13} className="spin" />}
                         </div>
                       </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteUser(u.id, u.full_name)}
+                          disabled={updatingUserId === u.id}
+                          title="Xóa hoặc vô hiệu hóa tài khoản"
+                          style={{
+                            border: '1px solid #fecaca',
+                            background: '#fef2f2',
+                            color: '#b91c1c',
+                            borderRadius: '6px',
+                            padding: '4px 8px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '11.5px',
+                            fontWeight: 600
+                          }}
+                        >
+                          <Trash2 size={13} /> Xóa
+                        </button>
+                      </td>
                     </tr>
                   ))}
+                  {filteredUsers.length === 0 && (
+                    <tr>
+                      <td colSpan={9} style={{ textAlign: 'center', padding: '30px', color: '#64748b' }}>
+                        Không tìm thấy người dùng hoặc cán bộ y tế nào phù hợp với bộ lọc.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
 
             <Pagination
               currentPage={usersPage}
-              totalItems={usersList.length}
+              totalItems={filteredUsers.length}
               pageSize={usersPageSize}
               onPageChange={setUsersPage}
               onPageSizeChange={setUsersPageSize}
               pageSizeOptions={[5, 10, 20, 50]}
             />
           </div>
+
+          {/* Modal Tạo Người Dùng / Cán Bộ Mới */}
+          {showCreateUserModal && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(15, 23, 42, 0.65)',
+              backdropFilter: 'blur(3px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+              padding: '20px'
+            }}>
+              <div style={{
+                background: '#ffffff',
+                borderRadius: '16px',
+                width: '100%',
+                maxWidth: '540px',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  padding: '18px 22px',
+                  background: '#f8fafc',
+                  borderBottom: '1px solid #e2e8f0',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Users size={20} color="#0d9488" />
+                    <h3 style={{ margin: 0, fontSize: '16.5px', fontWeight: 800, color: '#0f172a' }}>
+                      Thêm Mới Cán Bộ Y Tế / Người Dùng
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateUserModal(false)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleCreateUser} style={{ padding: '20px 24px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                        Họ và Tên <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={createUserData.full_name}
+                        onChange={(e) => setCreateUserData({ ...createUserData, full_name: e.target.value })}
+                        placeholder="VD: BS.CKII Nguyễn Văn An"
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                        Email đăng nhập <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={createUserData.email}
+                        onChange={(e) => setCreateUserData({ ...createUserData, email: e.target.value })}
+                        placeholder="bacsi@medicalcenter.vn"
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                        Số điện thoại
+                      </label>
+                      <input
+                        type="tel"
+                        value={createUserData.phone_number}
+                        onChange={(e) => setCreateUserData({ ...createUserData, phone_number: e.target.value })}
+                        placeholder="0912345678"
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                        Vai trò hệ thống <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <select
+                        value={createUserData.role}
+                        onChange={(e) => setCreateUserData({ ...createUserData, role: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px', background: '#fff' }}
+                      >
+                        <option value="doctor">👨‍⚕️ Bác sĩ điều trị</option>
+                        <option value="nurse">👩‍⚕️ Điều dưỡng tiếp đón</option>
+                        <option value="admin">⚙️ Quản trị viên hệ thống</option>
+                        <option value="patient">🧑 Bệnh nhân</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                        Mật khẩu khởi tạo
+                      </label>
+                      <input
+                        type="text"
+                        value={createUserData.password}
+                        onChange={(e) => setCreateUserData({ ...createUserData, password: e.target.value })}
+                        placeholder="Password123!"
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                      />
+                    </div>
+
+                    {createUserData.role === 'doctor' && (
+                      <>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                            Số CCHN Y tế (BYT)
+                          </label>
+                          <input
+                            type="text"
+                            value={createUserData.doctor_cchn}
+                            onChange={(e) => setCreateUserData({ ...createUserData, doctor_cchn: e.target.value })}
+                            placeholder="012345/BYT-CCHN"
+                            style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                            Chuyên khoa phụ trách
+                          </label>
+                          <input
+                            type="text"
+                            value={createUserData.specialty}
+                            onChange={(e) => setCreateUserData({ ...createUserData, specialty: e.target.value })}
+                            placeholder="Khoa Nội Tổng Quát"
+                            style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {createUserData.role === 'patient' && (
+                      <div style={{ gridColumn: 'span 2' }}>
+                        <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                          Mã thẻ BHYT (nếu có)
+                        </label>
+                        <input
+                          type="text"
+                          value={createUserData.bhyt_code}
+                          onChange={(e) => setCreateUserData({ ...createUserData, bhyt_code: e.target.value })}
+                          placeholder="GD4790123456789"
+                          style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13.5px' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px', paddingTop: '14px', borderTop: '1px solid #f1f5f9' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateUserModal(false)}
+                      style={{
+                        padding: '9px 16px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        background: '#ffffff',
+                        color: '#475569',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Hủy bỏ
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={creatingUser}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '9px 18px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: '#0d9488',
+                        color: '#ffffff',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        cursor: creatingUser ? 'wait' : 'pointer'
+                      }}
+                    >
+                      {creatingUser ? <RefreshCw size={14} className="spin" /> : <Check size={14} />}
+                      {creatingUser ? 'Đang tạo...' : 'Tạo Tài Khoản'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -2136,7 +2526,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
               <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 600 }}>Buồng khám Telemed hoạt động</div>
               <div style={{ fontSize: '24px', fontWeight: 800, color: '#059669', marginTop: '4px' }}>
-                5 buồng <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>khám E2EE</span>
+                {clinicRooms.filter(r => r.status === 'active').length} buồng <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>khám E2EE</span>
               </div>
             </div>
             <div style={{ background: '#ffffff', padding: '16px 18px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
@@ -2184,10 +2574,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                     return (
                       <tr key={s.id || idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
                         <td style={{ padding: '12px 14px', fontWeight: 700, color: '#0f172a' }}>
-                          {s.doctor_name || 'BS. CKII Trần Minh'}
+                          {s.doctor_name || usersList.find(u => u.id === s.doctor_id)?.full_name || 'Bác sĩ trực'}
                         </td>
                         <td style={{ padding: '12px 14px', color: '#475569' }}>
-                          {s.department_name || 'Khoa Nội Tổng Quát'}
+                          {s.department_name || (departmentsList.find(d => d.id === s.department_id)?.name || 'Khoa Nội')}
                         </td>
                         <td style={{ padding: '12px 14px', fontWeight: 600 }}>
                           {s.shift_date}
@@ -2201,7 +2591,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                         <td style={{ padding: '12px 14px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: '#0f172a' }}>
                             <DoorOpen size={14} color="#059669" />
-                            {s.room_name || 'Phòng khám Telemedicine #01'}
+                            {s.room_name || clinicRooms.find(r => r.id === s.clinic_room_id)?.name || 'Phòng khám Telemed'}
                           </div>
                         </td>
                         <td style={{ padding: '12px 14px' }}>

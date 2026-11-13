@@ -692,6 +692,7 @@ export type DoctorShift = {
   booked_count: number
   available_slots: number
   is_overloaded: boolean
+  clinic_room_id?: number
   room_name?: string
   notes?: string
 }
@@ -989,6 +990,33 @@ export async function assessTriage(appointmentId: number, data: TriageAssessment
 
 // --- ADMIN DASHBOARD & SYSTEM SETTINGS API ---
 
+export interface AdminOverviewAppointment {
+  id: number
+  patient_name: string
+  doctor_name: string
+  status: string
+  triage_level: string
+  reason: string
+  encounter_code: string
+  starts_at?: string
+  has_vneid?: boolean
+}
+
+export interface AdminOverviewVital {
+  id: number
+  patient_name: string
+  device_name: string
+  device_type: string
+  blood_pressure?: string
+  pulse?: number
+  glucose_value?: number
+  spo2?: number
+  temperature_celsius?: number
+  is_warning?: boolean
+  connection_method?: string
+  measured_at?: string
+}
+
 export interface AdminOverviewData {
   total_appointments: number
   completed_appointments: number
@@ -1000,6 +1028,25 @@ export interface AdminOverviewData {
   total_nurses: number
   total_bhyt_claims: number
   bhyt_total_discount: number
+  recent_appointments?: AdminOverviewAppointment[]
+  triage_distribution?: {
+    total: number
+    p1: number
+    p1_percent: number
+    p2: number
+    p2_percent: number
+    p3: number
+    p3_percent: number
+    p4: number
+    p4_percent: number
+  }
+  latest_rpm_vitals?: AdminOverviewVital[]
+  online_booking_rate?: number
+  vneid_verified_rate?: number
+  vietqr_payment_rate?: number
+  soap_completed_count?: number
+  smartca_signed_count?: number
+  active_rooms_count?: number
 }
 
 export interface AuditLogItem {
@@ -1096,6 +1143,30 @@ export async function updateUserRole(
   return request<{ success: boolean; message: string; user: any }>(`/api/v1/admin/users/${userId}/role`, {
     method: 'PUT',
     body: JSON.stringify(data)
+  })
+}
+
+export async function adminCreateUser(data: {
+  email: string
+  phone_number?: string
+  full_name: string
+  role: string
+  password?: string
+  doctor_cchn?: string
+  bhyt_code?: string
+  department_id?: number
+  specialty?: string
+  academic_title?: string
+}) {
+  return request<{ success: boolean; message: string; user: any }>('/api/v1/admin/users', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function adminDeleteUser(userId: number) {
+  return request<{ success: boolean; message: string }>(`/api/v1/admin/users/${userId}`, {
+    method: 'DELETE'
   })
 }
 

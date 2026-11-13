@@ -43,7 +43,7 @@ from app.schemas import (
     ConsultationMessageIn, ConsultationMessageOut,
     IceServersOut, IceServerConfig, PaymentWebhookOut,
     TriageAssessmentIn, TriageAssessmentOut, TriageQueueItem, WaitingRoomStatusOut, AppointmentDocumentIn, AppointmentDocumentOut, PatientVitalsUpdateIn,
-    AdminOverviewOut, AuditLogOut, SystemSettingsOut, SystemSettingsUpdateIn,
+    AdminOverviewOut, AdminUserCreateIn, AuditLogOut, SystemSettingsOut, SystemSettingsUpdateIn,
     PatientProfileOut, PatientProfileUpdateIn,
     PatientHisCheckIn, PatientHisCheckOut, PatientRegisterIn, PatientRegisterOut,
     PatientIdentifyIn, PatientIdentifyOut,
@@ -4222,7 +4222,7 @@ def delete_appointment_document(
 def get_admin_overview(db: Session = Depends(get_db), user: User = Depends(require_roles("admin"))):
     all_appts = db.query(Appointment).all()
     completed = [a for a in all_appts if a.status == "completed"]
-    scheduled = [a for a in all_appts if a.status in ("scheduled", "confirmed", "in_progress")]
+    scheduled = [a for a in all_appts if a.status in ("scheduled", "confirmed", "in_progress", "waiting")]
     cancelled = [a for a in all_appts if a.status == "cancelled"]
     
     paid_payments = db.query(Payment).filter_by(status="paid").all()
@@ -4230,18 +4230,111 @@ def get_admin_overview(db: Session = Depends(get_db), user: User = Depends(requi
     
     bhyt_appts = [a for a in all_appts if a.bhyt_discount and a.bhyt_discount > 0]
     bhyt_discount = sum(a.bhyt_discount for a in bhyt_appts)
+
+    # 1. Triage Distribution (ESI 1-4)
+    p1 = sum(1 for a in all_appts if (a.triage_level or "").lower() in ("emergency", "p1", "red", "cap_cuu"))
+    p2 = sum(1 for a in all_appts if (a.triage_level or "").lower() in ("priority", "p2", "yellow", "nguy_kich"))
+    p3 = sum(1 for a in all_appts if (a.triage_level or "").lower() in ("normal", "standard", "p3", "green", "on_dinh", "tieu_chuan"))
+    p4 = sum(1 for a in all_appts if (a.triage_level or "").lower() in ("non_urgent", "p4", "white", "khong_khan"))
     
+    total_triage = len(all_appts)
+    if total_triage == 0:
+        triage_dist = {
+            "total": 0, "p1": 0, "p1_percent": 0,
+            "p2": 0, "p2_percent": 0,
+            "p3": 0, "p3_percent": 0,
+            "p4": 0, "p4_percent": 0
+        }
+    else:
+        unassigned = total_triage - (p1 + p2 + p3 + p4)
+        if unassigned > 0:
+            p3 += unassigned
+        triage_dist = {
+            "total": total_triage,
+            "p1": p1,
+            "p1_percent": round((p1 / total_triage) * 100),
+            "p2": p2,
+            "p2_percent": round((p2 / total_triage) * 100),
+            "p3": p3,
+            "p3_percent": round((p3 / total_triage) * 100),
+            "p4": p4,
+            "p4_percent": round((p4 / total_triage) * 100)
+        }
+
+    # 2. Recent Appointments
+    recent_appts_data = []
+    for a in db.query(Appointment).order_by(Appointment.id.desc()).limit(6).all():
+        patient = db.get(User, a.patient_id)
+        doctor = db.get(User, a.doctor_id)
+        raw_reason = a.reason or "Khám tư vấn trực tuyến"
+        first_line_reason = raw_reason.split("\n")[0][:70]
+        recent_appts_data.append({
+            "id": a.id,
+            "patient_name": patient.full_name if patient else f"Bệnh nhân #{a.patient_id}",
+            "doctor_name": doctor.full_name if doctor else "Chưa phân công",
+            "status": a.status,
+            "triage_level": a.triage_level or "normal",
+            "reason": first_line_reason,
+            "encounter_code": a.encounter_code or f"#LK-20261112-{a.id:04d}",
+            "starts_at": a.starts_at.strftime("%d/%m/%Y %H:%M") if a.starts_at else None,
+            "has_vneid": bool(patient.identity_card) if patient else False
+        })
+
+    # 3. Latest RPM Vitals from Supabase
+    recent_vitals = []
+    for r in db.query(RPMVitalLog).order_by(RPMVitalLog.id.desc()).limit(4).all():
+        patient = db.get(User, r.patient_id)
+        bp_val = r.blood_pressure or (f"{r.systolic}/{r.diastolic}" if r.systolic and r.diastolic else None)
+        recent_vitals.append({
+            "id": r.id,
+            "patient_name": patient.full_name if patient else f"BN #{r.patient_id}",
+            "device_name": r.device_name,
+            "device_type": r.device_type,
+            "blood_pressure": bp_val,
+            "pulse": r.pulse or r.heart_rate,
+            "glucose_value": r.glucose_value,
+            "spo2": r.spo2,
+            "temperature_celsius": r.temperature_celsius,
+            "is_warning": r.is_warning,
+            "connection_method": r.connection_method,
+            "measured_at": r.measured_at.strftime("%H:%M %d/%m") if hasattr(r, 'measured_at') and r.measured_at else None
+        })
+
+    # 4. Computed Subsystem Rates
+    total_pts = db.query(User).filter_by(role="patient").count()
+    pts_with_cccd = db.query(User).filter(User.role == "patient", User.identity_card.isnot(None), User.identity_card != "").count()
+    vneid_rate = round((pts_with_cccd / max(1, total_pts)) * 100) if total_pts > 0 else 100
+
+    appts_with_fee = [a for a in all_appts if a.fee_amount and a.fee_amount > 0]
+    paid_appts = [a for a in appts_with_fee if a.paid_at is not None]
+    vietqr_rate = round((len(paid_appts) / max(1, len(appts_with_fee))) * 100) if appts_with_fee else 100
+
+    soap_completed = db.query(ClinicalRecord).filter((ClinicalRecord.is_locked == True) | (ClinicalRecord.diagnosis.isnot(None))).count()
+    smartca_signed = db.query(PrescriptionRef).filter(
+        (PrescriptionRef.status.in_(["signed", "synced"])) | (PrescriptionRef.national_code.isnot(None))
+    ).count()
+    active_rooms = db.query(ClinicRoom).filter(ClinicRoom.status == "active").count()
+
     return AdminOverviewOut(
         total_appointments=len(all_appts),
         completed_appointments=len(completed),
         scheduled_appointments=len(scheduled),
         cancelled_appointments=len(cancelled),
         total_revenue=total_rev,
-        total_patients=db.query(User).filter_by(role="patient").count(),
+        total_patients=total_pts,
         total_doctors=db.query(User).filter_by(role="doctor").count(),
         total_nurses=db.query(User).filter_by(role="nurse").count(),
         total_bhyt_claims=len(bhyt_appts),
-        bhyt_total_discount=bhyt_discount
+        bhyt_total_discount=bhyt_discount,
+        recent_appointments=recent_appts_data,
+        triage_distribution=triage_dist,
+        latest_rpm_vitals=recent_vitals,
+        online_booking_rate=100,
+        vneid_verified_rate=vneid_rate,
+        vietqr_payment_rate=vietqr_rate,
+        soap_completed_count=soap_completed,
+        smartca_signed_count=smartca_signed,
+        active_rooms_count=active_rooms
     )
 
 @app.get("/api/v1/admin/audit-logs", response_model=list[AuditLogOut])
@@ -4505,6 +4598,112 @@ def update_user_role(
             "bhyt_code": target.bhyt_code,
             "is_active": target.is_active
         }
+    }
+
+@app.post("/api/v1/admin/users")
+def admin_create_user(
+    data: AdminUserCreateIn,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_roles("admin"))
+):
+    clean_email = data.email.strip().lower()
+    existing = db.query(User).filter(User.email == clean_email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email này đã tồn tại trong hệ thống")
+    if data.phone_number:
+        clean_phone = data.phone_number.strip()
+        existing_phone = db.query(User).filter(User.phone_number == clean_phone).first()
+        if existing_phone:
+            raise HTTPException(status_code=400, detail="Số điện thoại này đã được sử dụng")
+    else:
+        clean_phone = None
+
+    valid_roles = ["patient", "doctor", "nurse", "admin"]
+    if data.role not in valid_roles:
+        raise HTTPException(status_code=400, detail=f"Vai trò không hợp lệ: {data.role}")
+
+    new_user = User(
+        email=clean_email,
+        phone_number=clean_phone,
+        full_name=data.full_name.strip(),
+        role=data.role,
+        password_hash=hash_password(data.password or "Abc@12345"),
+        doctor_cchn=data.doctor_cchn.strip() if data.doctor_cchn else None,
+        bhyt_code=data.bhyt_code.strip() if data.bhyt_code else None,
+        department_id=data.department_id,
+        specialty=data.specialty,
+        academic_title=data.academic_title or ("BS.CKII" if data.role == "doctor" else None),
+        is_active=data.is_active
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    db.add(AuditLog(
+        actor_user_id=admin_user.id,
+        action="admin.create_user",
+        resource_type="user",
+        resource_id=str(new_user.id)
+    ))
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Đã khởi tạo tài khoản cán bộ/người dùng {new_user.full_name} (#{new_user.id}) thành công",
+        "user": {
+            "id": new_user.id,
+            "email": new_user.email,
+            "phone_number": new_user.phone_number,
+            "full_name": new_user.full_name,
+            "role": new_user.role,
+            "doctor_cchn": new_user.doctor_cchn,
+            "bhyt_code": new_user.bhyt_code,
+            "is_active": new_user.is_active
+        }
+    }
+
+@app.delete("/api/v1/admin/users/{user_id}")
+def admin_delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_roles("admin"))
+):
+    target = db.get(User, user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
+    if target.id == admin_user.id:
+        raise HTTPException(status_code=400, detail="Không thể xóa tài khoản quản trị của chính bạn")
+
+    # Kiểm tra liên kết lịch hẹn hoặc bệnh án để tránh lỗi ràng buộc khóa ngoại
+    appt_count = db.query(Appointment).filter(
+        (Appointment.patient_id == target.id) | (Appointment.doctor_id == target.id)
+    ).count()
+    if appt_count > 0:
+        target.is_active = False
+        db.add(AuditLog(
+            actor_user_id=admin_user.id,
+            action="admin.deactivate_user",
+            resource_type="user",
+            resource_id=str(target.id)
+        ))
+        db.commit()
+        return {
+            "success": True,
+            "message": f"Người dùng #{target.id} đã có {appt_count} hồ sơ/lượt khám liên quan. Để bảo toàn hồ sơ bệnh án, tài khoản đã được chuyển sang trạng thái VÔ HIỆU HÓA (Đã khóa)."
+        }
+
+    user_name = target.full_name
+    db.delete(target)
+    db.add(AuditLog(
+        actor_user_id=admin_user.id,
+        action="admin.delete_user",
+        resource_type="user",
+        resource_id=str(user_id)
+    ))
+    db.commit()
+    return {
+        "success": True,
+        "message": f"Đã xóa vĩnh viễn tài khoản người dùng {user_name} (#{user_id}) khỏi hệ thống"
     }
 
 @app.get("/api/v1/admin/settings", response_model=SystemSettingsOut)

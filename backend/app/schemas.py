@@ -615,6 +615,28 @@ class AdminOverviewOut(BaseModel):
     total_nurses: int
     total_bhyt_claims: int
     bhyt_total_discount: int
+    recent_appointments: list[dict] = []
+    triage_distribution: dict = {}
+    latest_rpm_vitals: list[dict] = []
+    online_booking_rate: int = 100
+    vneid_verified_rate: int = 100
+    vietqr_payment_rate: int = 100
+    soap_completed_count: int = 0
+    smartca_signed_count: int = 0
+    active_rooms_count: int = 0
+
+class AdminUserCreateIn(BaseModel):
+    email: str
+    phone_number: str | None = None
+    full_name: str
+    role: str = "doctor"
+    password: str = "Abc@12345"
+    doctor_cchn: str | None = None
+    bhyt_code: str | None = None
+    department_id: int | None = None
+    specialty: str | None = None
+    academic_title: str | None = None
+    is_active: bool = True
 
 class AuditLogOut(BaseModel):
     id: int
