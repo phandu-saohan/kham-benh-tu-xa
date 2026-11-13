@@ -174,6 +174,7 @@ class Appointment(Base):
     companion_id_card: Mapped[str | None] = mapped_column(String(30), nullable=True)
     companion_phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     companion_relationship: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    survey_responses: Mapped[str | None] = mapped_column(Text, nullable=True) # Câu hỏi & câu trả lời khảo sát AI đặt khám
 
     # Phân luồng & Sàng lọc Điều dưỡng (Triage Desk)
     triage_status: Mapped[str] = mapped_column(String(30), default="pending")  # pending, assessed, dispatched

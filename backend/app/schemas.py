@@ -48,6 +48,7 @@ class AppointmentCreate(BaseModel):
     companion_id_card: str | None = None
     companion_phone: str | None = None
     companion_relationship: str | None = None
+    survey_responses: str | None = None
 
 class AppointmentOut(BaseModel):
     id: int
@@ -93,6 +94,7 @@ class AppointmentOut(BaseModel):
     encounter_code: str | None = None
     hospital_code: str | None = None
     patient_category: str | None = None
+    survey_responses: str | None = None
     payment_source: str | None = None
     companion_name: str | None = None
     companion_id_card: str | None = None

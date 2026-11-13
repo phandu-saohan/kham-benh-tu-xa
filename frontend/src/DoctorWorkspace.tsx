@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import {
   ArrowLeft, ArrowRightLeft, ShieldCheck, Save, CheckCircle2, Lock, FileText, Edit3,
   Pill, User, Search, AlertCircle, Stethoscope, Video, VideoOff, X,
@@ -137,6 +137,69 @@ export function DoctorWorkspace({
   const [prescription, setPrescription] = useState('')
   const [isLocked, setIsLocked] = useState(false)
   const [patientData, setPatientData] = useState<any>(null)
+
+  // Tính tuổi chính xác từ ngày sinh thực tế
+  const calculatedAge = useMemo(() => {
+    const rawDob = patientData?.date_of_birth || (appointment as any)?.patient_dob
+    if (!rawDob) return null
+    try {
+      const birthYear = parseInt(String(rawDob).split('-')[0])
+      if (!isNaN(birthYear) && birthYear > 1900) {
+        return Math.max(0, new Date().getFullYear() - birthYear)
+      }
+    } catch {}
+    return null
+  }, [patientData?.date_of_birth, appointment])
+
+  // Trích xuất danh sách câu hỏi AI và câu trả lời thực tế của BN khi đặt khám
+  const parsedSurveyItems = useMemo<{ question: string; answer: string }[]>(() => {
+    // 1. Kiểm tra trường survey_responses (JSON string hoặc Array)
+    const rawResponses = encounterInfo?.survey_responses || (appointment as any)?.survey_responses
+    if (rawResponses) {
+      try {
+        const parsed = typeof rawResponses === 'string' ? JSON.parse(rawResponses) : rawResponses
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((item: any, idx: number) => ({
+            question: typeof item === 'string' ? item : (item.question || `Khảo sát ${idx + 1}`),
+            answer: typeof item === 'string' ? '' : (item.answer || '')
+          }))
+        }
+      } catch (e) {
+        console.warn('Error parsing survey_responses:', e)
+      }
+    }
+
+    // 2. Kiểm tra nếu có trong reason dưới dạng [Khảo sát thêm AI]:
+    const rawReason = (encounterInfo?.reason || appointment.reason || '').trim()
+    if (rawReason.includes('[Khảo sát thêm AI]:')) {
+      const parts = rawReason.split('[Khảo sát thêm AI]:')
+      const surveyBlock = parts[1] || ''
+      const lines = surveyBlock.split('\n').map((l: string) => l.trim()).filter((l: string) => l.startsWith('-'))
+      if (lines.length > 0) {
+        return lines.map((line: string) => {
+          const clean = line.replace(/^- /, '')
+          const colonIdx = clean.indexOf(':')
+          if (colonIdx > 0) {
+            return {
+              question: clean.substring(0, colonIdx).trim(),
+              answer: clean.substring(colonIdx + 1).trim()
+            }
+          }
+          return { question: clean, answer: '' }
+        })
+      }
+    }
+
+    // 3. Nếu AI MedGemma có suggested_questions từ phân tích triệu chứng
+    if (encounterInfo?.medgemma_analysis?.suggested_questions && Array.isArray(encounterInfo.medgemma_analysis.suggested_questions) && encounterInfo.medgemma_analysis.suggested_questions.length > 0) {
+      return encounterInfo.medgemma_analysis.suggested_questions.map((q: string) => ({
+        question: q,
+        answer: ''
+      }))
+    }
+
+    return []
+  }, [encounterInfo, appointment])
 
   // AI Ambient Medical Scribe (SOAP Notes) with Speech Recognition
   const [scribeTranscript, setScribeTranscript] = useState('')
@@ -1852,25 +1915,25 @@ export function DoctorWorkspace({
                     <div className="patient-mini-item">
                       <span className="mini-label">Bệnh nhân:</span>
                       <strong className="mini-val" style={{ color: '#0f766e' }}>{patientData?.full_name || appointment.patient_name || user.full_name || 'Bệnh nhân'}</strong>
-                      <span className="mini-sub">({patientData?.gender === 'female' ? 'Nữ' : (patientData?.gender === 'male' ? 'Nam' : 'Chưa cập nhật')}{patientData?.date_of_birth ? ` &bull; ${patientData.date_of_birth}${patientData.age ? ` (${patientData.age} tuổi)` : ''}` : ''})</span>
+                      <span className="mini-sub">({patientData?.gender === 'female' ? 'Nữ' : (patientData?.gender === 'male' ? 'Nam' : 'Chưa cập nhật')}{patientData?.date_of_birth ? ` &bull; ${patientData.date_of_birth}${calculatedAge !== null ? ` (${calculatedAge} tuổi)` : ''}` : ''})</span>
                     </div>
                     <div className="patient-mini-item">
                       <span className="mini-label">Mã PID / CCCD:</span>
                       <span className="mini-val font-mono">{patientData?.external_patient_id || (appointment.patient_id ? `PID-${appointment.patient_id.toString().padStart(5, '0')}` : '--')}</span>
-                      <span className="mini-sub">&bull; CCCD: {patientData?.national_id || patientData?.identity_card || 'Chưa cập nhật'}</span>
+                      <span className="mini-sub">&bull; CCCD: {patientData?.identity_card || patientData?.national_id || (appointment as any)?.patient_identity_card || 'Chưa cập nhật'}</span>
                     </div>
                     <div className="patient-mini-item">
                       <span className="mini-label">Số điện thoại:</span>
                       <span className="mini-val font-mono">{patientData?.phone_number || (appointment as any).patient_phone || 'Chưa cập nhật'}</span>
-                      <span className="mini-sub">&bull; Định danh: {patientData?.national_id || patientData?.identity_card ? 'VNeID Cấp 2' : 'Chưa liên kết'}</span>
+                      <span className="mini-sub">&bull; Định danh: {(patientData?.identity_card || patientData?.national_id) ? 'VNeID Cấp 2' : 'Chưa liên kết'}</span>
                     </div>
                     <div className="patient-mini-item">
                       <span className="mini-label">Người đi cùng:</span>
                       <span className="mini-val">
                         {patientData?.companion_name || encounterInfo?.companion_name ? (
-                          <span>{patientData?.companion_name || encounterInfo?.companion_name} ({patientData?.companion_relationship || 'Người thân'})</span>
+                          <span>{patientData?.companion_name || encounterInfo?.companion_name} ({patientData?.companion_relationship || encounterInfo?.companion_relationship || 'Người thân'})</span>
                         ) : (
-                          <span style={{ color: '#64748b' }}>Bệnh nhân tự tham gia tư vấn</span>
+                          <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Không có người đi cùng</span>
                         )}
                       </span>
                     </div>
@@ -1889,7 +1952,11 @@ export function DoctorWorkspace({
                     </span>
                   </div>
                   <div className="booking-reason-quote-box">
-                    "{encounterInfo?.reason || appointment.reason || symptoms || 'Bệnh nhân chưa ghi rõ lý do khi đặt khám.'}"
+                    {(() => {
+                      const raw = (encounterInfo?.reason || appointment.reason || symptoms || '').trim()
+                      const cleanReason = raw.includes('[Khảo sát thêm AI]:') ? raw.split('[Khảo sát thêm AI]:')[0].trim() : raw
+                      return cleanReason ? `"${cleanReason}"` : <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Người bệnh chưa nhập lý do khám.</span>
+                    })()}
                   </div>
                 </div>
 
@@ -1933,12 +2000,8 @@ export function DoctorWorkspace({
                           {encounterInfo?.medgemma_analysis?.explanation ? (
                             encounterInfo.medgemma_analysis.explanation
                           ) : (
-                            <span style={{ color: '#64748b', fontStyle: 'italic', fontSize: '12.5px' }}>
-                              {encounterInfo?.reason || appointment.reason || symptoms ? (
-                                `Lý do khám: "${encounterInfo?.reason || appointment.reason || symptoms}". Hệ thống chưa ghi nhận tóm tắt AI chuyên sâu cho lượt khám này.`
-                              ) : (
-                                'Chưa có dữ liệu tóm tắt y khoa từ AI cho lượt khám này.'
-                              )}
+                            <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '12.5px' }}>
+                              Trống (Chưa có dữ liệu tóm tắt y khoa từ AI cho lượt khám này).
                             </span>
                           )}
                         </div>
@@ -1959,24 +2022,43 @@ export function DoctorWorkspace({
                       </div>
                     </div>
 
-                    {/* Cột phải: Các khảo sát chuyên sâu AI đề xuất Bác sĩ cần hỏi thêm */}
+                    {/* Cột phải: Các khảo sát chuyên sâu AI đề xuất Bác sĩ cần hỏi thêm & Câu trả lời của BN */}
                     <div className="medgemma-col">
                       <div className="medgemma-card-item" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                         <span className="medgemma-card-label" style={{ color: '#0369a1', fontWeight: 700 }}>
                           🔍 Các câu hỏi / Khảo sát thêm AI đề xuất Bác sĩ khai thác:
                         </span>
-                        {encounterInfo?.medgemma_analysis?.suggested_questions && encounterInfo.medgemma_analysis.suggested_questions.length > 0 ? (
-                          <div className="ai-survey-checklist" style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            {(encounterInfo.medgemma_analysis.suggested_questions as string[]).map((q: string, idx: number) => (
-                              <div className="ai-survey-item" key={idx}>
-                                <span className="survey-bullet">{idx + 1}.</span>
-                                <span>{q}</span>
+                        {parsedSurveyItems.length > 0 ? (
+                          <div className="ai-survey-checklist" style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {parsedSurveyItems.map((item, idx) => (
+                              <div
+                                key={idx}
+                                className="ai-survey-item-box"
+                                style={{
+                                  background: '#f8fafc',
+                                  border: '1px solid #e2e8f0',
+                                  borderRadius: '8px',
+                                  padding: '8px 12px'
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', fontSize: '12.5px', color: '#0f172a', fontWeight: 600 }}>
+                                  <span style={{ color: '#0284c7', fontWeight: 800 }}>{idx + 1}.</span>
+                                  <span>{item.question}</span>
+                                </div>
+                                <div style={{ marginTop: '4px', paddingLeft: '16px', fontSize: '12px' }}>
+                                  <span style={{ color: '#475569', fontWeight: 600 }}>↳ Câu trả lời của BN: </span>
+                                  {item.answer ? (
+                                    <strong style={{ color: '#0f766e' }}>{item.answer}</strong>
+                                  ) : (
+                                    <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Chưa có câu trả lời (Bác sĩ khai thác thêm khi khám)</span>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <div style={{ marginTop: '8px', color: '#64748b', fontSize: '12px', fontStyle: 'italic', padding: '10px 4px' }}>
-                            Chưa có khảo sát chuyên sâu đề xuất từ AI cho ca khám này. Bác sĩ khai thác triệu chứng trực tiếp trong cuộc gọi tư vấn.
+                          <div style={{ marginTop: '8px', color: '#94a3b8', fontSize: '12px', fontStyle: 'italic', padding: '10px 4px' }}>
+                            Trống (Không có khảo sát thêm từ người bệnh).
                           </div>
                         )}
                       </div>
@@ -1991,32 +2073,18 @@ export function DoctorWorkspace({
                       <Stethoscope size={16} color="#0284c7" />
                       <strong style={{ fontSize: '13.5px', color: '#0f172a' }}>Ghi chú của Điều dưỡng (Bàn Sàng lọc & Tiếp đón Triage)</strong>
                     </div>
-                    <span style={{ fontSize: '11px', color: '#0369a1', background: '#e0f2fe', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
-                      {encounterInfo?.nurse_name || appointment?.nurse_name || triageNurse ? (
-                        `ĐD. ${encounterInfo?.nurse_name || appointment?.nurse_name || triageNurse}${(encounterInfo as any)?.triage_station || (appointment as any)?.triage_station ? ` • ${(encounterInfo as any)?.triage_station || (appointment as any)?.triage_station}` : ' • Bàn Triage'}`
-                      ) : (
-                        'Bàn Sàng lọc & Tiếp đón Triage'
-                      )}
-                    </span>
+                    {encounterInfo?.nurse_name || appointment?.nurse_name || triageNurse ? (
+                      <span style={{ fontSize: '11px', color: '#0369a1', background: '#e0f2fe', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                        ĐD. {encounterInfo?.nurse_name || appointment?.nurse_name || triageNurse}${(encounterInfo as any)?.triage_station || (appointment as any)?.triage_station ? ` • ${(encounterInfo as any)?.triage_station || (appointment as any)?.triage_station}` : ' • Bàn Triage'}
+                      </span>
+                    ) : null}
                   </div>
                   <div className="nurse-notes-content" style={{ marginTop: '8px', fontSize: '13px', lineHeight: '1.6', color: '#334155', background: '#f8fafc', padding: '10px 14px', borderRadius: '6px', borderLeft: '3px solid #0284c7' }}>
                     {encounterInfo?.nurse_notes || triageNotes ? (
                       encounterInfo?.nurse_notes || triageNotes
-                    ) : (triageBp || triagePulse || triageTemp || triageSpo2 || triageWeight || triageHeight) ? (
-                      <div>
-                        <strong>Sinh hiệu tiếp đón: </strong>
-                        {[
-                          triageBp ? `HA ${triageBp} mmHg` : '',
-                          triagePulse ? `Mạch ${triagePulse} bpm` : '',
-                          triageSpo2 ? `SpO2 ${triageSpo2}%` : '',
-                          triageTemp ? `Thân nhiệt ${triageTemp}°C` : '',
-                          triageWeight ? `Cân nặng ${triageWeight} kg` : '',
-                          triageHeight ? `Chiều cao ${triageHeight} cm` : ''
-                        ].filter(Boolean).join(', ')}. Người bệnh đã sẵn sàng tư vấn trực tuyến cùng Bác sĩ.
-                      </div>
                     ) : (
-                      <span style={{ color: '#64748b', fontStyle: 'italic' }}>
-                        Chưa có ghi chú lâm sàng từ Điều dưỡng tiếp đón. Người bệnh đã vào phòng khám trực tuyến.
+                      <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>
+                        Trống (Chưa có ghi chú lâm sàng từ Điều dưỡng tiếp đón).
                       </span>
                     )}
                   </div>
@@ -2034,171 +2102,165 @@ export function DoctorWorkspace({
                     </span>
                   </div>
 
-                  <div className="past-records-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
-                    {/* 5.1 Đơn thuốc cũ đang sử dụng */}
-                    <div className="past-record-subcard" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', background: '#fafafa' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '12px', color: '#b45309' }}>
-                          <Pill size={14} color="#d97706" /> Đơn thuốc cũ đang sử dụng
-                        </span>
-                        <button
-                          type="button"
-                          className="btn-tiny-action"
-                          onClick={() => setActiveTab('prescription')}
-                          style={{ fontSize: '11px', color: '#0284c7', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}
-                        >
-                          Xem toa ↗
-                        </button>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: '#334155' }}>
-                        {(() => {
-                          const docPrescriptions = appointmentDocs.filter(d => d.document_type === 'prescription')
-                          const pastRxHistory = consultationHistory.filter(h => h.prescription_status || h.national_code || h.diagnosis)
-                          
-                          if (docPrescriptions.length > 0) {
-                            return docPrescriptions.map(doc => (
-                              <div key={doc.id} style={{ padding: '6px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>
-                                  <strong>📄 {doc.title || doc.file_name || 'Đơn thuốc đã tải lên'}</strong>
-                                  {doc.description && <div style={{ fontSize: '11px', color: '#64748b' }}>{doc.description}</div>}
-                                </div>
-                                <a href={resolveAuthedMediaUrl(doc.file_url)} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#0284c7', textDecoration: 'none', fontWeight: 600 }}>Xem file ↗</a>
-                              </div>
-                            ))
-                          }
-                          
-                          if (pastRxHistory.length > 0) {
-                            return pastRxHistory.slice(0, 3).map(h => (
-                              <div key={h.appointment_id} style={{ padding: '6px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #f1f5f9' }}>
-                                <div style={{ fontWeight: 600, color: '#0f172a' }}>
-                                  Lần khám #{h.appointment_id} {h.starts_at ? `(${new Date(h.starts_at).toLocaleDateString('vi-VN')})` : ''}
-                                </div>
-                                <div style={{ fontSize: '11px', color: '#475569' }}>
-                                  {h.diagnosis ? `Chẩn đoán: ${h.diagnosis}` : `Lý do: ${h.reason}`}
-                                  {h.national_code ? ` • Mã đơn: ${h.national_code}` : ''}
-                                </div>
-                              </div>
-                            ))
-                          }
+                  {(() => {
+                    const docPrescriptions = appointmentDocs.filter(d => d.document_type === 'prescription')
+                    const pastRxHistory = consultationHistory.filter(h => h.prescription_status || h.national_code || h.diagnosis)
+                    const docLabTests = appointmentDocs.filter(d => d.document_type === 'lab_test')
+                    const hasReports = labData?.reports && labData.reports.length > 0
+                    const docPacs = appointmentDocs.filter(d => d.document_type === 'cdha')
+                    const hasStudies = pacsData?.studies && pacsData.studies.length > 0
 
-                          return (
-                            <div style={{ color: '#64748b', fontSize: '12px', fontStyle: 'italic', padding: '12px 6px', textAlign: 'center' }}>
-                              Chưa có đơn thuốc cũ được tải lên hoặc liên thông EMR.
-                            </div>
-                          )
-                        })()}
-                      </div>
-                    </div>
+                    const hasAnyPastData = docPrescriptions.length > 0 || pastRxHistory.length > 0 || docLabTests.length > 0 || hasReports || docPacs.length > 0 || hasStudies
 
-                    {/* 5.2 Kết quả Xét nghiệm (KQ XN) cũ */}
-                    <div className="past-record-subcard" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', background: '#fafafa' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '12px', color: '#0284c7' }}>
-                          <FlaskConical size={14} color="#0284c7" /> Kết quả Xét nghiệm (KQ XN) cũ
-                        </span>
-                        <button
-                          type="button"
-                          className="btn-tiny-action"
-                          onClick={() => setActiveTab('lab')}
-                          style={{ fontSize: '11px', color: '#0284c7', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}
-                        >
-                          Mở tab CLS ↗
-                        </button>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11.5px', color: '#334155' }}>
-                        {(() => {
-                          const docLabTests = appointmentDocs.filter(d => d.document_type === 'lab_test')
-                          const hasReports = labData?.reports && labData.reports.length > 0
+                    if (!hasAnyPastData) {
+                      return (
+                        <div style={{ color: '#94a3b8', fontSize: '13px', fontStyle: 'italic', padding: '16px', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1', textAlign: 'center' }}>
+                          Trống (Người bệnh chưa gửi đơn thuốc, kết quả xét nghiệm hoặc phim PACS).
+                        </div>
+                      )
+                    }
 
-                          if (hasReports) {
-                            return labData.reports.slice(0, 2).map(rep => (
-                              <div key={rep.report_id} style={{ marginBottom: '6px' }}>
-                                <div style={{ fontSize: '11px', fontWeight: 700, color: '#0369a1', marginBottom: '2px' }}>
-                                  {rep.title || rep.category_name} ({rep.sampled_at ? new Date(rep.sampled_at).toLocaleDateString('vi-VN') : 'Gần nhất'})
-                                </div>
-                                {rep.indicators?.slice(0, 4).map(ind => (
-                                  <div key={ind.code} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 6px', background: '#fff', borderRadius: '4px', marginBottom: '2px' }}>
-                                    <span>{ind.name}:</span>
-                                    <strong style={{ color: ind.flag === 'HIGH' ? '#dc2626' : (ind.flag === 'LOW' ? '#d97706' : '#059669') }}>
-                                      {ind.value} {ind.unit} {ind.flag_label ? `(${ind.flag_label})` : ''}
-                                    </strong>
+                    return (
+                      <div className="past-records-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                        {/* 5.1 Đơn thuốc cũ đang sử dụng */}
+                        <div className="past-record-subcard" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', background: '#fafafa' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '12px', color: '#b45309' }}>
+                              <Pill size={14} color="#d97706" /> Đơn thuốc cũ đang sử dụng
+                            </span>
+                            <button
+                              type="button"
+                              className="btn-tiny-action"
+                              onClick={() => setActiveTab('prescription')}
+                              style={{ fontSize: '11px', color: '#0284c7', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                            >
+                              Xem toa ↗
+                            </button>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: '#334155' }}>
+                            {docPrescriptions.length > 0 ? (
+                              docPrescriptions.map(doc => (
+                                <div key={doc.id} style={{ padding: '6px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>
+                                    <strong>📄 {doc.title || doc.file_name || 'Đơn thuốc đã tải lên'}</strong>
+                                    {doc.description && <div style={{ fontSize: '11px', color: '#64748b' }}>{doc.description}</div>}
                                   </div>
-                                ))}
-                              </div>
-                            ))
-                          }
-
-                          if (docLabTests.length > 0) {
-                            return docLabTests.map(doc => (
-                              <div key={doc.id} style={{ padding: '6px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>
-                                  <strong>🧪 {doc.title || doc.file_name || 'Phiếu kết quả xét nghiệm'}</strong>
-                                  {doc.description && <div style={{ fontSize: '11px', color: '#64748b' }}>{doc.description}</div>}
+                                  <a href={resolveAuthedMediaUrl(doc.file_url)} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#0284c7', textDecoration: 'none', fontWeight: 600 }}>Xem file ↗</a>
                                 </div>
-                                <a href={resolveAuthedMediaUrl(doc.file_url)} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#0284c7', textDecoration: 'none', fontWeight: 600 }}>Xem file ↗</a>
-                              </div>
-                            ))
-                          }
-
-                          return (
-                            <div style={{ color: '#64748b', fontSize: '12px', fontStyle: 'italic', padding: '12px 6px', textAlign: 'center' }}>
-                              Chưa có kết quả xét nghiệm cũ trong hồ sơ EMR/LIS.
-                            </div>
-                          )
-                        })()}
-                      </div>
-                    </div>
-
-                    {/* 5.3 Phim PACS cũ */}
-                    <div className="past-record-subcard" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', background: '#fafafa' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '12px', color: '#7c3aed' }}>
-                          <ScanLine size={14} color="#7c3aed" /> Hình ảnh Y khoa (PACS) cũ
-                        </span>
-                        <button
-                          type="button"
-                          className="btn-tiny-action"
-                          onClick={() => setActiveTab('pacs')}
-                          style={{ fontSize: '11px', color: '#7c3aed', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}
-                        >
-                          Mở PACS ↗
-                        </button>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11.5px', color: '#334155' }}>
-                        {(() => {
-                          const docPacs = appointmentDocs.filter(d => d.document_type === 'cdha')
-                          const hasStudies = pacsData?.studies && pacsData.studies.length > 0
-
-                          if (hasStudies) {
-                            return pacsData.studies.slice(0, 2).map(study => (
-                              <div key={study.study_id} style={{ padding: '6px 8px', background: '#fff', borderRadius: '4px', border: '1px solid #f1f5f9', marginBottom: '4px' }}>
-                                <strong>📷 [{study.modality}] {study.description || study.body_part}:</strong> {study.impression || study.findings || 'Đã liên thông PACS'}
-                                {study.date && <div style={{ fontSize: '10.5px', color: '#94a3b8', marginTop: '2px' }}>Ngày: {study.date} &bull; {study.institution || 'Bệnh viện'}</div>}
-                              </div>
-                            ))
-                          }
-
-                          if (docPacs.length > 0) {
-                            return docPacs.map(doc => (
-                              <div key={doc.id} style={{ padding: '6px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>
-                                  <strong>📷 {doc.title || doc.file_name || 'Phim / Ảnh chụp chẩn đoán'}</strong>
-                                  {doc.description && <div style={{ fontSize: '11px', color: '#64748b' }}>{doc.description}</div>}
+                              ))
+                            ) : pastRxHistory.length > 0 ? (
+                              pastRxHistory.slice(0, 3).map(h => (
+                                <div key={h.appointment_id} style={{ padding: '6px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #f1f5f9' }}>
+                                  <div style={{ fontWeight: 600, color: '#0f172a' }}>
+                                    Lần khám #{h.appointment_id} {h.starts_at ? `(${new Date(h.starts_at).toLocaleDateString('vi-VN')})` : ''}
+                                  </div>
+                                  <div style={{ fontSize: '11px', color: '#475569' }}>
+                                    {h.diagnosis ? `Chẩn đoán: ${h.diagnosis}` : `Lý do: ${h.reason}`}
+                                    {h.national_code ? ` • Mã đơn: ${h.national_code}` : ''}
+                                  </div>
                                 </div>
-                                <a href={resolveAuthedMediaUrl(doc.file_url)} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#7c3aed', textDecoration: 'none', fontWeight: 600 }}>Xem file ↗</a>
+                              ))
+                            ) : (
+                              <div style={{ color: '#94a3b8', fontSize: '12px', fontStyle: 'italic', padding: '10px 4px', textAlign: 'center' }}>
+                                Trống
                               </div>
-                            ))
-                          }
+                            )}
+                          </div>
+                        </div>
 
-                          return (
-                            <div style={{ color: '#64748b', fontSize: '12px', fontStyle: 'italic', padding: '12px 6px', textAlign: 'center' }}>
-                              Chưa có dữ liệu hình ảnh PACS hoặc chẩn đoán hình ảnh cũ.
-                            </div>
-                          )
-                        })()}
+                        {/* 5.2 Kết quả Xét nghiệm (KQ XN) cũ */}
+                        <div className="past-record-subcard" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', background: '#fafafa' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '12px', color: '#0284c7' }}>
+                              <FlaskConical size={14} color="#0284c7" /> Kết quả Xét nghiệm (KQ XN) cũ
+                            </span>
+                            <button
+                              type="button"
+                              className="btn-tiny-action"
+                              onClick={() => setActiveTab('lab')}
+                              style={{ fontSize: '11px', color: '#0284c7', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                            >
+                              Mở tab CLS ↗
+                            </button>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11.5px', color: '#334155' }}>
+                            {hasReports ? (
+                              labData.reports.slice(0, 2).map(rep => (
+                                <div key={rep.report_id} style={{ marginBottom: '6px' }}>
+                                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#0369a1', marginBottom: '2px' }}>
+                                    {rep.title || rep.category_name} ({rep.sampled_at ? new Date(rep.sampled_at).toLocaleDateString('vi-VN') : 'Gần nhất'})
+                                  </div>
+                                  {rep.indicators?.slice(0, 4).map(ind => (
+                                    <div key={ind.code} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 6px', background: '#fff', borderRadius: '4px', marginBottom: '2px' }}>
+                                      <span>{ind.name}:</span>
+                                      <strong style={{ color: ind.flag === 'HIGH' ? '#dc2626' : (ind.flag === 'LOW' ? '#d97706' : '#059669') }}>
+                                        {ind.value} {ind.unit} {ind.flag_label ? `(${ind.flag_label})` : ''}
+                                      </strong>
+                                    </div>
+                                  ))}
+                                </div>
+                              ))
+                            ) : docLabTests.length > 0 ? (
+                              docLabTests.map(doc => (
+                                <div key={doc.id} style={{ padding: '6px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>
+                                    <strong>🧪 {doc.title || doc.file_name || 'Phiếu kết quả xét nghiệm'}</strong>
+                                    {doc.description && <div style={{ fontSize: '11px', color: '#64748b' }}>{doc.description}</div>}
+                                  </div>
+                                  <a href={resolveAuthedMediaUrl(doc.file_url)} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#0284c7', textDecoration: 'none', fontWeight: 600 }}>Xem file ↗</a>
+                                </div>
+                              ))
+                            ) : (
+                              <div style={{ color: '#94a3b8', fontSize: '12px', fontStyle: 'italic', padding: '10px 4px', textAlign: 'center' }}>
+                                Trống
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* 5.3 Phim PACS cũ */}
+                        <div className="past-record-subcard" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', background: '#fafafa' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '12px', color: '#7c3aed' }}>
+                              <ScanLine size={14} color="#7c3aed" /> Hình ảnh Y khoa (PACS) cũ
+                            </span>
+                            <button
+                              type="button"
+                              className="btn-tiny-action"
+                              onClick={() => setActiveTab('pacs')}
+                              style={{ fontSize: '11px', color: '#7c3aed', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                            >
+                              Mở PACS ↗
+                            </button>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11.5px', color: '#334155' }}>
+                            {hasStudies ? (
+                              pacsData.studies.slice(0, 2).map(study => (
+                                <div key={study.study_id} style={{ padding: '6px 8px', background: '#fff', borderRadius: '4px', border: '1px solid #f1f5f9', marginBottom: '4px' }}>
+                                  <strong>📷 [{study.modality}] {study.description || study.body_part}:</strong> {study.impression || study.findings || 'Đã liên thông PACS'}
+                                  {study.date && <div style={{ fontSize: '10.5px', color: '#94a3b8', marginTop: '2px' }}>Ngày: {study.date} &bull; {study.institution || 'Bệnh viện'}</div>}
+                                </div>
+                              ))
+                            ) : docPacs.length > 0 ? (
+                              docPacs.map(doc => (
+                                <div key={doc.id} style={{ padding: '6px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>
+                                    <strong>📷 {doc.title || doc.file_name || 'Phim / Ảnh chụp chẩn đoán'}</strong>
+                                    {doc.description && <div style={{ fontSize: '11px', color: '#64748b' }}>{doc.description}</div>}
+                                  </div>
+                                  <a href={resolveAuthedMediaUrl(doc.file_url)} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#7c3aed', textDecoration: 'none', fontWeight: 600 }}>Xem file ↗</a>
+                                </div>
+                              ))
+                            ) : (
+                              <div style={{ color: '#94a3b8', fontSize: '12px', fontStyle: 'italic', padding: '10px 4px', textAlign: 'center' }}>
+                                Trống
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    )
+                  })()}
                 </div>
 
                 {/* 6. NÚT TẠO PHIẾU KHÁM (KẾT NỐI AI TÓM TẮT & TẠO SOAP, NẾU AI KO CÓ KẾT NỐI CHO PHÉP BS NHẬP TAY) */}

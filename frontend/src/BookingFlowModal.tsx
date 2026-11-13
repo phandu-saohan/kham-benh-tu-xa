@@ -480,10 +480,16 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
     try {
       const finalReason = compiledSummary.trim() || symptoms.trim()
 
+      const surveyList = triageResult?.suggested_questions?.map((q, idx) => ({
+        question: q,
+        answer: questionAnswers[idx]?.trim() || ''
+      })) || []
+
       const payload: any = {
         doctor_id: Number(selectedDoctorId),
         starts_at: new Date(startsAt).toISOString(),
         reason: finalReason,
+        survey_responses: surveyList.length > 0 ? JSON.stringify(surveyList) : undefined,
         shift_id: selectedShiftId || undefined,
         department_id: selectedDeptId ? Number(selectedDeptId) : undefined,
         patient_category: currentPatient.bhyt !== 'Chưa cập nhật' ? 'Bảo hiểm y tế' : 'Tự túc',

@@ -871,7 +871,8 @@ def create_appointment(data: AppointmentCreate, db: Session = Depends(get_db), u
         companion_name=data.companion_name or getattr(user, "companion_name", None),
         companion_id_card=data.companion_id_card or getattr(user, "companion_id_card", None),
         companion_phone=data.companion_phone or getattr(user, "companion_phone", None),
-        companion_relationship=data.companion_relationship or getattr(user, "companion_relationship", None)
+        companion_relationship=data.companion_relationship or getattr(user, "companion_relationship", None),
+        survey_responses=data.survey_responses
     )
     db.add(appt)
     db.commit()
@@ -1369,22 +1370,25 @@ def get_clinical_record(appointment_id: int, db: Session = Depends(get_db), user
         shift_type_vi = "Ca sáng" if shift.shift_type == "morning" else ("Ca chiều" if shift.shift_type == "afternoon" else "Ca tối")
         shift_label = f"{shift_type_vi} ({shift.start_time} - {shift.end_time})"
     
-    # Phân tích triệu chứng bằng AI MedGemma từ thông tin đặt khám
-    symptom_text = appt.reason or "Tư vấn điều chỉnh đơn thuốc và chỉ số đường huyết mao mạch"
-    patient_age = 34
+    # Phân tích triệu chứng bằng AI MedGemma từ thông tin đặt khám thực tế
+    raw_reason = (appt.reason or "").strip()
+    symptom_text = raw_reason.split("[Khảo sát thêm AI]:")[0].strip() if "[Khảo sát thêm AI]:" in raw_reason else raw_reason
+    patient_age = None
     if patient and getattr(patient, "date_of_birth", None):
         try:
             birth_year = int(str(patient.date_of_birth).split("-")[0])
-            patient_age = max(1, datetime.now().year - birth_year)
+            patient_age = max(0, datetime.now().year - birth_year)
         except Exception:
-            patient_age = 34
+            patient_age = None
 
-    medgemma = triage_symptom_check(
-        symptoms=symptom_text,
-        patient_age=patient_age,
-        gender=getattr(patient, "gender", "Nam") or "Nam",
-        db=db
-    )
+    medgemma = {}
+    if symptom_text:
+        medgemma = triage_symptom_check(
+            symptoms=symptom_text,
+            patient_age=patient_age if patient_age is not None else 30,
+            gender=getattr(patient, "gender", "Nam") or "Nam",
+            db=db
+        )
     
     return {
         "appointment_id": appt.id,
@@ -1405,12 +1409,13 @@ def get_clinical_record(appointment_id: int, db: Session = Depends(get_db), user
             "starts_at": appt.starts_at,
             "status": appt.status,
             "department_id": getattr(appt, "department_id", None),
-            "department_name": dept.name if dept else "Khoa Nội Tổng Quát (K01)",
+            "department_name": dept.name if dept else "Khoa Khám Bệnh",
             "shift_id": getattr(appt, "shift_id", None),
-            "shift_name": shift_label or "Ca sáng (07:30 - 11:30)",
-            "triage_level": medgemma.get("urgency_level", getattr(appt, "triage_level", "normal")),
-            "triage_status": getattr(appt, "triage_status", "assessed") or "assessed",
-            "triage_notes": medgemma.get("explanation", getattr(appt, "triage_notes", "")),
+            "shift_name": shift_label or "Ca khám",
+            "triage_level": getattr(appt, "triage_level", None) or medgemma.get("urgency_level", "normal"),
+            "triage_status": getattr(appt, "triage_status", None) or "pending",
+            "triage_notes": getattr(appt, "triage_notes", None) or "",
+            "survey_responses": getattr(appt, "survey_responses", None) or "",
             "companion_name": getattr(appt, "companion_name", None) or (getattr(patient, "companion_name", None) if patient else "") or "",
             "companion_id_card": getattr(appt, "companion_id_card", None) or (getattr(patient, "companion_id_card", None) if patient else "") or "",
             "companion_phone": getattr(appt, "companion_phone", None) or (getattr(patient, "companion_phone", None) if patient else "") or "",
@@ -1424,6 +1429,7 @@ def get_clinical_record(appointment_id: int, db: Session = Depends(get_db), user
             "phone_number": patient.phone_number if patient else "",
             "external_patient_id": patient.external_patient_id if patient else "",
             "date_of_birth": (patient.date_of_birth if patient else "") or "",
+            "age": patient_age,
             "gender": (patient.gender if patient else "") or "",
             "identity_card": (patient.identity_card if patient else "") or "",
             "ethnicity": (getattr(patient, "ethnicity", None) if patient else "") or "",
