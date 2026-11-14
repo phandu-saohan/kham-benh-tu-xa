@@ -48,6 +48,7 @@ import {
 } from './api'
 import './booking-flow.css'
 import { formatDateVN, formatDateTimeVN } from './dateFormatters'
+import DateOfBirthInput from './DateOfBirthInput'
 
 interface BookingFlowModalProps {
   user: User
@@ -735,16 +736,15 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
                             <option value="Nữ">Nữ</option>
                           </select>
                         </label>
-                        <label style={{ fontSize: '12px' }}>
-                          Ngày sinh *
-                          <input
-                            type="date"
+                        <div>
+                          <DateOfBirthInput
+                            label="Ngày sinh (nhập tay DD/MM/YYYY)"
                             required
                             value={newFamilyData.date_of_birth}
-                            onChange={e => setNewFamilyData({ ...newFamilyData, date_of_birth: e.target.value })}
-                            style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                            onChange={isoVal => setNewFamilyData({ ...newFamilyData, date_of_birth: isoVal })}
+                            inputStyle={{ height: '36px', padding: '0 36px 0 8px', borderRadius: '6px', fontSize: '12.5px' }}
                           />
-                        </label>
+                        </div>
                         <label style={{ fontSize: '12px' }}>
                           Số CCCD / Định danh
                           <input

@@ -15,6 +15,7 @@ import {
   type User
 } from './api'
 import { useIsMobilePatient } from './MobilePatientApp'
+import DateOfBirthInput from './DateOfBirthInput'
 import './patient-register.css'
 
 interface PatientRegisterPageProps {
@@ -1011,12 +1012,10 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                     <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                       Ngày, tháng, năm sinh: <span style={{ color: '#dc2626' }}>*</span>
                     </label>
-                    <input
-                      type="date"
+                    <DateOfBirthInput
                       value={dob}
-                      onChange={(e) => setDob(e.target.value)}
+                      onChange={(isoVal) => setDob(isoVal)}
                       required
-                      style={{ width: '100%', height: '44px', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '0 12px', fontSize: '13px', boxSizing: 'border-box' }}
                     />
                   </div>
 
@@ -1817,11 +1816,10 @@ export function PatientRegisterPage({ onSuccess, onBackToLogin }: PatientRegiste
                     <label className="pr-label">
                       Ngày, tháng, năm sinh: <span className="required">*</span>
                     </label>
-                    <input
-                      type="date"
+                    <DateOfBirthInput
                       className="pr-input"
                       value={dob}
-                      onChange={(e) => setDob(e.target.value)}
+                      onChange={(isoVal) => setDob(isoVal)}
                       required
                     />
                   </div>

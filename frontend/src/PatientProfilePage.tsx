@@ -42,6 +42,7 @@ import {
   type BhytCheckOut
 } from './api'
 import { formatDateVN, formatDateTimeVN } from './dateFormatters'
+import DateOfBirthInput from './DateOfBirthInput'
 import './patient-sanctuary.css'
 
 interface PatientProfilePageProps {
@@ -823,12 +824,12 @@ export function PatientProfilePage({
 
                   <div className="ps-input-group">
                     <label style={{ fontSize: '13px', fontWeight: 600 }}>Ngày sinh (*)</label>
-                    <input
-                      type="date"
+                    <DateOfBirthInput
                       className="ps-form-input"
                       value={dateOfBirth}
-                      onChange={(e) => setDateOfBirth(e.target.value)}
-                      style={{ borderRadius: '6px' }}
+                      onChange={(isoVal) => setDateOfBirth(isoVal)}
+                      inputStyle={{ borderRadius: '6px' }}
+                      required
                     />
                   </div>
 

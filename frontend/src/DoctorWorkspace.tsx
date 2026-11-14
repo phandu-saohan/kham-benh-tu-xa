@@ -138,13 +138,26 @@ export function DoctorWorkspace({
   const [isLocked, setIsLocked] = useState(false)
   const [patientData, setPatientData] = useState<any>(null)
 
-  // Tính tuổi chính xác từ ngày sinh thực tế
+  // Tính tuổi chính xác từ ngày sinh thực tế (Hỗ trợ cả YYYY-MM-DD và DD/MM/YYYY)
   const calculatedAge = useMemo(() => {
     const rawDob = patientData?.date_of_birth || (appointment as any)?.patient_dob
     if (!rawDob) return null
     try {
-      const birthYear = parseInt(String(rawDob).split('-')[0])
-      if (!isNaN(birthYear) && birthYear > 1900) {
+      const s = String(rawDob).trim()
+      let birthYear: number | null = null
+      if (s.includes('-')) {
+        const parts = s.split('-')
+        const y = parts[0].length === 4 ? parseInt(parts[0], 10) : parseInt(parts[2], 10)
+        if (!isNaN(y) && y > 1900) birthYear = y
+      } else if (s.includes('/')) {
+        const parts = s.split('/')
+        const y = parts[2]?.length === 4 ? parseInt(parts[2], 10) : parseInt(parts[0], 10)
+        if (!isNaN(y) && y > 1900) birthYear = y
+      } else if (/^\d{8}$/.test(s)) {
+        const y = parseInt(s.slice(0, 4), 10)
+        if (y > 1900) birthYear = y
+      }
+      if (birthYear && birthYear > 1900) {
         return Math.max(0, new Date().getFullYear() - birthYear)
       }
     } catch {}

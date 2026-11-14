@@ -49,6 +49,7 @@ import {
 import { NotificationCenter } from './NotificationCenter'
 import { formatDateVN, formatDateTimeVN } from './dateFormatters'
 import { MobileBluetoothView } from './MobileBluetoothView'
+import DateOfBirthInput from './DateOfBirthInput'
 import './mobile-patient.css'
 
 export function useIsMobilePatient(): boolean {
@@ -1874,13 +1875,12 @@ export function MobileProfileView({
                 </select>
               </div>
               <div className="mp-field-group">
-                <label className="mp-field-label">Ngày sinh (nếu có)</label>
-                <input
-                  type="date"
+                <label className="mp-field-label">Ngày sinh (nhập tay DD/MM/YYYY)</label>
+                <DateOfBirthInput
                   className="mp-input"
-                  style={{ paddingLeft: '12px' }}
                   value={famDob}
-                  onChange={e => setFamDob(e.target.value)}
+                  onChange={isoVal => setFamDob(isoVal)}
+                  inputStyle={{ height: '44px', paddingLeft: '12px', paddingRight: '40px' }}
                 />
               </div>
               <button type="submit" className="mp-btn-action mp-btn-primary" style={{ width: '100%', height: '46px', marginTop: '10px' }}>

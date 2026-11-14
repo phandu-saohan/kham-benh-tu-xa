@@ -439,6 +439,38 @@ def parse_vneid_or_cccd(raw_text: str) -> dict:
         "address": None
     }
 
+def normalize_dob_to_iso(raw_text: str | None) -> str | None:
+    """
+    Chuẩn hóa ngày sinh nhập tay hoặc quét được về định dạng chuẩn ISO YYYY-MM-DD.
+    Hỗ trợ: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY, YYYY-MM-DD, chuỗi 8 số DDMMYYYY hoặc YYYYMMDD.
+    """
+    if not raw_text:
+        return None
+    s = str(raw_text).strip()
+    if not s:
+        return None
+    # 1. Đã là chuẩn ISO YYYY-MM-DD
+    if re.match(r"^\d{4}-\d{1,2}-\d{1,2}$", s):
+        parts = s.split("-")
+        return f"{parts[0]}-{parts[1].zfill(2)}-{parts[2].zfill(2)}"
+    # 2. Định dạng DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY
+    for sep in ["/", "-", "."]:
+        if sep in s:
+            parts = [p.strip() for p in s.split(sep)]
+            if len(parts) == 3:
+                if len(parts[2]) == 4 and parts[2].isdigit():
+                    return f"{parts[2]}-{parts[1].zfill(2)}-{parts[0].zfill(2)}"
+                elif len(parts[0]) == 4 and parts[0].isdigit():
+                    return f"{parts[0]}-{parts[1].zfill(2)}-{parts[2].zfill(2)}"
+    # 3. Chuỗi 8 chữ số liền nhau
+    digits = "".join(ch for ch in s if ch.isdigit())
+    if len(digits) == 8:
+        if int(digits[:4]) >= 1900 and int(digits[:4]) <= 2100:
+            return f"{digits[:4]}-{digits[4:6]}-{digits[6:8]}"
+        elif int(digits[4:8]) >= 1900 and int(digits[4:8]) <= 2100:
+            return f"{digits[4:8]}-{digits[2:4]}-{digits[:2]}"
+    return s
+
 @app.post("/api/v1/patients/identify-by-cccd", response_model=PatientIdentifyOut)
 def identify_patient_by_cccd(
     data: PatientIdentifyIn,
@@ -629,10 +661,12 @@ def register_patient_account(data: PatientRegisterIn, db: Session = Depends(get_
     his_adapter = get_his_adapter()
     his_patient = his_adapter.find_patient(national_id=clean_cccd, phone=clean_phone, full_name=clean_name)
 
+    normalized_user_dob = normalize_dob_to_iso(data.dob) or data.dob or ""
+
     if his_patient:
         external_pid = his_patient.get("pid")
         his_action = "linked_existing"
-        final_dob = data.dob or his_patient.get("dob") or ""
+        final_dob = normalized_user_dob or normalize_dob_to_iso(his_patient.get("dob")) or his_patient.get("dob") or ""
         final_gender = data.gender or his_patient.get("gender") or ""
         final_bhyt = data.bhyt_code or his_patient.get("bhyt_no") or ""
         final_address = data.address or his_patient.get("address") or ""
@@ -643,7 +677,7 @@ def register_patient_account(data: PatientRegisterIn, db: Session = Depends(get_
             "full_name": clean_name,
             "phone": clean_phone,
             "national_id": clean_cccd,
-            "dob": data.dob or "",
+            "dob": normalized_user_dob,
             "gender": data.gender or "",
             "bhyt_no": data.bhyt_code or "",
             "address": data.address or "",
@@ -652,7 +686,7 @@ def register_patient_account(data: PatientRegisterIn, db: Session = Depends(get_
         })
         external_pid = new_pid or f"HIS-CC-{clean_cccd[-6:] if len(clean_cccd) >= 6 else uuid.uuid4().hex[:6].upper()}"
         his_action = "created_new_his"
-        final_dob = data.dob or ""
+        final_dob = normalized_user_dob
         final_gender = data.gender or ""
         final_bhyt = data.bhyt_code or ""
         final_address = data.address or ""
@@ -2135,7 +2169,7 @@ def update_my_patient_profile(
     if data.bhyt_code is not None:
         user.bhyt_code = data.bhyt_code.strip()
     if data.date_of_birth is not None:
-        user.date_of_birth = data.date_of_birth.strip()
+        user.date_of_birth = normalize_dob_to_iso(data.date_of_birth) or data.date_of_birth.strip()
     if data.gender is not None:
         user.gender = data.gender.strip()
     if data.identity_card is not None:
@@ -5754,7 +5788,7 @@ def create_family_member(
         full_name=data.full_name,
         relationship=data.relationship,
         gender=data.gender,
-        date_of_birth=data.date_of_birth,
+        date_of_birth=normalize_dob_to_iso(data.date_of_birth) or data.date_of_birth,
         phone_number=data.phone_number,
         national_id=data.national_id,
         bhyt_code=data.bhyt_code,
@@ -5797,7 +5831,7 @@ def update_family_member(
     member.full_name = data.full_name
     member.relationship = data.relationship
     member.gender = data.gender
-    member.date_of_birth = data.date_of_birth
+    member.date_of_birth = normalize_dob_to_iso(data.date_of_birth) or data.date_of_birth
     member.phone_number = data.phone_number
     member.national_id = data.national_id
     member.bhyt_code = data.bhyt_code
